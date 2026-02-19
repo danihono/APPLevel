@@ -1,0 +1,7 @@
+{
+  "name": "LEVEL JJ - Premium Jiu-Jitsu Management",
+  "description": "A high-end management platform for Jiu-Jitsu academies featuring student progress tracking, professor attendance management, branch administration, and a multi-vendor marketplace with automated commissions.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
