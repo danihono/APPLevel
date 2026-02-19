@@ -1,6 +1,7 @@
 
 import React from 'react';
-import { Home, Calendar, Dumbbell, ShoppingBag, User as UserIcon, Sun, Moon } from 'lucide-react';
+import { Home, Calendar, Dumbbell, ShoppingBag, User as UserIcon, Sun, Moon, Users } from 'lucide-react';
+import { UserRole } from '../types';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -8,13 +9,19 @@ interface LayoutProps {
   setActiveTab: (tab: string) => void;
   isDarkMode: boolean;
   toggleTheme: () => void;
+  userRole?: UserRole;
 }
 
-const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, isDarkMode, toggleTheme }) => {
+const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, isDarkMode, toggleTheme, userRole }) => {
+  const isProfessorOrAdmin = userRole === UserRole.PROFESSOR || userRole === UserRole.ADMIN;
+  
   const navItems = [
     { id: 'home', icon: Home, label: 'Início' },
     { id: 'calendar', icon: Calendar, label: 'Calendário' },
-    { id: 'training', icon: Dumbbell, label: 'Treinos' },
+    // Replace 'training' with 'students' for professors/admins to keep 5 items
+    ...(isProfessorOrAdmin 
+      ? [{ id: 'students', icon: Users, label: 'Alunos' }] 
+      : [{ id: 'training', icon: Dumbbell, label: 'Treinos' }]),
     { id: 'store', icon: ShoppingBag, label: 'Store' },
     { id: 'profile', icon: UserIcon, label: 'Perfil' },
   ];

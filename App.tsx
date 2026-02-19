@@ -7,6 +7,7 @@ import StoreView from './views/StoreView';
 import ProfileView from './views/ProfileView';
 import ProfessorView from './views/ProfessorView';
 import LoginView from './views/LoginView';
+import StudentsView from './views/StudentsView';
 import { MOCK_USER, MOCK_BRANCHES } from './constants';
 import { UserRole } from './types';
 
@@ -48,6 +49,8 @@ const App: React.FC = () => {
       case 'training':
         // If teacher, show professor view, else a training log (not implemented yet, fallback to professor for demo)
         return currentUser.role === UserRole.PROFESSOR ? <ProfessorView /> : <ProfessorView />;
+      case 'students':
+        return <StudentsView />;
       case 'store':
         return <StoreView />;
       case 'profile':
@@ -63,6 +66,7 @@ const App: React.FC = () => {
       setActiveTab={setActiveTab}
       isDarkMode={isDarkMode}
       toggleTheme={toggleTheme}
+      userRole={currentUser.role}
     >
       {renderContent()}
     </Layout>

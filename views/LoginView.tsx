@@ -9,21 +9,28 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    setError('');
     setIsLoading(true);
     
     // Simulate API call
     setTimeout(() => {
       setIsLoading(false);
-      // For demo purposes, we'll assign role based on email or default to ALUNO
-      if (email.includes('admin')) {
-        onLogin(UserRole.ADMIN);
-      } else if (email.includes('professor')) {
+      
+      if (password !== '123') {
+        setError('Senha incorreta. Use 123.');
+        return;
+      }
+
+      if (email.toLowerCase() === 'professor') {
         onLogin(UserRole.PROFESSOR);
-      } else {
+      } else if (email.toLowerCase() === 'aluno') {
         onLogin(UserRole.ALUNO);
+      } else {
+        setError('Usuário não encontrado. Use "professor" ou "aluno".');
       }
     }, 1000);
   };
@@ -44,20 +51,25 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
         </div>
         
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
+          {error && (
+            <div className="p-3 bg-red-100 border border-red-400 text-red-700 rounded-xl text-sm text-center">
+              {error}
+            </div>
+          )}
           <div className="space-y-4">
             <div>
               <label htmlFor="email-address" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Email
+                Usuário
               </label>
               <input
                 id="email-address"
                 name="email"
-                type="email"
-                autoComplete="email"
+                type="text"
+                autoComplete="username"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="appearance-none relative block w-full px-4 py-3 border border-gray-300 dark:border-gray-700 bg-white dark:bg-dark text-gray-900 dark:text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-gold focus:border-transparent transition-colors sm:text-sm"
-                placeholder="seu@email.com"
+                placeholder="professor ou aluno"
               />
             </div>
             <div>
@@ -72,7 +84,7 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="appearance-none relative block w-full px-4 py-3 border border-gray-300 dark:border-gray-700 bg-white dark:bg-dark text-gray-900 dark:text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-gold focus:border-transparent transition-colors sm:text-sm"
-                placeholder="••••••••"
+                placeholder="123"
               />
             </div>
           </div>
@@ -115,7 +127,8 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
           </div>
           
           <div className="mt-6 text-center text-xs text-gray-500 dark:text-gray-400">
-            <p>Dica: Deixe em branco para entrar como Aluno, ou digite 'professor' para ver a visão do professor.</p>
+            <p>Acesso de teste:</p>
+            <p className="mt-1">Usuário: <strong>professor</strong> ou <strong>aluno</strong> | Senha: <strong>123</strong></p>
           </div>
         </form>
       </div>
