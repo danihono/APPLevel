@@ -5,9 +5,10 @@ import { User } from '../types';
 
 interface ProfileViewProps {
   user: User;
+  onLogout: () => void;
 }
 
-const ProfileView: React.FC<ProfileViewProps> = ({ user }) => {
+const ProfileView: React.FC<ProfileViewProps> = ({ user, onLogout }) => {
   const menuItems = [
     { label: 'Dados Pessoais', icon: Award },
     { label: 'Histórico de Graduações', icon: History },
@@ -59,7 +60,10 @@ const ProfileView: React.FC<ProfileViewProps> = ({ user }) => {
         })}
       </div>
 
-      <button className="w-full py-4 text-red-500 font-bold text-sm bg-red-50 dark:bg-red-500/10 rounded-2xl mt-4">
+      <button 
+        onClick={onLogout}
+        className="w-full py-4 text-red-500 font-bold text-sm bg-red-50 dark:bg-red-500/10 rounded-2xl mt-4"
+      >
         Sair da Conta
       </button>
     </div>

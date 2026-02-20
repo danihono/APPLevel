@@ -5,9 +5,10 @@ import HomeView from './views/HomeView';
 import CalendarView from './views/CalendarView';
 import StoreView from './views/StoreView';
 import ProfileView from './views/ProfileView';
-import ProfessorView from './views/ProfessorView';
 import LoginView from './views/LoginView';
 import StudentsView from './views/StudentsView';
+import CompetitionView from './views/CompetitionView';
+import GamificationView from './views/GamificationView';
 import { MOCK_USER, MOCK_BRANCHES } from './constants';
 import { UserRole } from './types';
 
@@ -40,21 +41,27 @@ const App: React.FC = () => {
     return <LoginView onLogin={handleLogin} />;
   }
 
+  const handleLogout = () => {
+    setIsAuthenticated(false);
+    setActiveTab('home');
+  };
+
   const renderContent = () => {
     switch (activeTab) {
       case 'home':
         return <HomeView user={currentUser} branch={branch} />;
       case 'calendar':
-        return <CalendarView />;
-      case 'training':
-        // If teacher, show professor view, else a training log (not implemented yet, fallback to professor for demo)
-        return currentUser.role === UserRole.PROFESSOR ? <ProfessorView /> : <ProfessorView />;
+        return <CalendarView userRole={currentUser.role} />;
+      case 'competition':
+        return <CompetitionView />;
+      case 'gamification':
+        return <GamificationView />;
       case 'students':
         return <StudentsView />;
       case 'store':
         return <StoreView />;
       case 'profile':
-        return <ProfileView user={currentUser} />;
+        return <ProfileView user={currentUser} onLogout={handleLogout} />;
       default:
         return <HomeView user={currentUser} branch={branch} />;
     }

@@ -28,6 +28,10 @@ export interface User {
   lastGraduation: string;
   branchId: string;
   type: 'Adulto' | 'Kids';
+  birthDate?: string;
+  startDate?: string;
+  lastStripeDate?: string;
+  videos?: { id: string; title: string; url: string; date: string }[];
 }
 
 export interface Branch {

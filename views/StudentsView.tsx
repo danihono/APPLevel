@@ -1,24 +1,59 @@
 import React, { useState } from 'react';
 import { Search, Filter, ChevronRight, UserPlus } from 'lucide-react';
 import { User, BeltColor } from '../types';
-import BjjBelt from '../components/BjjBelt';
+import AvatarWithBelt from '../components/AvatarWithBelt';
+import StudentDetailView from './StudentDetailView';
 import { MOCK_USER } from '../constants';
 
 // Mock students list
 const MOCK_STUDENTS: User[] = [
-  { ...MOCK_USER, id: 's1', name: 'João Silva', belt: BeltColor.BRANCA, stripes: 2, type: 'Adulto' },
-  { ...MOCK_USER, id: 's2', name: 'Maria Santos', belt: BeltColor.AZUL, stripes: 1, type: 'Adulto' },
-  { ...MOCK_USER, id: 's3', name: 'Pedro Costa', belt: BeltColor.ROXA, stripes: 3, type: 'Adulto' },
-  { ...MOCK_USER, id: 's4', name: 'Ana Oliveira', belt: BeltColor.BRANCA, stripes: 4, type: 'Adulto' },
-  { ...MOCK_USER, id: 's5', name: 'Lucas Pereira', belt: BeltColor.MARROM, stripes: 0, type: 'Adulto' },
-  { ...MOCK_USER, id: 's6', name: 'Enzo Gabriel', belt: BeltColor.BRANCA, stripes: 1, type: 'Kids' },
-  { ...MOCK_USER, id: 's7', name: 'Valentina Souza', belt: BeltColor.BRANCA, stripes: 3, type: 'Kids' },
+  { 
+    ...MOCK_USER, 
+    id: 's1', 
+    name: 'João Silva', 
+    belt: BeltColor.BRANCA, 
+    stripes: 2, 
+    type: 'Adulto', 
+    email: 'joao.silva@email.com', 
+    birthDate: '1995-05-12', 
+    startDate: '10/01/2023', 
+    lastStripeDate: '15/11/2023',
+    videos: [
+      { id: 'v1', title: 'Final de Campeonato - Curitiba Open', url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ', date: '15/06/2023' },
+      { id: 'v2', title: 'Treino de Sparring - Passagem de Guarda', url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ', date: '20/07/2023' }
+    ]
+  },
+  { 
+    ...MOCK_USER, 
+    id: 's2', 
+    name: 'Maria Santos', 
+    belt: BeltColor.AZUL, 
+    stripes: 1, 
+    type: 'Adulto', 
+    email: 'maria.santos@email.com', 
+    birthDate: '1992-08-22', 
+    startDate: '05/03/2021', 
+    lastStripeDate: '20/01/2024',
+    videos: [
+      { id: 'v3', title: 'Brasileiro 2023 - Semifinal', url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ', date: '25/04/2023' }
+    ]
+  },
+  { ...MOCK_USER, id: 's3', name: 'Pedro Costa', belt: BeltColor.ROXA, stripes: 3, type: 'Adulto', email: 'pedro.costa@email.com', birthDate: '1988-11-05', startDate: '12/06/2018', lastStripeDate: '05/12/2023' },
+  { ...MOCK_USER, id: 's4', name: 'Ana Oliveira', belt: BeltColor.BRANCA, stripes: 4, type: 'Adulto', email: 'ana.oliveira@email.com', birthDate: '1998-02-15', startDate: '20/08/2022', lastStripeDate: '10/02/2024' },
+  { ...MOCK_USER, id: 's5', name: 'Lucas Pereira', belt: BeltColor.MARROM, stripes: 0, type: 'Adulto', email: 'lucas.pereira@email.com', birthDate: '1985-09-30', startDate: '15/01/2015', lastStripeDate: '01/12/2023' },
+  { ...MOCK_USER, id: 's6', name: 'Enzo Gabriel', belt: BeltColor.BRANCA, stripes: 1, type: 'Kids', email: 'enzo.gabriel@email.com', birthDate: '2015-04-10', startDate: '10/02/2023', lastStripeDate: '20/10/2023' },
+  { ...MOCK_USER, id: 's7', name: 'Valentina Souza', belt: BeltColor.BRANCA, stripes: 3, type: 'Kids', email: 'valentina.souza@email.com', birthDate: '2014-07-25', startDate: '05/05/2022', lastStripeDate: '15/01/2024' },
 ];
 
 const StudentsView: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterBelt, setFilterBelt] = useState<BeltColor | 'ALL'>('ALL');
   const [filterType, setFilterType] = useState<'ALL' | 'Adulto' | 'Kids'>('ALL');
+  const [selectedStudent, setSelectedStudent] = useState<User | null>(null);
+
+  if (selectedStudent) {
+    return <StudentDetailView student={selectedStudent} onBack={() => setSelectedStudent(null)} />;
+  }
 
   const filteredStudents = MOCK_STUDENTS.filter(student => {
     const matchesSearch = student.name.toLowerCase().includes(searchTerm.toLowerCase());
@@ -112,26 +147,21 @@ const StudentsView: React.FC = () => {
         {filteredStudents.map(student => (
           <div 
             key={student.id} 
+            onClick={() => setSelectedStudent(student)}
             className="bg-white dark:bg-dark-card p-4 rounded-2xl border border-gray-100 dark:border-gray-800 flex items-center justify-between cursor-pointer hover:border-gold dark:hover:border-gold transition-colors"
           >
             <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-full bg-gray-200 dark:bg-gray-800 overflow-hidden">
-                {student.avatar ? (
-                  <img src={student.avatar} alt={student.name} className="w-full h-full object-cover" />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center text-gray-500 font-bold">
-                    {student.name.charAt(0)}
-                  </div>
-                )}
-              </div>
+              <AvatarWithBelt 
+                avatar={student.avatar} 
+                name={student.name} 
+                belt={student.belt} 
+                stripes={student.stripes} 
+                size="sm" 
+              />
               <div>
                 <h3 className="font-bold text-gray-900 dark:text-white">{student.name}</h3>
                 <div className="flex items-center gap-2 mt-1">
-                  <span className="text-xs text-gray-500 dark:text-gray-400">{student.type}</span>
-                  <span className="text-xs text-gray-300 dark:text-gray-600">•</span>
-                  <div className="w-16">
-                    <BjjBelt color={student.belt} stripes={student.stripes} />
-                  </div>
+                  <span className="text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded-md">{student.type}</span>
                 </div>
               </div>
             </div>
