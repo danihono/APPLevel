@@ -1,0 +1,191 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function role() {
+      return signedIn() && request.auth.token.role is string
+        ? request.auth.token.role
+        : '';
+    }
+
+    function academyId() {
+      return signedIn() && request.auth.token.academyId is string
+        ? request.auth.token.academyId
+        : '';
+    }
+
+    function isSuperAdmin() {
+      return signedIn() && role() == 'superadmin';
+    }
+
+    function isAdmin() {
+      return signedIn() && role() == 'admin';
+    }
+
+    function isProfessor() {
+      return signedIn() && role() == 'professor';
+    }
+
+    function isStudent() {
+      return signedIn() && role() == 'student';
+    }
+
+    function sameAcademy(targetAcademyId) {
+      return isSuperAdmin() || (signedIn() && academyId() != '' && academyId() == targetAcademyId);
+    }
+
+    function isAcademyStaff(targetAcademyId) {
+      return sameAcademy(targetAcademyId) && (isProfessor() || isAdmin() || isSuperAdmin());
+    }
+
+    function isSelf(userId) {
+      return signedIn() && request.auth.uid == userId;
+    }
+
+    function selfUserEditableKeys() {
+      return [
+        'firstName',
+        'lastName',
+        'displayName',
+        'phone',
+        'photoPath',
+        'birthDate',
+        'fcmTokens',
+        'lastLoginAt',
+        'updatedAt'
+      ];
+    }
+
+    function notificationEditableKeys() {
+      return ['readAt', 'status', 'updatedAt'];
+    }
+
+    match /users/{userId} {
+      allow read: if isSelf(userId) || isAcademyStaff(resource.data.academyId);
+
+      allow create: if isSuperAdmin()
+        || (
+          isAdmin()
+          && request.resource.data.role != 'superadmin'
+          && sameAcademy(request.resource.data.academyId)
+        );
+
+      allow update: if isAcademyStaff(resource.data.academyId)
+        || (
+          isSelf(userId)
+          && request.resource.data.academyId == resource.data.academyId
+          && request.resource.data.role == resource.data.role
+          && request.resource.data.belt == resource.data.belt
+          && request.resource.data.stripes == resource.data.stripes
+          && request.resource.data.grade == resource.data.grade
+          && request.resource.data.status == resource.data.status
+          && request.resource.data.attendanceCount == resource.data.attendanceCount
+          && request.resource.data.qrCheckinsCount == resource.data.qrCheckinsCount
+          && request.resource.data.currentStreak == resource.data.currentStreak
+          && request.resource.data.longestStreak == resource.data.longestStreak
+          && request.resource.data.competitionPoints == resource.data.competitionPoints
+          && request.resource.data.missionPoints == resource.data.missionPoints
+          && request.resource.data.rankingPoints == resource.data.rankingPoints
+          && request.resource.data.beltPromotions == resource.data.beltPromotions
+          && request.resource.data.nextStripeAttendanceTarget == resource.data.nextStripeAttendanceTarget
+          && request.resource.data.nextBeltAttendanceTarget == resource.data.nextBeltAttendanceTarget
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(selfUserEditableKeys())
+        );
+
+      allow delete: if isSuperAdmin() || (isAdmin() && sameAcademy(resource.data.academyId));
+    }
+
+    match /academies/{academyDocId} {
+      allow read: if sameAcademy(academyDocId);
+      allow create: if isSuperAdmin();
+      allow update: if isSuperAdmin() || (isAdmin() && sameAcademy(academyDocId));
+      allow delete: if isSuperAdmin() || (isAdmin() && sameAcademy(academyDocId));
+    }
+
+    match /classes/{classId} {
+      allow read: if sameAcademy(resource.data.academyId);
+      allow create: if isAcademyStaff(request.resource.data.academyId);
+      allow update: if isAcademyStaff(resource.data.academyId);
+      allow delete: if isAcademyStaff(resource.data.academyId);
+    }
+
+    match /attendances/{attendanceId} {
+      allow read: if sameAcademy(resource.data.academyId)
+        && (isAcademyStaff(resource.data.academyId) || isSelf(resource.data.userId));
+      allow write: if false;
+    }
+
+    match /graduations/{graduationId} {
+      allow read: if sameAcademy(resource.data.academyId)
+        && (isAcademyStaff(resource.data.academyId) || isSelf(resource.data.userId));
+      allow write: if false;
+    }
+
+    match /missions/{missionId} {
+      allow read: if sameAcademy(resource.data.academyId);
+      allow create: if (isAdmin() && sameAcademy(request.resource.data.academyId)) || isSuperAdmin();
+      allow update: if (isAdmin() && sameAcademy(resource.data.academyId)) || isSuperAdmin();
+      allow delete: if (isAdmin() && sameAcademy(resource.data.academyId)) || isSuperAdmin();
+    }
+
+    match /user_missions/{userMissionId} {
+      allow read: if sameAcademy(resource.data.academyId)
+        && (isAcademyStaff(resource.data.academyId) || isSelf(resource.data.userId));
+      allow write: if false;
+    }
+
+    match /rankings/{rankingId} {
+      allow read: if sameAcademy(resource.data.academyId);
+      allow write: if false;
+    }
+
+    match /competitions/{competitionId} {
+      allow read: if sameAcademy(resource.data.academyId);
+      allow create: if isAcademyStaff(request.resource.data.academyId) || isSuperAdmin();
+      allow update: if isAcademyStaff(resource.data.academyId) || isSuperAdmin();
+      allow delete: if isAcademyStaff(resource.data.academyId) || isSuperAdmin();
+    }
+
+    match /fights/{fightId} {
+      allow read: if sameAcademy(resource.data.academyId);
+      allow create: if isAcademyStaff(request.resource.data.academyId) || isSuperAdmin();
+      allow update: if isAcademyStaff(resource.data.academyId) || isSuperAdmin();
+      allow delete: if isAcademyStaff(resource.data.academyId) || isSuperAdmin();
+    }
+
+    match /store_items/{storeItemId} {
+      allow read: if sameAcademy(resource.data.academyId);
+      allow create: if (isAdmin() && sameAcademy(request.resource.data.academyId)) || isSuperAdmin();
+      allow update: if (isAdmin() && sameAcademy(resource.data.academyId)) || isSuperAdmin();
+      allow delete: if (isAdmin() && sameAcademy(resource.data.academyId)) || isSuperAdmin();
+    }
+
+    match /notifications/{notificationId} {
+      allow read: if sameAcademy(resource.data.academyId)
+        && (
+          isAcademyStaff(resource.data.academyId)
+          || isSelf(resource.data.recipientUserId)
+        );
+
+      allow create: if isAcademyStaff(request.resource.data.academyId) || isSuperAdmin();
+
+      allow update: if isAcademyStaff(resource.data.academyId)
+        || (
+          isSelf(resource.data.recipientUserId)
+          && request.resource.data.recipientUserId == resource.data.recipientUserId
+          && request.resource.data.academyId == resource.data.academyId
+          && request.resource.data.title == resource.data.title
+          && request.resource.data.body == resource.data.body
+          && request.resource.data.createdBy == resource.data.createdBy
+          && request.resource.data.createdAt == resource.data.createdAt
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(notificationEditableKeys())
+        );
+
+      allow delete: if (isAdmin() && sameAcademy(resource.data.academyId)) || isSuperAdmin();
+    }
+  }
+}

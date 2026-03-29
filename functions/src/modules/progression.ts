@@ -1,0 +1,87 @@
+import { Timestamp } from 'firebase-admin/firestore';
+import { onCall } from 'firebase-functions/v2/https';
+import { COLLECTIONS, DEFAULT_PROGRESSION_RULES, ProgressionMilestone } from '../domain/models';
+import { getRequestContext } from '../lib/context';
+import { assertCondition } from '../lib/errors';
+import { db } from '../lib/firebase';
+import { optionalString } from '../lib/payload';
+import { normalizeProgressionRules } from '../services/progression';
+import { syncUserDerivedState } from '../services/userState';
+
+function parseMilestones(data: unknown): ProgressionMilestone[] {
+  const milestones = (data as Record<string, unknown> | null)?.milestones;
+  assertCondition(Array.isArray(milestones) && milestones.length > 0, 'invalid-argument', 'milestones é obrigatório.');
+
+  return milestones.map((item, index) => {
+    const entry = item as Record<string, unknown>;
+    assertCondition(typeof entry.belt === 'string' && entry.belt.trim().length > 0, 'invalid-argument', `belt inválido na posição ${index}.`);
+    assertCondition(typeof entry.minAttendances === 'number', 'invalid-argument', `minAttendances inválido na posição ${index}.`);
+    assertCondition(typeof entry.stripeEvery === 'number', 'invalid-argument', `stripeEvery inválido na posição ${index}.`);
+    assertCondition(typeof entry.maxStripes === 'number', 'invalid-argument', `maxStripes inválido na posição ${index}.`);
+
+    return {
+      belt: entry.belt.trim().toLowerCase(),
+      minAttendances: entry.minAttendances,
+      stripeEvery: entry.stripeEvery,
+      maxStripes: entry.maxStripes,
+    };
+  });
+}
+
+export const upsertAcademyProgressionRules = onCall({ region: 'southamerica-east1' }, async (request) => {
+  const actor = await getRequestContext(request, 'admin');
+  const academyId = optionalString(request.data, 'academyId') ?? actor.academyId;
+
+  assertCondition(
+    actor.role === 'superadmin' || academyId === actor.academyId,
+    'permission-denied',
+    'Admin só pode alterar regras da própria academia.',
+  );
+
+  const academyRef = db.collection(COLLECTIONS.academies).doc(academyId);
+  const academySnap = await academyRef.get();
+  assertCondition(academySnap.exists, 'not-found', 'Academia não encontrada.');
+
+  const currentRules = (academySnap.get('progressionRules') as typeof DEFAULT_PROGRESSION_RULES | undefined) ?? DEFAULT_PROGRESSION_RULES;
+  const milestones = parseMilestones(request.data);
+  const normalized = normalizeProgressionRules({
+    version: (currentRules.version ?? 0) + 1,
+    milestones,
+  });
+
+  await academyRef.update({
+    progressionRules: normalized,
+    updatedAt: Timestamp.now(),
+  });
+
+  return {
+    academyId,
+    rules: normalized,
+  };
+});
+
+export const evaluateUserProgression = onCall({ region: 'southamerica-east1' }, async (request) => {
+  const actor = await getRequestContext(request, 'student');
+  const targetUserId = optionalString(request.data, 'userId') ?? actor.uid;
+
+  assertCondition(
+    targetUserId === actor.uid || actor.role === 'professor' || actor.role === 'admin' || actor.role === 'superadmin',
+    'permission-denied',
+    'Você não pode recalcular a progressão de outro usuário.',
+  );
+
+  return syncUserDerivedState(targetUserId, actor.academyId);
+});
+
+export const rebuildUserDerivedState = onCall({ region: 'southamerica-east1' }, async (request) => {
+  const actor = await getRequestContext(request, 'student');
+  const targetUserId = optionalString(request.data, 'userId') ?? actor.uid;
+
+  assertCondition(
+    targetUserId === actor.uid || actor.role === 'professor' || actor.role === 'admin' || actor.role === 'superadmin',
+    'permission-denied',
+    'Você não pode reconstruir o estado derivado de outro usuário.',
+  );
+
+  return syncUserDerivedState(targetUserId, actor.academyId);
+});

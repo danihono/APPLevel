@@ -1,6 +1,15 @@
-
 import React from 'react';
-import { Home, Calendar, ShoppingBag, User as UserIcon, Sun, Moon, Users, Trophy, Target } from 'lucide-react';
+import {
+  Calendar,
+  Home,
+  Moon,
+  ShoppingBag,
+  Sun,
+  Target,
+  Trophy,
+  User as UserIcon,
+  Users,
+} from 'lucide-react';
 import { UserRole } from '../types';
 
 interface LayoutProps {
@@ -12,17 +21,25 @@ interface LayoutProps {
   userRole?: UserRole;
 }
 
-const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, isDarkMode, toggleTheme, userRole }) => {
-  const isProfessorOrAdmin = userRole === UserRole.PROFESSOR || userRole === UserRole.ADMIN;
-  
+const Layout: React.FC<LayoutProps> = ({
+  children,
+  activeTab,
+  setActiveTab,
+  isDarkMode,
+  toggleTheme,
+  userRole,
+}) => {
+  const isStaff =
+    userRole === UserRole.PROFESSOR ||
+    userRole === UserRole.ADMIN ||
+    userRole === UserRole.SUPERADMIN;
+
   const navItems = [
     { id: 'home', icon: Home, label: 'Início' },
     { id: 'calendar', icon: Calendar, label: 'Agenda' },
     { id: 'competition', icon: Trophy, label: 'Compete' },
     { id: 'gamification', icon: Target, label: 'Missões' },
-    ...(isProfessorOrAdmin 
-      ? [{ id: 'students', icon: Users, label: 'Alunos' }] 
-      : []),
+    ...(isStaff ? [{ id: 'students', icon: Users, label: 'Alunos' }] : []),
     { id: 'store', icon: ShoppingBag, label: 'Store' },
     { id: 'profile', icon: UserIcon, label: 'Perfil' },
   ];
@@ -34,9 +51,10 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, isDa
           <div className="w-8 h-8 bg-gold rounded-full flex items-center justify-center font-bold text-black text-xs">LVL</div>
           <span className="font-bold text-lg tracking-tight">LEVEL <span className="text-gold">JJ</span></span>
         </div>
-        <button 
+        <button
           onClick={toggleTheme}
           className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-white/5 transition-colors"
+          aria-label="Alternar tema"
         >
           {isDarkMode ? <Sun size={20} className="text-gold" /> : <Moon size={20} className="text-gray-600" />}
         </button>
@@ -51,6 +69,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, isDa
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = activeTab === item.id;
+
             return (
               <button
                 key={item.id}

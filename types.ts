@@ -1,8 +1,9 @@
 
 export enum UserRole {
-  ALUNO = 'ALUNO',
-  PROFESSOR = 'PROFESSOR',
-  ADMIN = 'ADMIN'
+  ALUNO = 'student',
+  PROFESSOR = 'professor',
+  ADMIN = 'admin',
+  SUPERADMIN = 'superadmin'
 }
 
 export enum BeltColor {

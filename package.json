@@ -6,12 +6,18 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "functions:build": "npm --prefix functions run build",
+    "firebase:bootstrap:tenant": "npm --prefix functions run bootstrap:tenant --",
+    "firebase:emulators": "firebase emulators:start",
+    "firebase:deploy": "firebase deploy"
   },
   "dependencies": {
-    "react": "^19.2.4",
     "@google/genai": "^1.41.0",
+    "firebase": "^12.11.0",
     "lucide-react": "^0.571.0",
+    "react": "^19.2.4",
     "react-dom": "^19.2.4"
   },
   "devDependencies": {

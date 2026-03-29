@@ -1,0 +1,55 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function role() {
+      return signedIn() && request.auth.token.role is string
+        ? request.auth.token.role
+        : '';
+    }
+
+    function academyId() {
+      return signedIn() && request.auth.token.academyId is string
+        ? request.auth.token.academyId
+        : '';
+    }
+
+    function isSuperAdmin() {
+      return signedIn() && role() == 'superadmin';
+    }
+
+    function isAdmin() {
+      return signedIn() && role() == 'admin';
+    }
+
+    function isProfessor() {
+      return signedIn() && role() == 'professor';
+    }
+
+    function sameAcademy(targetAcademyId) {
+      return isSuperAdmin() || (signedIn() && academyId() == targetAcademyId);
+    }
+
+    function isAcademyStaff(targetAcademyId) {
+      return sameAcademy(targetAcademyId) && (isAdmin() || isProfessor() || isSuperAdmin());
+    }
+
+    function isSelf(userId) {
+      return signedIn() && request.auth.uid == userId;
+    }
+
+    match /academies/{academyDocId}/{allPaths=**} {
+      allow read: if sameAcademy(academyDocId);
+      allow write: if isAcademyStaff(academyDocId);
+    }
+
+    match /users/{userId}/{allPaths=**} {
+      allow read: if isSelf(userId) || signedIn();
+      allow write: if isSelf(userId) || isAdmin() || isProfessor() || isSuperAdmin();
+    }
+  }
+}
