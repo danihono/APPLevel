@@ -27,104 +27,103 @@ const StudentsView: React.FC<StudentsViewProps> = ({ students, academyName }) =>
   });
 
   return (
-    <div className="space-y-6 pb-6 animate-fade-in">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Alunos da Academia</h1>
-          {academyName ? <p className="text-sm text-gray-500 mt-1">{academyName}</p> : null}
-        </div>
-        <button className="p-2 bg-gold text-dark rounded-full hover:bg-gold-dark transition-colors" disabled>
-          <UserPlus size={20} />
-        </button>
-      </div>
-
-      <div className="space-y-4">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
-          <input
-            type="text"
-            placeholder="Buscar aluno..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-3 bg-white dark:bg-dark-card border border-gray-200 dark:border-gray-800 rounded-xl focus:outline-none focus:ring-2 focus:ring-gold transition-colors"
-          />
-        </div>
-
-        <div className="flex gap-2 overflow-x-auto no-scrollbar pb-2">
-          {['ALL', 'Adulto', 'Kids'].map((item) => (
-            <button
-              key={item}
-              onClick={() => setFilterType(item as 'ALL' | 'Adulto' | 'Kids')}
-              className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
-                filterType === item
-                  ? 'bg-black text-white dark:bg-white dark:text-black'
-                  : 'bg-gray-100 text-gray-600 dark:bg-dark-card dark:text-gray-400'
-              }`}
-            >
-              {item === 'ALL' ? 'Todos' : item}
-            </button>
-          ))}
-        </div>
-
-        <div className="flex gap-2 overflow-x-auto no-scrollbar pb-2">
-          <button
-            onClick={() => setFilterBelt('ALL')}
-            className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
-              filterBelt === 'ALL'
-                ? 'bg-gold text-dark'
-                : 'bg-gray-100 text-gray-600 dark:bg-dark-card dark:text-gray-400'
-            }`}
-          >
-            Todas as Faixas
+    <div className="view-shell">
+      <section className="app-panel app-panel--hero app-panel-pad">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <p className="app-section-label">Roster</p>
+            <h1 className="app-section-title">Alunos com leitura mais limpa e mais forte.</h1>
+            <p className="app-section-copy">{academyName || 'Academia ativa'}.</p>
+          </div>
+          <button type="button" className="app-button app-button--gold app-button--icon" disabled aria-label="Adicionar aluno">
+            <UserPlus size={18} />
           </button>
-          {Object.values(BeltColor).map((belt) => (
-            <button
-              key={belt}
-              onClick={() => setFilterBelt(belt)}
-              className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
-                filterBelt === belt
-                  ? 'bg-gold text-dark'
-                  : 'bg-gray-100 text-gray-600 dark:bg-dark-card dark:text-gray-400'
-              }`}
-            >
-              {belt}
-            </button>
-          ))}
         </div>
-      </div>
 
-      <div className="space-y-3">
-        {filteredStudents.map((student) => (
-          <div
-            key={student.id}
-            onClick={() => setSelectedStudent(student)}
-            className="bg-white dark:bg-dark-card p-4 rounded-2xl border border-gray-100 dark:border-gray-800 flex items-center justify-between cursor-pointer hover:border-gold dark:hover:border-gold transition-colors"
-          >
-            <div className="flex items-center gap-4">
-              <AvatarWithBelt
-                avatar={student.avatar}
-                name={student.name}
-                belt={student.belt}
-                stripes={student.stripes}
-                size="sm"
+        <div className="mt-6 app-form-grid">
+          <label className="app-field">
+            <span className="app-field__label">Buscar aluno</span>
+            <div className="app-search">
+              <Search size={18} />
+              <input
+                type="text"
+                placeholder="Nome do aluno"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="app-input pl-11"
               />
-              <div>
-                <h3 className="font-bold text-gray-900 dark:text-white">{student.name}</h3>
-                <div className="flex items-center gap-2 mt-1">
-                  <span className="text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded-md">{student.type}</span>
+            </div>
+          </label>
+
+          <div className="app-chip-row">
+            {['ALL', 'Adulto', 'Kids'].map((item) => (
+              <button
+                key={item}
+                type="button"
+                onClick={() => setFilterType(item as 'ALL' | 'Adulto' | 'Kids')}
+                className={`app-chip ${filterType === item ? 'is-active' : ''}`}
+              >
+                {item === 'ALL' ? 'Todos' : item}
+              </button>
+            ))}
+          </div>
+
+          <div className="app-chip-row">
+            <button
+              type="button"
+              onClick={() => setFilterBelt('ALL')}
+              className={`app-chip ${filterBelt === 'ALL' ? 'is-active' : ''}`}
+            >
+              Todas as faixas
+            </button>
+            {Object.values(BeltColor).map((belt) => (
+              <button
+                key={belt}
+                type="button"
+                onClick={() => setFilterBelt(belt)}
+                className={`app-chip ${filterBelt === belt ? 'is-active' : ''}`}
+              >
+                {belt}
+              </button>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="app-list">
+        {filteredStudents.map((student) => (
+          <button
+            key={student.id}
+            type="button"
+            onClick={() => setSelectedStudent(student)}
+            className="app-panel app-panel-pad w-full text-left"
+          >
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex items-center gap-4">
+                <AvatarWithBelt
+                  avatar={student.avatar}
+                  name={student.name}
+                  belt={student.belt}
+                  stripes={student.stripes}
+                  size="sm"
+                />
+                <div>
+                  <h3 className="text-lg font-bold">{student.name}</h3>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    <span className="app-badge app-badge--muted">{student.type}</span>
+                    <span className="app-badge app-badge--gold">{student.belt}</span>
+                  </div>
                 </div>
               </div>
+              <ChevronRight size={18} className="text-[color:var(--text-soft)]" />
             </div>
-            <ChevronRight size={20} className="text-gray-400" />
-          </div>
+          </button>
         ))}
 
         {filteredStudents.length === 0 ? (
-          <div className="text-center py-10 text-gray-500 dark:text-gray-400 bg-white dark:bg-dark-card rounded-2xl border border-gray-100 dark:border-gray-800">
-            Nenhum aluno encontrado com os filtros atuais.
-          </div>
+          <div className="app-empty">Nenhum aluno encontrado com os filtros atuais.</div>
         ) : null}
-      </div>
+      </section>
     </div>
   );
 };

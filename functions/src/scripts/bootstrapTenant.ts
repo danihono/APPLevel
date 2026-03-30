@@ -144,6 +144,7 @@ async function resolveAcademyForBootstrap(userId: string, args: BootstrapArgs): 
         timezone: args.timezone,
         progressionRules: academy.progressionRules ?? DEFAULT_PROGRESSION_RULES,
         classCheckinWindowMinutes: academy.classCheckinWindowMinutes ?? 15,
+        masterBlackLimit: academy.masterBlackLimit ?? 1,
         updatedAt: now,
         createdAt: academy.createdAt ?? now,
       } satisfies AcademyDoc,
@@ -163,6 +164,7 @@ async function resolveAcademyForBootstrap(userId: string, args: BootstrapArgs): 
     timezone: args.timezone,
     progressionRules: DEFAULT_PROGRESSION_RULES,
     classCheckinWindowMinutes: 15,
+    masterBlackLimit: 1,
     createdAt: now,
     updatedAt: now,
   };

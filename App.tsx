@@ -6,16 +6,20 @@ import CompetitionView from './views/CompetitionView';
 import GamificationView from './views/GamificationView';
 import HomeView from './views/HomeView';
 import LoginView from './views/LoginView';
+import ManagementView from './views/ManagementView';
 import ProfileView from './views/ProfileView';
 import StoreView from './views/StoreView';
+import SuperadminDashboardView from './views/SuperadminDashboardView';
 import StudentsView from './views/StudentsView';
 import { logout, signInWithEmail, subscribeToAuthState } from './services/firebase/auth';
 import { formatDateLabel, toBranch, toProduct, toUiUser } from './services/firebase/adapters';
 import {
   type FirestoreEntity,
   subscribeToAcademy,
+  subscribeToAcademies,
   subscribeToAcademyClasses,
   subscribeToAcademyUsers,
+  subscribeToAllUsers,
   subscribeToCompetitions,
   subscribeToRankings,
   subscribeToStoreItems,
@@ -26,6 +30,7 @@ import {
   subscribeToUserProfile,
 } from './services/firebase/data';
 import { backendFunctions } from './services/firebase/functions';
+import { updateAcademySettings } from './services/firebase/mutations';
 import type {
   AcademyRecord,
   AttendanceRecord,
@@ -38,6 +43,8 @@ import type {
   UserMissionRecord,
   UserRecord,
 } from './services/firebase/models';
+
+const THEME_STORAGE_PREFIX = 'applevel-theme';
 
 function getErrorMessage(error: unknown): string {
   const code = typeof error === 'object' && error && 'code' in error
@@ -68,13 +75,75 @@ function getErrorMessage(error: unknown): string {
   }
 }
 
+function readThemePreference(scope: string): boolean | null {
+  if (typeof window === 'undefined') {
+    return null;
+  }
+
+  const storedTheme = window.localStorage.getItem(`${THEME_STORAGE_PREFIX}:${scope}`);
+  if (storedTheme === 'dark') {
+    return true;
+  }
+
+  if (storedTheme === 'light') {
+    return false;
+  }
+
+  return null;
+}
+
+function prefersDarkTheme() {
+  if (typeof window === 'undefined') {
+    return true;
+  }
+
+  return window.matchMedia('(prefers-color-scheme: dark)').matches;
+}
+
 function buildLoadingView(message: string) {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-dark px-4">
-      <div className="max-w-md w-full bg-white dark:bg-dark-card p-8 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-800 text-center">
-        <div className="mx-auto h-14 w-14 rounded-full border-4 border-gold/30 border-t-gold animate-spin" />
-        <h2 className="mt-6 text-xl font-bold">Conectando ao APPLevel</h2>
-        <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">{message}</p>
+    <div className="app-auth-shell">
+      <div className="app-auth-grid">
+        <section className="app-panel app-panel--hero app-auth-side">
+          <div>
+            <p className="app-section-label">Applevel</p>
+            <h1 className="app-section-title">Seu dojo agora tem uma cabine premium.</h1>
+            <p className="app-section-copy">
+              Estamos preparando a sessao, o tema e os dados da academia para abrir a experiencia completa.
+            </p>
+          </div>
+
+          <div className="app-auth-bullets">
+            <div className="app-auth-bullet">
+              <div className="app-icon-shell">
+                <span className="app-orb__dot" />
+              </div>
+              <div>
+                <strong>Ambiente sincronizado</strong>
+                <p className="app-note">{message}</p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section className="app-panel app-auth-card app-panel-pad text-center">
+          <div
+            className="mx-auto h-16 w-16 rounded-[1.35rem] border"
+            style={{
+              borderColor: 'rgba(232, 175, 72, 0.28)',
+              background: 'linear-gradient(160deg, rgba(254, 234, 165, 0.96), rgba(232, 175, 72, 0.84) 42%, rgba(110, 74, 28, 0.98) 100%)',
+              boxShadow: '0 24px 48px rgba(145, 97, 29, 0.24)',
+            }}
+          >
+            <div className="h-full w-full animate-spin rounded-[1.25rem] border-4 border-black/10 border-t-black/70" />
+          </div>
+          <h2 className="mt-6 text-2xl font-bold">Conectando ao APPLevel</h2>
+          <p className="mt-3 app-note">{message}</p>
+          <div className="mt-6 inline-flex items-center gap-2 rounded-full border px-4 py-2 text-xs font-bold uppercase tracking-[0.24em]" style={{ borderColor: 'rgba(232, 175, 72, 0.2)', color: 'var(--gold-mid)' }}>
+            <span className="app-orb__dot" />
+            Session boot
+          </div>
+        </section>
       </div>
     </div>
   );
@@ -84,9 +153,13 @@ const App: React.FC = () => {
   const [authReady, setAuthReady] = useState(false);
   const [authUser, setAuthUser] = useState<FirebaseUser | null>(null);
   const [activeTab, setActiveTab] = useState('home');
-  const [isDarkMode, setIsDarkMode] = useState(() => window.matchMedia('(prefers-color-scheme: dark)').matches);
+  const [themeScope, setThemeScope] = useState('guest');
+  const [isDarkMode, setIsDarkMode] = useState(() => readThemePreference('guest') ?? prefersDarkTheme());
   const [profile, setProfile] = useState<FirestoreEntity<UserRecord> | null>(null);
   const [academy, setAcademy] = useState<FirestoreEntity<AcademyRecord> | null>(null);
+  const [allAcademies, setAllAcademies] = useState<Array<FirestoreEntity<AcademyRecord>>>([]);
+  const [allUsers, setAllUsers] = useState<Array<FirestoreEntity<UserRecord>>>([]);
+  const [selectedAcademyId, setSelectedAcademyId] = useState('');
   const [classes, setClasses] = useState<Array<FirestoreEntity<ClassRecord>>>([]);
   const [academyUsers, setAcademyUsers] = useState<Array<FirestoreEntity<UserRecord>>>([]);
   const [attendances, setAttendances] = useState<Array<FirestoreEntity<AttendanceRecord>>>([]);
@@ -103,12 +176,31 @@ const App: React.FC = () => {
   const toggleTheme = () => setIsDarkMode((value) => !value);
 
   useEffect(() => {
-    if (isDarkMode) {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
+    document.documentElement.classList.toggle('dark', isDarkMode);
+    document.documentElement.dataset.theme = isDarkMode ? 'dark' : 'light';
   }, [isDarkMode]);
+
+  useEffect(() => {
+    const nextScope = authUser?.uid ?? 'guest';
+    if (themeScope === nextScope) {
+      return;
+    }
+
+    const storedPreference = readThemePreference(nextScope);
+    setThemeScope(nextScope);
+
+    if (storedPreference !== null) {
+      setIsDarkMode(storedPreference);
+    }
+  }, [authUser?.uid, themeScope]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    window.localStorage.setItem(`${THEME_STORAGE_PREFIX}:${themeScope}`, isDarkMode ? 'dark' : 'light');
+  }, [isDarkMode, themeScope]);
 
   useEffect(() => {
     const unsubscribe = subscribeToAuthState((nextUser) => {
@@ -137,6 +229,9 @@ const App: React.FC = () => {
     if (!authUser) {
       setProfile(null);
       setAcademy(null);
+      setAllAcademies([]);
+      setAllUsers([]);
+      setSelectedAcademyId('');
       setClasses([]);
       setAcademyUsers([]);
       setAttendances([]);
@@ -210,11 +305,56 @@ const App: React.FC = () => {
       return;
     }
 
+    if (profile.role !== 'superadmin') {
+      setSelectedAcademyId(profile.academyId);
+      setAllAcademies([]);
+      setAllUsers([]);
+      return;
+    }
+
+    setSelectedAcademyId((current) => current || profile.academyId);
+
+    const unsubscribers = [
+      subscribeToAcademies(setAllAcademies, (error) => setSessionError(getErrorMessage(error))),
+      subscribeToAllUsers(setAllUsers, (error) => setSessionError(getErrorMessage(error))),
+    ];
+
+    return () => {
+      unsubscribers.forEach((unsubscribe) => unsubscribe());
+    };
+  }, [profile]);
+
+  useEffect(() => {
+    if (!profile || profile.role !== 'superadmin') {
+      return;
+    }
+
+    if (allAcademies.length === 0) {
+      return;
+    }
+
+    if (selectedAcademyId && allAcademies.some((entry) => entry.id === selectedAcademyId)) {
+      return;
+    }
+
+    const fallbackAcademy = allAcademies.find((entry) => entry.id === profile.academyId) ?? allAcademies[0];
+    setSelectedAcademyId(fallbackAcademy.id);
+  }, [allAcademies, profile, selectedAcademyId]);
+
+  useEffect(() => {
+    if (!profile) {
+      return;
+    }
+
+    const scopedAcademyId = profile.role === 'superadmin'
+      ? (selectedAcademyId || profile.academyId)
+      : profile.academyId;
+
     setAcademyLoading(true);
 
     const unsubscribers = [
       subscribeToAcademy(
-        profile.academyId,
+        scopedAcademyId,
         (record) => {
           setAcademy(record);
           setAcademyLoading(false);
@@ -224,19 +364,19 @@ const App: React.FC = () => {
           setSessionError(getErrorMessage(error));
         },
       ),
-      subscribeToAcademyClasses(profile.academyId, setClasses, (error) => setSessionError(getErrorMessage(error))),
+      subscribeToAcademyClasses(scopedAcademyId, setClasses, (error) => setSessionError(getErrorMessage(error))),
       subscribeToUserAttendances(profile.academyId, profile.id, setAttendances, (error) => setSessionError(getErrorMessage(error))),
-      subscribeToRankings(profile.academyId, setRankings, (error) => setSessionError(getErrorMessage(error))),
+      subscribeToRankings(scopedAcademyId, setRankings, (error) => setSessionError(getErrorMessage(error))),
       subscribeToUserMissions(profile.academyId, profile.id, setMissions, (error) => setSessionError(getErrorMessage(error))),
       subscribeToUserGraduations(profile.academyId, profile.id, setGraduations, (error) => setSessionError(getErrorMessage(error))),
-      subscribeToCompetitions(profile.academyId, setCompetitions, (error) => setSessionError(getErrorMessage(error))),
+      subscribeToCompetitions(scopedAcademyId, setCompetitions, (error) => setSessionError(getErrorMessage(error))),
       subscribeToUserFights(profile.academyId, profile.id, setFights, (error) => setSessionError(getErrorMessage(error))),
-      subscribeToStoreItems(profile.academyId, setStoreItems, (error) => setSessionError(getErrorMessage(error))),
+      subscribeToStoreItems(scopedAcademyId, setStoreItems, (error) => setSessionError(getErrorMessage(error))),
     ];
 
     if (profile.role !== 'student') {
       unsubscribers.push(
-        subscribeToAcademyUsers(profile.academyId, setAcademyUsers, (error) => setSessionError(getErrorMessage(error))),
+        subscribeToAcademyUsers(scopedAcademyId, setAcademyUsers, (error) => setSessionError(getErrorMessage(error))),
       );
     } else {
       setAcademyUsers([]);
@@ -245,7 +385,7 @@ const App: React.FC = () => {
     return () => {
       unsubscribers.forEach((unsubscribe) => unsubscribe());
     };
-  }, [profile]);
+  }, [profile, selectedAcademyId]);
 
   async function handleLogin(email: string, password: string) {
     try {
@@ -311,7 +451,7 @@ const App: React.FC = () => {
   async function handleRegisterAttendance(classId: string, qrToken?: string) {
     const trimmedToken = qrToken?.trim();
     if (profile?.role === 'student' && !trimmedToken) {
-      throw new Error('Informe o token do QR para registrar a presença.');
+      throw new Error('Informe o token do QR para registrar a presenca.');
     }
 
     try {
@@ -319,6 +459,69 @@ const App: React.FC = () => {
         classId,
         qrToken: trimmedToken || undefined,
       });
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
+  }
+
+  async function handleUpdateAcademy(payload: {
+    academyId: string;
+    name: string;
+    timezone: string;
+    status: 'active' | 'inactive' | 'suspended';
+    classCheckinWindowMinutes: number;
+    masterBlackLimit: number;
+  }) {
+    try {
+      await updateAcademySettings(payload.academyId, payload);
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
+  }
+
+  async function handleCreateAcademy(payload: {
+    name: string;
+    slug?: string;
+    timezone?: string;
+    masterBlackLimit?: number;
+  }) {
+    try {
+      await backendFunctions.createAcademy(payload);
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
+  }
+
+  async function handleCreateUser(payload: {
+    firstName: string;
+    lastName: string;
+    email: string;
+    password: string;
+    role: 'student' | 'professor' | 'admin' | 'superadmin';
+    academyId?: string;
+    phone?: string;
+    belt?: string;
+    grade?: number;
+    stripes?: number;
+  }) {
+    try {
+      await backendFunctions.createUserWithRole(payload);
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
+  }
+
+  async function handleSaveProgressionRules(payload: {
+    academyId?: string;
+    milestones: Array<{
+      belt: string;
+      minAttendances: number;
+      stripeEvery: number;
+      maxStripes: number;
+    }>;
+  }) {
+    try {
+      await backendFunctions.upsertAcademyProgressionRules(payload);
     } catch (error) {
       throw new Error(getErrorMessage(error));
     }
@@ -342,6 +545,7 @@ const App: React.FC = () => {
     graduations,
     fights,
   });
+  const isSuperAdmin = profile.role === 'superadmin';
   const branch = toBranch(academy);
   const attendanceThisMonth = attendances.filter((attendance) => {
     if (!attendance.checkedInAt) {
@@ -354,7 +558,9 @@ const App: React.FC = () => {
     return checkedInDate.getMonth() === now.getMonth() && checkedInDate.getFullYear() === now.getFullYear();
   });
   const attendanceDays = [...new Set(attendanceThisMonth.map((attendance) => attendance.checkedInAt?.toDate().getDate()).filter(Boolean))] as number[];
-  const rankingEntry = rankings.find((entry) => entry.userId === profile.id);
+  const rankingEntry = isSuperAdmin && academy.id !== profile.academyId
+    ? null
+    : rankings.find((entry) => entry.userId === profile.id);
   const students = academyUsers
     .filter((user) => user.role === 'student')
     .map((user) => toUiUser({ id: user.id, user, graduations: [], fights: [] }));
@@ -363,14 +569,23 @@ const App: React.FC = () => {
   const renderContent = () => {
     switch (activeTab) {
       case 'home':
-        return (
-          <HomeView
-            user={currentUser}
-            branch={branch}
-            monthlyAttendanceCount={attendanceThisMonth.length}
-            attendanceDays={attendanceDays}
-          />
-        );
+        return isSuperAdmin
+          ? (
+            <SuperadminDashboardView
+              academies={allAcademies}
+              allUsers={allUsers}
+              selectedAcademyId={selectedAcademyId}
+              onSelectAcademy={setSelectedAcademyId}
+            />
+          )
+          : (
+            <HomeView
+              user={currentUser}
+              branch={branch}
+              monthlyAttendanceCount={attendanceThisMonth.length}
+              attendanceDays={attendanceDays}
+            />
+          );
       case 'calendar':
         return (
           <CalendarView
@@ -397,6 +612,23 @@ const App: React.FC = () => {
         );
       case 'students':
         return <StudentsView students={students} academyName={academy.name} />;
+      case 'management':
+        return (
+          <ManagementView
+            userRole={currentUser.role}
+            academy={academy}
+            classes={classes}
+            academyUsers={academyUsers}
+            academies={allAcademies}
+            allUsers={allUsers}
+            selectedAcademyId={selectedAcademyId}
+            onSelectAcademy={setSelectedAcademyId}
+            onUpdateAcademy={handleUpdateAcademy}
+            onCreateAcademy={handleCreateAcademy}
+            onCreateUser={handleCreateUser}
+            onSaveProgressionRules={handleSaveProgressionRules}
+          />
+        );
       case 'store':
         return <StoreView products={products} branch={branch} />;
       case 'profile':
@@ -410,22 +642,31 @@ const App: React.FC = () => {
           />
         );
       default:
-        return (
-          <HomeView
-            user={currentUser}
-            branch={branch}
-            monthlyAttendanceCount={attendanceThisMonth.length}
-            attendanceDays={attendanceDays}
-          />
-        );
+        return isSuperAdmin
+          ? (
+            <SuperadminDashboardView
+              academies={allAcademies}
+              allUsers={allUsers}
+              selectedAcademyId={selectedAcademyId}
+              onSelectAcademy={setSelectedAcademyId}
+            />
+          )
+          : (
+            <HomeView
+              user={currentUser}
+              branch={branch}
+              monthlyAttendanceCount={attendanceThisMonth.length}
+              attendanceDays={attendanceDays}
+            />
+          );
     }
   };
 
   return (
     <>
       {sessionError ? (
-        <div className="fixed top-20 left-4 right-4 z-[60] max-w-lg mx-auto">
-          <div className="bg-red-100 border border-red-300 text-red-700 px-4 py-3 rounded-2xl text-sm shadow-lg">
+        <div className="fixed top-24 left-4 right-4 z-[70] mx-auto max-w-lg">
+          <div className="app-toast text-sm">
             {sessionError}
           </div>
         </div>

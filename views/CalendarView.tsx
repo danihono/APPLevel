@@ -38,6 +38,17 @@ function toMondayFirstDay(date: Date) {
   return day === 0 ? 6 : day - 1;
 }
 
+function getStatusBadge(status: ClassRecord['status']) {
+  switch (status) {
+    case 'active':
+      return 'app-badge app-badge--success';
+    case 'finished':
+      return 'app-badge app-badge--muted';
+    default:
+      return 'app-badge app-badge--gold';
+  }
+}
+
 const CalendarView: React.FC<CalendarViewProps> = ({
   userRole,
   currentUserId,
@@ -85,12 +96,12 @@ const CalendarView: React.FC<CalendarViewProps> = ({
         setQrByClass((previous) => ({ ...previous, [classId]: result }));
         setMessageByClass((previous) => ({ ...previous, [classId]: 'QR atualizado com sucesso.' }));
       } else {
-        setMessageByClass((previous) => ({ ...previous, [classId]: 'Operação concluída com sucesso.' }));
+        setMessageByClass((previous) => ({ ...previous, [classId]: 'Operacao concluida com sucesso.' }));
       }
     } catch (error) {
       setMessageByClass((previous) => ({
         ...previous,
-        [classId]: error instanceof Error ? error.message : 'Não foi possível concluir esta operação.',
+        [classId]: error instanceof Error ? error.message : 'Nao foi possivel concluir esta operacao.',
       }));
     } finally {
       setBusyByClass((previous) => ({ ...previous, [classId]: false }));
@@ -107,46 +118,59 @@ const CalendarView: React.FC<CalendarViewProps> = ({
   }
 
   return (
-    <div className="space-y-6 animate-fadeIn pb-8">
-      <div className="flex bg-gray-100 dark:bg-white/5 p-1 rounded-xl">
-        <button
-          onClick={() => setView('minhas')}
-          className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-all ${view === 'minhas' ? 'bg-white dark:bg-dark-card shadow-sm text-gold' : 'text-gray-500'}`}
-        >
-          Minhas Aulas
-        </button>
-        <button
-          onClick={() => setView('todas')}
-          className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-all ${view === 'todas' ? 'bg-white dark:bg-dark-card shadow-sm text-gold' : 'text-gray-500'}`}
-        >
-          Todas as Aulas
-        </button>
-      </div>
+    <div className="view-shell">
+      <section className="app-panel app-panel--hero app-panel-pad">
+        <p className="app-section-label">Agenda</p>
+        <h1 className="app-section-title">Sua operacao diaria de treino.</h1>
+        <p className="app-section-copy">
+          Alterna rapido entre aulas, gerencia sessoes ativas e registra presencas sem sair do fluxo.
+        </p>
 
-      <div className="flex justify-between items-center overflow-x-auto no-scrollbar gap-2 py-2">
-        {days.map((day, index) => (
-          <button
-            key={day}
-            onClick={() => setSelectedDay(index)}
-            className={`flex flex-col items-center min-w-[48px] p-2 rounded-xl transition-all ${selectedDay === index ? 'bg-gold text-black' : 'bg-gray-50 dark:bg-white/5 text-gray-500'}`}
-          >
-            <span className="text-[10px] font-bold">{day}</span>
-            <span className="text-lg font-bold">{index + 1}</span>
-          </button>
-        ))}
-      </div>
+        <div className="mt-6 flex flex-col gap-4">
+          <div className="app-segment app-segment--block">
+            <button
+              type="button"
+              onClick={() => setView('minhas')}
+              className={`app-segment__button ${view === 'minhas' ? 'is-active' : ''}`}
+            >
+              Minhas aulas
+            </button>
+            <button
+              type="button"
+              onClick={() => setView('todas')}
+              className={`app-segment__button ${view === 'todas' ? 'is-active' : ''}`}
+            >
+              Todas as aulas
+            </button>
+          </div>
 
-      {isStaff ? (
-        <button
-          onClick={() => void handleQuickClassCreation()}
-          disabled={creatingQuickClass}
-          className="w-full py-3 bg-dark dark:bg-white text-white dark:text-black font-bold rounded-xl text-sm"
-        >
-          {creatingQuickClass ? 'Criando aula...' : 'Criar Aula Rápida'}
-        </button>
-      ) : null}
+          <div className="app-chip-row">
+            {days.map((day, index) => (
+              <button
+                key={day}
+                type="button"
+                onClick={() => setSelectedDay(index)}
+                className={`app-chip ${selectedDay === index ? 'is-active' : ''}`}
+              >
+                {day} {index + 1}
+              </button>
+            ))}
+          </div>
 
-      <div className="space-y-4">
+          {isStaff ? (
+            <button
+              type="button"
+              onClick={() => void handleQuickClassCreation()}
+              disabled={creatingQuickClass}
+              className="app-button app-button--dark app-button--block"
+            >
+              {creatingQuickClass ? 'Criando aula...' : 'Criar aula rapida'}
+            </button>
+          ) : null}
+        </div>
+      </section>
+
+      <section className="app-list">
         {filteredClasses.map((lesson) => {
           const qrData = qrByClass[lesson.id];
           const busy = !!busyByClass[lesson.id];
@@ -157,77 +181,88 @@ const CalendarView: React.FC<CalendarViewProps> = ({
               lesson.professorId === currentUserId);
 
           return (
-            <div key={lesson.id} className="bg-white dark:bg-dark-card rounded-2xl p-4 border border-gray-100 dark:border-white/5 shadow-sm overflow-hidden relative">
-              <div className="flex justify-between items-start mb-3">
+            <article key={lesson.id} className="app-panel app-panel-pad">
+              <div className="flex flex-wrap items-start justify-between gap-4">
                 <div>
-                  <h3 className="font-bold text-lg">{lesson.title}</h3>
-                  <span className="text-xs text-gold font-semibold uppercase tracking-wider">{lesson.status}</span>
+                  <div className="flex flex-wrap items-center gap-3">
+                    <h2 className="text-2xl font-bold">{lesson.title}</h2>
+                    <span className={getStatusBadge(lesson.status)}>{lesson.status}</span>
+                  </div>
+                  <p className="app-section-copy mt-3">
+                    {lesson.professorName || 'Professor nao definido'} - {formatDateLabel(lesson.scheduledStart)}
+                  </p>
                 </div>
-                <div className="bg-gray-50 dark:bg-white/5 px-3 py-1 rounded-full flex items-center gap-1.5 text-xs font-bold">
-                  <Clock size={12} className="text-gold" />
+
+                <div className="app-orb">
+                  <Clock size={14} />
                   {formatTimeLabel(lesson.scheduledStart)}
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3 mb-4">
-                <div className="flex items-center gap-2 text-xs text-gray-500">
-                  <MapPin size={14} className="text-gray-400" />
-                  {lesson.tatame}
+              <div className="app-grid-2 mt-6">
+                <div className="app-list-card">
+                  <div className="flex items-center gap-2 text-sm text-[color:var(--text-muted)]">
+                    <MapPin size={16} />
+                    {lesson.tatame}
+                  </div>
                 </div>
-                <div className="flex items-center gap-2 text-xs text-gray-500">
-                  <Users size={14} className="text-gray-400" />
-                  {lesson.currentAttendanceCount}/{lesson.capacity ?? '∞'} atletas
-                </div>
-                <div className="col-span-2 flex items-center gap-2 text-xs text-gray-500">
-                  <ShieldCheck size={14} className="text-gray-400" />
-                  {lesson.professorName || 'Professor não definido'} • {formatDateLabel(lesson.scheduledStart)}
+                <div className="app-list-card">
+                  <div className="flex items-center gap-2 text-sm text-[color:var(--text-muted)]">
+                    <Users size={16} />
+                    {lesson.currentAttendanceCount}/{lesson.capacity ?? 'sem limite'} atletas
+                  </div>
                 </div>
               </div>
 
               {qrData ? (
-                <div className="mb-4 bg-gold/10 border border-gold/20 rounded-xl p-3 text-sm">
-                  <div className="flex items-center gap-2 font-bold text-gold mb-1">
+                <div className="app-panel app-panel--tint mt-5 p-4">
+                  <div className="flex items-center gap-2 text-sm font-bold text-[color:var(--gold-mid)]">
                     <QrCode size={16} />
-                    QR da Aula
+                    QR da aula
                   </div>
-                  <p className="text-xs text-gray-600 dark:text-gray-300 break-all">Token: {qrData.qrToken}</p>
-                  <p className="text-xs text-gray-500 mt-1">Expira em {new Date(qrData.expiresAt).toLocaleTimeString('pt-BR')}</p>
+                  <p className="mt-2 break-all text-sm text-[color:var(--text-muted)]">Token: {qrData.qrToken}</p>
+                  <p className="mt-1 text-xs text-[color:var(--text-soft)]">
+                    Expira em {new Date(qrData.expiresAt).toLocaleTimeString('pt-BR')}
+                  </p>
                 </div>
               ) : null}
 
               {messageByClass[lesson.id] ? (
-                <div className="mb-4 bg-gray-50 dark:bg-white/5 rounded-xl p-3 text-xs text-gray-600 dark:text-gray-300">
+                <div className="app-list-card mt-5 text-sm text-[color:var(--text-muted)]">
                   {messageByClass[lesson.id]}
                 </div>
               ) : null}
 
               {canManage ? (
-                <div className="flex gap-2 flex-wrap">
+                <div className="mt-5 flex flex-wrap gap-3">
                   {lesson.status === 'scheduled' ? (
                     <button
+                      type="button"
                       onClick={() => void runClassAction(lesson.id, () => onStartClass(lesson.id))}
                       disabled={busy}
-                      className="flex-1 py-3 bg-gold text-black font-bold rounded-xl text-sm flex items-center justify-center gap-2"
+                      className="app-button app-button--gold"
                     >
-                      <Play size={16} fill="currentColor" />
-                      {busy ? 'Iniciando...' : 'Iniciar Aula'}
+                      <Play size={16} />
+                      {busy ? 'Iniciando...' : 'Iniciar aula'}
                     </button>
                   ) : null}
 
                   {lesson.status === 'active' ? (
                     <>
                       <button
+                        type="button"
                         onClick={() => void runClassAction(lesson.id, () => onRefreshQr(lesson.id))}
                         disabled={busy}
-                        className="flex-1 py-3 bg-blue-600 text-white font-bold rounded-xl text-sm flex items-center justify-center gap-2"
+                        className="app-button app-button--ghost"
                       >
                         <RefreshCw size={16} />
                         Novo QR
                       </button>
                       <button
+                        type="button"
                         onClick={() => void runClassAction(lesson.id, () => onFinishClass(lesson.id))}
                         disabled={busy}
-                        className="flex-1 py-3 bg-red-500 text-white font-bold rounded-xl text-sm flex items-center justify-center gap-2"
+                        className="app-button app-button--danger"
                       >
                         <CheckCircle size={16} />
                         Finalizar
@@ -236,44 +271,45 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                   ) : null}
 
                   {lesson.status === 'finished' ? (
-                    <div className="w-full py-3 bg-gray-100 dark:bg-white/5 text-center rounded-xl text-sm font-semibold text-gray-500">
-                      Aula encerrada
-                    </div>
+                    <div className="app-empty w-full">Aula encerrada.</div>
                   ) : null}
                 </div>
               ) : (
-                <div className="space-y-3">
-                  <input
-                    type="text"
-                    value={qrInputByClass[lesson.id] || ''}
-                    onChange={(event) =>
-                      setQrInputByClass((previous) => ({ ...previous, [lesson.id]: event.target.value }))
-                    }
-                    placeholder={lesson.status === 'active' ? 'Cole aqui o token do QR' : 'A aula precisa estar ativa'}
-                    disabled={lesson.status !== 'active' || busy}
-                    className="w-full px-4 py-3 rounded-xl bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 text-sm outline-none focus:ring-2 focus:ring-gold disabled:opacity-60"
-                  />
+                <div className="mt-5 app-form-grid">
+                  <label className="app-field">
+                    <span className="app-field__label">Token do QR</span>
+                    <input
+                      type="text"
+                      value={qrInputByClass[lesson.id] || ''}
+                      onChange={(event) =>
+                        setQrInputByClass((previous) => ({ ...previous, [lesson.id]: event.target.value }))
+                      }
+                      placeholder={lesson.status === 'active' ? 'Cole aqui o token do QR' : 'A aula precisa estar ativa'}
+                      disabled={lesson.status !== 'active' || busy}
+                      className="app-input"
+                    />
+                  </label>
                   <button
+                    type="button"
                     onClick={() =>
                       void runClassAction(lesson.id, () => onRegisterAttendance(lesson.id, qrInputByClass[lesson.id]))
                     }
                     disabled={lesson.status !== 'active' || busy}
-                    className="w-full py-3 bg-gold text-black font-bold rounded-xl text-sm shadow-lg shadow-gold/20 disabled:opacity-60"
+                    className="app-button app-button--gold app-button--block"
                   >
-                    {busy ? 'Registrando...' : 'Registrar Presença'}
+                    <ShieldCheck size={16} />
+                    {busy ? 'Registrando...' : 'Registrar presenca'}
                   </button>
                 </div>
               )}
-            </div>
+            </article>
           );
         })}
 
         {filteredClasses.length === 0 ? (
-          <div className="bg-white dark:bg-dark-card rounded-2xl p-6 border border-gray-100 dark:border-white/5 text-center text-sm text-gray-500">
-            Nenhuma aula encontrada para o filtro atual.
-          </div>
+          <div className="app-empty">Nenhuma aula encontrada para o filtro atual.</div>
         ) : null}
-      </div>
+      </section>
     </div>
   );
 };

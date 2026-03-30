@@ -18,6 +18,7 @@ export interface AcademyRecord {
   status: 'active' | 'inactive' | 'suspended';
   timezone: string;
   classCheckinWindowMinutes: number;
+  masterBlackLimit?: number;
   progressionRules?: {
     version: number;
     milestones: Array<{
@@ -210,6 +211,7 @@ export interface CreateAcademyPayload {
   ownerUserId?: string;
   timezone?: string;
   classCheckinWindowMinutes?: number;
+  masterBlackLimit?: number;
 }
 
 export interface CreateUserPayload {

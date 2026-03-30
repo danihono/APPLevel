@@ -48,60 +48,88 @@ const HomeView: React.FC<HomeViewProps> = ({
   ]);
 
   return (
-    <div className="space-y-6 animate-fadeIn">
-      <section>
-        <p className="text-xs font-semibold text-gold uppercase tracking-widest mb-1">{branch.name}</p>
-        <h1 className="text-2xl font-bold">Olá, {user.name.split(' ')[0]}</h1>
-        <p className="text-sm text-gray-500 dark:text-gray-400">{branch.location}</p>
+    <div className="view-shell">
+      <section className="app-panel app-panel--hero app-panel-pad">
+        <p className="app-section-label">{branch.name}</p>
+        <h1 className="app-section-title">Ola, {user.name.split(' ')[0]}</h1>
+        <p className="app-section-copy">{branch.location}</p>
+
+        <div className="app-stat-grid mt-6">
+          <div className="app-stat-card">
+            <p className="app-stat-card__label">Categoria</p>
+            <p className="app-stat-card__value">{user.type}</p>
+            <p className="app-stat-card__note">Faixa {user.belt}</p>
+          </div>
+          <div className="app-stat-card">
+            <p className="app-stat-card__label">Treinos no mes</p>
+            <p className="app-stat-card__value">{monthlyAttendanceCount}</p>
+            <p className="app-stat-card__note">{attendanceDays.length} dias diferentes</p>
+          </div>
+        </div>
       </section>
 
-      <div className="bg-white dark:bg-dark-card rounded-2xl p-5 border border-gray-100 dark:border-white/5 shadow-sm">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="font-bold flex items-center gap-2">
-            <Trophy className="text-gold" size={20} />
-            Minha Jornada
-          </h2>
-          <span className="text-[10px] bg-gold/10 text-gold px-2 py-0.5 rounded-full font-bold uppercase">
-            {user.type}
-          </span>
+      <section className="app-panel app-panel-pad">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-3">
+              <div className="app-icon-shell">
+                <Trophy size={18} />
+              </div>
+              <div>
+                <p className="app-section-label">Minha jornada</p>
+                <h2 className="text-2xl font-bold">Progresso de faixa e grau</h2>
+              </div>
+            </div>
+            <p className="app-section-copy mt-4">
+              Ultima graduacao em {new Date(user.lastGraduation).toLocaleDateString('pt-BR')}.
+            </p>
+          </div>
+          <span className="app-badge app-badge--gold">{user.type}</span>
         </div>
 
-        <BjjBelt color={user.belt} stripes={user.stripes} />
-        <div className="mt-4 flex justify-between text-xs text-gray-500 dark:text-gray-400 gap-4">
-          <span>Faixa {user.belt} - {user.stripes} graus</span>
-          <span>Última graduação: {new Date(user.lastGraduation).toLocaleDateString('pt-BR')}</span>
+        <div className="mt-6">
+          <BjjBelt color={user.belt} stripes={user.stripes} />
         </div>
 
-        <div className="mt-8 space-y-6">
+        <div className="mt-6 space-y-5">
           <ProgressBar
-            label="Próximo grau"
+            label="Proximo grau"
             current={user.currentStripeProgress}
             total={user.classesToNextStripe}
           />
           <ProgressBar
-            label="Próxima faixa"
+            label="Proxima faixa"
             current={user.currentBeltProgress}
             total={user.totalClassesToNextBelt}
           />
         </div>
-      </div>
+      </section>
 
-      <div className="bg-gold/5 dark:bg-gold/10 border border-gold/20 rounded-2xl p-5">
-        <h3 className="text-sm font-bold flex items-center gap-2 mb-2">
-          <Sparkles className="text-gold" size={18} />
-          Dica do Mestre
-        </h3>
-        <p className="text-sm italic text-gray-700 dark:text-gray-300">
-          "{advice}"
-        </p>
-      </div>
+      <section className="app-panel app-panel--tint app-panel-pad">
+        <div className="flex items-center gap-3">
+          <div className="app-icon-shell">
+            <Sparkles size={18} />
+          </div>
+          <div>
+            <p className="app-section-label">Dica do mestre</p>
+            <h2 className="text-xl font-bold">Ajuste fino para o treino de hoje</h2>
+          </div>
+        </div>
+        <p className="mt-4 text-sm leading-7 text-[color:var(--text-muted)]">"{advice}"</p>
+      </section>
 
-      <div className="bg-white dark:bg-dark-card rounded-2xl p-5 border border-gray-100 dark:border-white/5 shadow-sm">
-        <h2 className="font-bold mb-4 flex items-center gap-2">
-          <CalIcon className="text-gold" size={20} />
-          Frequência Mensal
-        </h2>
-        <div className="grid grid-cols-7 gap-1">
+      <section className="app-panel app-panel-pad">
+        <div className="flex items-center gap-3">
+          <div className="app-icon-shell">
+            <CalIcon size={18} />
+          </div>
+          <div>
+            <p className="app-section-label">Frequencia mensal</p>
+            <h2 className="text-xl font-bold">Mapa de presencas do mes</h2>
+          </div>
+        </div>
+
+        <div className="mt-6 grid grid-cols-7 gap-2">
           {Array.from({ length: daysInMonth }).map((_, index) => {
             const day = index + 1;
             const attended = attendedDays.has(day);
@@ -109,10 +137,8 @@ const HomeView: React.FC<HomeViewProps> = ({
             return (
               <div
                 key={day}
-                className={`aspect-square rounded-md flex items-center justify-center text-[10px] ${
-                  attended
-                    ? 'bg-gold text-black font-bold'
-                    : 'bg-gray-50 dark:bg-white/5 text-gray-400'
+                className={`flex aspect-square items-center justify-center rounded-2xl border text-xs font-bold ${
+                  attended ? 'bg-amber-200/85 text-stone-900 border-amber-100 shadow-[0_14px_30px_rgba(232,175,72,0.18)]' : 'border-white/10 bg-white/10 text-[color:var(--text-soft)]'
                 }`}
               >
                 {day}
@@ -120,11 +146,12 @@ const HomeView: React.FC<HomeViewProps> = ({
             );
           })}
         </div>
-        <div className="mt-4 pt-4 border-t border-gray-100 dark:border-white/5 flex justify-between items-center text-sm">
-          <span className="text-gray-500">Total de treinos no mês</span>
-          <span className="font-bold text-lg text-gold">{monthlyAttendanceCount}</span>
+
+        <div className="mt-6 flex items-center justify-between rounded-[1.4rem] border border-white/10 bg-white/10 px-4 py-4">
+          <span className="text-sm text-[color:var(--text-muted)]">Total de treinos no mes</span>
+          <strong className="text-2xl font-bold text-[color:var(--gold-mid)]">{monthlyAttendanceCount}</strong>
         </div>
-      </div>
+      </section>
     </div>
   );
 };

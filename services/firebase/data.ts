@@ -16,6 +16,7 @@ import type {
   CompetitionRecord,
   FightRecord,
   GraduationRecord,
+  NotificationRecord,
   RankingRecord,
   StoreItemRecord,
   UserMissionRecord,
@@ -79,6 +80,22 @@ export function subscribeToAcademy(
   );
 }
 
+export function subscribeToAcademies(
+  listener: (records: Array<FirestoreEntity<AcademyRecord>>) => void,
+  onError?: (error: Error) => void,
+) {
+  return onSnapshot(
+    collection(firebaseDb, 'academies'),
+    (snapshot) => {
+      const records = snapshot.docs
+        .map((item) => mapDoc<AcademyRecord>(item))
+        .sort((left, right) => left.name.localeCompare(right.name, 'pt-BR'));
+      listener(records);
+    },
+    onError,
+  );
+}
+
 export function subscribeToAcademyClasses(
   academyId: string,
   listener: (records: Array<FirestoreEntity<ClassRecord>>) => void,
@@ -103,6 +120,22 @@ export function subscribeToAcademyUsers(
 ) {
   return onSnapshot(
     query(collection(firebaseDb, 'users'), where('academyId', '==', academyId)),
+    (snapshot) => {
+      const records = snapshot.docs
+        .map((item) => mapDoc<UserRecord>(item))
+        .sort((left, right) => left.displayName.localeCompare(right.displayName, 'pt-BR'));
+      listener(records);
+    },
+    onError,
+  );
+}
+
+export function subscribeToAllUsers(
+  listener: (records: Array<FirestoreEntity<UserRecord>>) => void,
+  onError?: (error: Error) => void,
+) {
+  return onSnapshot(
+    collection(firebaseDb, 'users'),
     (snapshot) => {
       const records = snapshot.docs
         .map((item) => mapDoc<UserRecord>(item))
@@ -250,6 +283,37 @@ export function subscribeToStoreItems(
       const records = snapshot.docs
         .map((item) => mapDoc<StoreItemRecord>(item))
         .sort((left, right) => left.name.localeCompare(right.name, 'pt-BR'));
+      listener(records);
+    },
+    onError,
+  );
+}
+
+export function subscribeToNotifications(
+  params: {
+    academyId: string;
+    userId: string;
+    includeAcademyFeed: boolean;
+  },
+  listener: (records: Array<FirestoreEntity<NotificationRecord>>) => void,
+  onError?: (error: Error) => void,
+) {
+  const baseCollection = collection(firebaseDb, 'notifications');
+  const notificationQuery = params.includeAcademyFeed
+    ? query(baseCollection, where('academyId', '==', params.academyId))
+    : query(
+      baseCollection,
+      where('academyId', '==', params.academyId),
+      where('recipientUserId', '==', params.userId),
+      orderBy('createdAt', 'desc'),
+    );
+
+  return onSnapshot(
+    notificationQuery,
+    (snapshot) => {
+      const records = snapshot.docs
+        .map((item) => mapDoc<NotificationRecord>(item))
+        .sort((left, right) => toMillis(right.createdAt) - toMillis(left.createdAt));
       listener(records);
     },
     onError,

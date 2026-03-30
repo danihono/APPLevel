@@ -26,6 +26,7 @@ export const createAcademy = onCall({ region: 'southamerica-east1' }, async (req
   const slug = optionalString(request.data, 'slug') ?? name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
   const timezone = optionalString(request.data, 'timezone') ?? 'America/Sao_Paulo';
   const classCheckinWindowMinutes = optionalNumber(request.data, 'classCheckinWindowMinutes') ?? 15;
+  const masterBlackLimit = optionalNumber(request.data, 'masterBlackLimit') ?? 1;
   const ownerUserId = optionalString(request.data, 'ownerUserId');
   const now = Timestamp.now();
   const academyRef = db.collection(COLLECTIONS.academies).doc();
@@ -38,6 +39,7 @@ export const createAcademy = onCall({ region: 'southamerica-east1' }, async (req
     timezone,
     progressionRules: DEFAULT_PROGRESSION_RULES,
     classCheckinWindowMinutes,
+    masterBlackLimit,
     createdAt: now,
     updatedAt: now,
   };

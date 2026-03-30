@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { KeyRound } from 'lucide-react';
 
 interface LoginViewProps {
   onLogin: (email: string, password: string) => Promise<void>;
@@ -18,88 +19,74 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
     try {
       await onLogin(email, password);
     } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : 'Não foi possível entrar agora.');
+      setError(submitError instanceof Error ? submitError.message : 'Nao foi possivel entrar agora.');
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-dark px-4 sm:px-6 lg:px-8 transition-colors duration-300">
-      <div className="max-w-md w-full space-y-8 bg-white dark:bg-dark-card p-8 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-800">
-        <div className="text-center">
-          <div className="mx-auto h-16 w-16 bg-gold text-dark rounded-full flex items-center justify-center mb-6 shadow-lg shadow-gold/20">
-            <span className="text-2xl font-bold tracking-tighter">L</span>
-          </div>
-          <h2 className="text-3xl font-extrabold text-gray-900 dark:text-white tracking-tight">
-            LEVEL JJ
-          </h2>
-          <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-            Entre com sua conta real do Firebase
-          </p>
-        </div>
-
-        <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
-          {error ? (
-            <div className="p-3 bg-red-100 border border-red-400 text-red-700 rounded-xl text-sm text-center">
-              {error}
+    <div className="app-auth-shell">
+      <div className="app-auth-grid">
+        <section className="app-panel app-auth-card">
+          <div className="app-brand">
+            <div className="app-brand__mark">LVL</div>
+            <div className="app-brand__text">
+              <p className="app-kicker">Applevel</p>
+              <h1 className="app-headline">Entre para abrir o painel da academia.</h1>
             </div>
-          ) : null}
+          </div>
 
-          <div className="space-y-4">
+          <div className="mt-6 flex items-center gap-3">
+            <div className="app-icon-shell">
+              <KeyRound size={18} />
+            </div>
             <div>
-              <label htmlFor="email-address" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                E-mail
-              </label>
+              <p className="app-section-label">Entrar</p>
+              <h2 className="text-3xl font-bold">Acesse o APPLevel</h2>
+            </div>
+          </div>
+
+          <p className="app-note mt-4">
+            Use a mesma conta cadastrada no Firebase Authentication para abrir a experiencia completa.
+          </p>
+
+          <form className="mt-6 app-form-grid" onSubmit={handleSubmit}>
+            {error ? (
+              <div className="app-alert app-alert--error">{error}</div>
+            ) : null}
+
+            <label className="app-field">
+              <span className="app-field__label">E-mail</span>
               <input
-                id="email-address"
-                name="email"
                 type="email"
                 autoComplete="username"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="appearance-none relative block w-full px-4 py-3 border border-gray-300 dark:border-gray-700 bg-white dark:bg-dark text-gray-900 dark:text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-gold focus:border-transparent transition-colors sm:text-sm"
+                className="app-input"
                 placeholder="voce@academia.com"
                 required
               />
-            </div>
-            <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Senha
-              </label>
+            </label>
+
+            <label className="app-field">
+              <span className="app-field__label">Senha</span>
               <input
-                id="password"
-                name="password"
                 type="password"
                 autoComplete="current-password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="appearance-none relative block w-full px-4 py-3 border border-gray-300 dark:border-gray-700 bg-white dark:bg-dark text-gray-900 dark:text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-gold focus:border-transparent transition-colors sm:text-sm"
+                className="app-input"
                 placeholder="Sua senha"
                 required
               />
-            </div>
-          </div>
+            </label>
 
-          <div>
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-bold rounded-xl text-dark bg-gold hover:bg-gold-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gold dark:focus:ring-offset-dark transition-all disabled:opacity-70 shadow-lg shadow-gold/20"
-            >
-              {isLoading ? (
-                <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-dark" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-              ) : 'Entrar'}
+            <button type="submit" disabled={isLoading} className="app-button app-button--gold app-button--block">
+              {isLoading ? 'Entrando...' : 'Abrir painel'}
             </button>
-          </div>
-
-          <div className="mt-6 text-center text-xs text-gray-500 dark:text-gray-400">
-            <p>Use o mesmo usuário cadastrado no Authentication do Firebase.</p>
-          </div>
-        </form>
+          </form>
+        </section>
       </div>
     </div>
   );

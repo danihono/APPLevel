@@ -33,124 +33,140 @@ const GamificationView: React.FC<GamificationViewProps> = ({
   };
 
   return (
-    <div className="space-y-6 pb-6 animate-fade-in">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Gamificação</h1>
-        <div className="flex items-center gap-2 bg-gold/20 px-3 py-1.5 rounded-full border border-gold/30">
-          <Zap size={16} className="text-gold" />
-          <span className="text-sm font-bold text-gold">{currentPoints} pts</span>
+    <div className="view-shell">
+      <section className="app-panel app-panel--hero app-panel-pad">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <p className="app-section-label">Momentum</p>
+            <h1 className="app-section-title">Gamificacao com energia de colecionavel premium.</h1>
+            <p className="app-section-copy">
+              Progresso, ranking e resgate agora vivem no mesmo sistema de luz, vidro e metal do restante do app.
+            </p>
+          </div>
+          <div className="app-orb">
+            <Zap size={16} />
+            {currentPoints} pts
+          </div>
         </div>
-      </div>
 
-      <div className="flex bg-gray-100 dark:bg-dark-card p-1 rounded-xl">
-        <button
-          onClick={() => setActiveTab('missions')}
-          className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-bold transition-all ${activeTab === 'missions' ? 'bg-gold text-dark shadow-sm' : 'text-gray-500'}`}
-        >
-          <Target size={18} />
-          Missões
-        </button>
-        <button
-          onClick={() => setActiveTab('ranking')}
-          className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-bold transition-all ${activeTab === 'ranking' ? 'bg-gold text-dark shadow-sm' : 'text-gray-500'}`}
-        >
-          <Trophy size={18} />
-          Ranking
-        </button>
-      </div>
+        <div className="mt-6 app-segment app-segment--block">
+          <button
+            type="button"
+            onClick={() => setActiveTab('missions')}
+            className={`app-segment__button ${activeTab === 'missions' ? 'is-active' : ''}`}
+          >
+            <Target size={16} />
+            Missoes
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('ranking')}
+            className={`app-segment__button ${activeTab === 'ranking' ? 'is-active' : ''}`}
+          >
+            <Trophy size={16} />
+            Ranking
+          </button>
+        </div>
+      </section>
 
       {activeTab === 'missions' ? (
-        <div className="space-y-6">
-          <section className="space-y-4">
-            <h2 className="font-bold text-lg flex items-center gap-2">
-              <Flame className="text-orange-500" size={20} />
-              Missões Ativas
-            </h2>
+        <>
+          <section className="app-list">
+            <div className="flex items-center gap-3">
+              <div className="app-icon-shell">
+                <Flame size={18} />
+              </div>
+              <div>
+                <p className="app-section-label">Missoes ativas</p>
+                <h2 className="text-xl font-bold">Objetivos em andamento</h2>
+              </div>
+            </div>
 
             {missions.length > 0 ? (
-              <div className="space-y-3">
-                {missions.map((mission) => {
-                  const completed = mission.status === 'completed';
-                  const progress = Math.min(mission.progressCurrent, mission.targetValue);
+              missions.map((mission) => {
+                const completed = mission.status === 'completed';
+                const progress = Math.min(mission.progressCurrent, mission.targetValue);
 
-                  return (
-                    <div key={mission.id} className={`bg-white dark:bg-dark-card p-4 rounded-2xl border border-gray-100 dark:border-white/5 space-y-3 ${completed ? 'opacity-70' : ''}`}>
-                      <div className="flex justify-between items-start">
-                        <div className="flex gap-3">
-                          <div className={`p-2 rounded-xl ${completed ? 'bg-green-100 text-green-600' : 'bg-gold/10 text-gold'}`}>
-                            {completed ? <Award size={20} /> : <Target size={20} />}
-                          </div>
-                          <div>
-                            <h3 className="font-bold text-sm">{mission.missionName}</h3>
-                            <p className="text-xs text-gray-500">{mission.metric.replaceAll('_', ' ')}</p>
-                          </div>
+                return (
+                  <article key={mission.id} className="app-panel app-panel-pad">
+                    <div className="flex flex-wrap items-start justify-between gap-4">
+                      <div className="flex gap-3">
+                        <div className="app-icon-shell">
+                          {completed ? <Award size={18} /> : <Target size={18} />}
                         </div>
-                        <span className="text-xs font-bold text-gold">+{mission.rewardPoints} pts</span>
-                      </div>
-                      <div className="space-y-1">
-                        <div className="flex justify-between text-[10px] font-bold uppercase text-gray-400">
-                          <span>Progresso</span>
-                          <span>{progress}/{mission.targetValue}</span>
+                        <div>
+                          <h3 className="text-lg font-bold">{mission.missionName}</h3>
+                          <p className="mt-2 text-sm text-[color:var(--text-soft)]">{mission.metric.replaceAll('_', ' ')}</p>
                         </div>
-                        <ProgressBar current={progress} total={mission.targetValue} color={completed ? 'bg-green-500' : 'bg-gold'} />
                       </div>
+                      <span className={completed ? 'app-badge app-badge--success' : 'app-badge app-badge--gold'}>
+                        +{mission.rewardPoints} pts
+                      </span>
                     </div>
-                  );
-                })}
-              </div>
+
+                    <div className="mt-5">
+                      <ProgressBar current={progress} total={mission.targetValue} color={completed ? 'bg-green-500' : 'bg-gold'} />
+                      <p className="mt-3 text-xs font-bold uppercase tracking-[0.24em] text-[color:var(--text-soft)]">
+                        Progresso {progress}/{mission.targetValue}
+                      </p>
+                    </div>
+                  </article>
+                );
+              })
             ) : (
-              <div className="bg-white dark:bg-dark-card p-5 rounded-2xl border border-gray-100 dark:border-white/5 text-sm text-gray-500">
-                Nenhuma missão atribuída para este usuário ainda.
-              </div>
+              <div className="app-empty">Nenhuma missao atribuida para este usuario ainda.</div>
             )}
           </section>
 
-          <section className="space-y-4">
-            <h2 className="font-bold text-lg flex items-center gap-2">
-              <Gift className="text-amber-500" size={20} />
-              Recompensas
-            </h2>
-            <div className="grid grid-cols-1 gap-3">
-              {rewards.map((reward) => {
-                const Icon = reward.icon;
-                const unlocked = currentPoints >= reward.points;
+          <section className="app-list">
+            <div className="flex items-center gap-3">
+              <div className="app-icon-shell">
+                <Gift size={18} />
+              </div>
+              <div>
+                <p className="app-section-label">Recompensas</p>
+                <h2 className="text-xl font-bold">O que ja esta ao alcance</h2>
+              </div>
+            </div>
 
-                return (
-                  <div key={reward.id} className="bg-white dark:bg-dark-card p-4 rounded-2xl border border-gray-100 dark:border-white/5 flex items-center justify-between">
+            {rewards.map((reward) => {
+              const Icon = reward.icon;
+              const unlocked = currentPoints >= reward.points;
+
+              return (
+                <article key={reward.id} className="app-panel app-panel-pad">
+                  <div className="flex flex-wrap items-center justify-between gap-4">
                     <div className="flex items-center gap-3">
-                      <div className="p-2 bg-amber-50 dark:bg-amber-500/10 rounded-xl text-amber-500">
-                        <Icon size={20} />
+                      <div className="app-icon-shell">
+                        <Icon size={18} />
                       </div>
                       <div>
-                        <h3 className="font-bold text-sm">{reward.title}</h3>
-                        <p className="text-xs text-gray-500">Resgate por {reward.points} pts</p>
+                        <h3 className="text-lg font-bold">{reward.title}</h3>
+                        <p className="mt-1 text-sm text-[color:var(--text-soft)]">Resgate por {reward.points} pts</p>
                       </div>
                     </div>
-                    <button className={`px-4 py-2 rounded-xl text-xs font-bold ${unlocked ? 'bg-gold text-dark' : 'bg-gray-100 dark:bg-white/5 text-gray-400 cursor-not-allowed'}`}>
-                      {unlocked ? 'Disponível' : 'Bloqueado'}
+                    <button type="button" disabled={!unlocked} className={`app-button app-button--small ${unlocked ? 'app-button--gold' : 'app-button--ghost'}`}>
+                      {unlocked ? 'Disponivel' : 'Bloqueado'}
                     </button>
                   </div>
-                );
-              })}
-            </div>
+                </article>
+              );
+            })}
           </section>
-        </div>
+        </>
       ) : (
-        <div className="space-y-6">
-          <div className="flex gap-2 overflow-x-auto no-scrollbar pb-2">
+        <>
+          <div className="app-chip-row">
             {[
-              { id: 'frequency', label: 'Frequência' },
-              { id: 'consistency', label: 'Consistência' },
-              { id: 'competition', label: 'Competição' },
+              { id: 'frequency', label: 'Frequencia' },
+              { id: 'consistency', label: 'Consistencia' },
+              { id: 'competition', label: 'Competicao' },
             ].map((category) => (
               <button
                 key={category.id}
+                type="button"
                 onClick={() => setRankingCategory(category.id as 'frequency' | 'consistency' | 'competition')}
-                className={`px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap transition-all ${
-                  rankingCategory === category.id
-                    ? 'bg-dark text-white dark:bg-white dark:text-black'
-                    : 'bg-gray-100 text-gray-500 dark:bg-dark-card'
-                }`}
+                className={`app-chip ${rankingCategory === category.id ? 'is-active' : ''}`}
               >
                 {category.label}
               </button>
@@ -158,58 +174,55 @@ const GamificationView: React.FC<GamificationViewProps> = ({
           </div>
 
           {rankings.length > 0 ? (
-            <section className="bg-white dark:bg-dark-card rounded-3xl border border-gray-100 dark:border-white/5 overflow-hidden">
-              {rankingsByCategory[rankingCategory].map((entry, index) => {
-                const value =
-                  rankingCategory === 'frequency'
-                    ? `${entry.attendancePoints} pts`
-                    : rankingCategory === 'consistency'
-                      ? `${entry.consistencyPoints} pts`
-                      : `${entry.competitionPoints} pts`;
+            <section className="app-panel app-panel-pad">
+              <div className="app-list">
+                {rankingsByCategory[rankingCategory].map((entry, index) => {
+                  const value =
+                    rankingCategory === 'frequency'
+                      ? `${entry.attendancePoints} pts`
+                      : rankingCategory === 'consistency'
+                        ? `${entry.consistencyPoints} pts`
+                        : `${entry.competitionPoints} pts`;
 
-                return (
-                  <div
-                    key={entry.id}
-                    className={`flex items-center justify-between p-4 ${index !== rankingsByCategory[rankingCategory].length - 1 ? 'border-b border-gray-100 dark:border-white/5' : ''} ${entry.userId === currentUserId ? 'bg-gold/5' : ''}`}
-                  >
-                    <div className="flex items-center gap-4">
-                      <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm ${
-                        index === 0
-                          ? 'bg-gold text-dark'
-                          : index === 1
-                            ? 'bg-gray-200 text-gray-600'
-                            : index === 2
-                              ? 'bg-orange-100 text-orange-600'
-                              : 'text-gray-400'
-                      }`}>
-                        {index + 1}
+                  return (
+                    <div key={entry.id} className="app-list-card flex items-center justify-between gap-4">
+                      <div className="flex items-center gap-4">
+                        <div className={`flex h-10 w-10 items-center justify-center rounded-full font-bold ${
+                          index === 0
+                            ? 'bg-amber-200/90 text-stone-900'
+                            : index === 1
+                              ? 'bg-white/60 text-stone-700'
+                              : index === 2
+                                ? 'bg-orange-200/80 text-orange-900'
+                                : 'bg-white/10 text-[color:var(--text-soft)]'
+                        }`}
+                        >
+                          {index + 1}
+                        </div>
+                        <div>
+                          <h3 className={`text-sm font-bold ${entry.userId === currentUserId ? 'text-[color:var(--gold-mid)]' : ''}`}>
+                            {entry.displayName} {entry.userId === currentUserId ? '(Voce)' : ''}
+                          </h3>
+                          <p className="mt-1 text-xs text-[color:var(--text-soft)]">{value}</p>
+                        </div>
                       </div>
-                      <div>
-                        <h3 className={`text-sm font-bold ${entry.userId === currentUserId ? 'text-gold' : ''}`}>
-                          {entry.displayName} {entry.userId === currentUserId ? '(Você)' : ''}
-                        </h3>
-                        <p className="text-xs text-gray-500">{value}</p>
-                      </div>
+                      <TrendingUp size={16} className="text-[color:var(--success)]" />
                     </div>
-                    <div className="flex items-center gap-1 text-green-500">
-                      <TrendingUp size={14} />
-                    </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
             </section>
           ) : (
-            <div className="bg-white dark:bg-dark-card p-5 rounded-2xl border border-gray-100 dark:border-white/5 text-sm text-gray-500">
-              O ranking ainda não foi calculado para esta academia.
-            </div>
+            <div className="app-empty">O ranking ainda nao foi calculado para esta academia.</div>
           )}
 
-          <div className="bg-blue-50 dark:bg-blue-500/10 p-4 rounded-2xl border border-blue-100 dark:border-blue-500/20">
-            <p className="text-xs text-blue-600 dark:text-blue-400 leading-relaxed">
-              <strong>Dica:</strong> o ranking é alimentado automaticamente por frequência, consistência e desempenho em competição.
+          <section className="app-panel app-panel--tint app-panel-pad">
+            <p className="app-section-label">Dica</p>
+            <p className="app-section-copy mt-3">
+              O ranking e alimentado automaticamente por frequencia, consistencia e desempenho em competicao.
             </p>
-          </div>
-        </div>
+          </section>
+        </>
       )}
     </div>
   );

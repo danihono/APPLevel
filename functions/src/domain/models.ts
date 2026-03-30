@@ -51,6 +51,7 @@ export interface AcademyDoc {
   timezone: string;
   progressionRules: ProgressionRules;
   classCheckinWindowMinutes: number;
+  masterBlackLimit: number;
   createdAt: FirebaseFirestore.Timestamp;
   updatedAt: FirebaseFirestore.Timestamp;
 }
