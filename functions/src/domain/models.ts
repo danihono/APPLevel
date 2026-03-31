@@ -1,10 +1,12 @@
 export const COLLECTIONS = {
   academies: 'academies',
   attendances: 'attendances',
+  attendanceRequests: 'attendance_requests',
   classes: 'classes',
   competitions: 'competitions',
   fights: 'fights',
   graduations: 'graduations',
+  joinRequests: 'join_requests',
   missions: 'missions',
   notifications: 'notifications',
   rankings: 'rankings',
@@ -19,7 +21,7 @@ export type Role = (typeof ROLE_ORDER)[number];
 export type AcademyStatus = 'active' | 'inactive' | 'suspended';
 export type UserStatus = 'active' | 'invited' | 'suspended';
 export type ClassStatus = 'scheduled' | 'active' | 'finished' | 'cancelled';
-export type CheckInMethod = 'qr' | 'manual';
+export type CheckInMethod = 'qr' | 'manual' | 'request';
 export type MissionMetric =
   | 'attendance_count'
   | 'attendance_streak'
@@ -29,6 +31,10 @@ export type MissionMetric =
 export type MissionStatus = 'in_progress' | 'completed';
 export type FightResult = 'win' | 'loss' | 'draw' | 'submission' | 'points' | 'walkover';
 export type NotificationStatus = 'queued' | 'sent' | 'read' | 'stored' | 'failed';
+export type NotificationChannel = 'academy' | 'team' | 'system';
+export type NotificationKind = 'notice' | 'join_request' | 'attendance_request' | 'graduation';
+export type JoinRequestStatus = 'pending' | 'approved' | 'rejected';
+export type AttendanceRequestStatus = 'pending' | 'approved' | 'rejected';
 
 export interface ProgressionMilestone {
   belt: string;
@@ -62,8 +68,10 @@ export interface UserDoc {
   lastName: string;
   displayName: string;
   email: string;
+  cpf: string;
   phone?: string;
   birthDate?: string;
+  isCompetitor?: boolean;
   role: Role;
   status: UserStatus;
   belt: string;
@@ -123,6 +131,23 @@ export interface AttendanceDoc {
   updatedAt: FirebaseFirestore.Timestamp;
 }
 
+export interface AttendanceRequestDoc {
+  academyId: string;
+  classId: string;
+  classTitle: string;
+  userId: string;
+  userDisplayName: string;
+  professorId: string;
+  professorName?: string;
+  status: AttendanceRequestStatus;
+  requestedAt: FirebaseFirestore.Timestamp;
+  reviewedAt?: FirebaseFirestore.Timestamp;
+  reviewedBy?: string;
+  reviewedByRole?: Role;
+  createdAt: FirebaseFirestore.Timestamp;
+  updatedAt: FirebaseFirestore.Timestamp;
+}
+
 export interface GraduationDoc {
   academyId: string;
   userId: string;
@@ -133,7 +158,7 @@ export interface GraduationDoc {
   attendanceCount: number;
   promotedAt: FirebaseFirestore.Timestamp;
   ruleVersion: number;
-  reason: 'automatic_progression';
+  reason: 'automatic_progression' | 'manual_progression';
 }
 
 export interface MissionDoc {
@@ -222,6 +247,8 @@ export interface NotificationDoc {
   academyId: string;
   title: string;
   body: string;
+  channel: NotificationChannel;
+  kind: NotificationKind;
   status: NotificationStatus;
   createdBy: string;
   createdAt: FirebaseFirestore.Timestamp;
@@ -231,7 +258,29 @@ export interface NotificationDoc {
   recipientUserId?: string;
   targetRole?: Role;
   targetBelt?: string;
+  actionRef?: string;
   data?: Record<string, string>;
+}
+
+export interface JoinRequestDoc {
+  academyId: string;
+  academyName: string;
+  authUid: string;
+  email: string;
+  cpf: string;
+  firstName: string;
+  lastName: string;
+  displayName: string;
+  birthDate: string;
+  isCompetitor: boolean;
+  requestedBelt: string;
+  requestedGrade: number;
+  status: JoinRequestStatus;
+  createdAt: FirebaseFirestore.Timestamp;
+  updatedAt: FirebaseFirestore.Timestamp;
+  resolvedAt?: FirebaseFirestore.Timestamp;
+  resolvedBy?: string;
+  resolvedByRole?: Role;
 }
 
 export const DEFAULT_PROGRESSION_RULES: ProgressionRules = {

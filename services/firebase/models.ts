@@ -2,13 +2,17 @@ import type { Timestamp } from 'firebase/firestore';
 
 export type AppRole = 'student' | 'professor' | 'admin' | 'superadmin';
 export type ClassStatus = 'scheduled' | 'active' | 'finished' | 'cancelled';
-export type CheckInMethod = 'qr' | 'manual';
+export type CheckInMethod = 'qr' | 'manual' | 'request';
 export type MissionMetric =
   | 'attendance_count'
   | 'attendance_streak'
   | 'qr_checkins'
   | 'competition_points'
   | 'belt_promotions';
+export type NotificationChannel = 'academy' | 'team' | 'system';
+export type NotificationKind = 'notice' | 'join_request' | 'attendance_request' | 'graduation';
+export type JoinRequestStatus = 'pending' | 'approved' | 'rejected';
+export type AttendanceRequestStatus = 'pending' | 'approved' | 'rejected';
 
 export interface AcademyRecord {
   id: string;
@@ -38,8 +42,10 @@ export interface UserRecord {
   lastName: string;
   displayName: string;
   email: string;
+  cpf: string;
   phone?: string;
   birthDate?: string;
+  isCompetitor?: boolean;
   role: AppRole;
   status: 'active' | 'invited' | 'suspended';
   belt: string;
@@ -95,6 +101,23 @@ export interface AttendanceRecord {
   updatedAt?: Timestamp;
 }
 
+export interface AttendanceRequestRecord {
+  academyId: string;
+  classId: string;
+  classTitle: string;
+  userId: string;
+  userDisplayName: string;
+  professorId: string;
+  professorName?: string;
+  status: AttendanceRequestStatus;
+  requestedAt?: Timestamp;
+  reviewedAt?: Timestamp;
+  reviewedBy?: string;
+  reviewedByRole?: AppRole;
+  createdAt?: Timestamp;
+  updatedAt?: Timestamp;
+}
+
 export interface MissionRecord {
   academyId: string;
   name: string;
@@ -126,10 +149,13 @@ export interface NotificationRecord {
   academyId: string;
   title: string;
   body: string;
+  channel: NotificationChannel;
+  kind: NotificationKind;
   status: 'queued' | 'sent' | 'read' | 'stored' | 'failed';
   recipientUserId?: string;
   targetRole?: AppRole;
   targetBelt?: string;
+  actionRef?: string;
   data?: Record<string, string>;
   createdBy?: string;
   createdAt?: Timestamp;
@@ -161,7 +187,28 @@ export interface GraduationRecord {
   attendanceCount: number;
   promotedAt?: Timestamp;
   ruleVersion: number;
-  reason: 'automatic_progression';
+  reason: 'automatic_progression' | 'manual_progression';
+}
+
+export interface JoinRequestRecord {
+  academyId: string;
+  academyName: string;
+  authUid: string;
+  email: string;
+  cpf: string;
+  firstName: string;
+  lastName: string;
+  displayName: string;
+  birthDate: string;
+  isCompetitor: boolean;
+  requestedBelt: string;
+  requestedGrade: number;
+  status: JoinRequestStatus;
+  createdAt?: Timestamp;
+  updatedAt?: Timestamp;
+  resolvedAt?: Timestamp;
+  resolvedBy?: string;
+  resolvedByRole?: AppRole;
 }
 
 export interface CompetitionRecord {
@@ -221,7 +268,10 @@ export interface CreateUserPayload {
   password?: string;
   role: AppRole;
   academyId?: string;
+  cpf?: string;
   phone?: string;
+  birthDate?: string;
+  isCompetitor?: boolean;
   belt?: string;
   grade?: number;
   stripes?: number;

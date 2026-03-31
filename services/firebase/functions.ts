@@ -1,9 +1,12 @@
 import { httpsCallable } from 'firebase/functions';
 import type {
   AppRole,
+  AttendanceRequestStatus,
   CreateAcademyPayload,
   CreateUserPayload,
+  JoinRequestStatus,
   MissionMetric,
+  NotificationChannel,
 } from './models';
 import { firebaseFunctions } from './client';
 
@@ -17,6 +20,22 @@ async function callFunction<TResponse, TPayload = unknown>(
 }
 
 export const backendFunctions = {
+  listSignupAcademies: () =>
+    callFunction<Array<{ academyId: string; name: string; timezone: string }>>('listSignupAcademies', {}),
+
+  submitStudentSignup: (payload: {
+    academyId: string;
+    email: string;
+    password: string;
+    firstName: string;
+    lastName: string;
+    cpf: string;
+    birthDate: string;
+    isCompetitor?: boolean;
+    belt: string;
+    grade: number;
+  }) => callFunction<{ requestId: string; academyId: string; status: JoinRequestStatus }>('submitStudentSignup', payload),
+
   createAcademy: (payload: CreateAcademyPayload) =>
     callFunction<{ academyId: string; name: string; slug: string }>('createAcademy', payload),
 
@@ -28,6 +47,9 @@ export const backendFunctions = {
 
   setUserRole: (payload: { userId: string; role: AppRole }) =>
     callFunction<{ userId: string; role: AppRole }>('setUserRole', payload),
+
+  updateStudentBeltGrade: (payload: { userId: string; belt: string; grade: number; stripes?: number }) =>
+    callFunction<{ userId: string; belt: string; grade: number; stripes: number }>('updateStudentBeltGrade', payload),
 
   validateSessionAccess: () =>
     callFunction<{
@@ -81,6 +103,39 @@ export const backendFunctions = {
     targetUserId?: string;
   }) => callFunction<{ attendanceId: string; classId: string; userId: string; method: string }>('registerAttendance', payload),
 
+  submitAttendanceRequest: (payload: { classId: string }) =>
+    callFunction<{ requestId: string; classId: string; status: AttendanceRequestStatus }>('submitAttendanceRequest', payload),
+
+  approveAttendanceRequest: (payload: { requestId: string }) =>
+    callFunction<{ requestId: string; attendanceId: string; status: AttendanceRequestStatus }>('approveAttendanceRequest', payload),
+
+  rejectAttendanceRequest: (payload: { requestId: string }) =>
+    callFunction<{ requestId: string; status: AttendanceRequestStatus }>('rejectAttendanceRequest', payload),
+
+  approveJoinRequest: (payload: { requestId: string }) =>
+    callFunction<{ requestId: string; userId: string; status: JoinRequestStatus }>('approveJoinRequest', payload),
+
+  rejectJoinRequest: (payload: { requestId: string }) =>
+    callFunction<{ requestId: string; status: JoinRequestStatus }>('rejectJoinRequest', payload),
+
+  updateOwnStudentProfile: (payload: {
+    firstName?: string;
+    lastName?: string;
+    cpf?: string;
+    phone?: string;
+    birthDate?: string;
+    isCompetitor?: boolean;
+    photoPath?: string;
+  }) => callFunction<{
+    userId: string;
+    displayName: string;
+    cpf: string;
+    isCompetitor: boolean;
+  }>('updateOwnStudentProfile', payload),
+
+  syncOwnUserEmail: (payload: { email: string }) =>
+    callFunction<{ userId: string; email: string }>('syncOwnUserEmail', payload),
+
   upsertAcademyProgressionRules: (payload: {
     academyId?: string;
     milestones: Array<{
@@ -125,6 +180,7 @@ export const backendFunctions = {
     title: string;
     body: string;
     academyId?: string;
+    channel?: NotificationChannel;
     targetRole?: AppRole;
     targetBelt?: string;
     recipientUserIds?: string[];

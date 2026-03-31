@@ -1,6 +1,6 @@
 import { FieldValue, Timestamp } from 'firebase-admin/firestore';
 import { onCall } from 'firebase-functions/v2/https';
-import { COLLECTIONS, NotificationDoc, Role, UserDoc } from '../domain/models';
+import { COLLECTIONS, NotificationChannel, NotificationDoc, Role, UserDoc } from '../domain/models';
 import { getRequestContext } from '../lib/context';
 import { assertCondition } from '../lib/errors';
 import { db, messaging } from '../lib/firebase';
@@ -40,6 +40,7 @@ export const sendSegmentedNotification = onCall({ region: 'southamerica-east1' }
   const title = requiredString(request.data, 'title');
   const body = requiredString(request.data, 'body');
   const academyId = optionalString(request.data, 'academyId') ?? actor.academyId;
+  const channel = (optionalString(request.data, 'channel') as NotificationChannel | undefined) ?? 'academy';
   const targetRole = optionalString(request.data, 'targetRole') as Role | undefined;
   const targetBelt = optionalString(request.data, 'targetBelt');
   const recipientUserIds = optionalStringArray(request.data, 'recipientUserIds');
@@ -79,6 +80,8 @@ export const sendSegmentedNotification = onCall({ region: 'southamerica-east1' }
       academyId,
       title,
       body,
+      channel,
+      kind: 'notice',
       status: tokenList.length > 0 ? 'queued' : 'stored',
       createdBy: actor.uid,
       createdAt: now,

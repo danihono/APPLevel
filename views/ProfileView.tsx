@@ -1,7 +1,7 @@
-import React from 'react';
-import { LogOut, Mail, Phone, ShieldCheck, Sparkles, UserRound } from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { LogOut, Mail, Phone, Save, ShieldCheck, Sparkles, Upload, UserRound } from 'lucide-react';
 import type { FirestoreEntity } from '../services/firebase/data';
-import type { UserRecord } from '../services/firebase/models';
+import type { AttendanceRecord, GraduationRecord, UserRecord } from '../services/firebase/models';
 import type { User } from '../types';
 
 interface ProfileViewProps {
@@ -10,6 +10,20 @@ interface ProfileViewProps {
   totalClasses: number;
   rankingPosition?: number | null;
   academyName?: string;
+  attendanceRate: number;
+  attendances: Array<FirestoreEntity<AttendanceRecord>>;
+  classNameById: Map<string, string>;
+  graduations: Array<FirestoreEntity<GraduationRecord>>;
+  onSaveProfile: (payload: {
+    firstName?: string;
+    lastName?: string;
+    cpf?: string;
+    phone?: string;
+    birthDate?: string;
+    isCompetitor?: boolean;
+    photoFile?: File | null;
+  }) => Promise<void>;
+  onChangeEmail: (nextEmail: string, currentPassword: string) => Promise<void>;
   onLogout: () => void | Promise<void>;
 }
 
@@ -32,10 +46,86 @@ const ProfileView: React.FC<ProfileViewProps> = ({
   totalClasses,
   rankingPosition,
   academyName,
+  attendanceRate,
+  attendances,
+  classNameById,
+  graduations,
+  onSaveProfile,
+  onChangeEmail,
   onLogout,
 }) => {
+  const [firstName, setFirstName] = useState(profile.firstName);
+  const [lastName, setLastName] = useState(profile.lastName);
+  const [cpf, setCpf] = useState(profile.cpf);
+  const [phone, setPhone] = useState(profile.phone || '');
+  const [birthDate, setBirthDate] = useState(profile.birthDate || '');
+  const [isCompetitor, setIsCompetitor] = useState(profile.isCompetitor ?? false);
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [feedback, setFeedback] = useState('');
+  const [error, setError] = useState('');
+  const [newEmail, setNewEmail] = useState(user.email);
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [emailBusy, setEmailBusy] = useState(false);
+  const [emailFeedback, setEmailFeedback] = useState('');
+  const [emailError, setEmailError] = useState('');
+
+  const recentAttendances = useMemo(() => attendances.slice(0, 6), [attendances]);
   const nextStripeRemaining = Math.max(user.classesToNextStripe - user.currentStripeProgress, 0);
   const nextBeltRemaining = Math.max(user.totalClassesToNextBelt - user.currentBeltProgress, 0);
+  const canEditProfile = profile.role === 'student';
+
+  useEffect(() => {
+    setFirstName(profile.firstName);
+    setLastName(profile.lastName);
+    setCpf(profile.cpf);
+    setPhone(profile.phone || '');
+    setBirthDate(profile.birthDate || '');
+    setIsCompetitor(profile.isCompetitor ?? false);
+    setNewEmail(profile.email);
+  }, [profile.birthDate, profile.cpf, profile.email, profile.firstName, profile.isCompetitor, profile.lastName, profile.phone]);
+
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setBusy(true);
+    setFeedback('');
+    setError('');
+
+    try {
+      await onSaveProfile({
+        firstName,
+        lastName,
+        cpf,
+        phone,
+        birthDate,
+        isCompetitor,
+        photoFile,
+      });
+      setPhotoFile(null);
+      setFeedback('Perfil atualizado com sucesso.');
+    } catch (submitError) {
+      setError(submitError instanceof Error ? submitError.message : 'Nao foi possivel salvar o perfil.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleEmailSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setEmailBusy(true);
+    setEmailFeedback('');
+    setEmailError('');
+
+    try {
+      await onChangeEmail(newEmail, currentPassword);
+      setCurrentPassword('');
+      setEmailFeedback('E-mail atualizado com sucesso.');
+    } catch (submitError) {
+      setEmailError(submitError instanceof Error ? submitError.message : 'Nao foi possivel atualizar o e-mail.');
+    } finally {
+      setEmailBusy(false);
+    }
+  }
 
   return (
     <div className="view-shell">
@@ -58,6 +148,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({
             <span className="app-badge app-badge--gold">Faixa {user.belt}</span>
             <span className="app-badge app-badge--muted">{user.stripes} graus</span>
             <span className="app-badge app-badge--muted">{user.type}</span>
+            {profile.isCompetitor ? <span className="app-badge app-badge--muted">Competidor</span> : null}
           </div>
         </div>
       </section>
@@ -69,14 +160,14 @@ const ProfileView: React.FC<ProfileViewProps> = ({
           <p className="app-stat-card__note">Presencas registradas</p>
         </article>
         <article className="app-panel app-panel-pad">
-          <p className="app-stat-card__label">Proxima listra</p>
-          <p className="app-stat-card__value">{nextStripeRemaining}</p>
-          <p className="app-stat-card__note">Aulas restantes</p>
+          <p className="app-stat-card__label">Frequencia</p>
+          <p className="app-stat-card__value">{attendanceRate}%</p>
+          <p className="app-stat-card__note">Percentual no mes atual</p>
         </article>
         <article className="app-panel app-panel-pad">
-          <p className="app-stat-card__label">Proxima graduacao</p>
-          <p className="app-stat-card__value">{nextBeltRemaining}</p>
-          <p className="app-stat-card__note">Aulas para o proximo ciclo</p>
+          <p className="app-stat-card__label">Proximo grau</p>
+          <p className="app-stat-card__value">{nextStripeRemaining}</p>
+          <p className="app-stat-card__note">Aulas restantes</p>
         </article>
         <article className="app-panel app-panel-pad">
           <p className="app-stat-card__label">Ranking</p>
@@ -97,32 +188,74 @@ const ProfileView: React.FC<ProfileViewProps> = ({
             </div>
           </div>
 
-          <div className="mt-6 app-list">
-            <div className="app-list-card">
-              <p className="text-[11px] uppercase tracking-[0.16em] text-[color:var(--text-soft)]">Funcao</p>
-              <p className="mt-1 text-sm font-bold">{roleLabel(profile.role)}</p>
-            </div>
-            <div className="app-list-card">
-              <p className="text-[11px] uppercase tracking-[0.16em] text-[color:var(--text-soft)]">Categoria</p>
-              <p className="mt-1 text-sm font-bold">{user.type}</p>
-            </div>
-            <div className="app-list-card">
-              <p className="text-[11px] uppercase tracking-[0.16em] text-[color:var(--text-soft)]">Genero</p>
-              <p className="mt-1 text-sm font-bold">Nao informado</p>
-            </div>
-            <div className="app-list-card">
-              <div className="flex items-center gap-2 text-sm font-bold">
-                <Mail size={16} className="text-[color:var(--gold-mid)]" />
-                {user.email}
+          {canEditProfile ? (
+            <form onSubmit={handleSubmit} className="mt-6 app-form-grid">
+              {feedback ? <div className="app-alert app-alert--success">{feedback}</div> : null}
+              {error ? <div className="app-alert app-alert--error">{error}</div> : null}
+
+              <label className="app-field">
+                <span className="app-field__label">Nome</span>
+                <input value={firstName} onChange={(event) => setFirstName(event.target.value)} className="app-input" required />
+              </label>
+
+              <label className="app-field">
+                <span className="app-field__label">Sobrenome</span>
+                <input value={lastName} onChange={(event) => setLastName(event.target.value)} className="app-input" required />
+              </label>
+
+              <label className="app-field">
+                <span className="app-field__label">CPF</span>
+                <input value={cpf} onChange={(event) => setCpf(event.target.value)} className="app-input" required />
+              </label>
+
+              <label className="app-field">
+                <span className="app-field__label">Telefone</span>
+                <input value={phone} onChange={(event) => setPhone(event.target.value)} className="app-input" />
+              </label>
+
+              <label className="app-field">
+                <span className="app-field__label">Nascimento</span>
+                <input type="date" value={birthDate} onChange={(event) => setBirthDate(event.target.value)} className="app-input" required />
+              </label>
+
+              <label className="app-field">
+                <span className="app-field__label">Competidor</span>
+                <select value={isCompetitor ? 'yes' : 'no'} onChange={(event) => setIsCompetitor(event.target.value === 'yes')} className="app-select">
+                  <option value="no">Nao</option>
+                  <option value="yes">Sim</option>
+                </select>
+              </label>
+
+              <label className="app-field md:col-span-2">
+                <span className="app-field__label">Foto</span>
+                <input type="file" accept="image/*" onChange={(event) => setPhotoFile(event.target.files?.[0] ?? null)} className="app-input" />
+              </label>
+
+              <button type="submit" disabled={busy} className="app-button app-button--gold app-button--block md:col-span-2">
+                <Save size={16} />
+                {busy ? 'Salvando...' : 'Salvar perfil'}
+              </button>
+            </form>
+          ) : (
+            <div className="mt-6 app-list">
+              <div className="app-list-card">
+                <p className="text-[11px] uppercase tracking-[0.16em] text-[color:var(--text-soft)]">Funcao</p>
+                <p className="mt-1 text-sm font-bold">{roleLabel(profile.role)}</p>
+              </div>
+              <div className="app-list-card">
+                <div className="flex items-center gap-2 text-sm font-bold">
+                  <Mail size={16} className="text-[color:var(--gold-mid)]" />
+                  {user.email}
+                </div>
+              </div>
+              <div className="app-list-card">
+                <div className="flex items-center gap-2 text-sm font-bold">
+                  <Phone size={16} className="text-[color:var(--gold-mid)]" />
+                  {profile.phone || 'Telefone nao informado'}
+                </div>
               </div>
             </div>
-            <div className="app-list-card">
-              <div className="flex items-center gap-2 text-sm font-bold">
-                <Phone size={16} className="text-[color:var(--gold-mid)]" />
-                {profile.phone || 'Telefone nao informado'}
-              </div>
-            </div>
-          </div>
+          )}
         </article>
 
         <article className="app-panel app-panel-pad">
@@ -131,8 +264,8 @@ const ProfileView: React.FC<ProfileViewProps> = ({
               <Sparkles size={18} />
             </div>
             <div>
-              <p className="app-section-label">Atalhos</p>
-              <h2 className="text-xl font-bold">Conta e configuracoes</h2>
+              <p className="app-section-label">Conta e acesso</p>
+              <h2 className="text-xl font-bold">Resumo da conta</h2>
             </div>
           </div>
 
@@ -151,13 +284,93 @@ const ProfileView: React.FC<ProfileViewProps> = ({
               <p className="mt-1 text-xs text-[color:var(--text-soft)]">{academyName || 'Sem academia vinculada'}</p>
             </div>
             <div className="app-list-card">
-              <p className="text-sm font-bold">Trocar academia</p>
-              <p className="mt-1 text-xs text-[color:var(--text-soft)]">Disponivel conforme as permissoes da sua conta.</p>
+              <p className="text-sm font-bold">E-mail da conta</p>
+              <p className="mt-1 text-xs text-[color:var(--text-soft)]">{user.email}</p>
             </div>
             <div className="app-list-card">
-              <p className="text-sm font-bold">Seguranca</p>
-              <p className="mt-1 text-xs text-[color:var(--text-soft)]">Use esta area para futuras acoes de senha e sessao.</p>
+              <p className="text-sm font-bold">Faixa e grau</p>
+              <p className="mt-1 text-xs text-[color:var(--text-soft)]">Alteracao feita apenas por professor ou superadmin.</p>
             </div>
+          </div>
+
+          {canEditProfile ? (
+            <form onSubmit={handleEmailSubmit} className="mt-6 app-form-grid">
+              {emailFeedback ? <div className="app-alert app-alert--success md:col-span-2">{emailFeedback}</div> : null}
+              {emailError ? <div className="app-alert app-alert--error md:col-span-2">{emailError}</div> : null}
+
+              <label className="app-field">
+                <span className="app-field__label">Novo e-mail</span>
+                <input type="email" value={newEmail} onChange={(event) => setNewEmail(event.target.value)} className="app-input" required />
+              </label>
+
+              <label className="app-field">
+                <span className="app-field__label">Senha atual</span>
+                <input type="password" value={currentPassword} onChange={(event) => setCurrentPassword(event.target.value)} className="app-input" required />
+              </label>
+
+              <button type="submit" disabled={emailBusy} className="app-button app-button--ghost app-button--block md:col-span-2">
+                <Mail size={16} />
+                {emailBusy ? 'Atualizando e-mail...' : 'Atualizar e-mail'}
+              </button>
+            </form>
+          ) : null}
+        </article>
+      </section>
+
+      <section className="app-grid-2">
+        <article className="app-panel app-panel-pad">
+          <div className="flex items-center gap-3">
+            <div className="app-icon-shell">
+              <Upload size={18} />
+            </div>
+            <div>
+              <p className="app-section-label">Presencas</p>
+              <h2 className="text-xl font-bold">Historico recente</h2>
+            </div>
+          </div>
+
+          <div className="mt-6 app-list">
+            {recentAttendances.map((attendance) => (
+              <div key={attendance.id} className="app-list-card">
+                <p className="text-sm font-bold">{classNameById.get(attendance.classId) || 'Aula da academia'}</p>
+                <p className="mt-1 text-xs text-[color:var(--text-soft)]">
+                  {attendance.checkedInAt?.toDate().toLocaleString('pt-BR')} • metodo {attendance.checkInMethod}
+                </p>
+              </div>
+            ))}
+
+            {recentAttendances.length === 0 ? (
+              <div className="app-empty">Ainda nao ha presencas registradas neste perfil.</div>
+            ) : null}
+          </div>
+        </article>
+
+        <article className="app-panel app-panel-pad">
+          <div className="flex items-center gap-3">
+            <div className="app-icon-shell">
+              <Sparkles size={18} />
+            </div>
+            <div>
+              <p className="app-section-label">Graduacoes</p>
+              <h2 className="text-xl font-bold">Historico resumido</h2>
+            </div>
+          </div>
+
+          <div className="mt-6 app-list">
+            {graduations.slice(0, 5).map((graduation) => (
+              <div key={graduation.id} className="app-list-card">
+                <p className="text-sm font-bold">
+                  {graduation.previousBelt} {graduation.previousStripes} → {graduation.newBelt} {graduation.newStripes}
+                </p>
+                <p className="mt-1 text-xs text-[color:var(--text-soft)]">
+                  {graduation.promotedAt?.toDate().toLocaleDateString('pt-BR')} • {graduation.reason.replaceAll('_', ' ')}
+                </p>
+              </div>
+            ))}
+
+            {graduations.length === 0 ? (
+              <div className="app-empty">Ainda nao ha graduacoes registradas para este perfil.</div>
+            ) : null}
           </div>
         </article>
       </section>

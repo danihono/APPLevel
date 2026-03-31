@@ -12,10 +12,12 @@ import { firebaseDb } from './client';
 import type {
   AcademyRecord,
   AttendanceRecord,
+  AttendanceRequestRecord,
   ClassRecord,
   CompetitionRecord,
   FightRecord,
   GraduationRecord,
+  JoinRequestRecord,
   NotificationRecord,
   RankingRecord,
   StoreItemRecord,
@@ -166,6 +168,33 @@ export function subscribeToUserAttendances(
   );
 }
 
+export function subscribeToAttendanceRequests(
+  params: {
+    academyId?: string;
+    userId?: string;
+  },
+  listener: (records: Array<FirestoreEntity<AttendanceRequestRecord>>) => void,
+  onError?: (error: Error) => void,
+) {
+  const baseCollection = collection(firebaseDb, 'attendance_requests');
+  const attendanceRequestQuery = params.userId
+    ? query(baseCollection, where('userId', '==', params.userId))
+    : params.academyId
+      ? query(baseCollection, where('academyId', '==', params.academyId))
+      : baseCollection;
+
+  return onSnapshot(
+    attendanceRequestQuery,
+    (snapshot) => {
+      const records = snapshot.docs
+        .map((item) => mapDoc<AttendanceRequestRecord>(item))
+        .sort((left, right) => toMillis(right.updatedAt ?? right.requestedAt) - toMillis(left.updatedAt ?? left.requestedAt));
+      listener(records);
+    },
+    onError,
+  );
+}
+
 export function subscribeToRankings(
   academyId: string,
   listener: (records: Array<FirestoreEntity<RankingRecord>>) => void,
@@ -229,6 +258,28 @@ export function subscribeToUserGraduations(
       const records = snapshot.docs
         .map((item) => mapDoc<GraduationRecord>(item))
         .sort((left, right) => toMillis(right.promotedAt) - toMillis(left.promotedAt));
+      listener(records);
+    },
+    onError,
+  );
+}
+
+export function subscribeToJoinRequests(
+  academyId: string | undefined,
+  listener: (records: Array<FirestoreEntity<JoinRequestRecord>>) => void,
+  onError?: (error: Error) => void,
+) {
+  const baseCollection = collection(firebaseDb, 'join_requests');
+  const joinRequestQuery = academyId
+    ? query(baseCollection, where('academyId', '==', academyId))
+    : baseCollection;
+
+  return onSnapshot(
+    joinRequestQuery,
+    (snapshot) => {
+      const records = snapshot.docs
+        .map((item) => mapDoc<JoinRequestRecord>(item))
+        .sort((left, right) => toMillis(right.updatedAt ?? right.createdAt) - toMillis(left.updatedAt ?? left.createdAt));
       listener(records);
     },
     onError,

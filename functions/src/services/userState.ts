@@ -3,7 +3,6 @@ import {
   AcademyDoc,
   COLLECTIONS,
   FightDoc,
-  GraduationDoc,
   MissionDoc,
   MissionMetric,
   RankingDoc,
@@ -14,7 +13,7 @@ import {
 } from '../domain/models';
 import { db } from '../lib/firebase';
 import { findSingleByFields, getUserDoc } from '../lib/context';
-import { resolveProgression } from './progression';
+import { resolveProgressionTargets } from './progression';
 
 interface EngagementMetrics {
   attendanceCount: number;
@@ -322,20 +321,13 @@ export async function syncUserDerivedState(
   const user = await getUserDoc(userId);
   const metrics = await computeEngagementMetrics(userId, academyId);
   const rules = await loadAcademyRules(academyId);
-  const progression = resolveProgression(metrics.attendanceCount, rules);
-  const didProgressChange = user.belt !== progression.belt || user.stripes !== progression.stripes;
-  const adjustedMetrics: EngagementMetrics = {
-    ...metrics,
-    beltPromotions: didProgressChange ? metrics.beltPromotions + 1 : metrics.beltPromotions,
-  };
-  const missionPoints = await syncUserMissions(userId, user.role, academyId, adjustedMetrics);
-  const ranking = calculateRanking(adjustedMetrics, missionPoints);
+  const progression = resolveProgressionTargets(user.belt, user.stripes, rules);
+  const missionPoints = await syncUserMissions(userId, user.role, academyId, metrics);
+  const ranking = calculateRanking(metrics, missionPoints);
   const now = Timestamp.now();
   const batch = db.batch();
 
   batch.update(db.collection(COLLECTIONS.users).doc(userId), {
-    belt: progression.belt,
-    stripes: progression.stripes,
     attendanceCount: metrics.attendanceCount,
     qrCheckinsCount: metrics.qrCheckinsCount,
     currentStreak: metrics.currentStreak,
@@ -343,30 +335,12 @@ export async function syncUserDerivedState(
     competitionPoints: metrics.competitionPoints,
     missionPoints,
     rankingPoints: ranking.score,
-    beltPromotions: adjustedMetrics.beltPromotions,
+    beltPromotions: metrics.beltPromotions,
     nextStripeAttendanceTarget: progression.nextStripeAttendanceTarget,
     nextBeltAttendanceTarget: progression.nextBeltAttendanceTarget,
     lastAttendanceAt: metrics.lastAttendanceAt,
     updatedAt: now,
   });
-
-  if (didProgressChange) {
-    const graduationRef = db.collection(COLLECTIONS.graduations).doc();
-    const graduation: GraduationDoc = {
-      academyId,
-      userId,
-      previousBelt: user.belt,
-      previousStripes: user.stripes,
-      newBelt: progression.belt,
-      newStripes: progression.stripes,
-      attendanceCount: metrics.attendanceCount,
-      promotedAt: now,
-      ruleVersion: progression.ruleVersion,
-      reason: 'automatic_progression',
-    };
-
-    batch.set(graduationRef, graduation);
-  }
 
   await batch.commit();
   await upsertRanking(
@@ -374,8 +348,6 @@ export async function syncUserDerivedState(
     academyId,
     {
       ...user,
-      belt: progression.belt,
-      stripes: progression.stripes,
       missionPoints,
       rankingPoints: ranking.score,
     },
@@ -389,8 +361,8 @@ export async function syncUserDerivedState(
   return {
     academyId,
     attendanceCount: metrics.attendanceCount,
-    belt: progression.belt,
-    stripes: progression.stripes,
+    belt: user.belt,
+    stripes: user.stripes,
     missionPoints,
     rankingPoints: ranking.score,
     nextStripeAttendanceTarget: progression.nextStripeAttendanceTarget,

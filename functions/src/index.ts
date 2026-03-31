@@ -1,9 +1,16 @@
 import { setGlobalOptions } from 'firebase-functions/v2';
 import {
+  approveJoinRequest,
   assignUserToAcademy,
   createAcademy,
   createUserWithRole,
+  listSignupAcademies,
+  rejectJoinRequest,
   setUserRole,
+  syncOwnUserEmail,
+  submitStudentSignup,
+  updateOwnStudentProfile,
+  updateStudentBeltGrade,
   validateSessionAccess,
 } from './modules/auth';
 import {
@@ -13,9 +20,12 @@ import {
   upsertClassSchedule,
 } from './modules/classes';
 import {
+  approveAttendanceRequest,
   onAttendanceCreated,
   onAttendanceDeleted,
+  rejectAttendanceRequest,
   registerAttendance,
+  submitAttendanceRequest,
 } from './modules/attendance';
 import {
   evaluateUserProgression,
@@ -43,6 +53,8 @@ setGlobalOptions({
 });
 
 export {
+  approveJoinRequest,
+  approveAttendanceRequest,
   assignUserToAcademy,
   createAcademy,
   createUserWithRole,
@@ -50,19 +62,27 @@ export {
   evaluateUserProgression,
   finishClassSession,
   generateClassQrCode,
+  listSignupAcademies,
   markNotificationRead,
   onAttendanceCreated,
   onAttendanceDeleted,
   onFightWritten,
   recalculateAcademyRankings,
   recalculateUserRanking,
+  rejectAttendanceRequest,
+  rejectJoinRequest,
   rebuildUserDerivedState,
   registerAttendance,
   registerDeviceToken,
   sendSegmentedNotification,
   setUserRole,
+  syncOwnUserEmail,
   startClassSession,
+  submitAttendanceRequest,
+  submitStudentSignup,
   syncUserMissionProgress,
+  updateOwnStudentProfile,
+  updateStudentBeltGrade,
   upsertAcademyProgressionRules,
   upsertClassSchedule,
   upsertMission,

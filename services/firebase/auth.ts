@@ -1,4 +1,12 @@
-import { onAuthStateChanged, signInWithEmailAndPassword, signOut, type User } from 'firebase/auth';
+import {
+  EmailAuthProvider,
+  onAuthStateChanged,
+  reauthenticateWithCredential,
+  signInWithEmailAndPassword,
+  signOut,
+  type User,
+  updateEmail,
+} from 'firebase/auth';
 import { firebaseAuth } from './client';
 
 export function subscribeToAuthState(listener: (user: User | null) => void) {
@@ -11,4 +19,15 @@ export async function signInWithEmail(email: string, password: string) {
 
 export async function logout() {
   return signOut(firebaseAuth);
+}
+
+export async function updateSignedInEmail(currentPassword: string, nextEmail: string) {
+  const currentUser = firebaseAuth.currentUser;
+  if (!currentUser || !currentUser.email) {
+    throw new Error('Sua sessao expirou. Entre novamente.');
+  }
+
+  const credential = EmailAuthProvider.credential(currentUser.email, currentPassword);
+  await reauthenticateWithCredential(currentUser, credential);
+  await updateEmail(currentUser, nextEmail.trim());
 }

@@ -18,6 +18,7 @@ export interface User {
   id: string;
   name: string;
   email: string;
+  cpf?: string;
   role: UserRole;
   avatar?: string;
   belt: BeltColor;
@@ -29,6 +30,7 @@ export interface User {
   lastGraduation: string;
   branchId: string;
   type: 'Adulto' | 'Kids';
+  isCompetitor?: boolean;
   birthDate?: string;
   startDate?: string;
   lastStripeDate?: string;

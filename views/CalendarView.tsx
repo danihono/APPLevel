@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { CalendarDays, CheckCircle, ChevronLeft, ChevronRight, Play, QrCode, RefreshCw, ShieldCheck } from 'lucide-react';
 import ClassSessionCard from '../components/ClassSessionCard';
 import type { FirestoreEntity } from '../services/firebase/data';
-import type { ClassRecord } from '../services/firebase/models';
+import type { AttendanceRequestRecord, ClassRecord } from '../services/firebase/models';
 import { UserRole } from '../types';
 
 interface QrSessionPayload {
@@ -17,11 +17,13 @@ interface CalendarViewProps {
   userRole?: UserRole;
   currentUserId: string;
   classes: Array<FirestoreEntity<ClassRecord>>;
+  attendanceRequests?: Array<FirestoreEntity<AttendanceRequestRecord>>;
   onCreateQuickClass: () => Promise<void>;
   onStartClass: (classId: string) => Promise<QrSessionPayload>;
   onFinishClass: (classId: string) => Promise<void>;
   onRefreshQr: (classId: string) => Promise<QrSessionPayload>;
   onRegisterAttendance: (classId: string, qrToken?: string) => Promise<void>;
+  onSubmitAttendanceRequest: (classId: string) => Promise<void>;
 }
 
 function stripTime(date: Date) {
@@ -59,11 +61,13 @@ const CalendarView: React.FC<CalendarViewProps> = ({
   userRole,
   currentUserId,
   classes,
+  attendanceRequests = [],
   onCreateQuickClass,
   onStartClass,
   onFinishClass,
   onRefreshQr,
   onRegisterAttendance,
+  onSubmitAttendanceRequest,
 }) => {
   const isStaff =
     userRole === UserRole.PROFESSOR ||
@@ -214,6 +218,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
         {filteredClasses.map((lesson) => {
           const qrData = qrByClass[lesson.id];
           const busy = !!busyByClass[lesson.id];
+          const pendingAttendanceRequest = attendanceRequests.find((request) => request.classId === lesson.id && request.status === 'pending');
           const canManage =
             isStaff &&
             (userRole === UserRole.ADMIN ||
@@ -312,6 +317,15 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                       >
                         <ShieldCheck size={16} />
                         {busy ? 'Registrando...' : 'Registrar presenca'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void runClassAction(lesson.id, () => onSubmitAttendanceRequest(lesson.id))}
+                        disabled={lesson.status !== 'active' || busy || !!pendingAttendanceRequest}
+                        className="app-button app-button--ghost app-button--block"
+                      >
+                        <CheckCircle size={16} />
+                        {pendingAttendanceRequest ? 'Solicitacao pendente' : 'Solicitar presenca'}
                       </button>
                     </div>
                   )}

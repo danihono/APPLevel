@@ -3,7 +3,7 @@ import type { User as FirebaseUser } from 'firebase/auth';
 import Layout from './components/Layout';
 import CalendarView from './views/CalendarView';
 import CompetitionView from './views/CompetitionView';
-import GamificationView from './views/GamificationView';
+import GraduationView from './views/GraduationView';
 import HomeView from './views/HomeView';
 import LearningHubView from './views/LearningHubView';
 import LoginView from './views/LoginView';
@@ -11,22 +11,22 @@ import ManagementView from './views/ManagementView';
 import NotificationsView from './views/NotificationsView';
 import ProfileView from './views/ProfileView';
 import StaffDashboardView from './views/StaffDashboardView';
-import StoreView from './views/StoreView';
 import SuperadminDashboardView from './views/SuperadminDashboardView';
 import StudentsView from './views/StudentsView';
-import { logout, signInWithEmail, subscribeToAuthState } from './services/firebase/auth';
-import { formatDateLabel, toBranch, toProduct, toUiUser } from './services/firebase/adapters';
+import { logout, signInWithEmail, subscribeToAuthState, updateSignedInEmail } from './services/firebase/auth';
+import { formatDateLabel, toBranch, toUiUser } from './services/firebase/adapters';
 import {
   type FirestoreEntity,
-  subscribeToAcademy,
   subscribeToAcademies,
+  subscribeToAcademy,
   subscribeToAcademyClasses,
   subscribeToAcademyUsers,
   subscribeToAllUsers,
+  subscribeToAttendanceRequests,
   subscribeToCompetitions,
+  subscribeToJoinRequests,
   subscribeToNotifications,
   subscribeToRankings,
-  subscribeToStoreItems,
   subscribeToUserAttendances,
   subscribeToUserFights,
   subscribeToUserGraduations,
@@ -34,17 +34,19 @@ import {
   subscribeToUserProfile,
 } from './services/firebase/data';
 import { backendFunctions } from './services/firebase/functions';
-import { updateAcademySettings } from './services/firebase/mutations';
+import { updateAcademySettings, uploadUserPhoto } from './services/firebase/mutations';
 import type {
   AcademyRecord,
   AttendanceRecord,
+  AttendanceRequestRecord,
   ClassRecord,
   CompetitionRecord,
   FightRecord,
   GraduationRecord,
+  JoinRequestRecord,
+  NotificationChannel,
   NotificationRecord,
   RankingRecord,
-  StoreItemRecord,
   UserMissionRecord,
   UserRecord,
 } from './services/firebase/models';
@@ -61,23 +63,25 @@ function getErrorMessage(error: unknown): string {
     case 'auth/invalid-credential':
     case 'auth/wrong-password':
     case 'auth/user-not-found':
-      return 'E-mail ou senha inválidos.';
+      return 'E-mail ou senha invalidos.';
+    case 'auth/user-disabled':
+      return 'Seu cadastro ainda esta aguardando aprovacao do professor ou do superadmin da unidade.';
     case 'auth/invalid-email':
-      return 'Informe um e-mail válido.';
+      return 'Informe um e-mail valido.';
     case 'auth/too-many-requests':
       return 'Muitas tentativas de login. Aguarde alguns minutos e tente de novo.';
     case 'functions/permission-denied':
     case 'permission-denied':
-      return 'Sua sessão não tem permissão para acessar este recurso.';
+      return 'Sua sessao nao tem permissao para acessar este recurso.';
     case 'functions/unauthenticated':
     case 'unauthenticated':
-      return 'Sua sessão expirou. Entre novamente.';
+      return 'Sua sessao expirou. Entre novamente.';
     default:
       if (error instanceof Error && error.message) {
         return error.message;
       }
 
-      return 'Não foi possível concluir esta operação agora.';
+      return 'Nao foi possivel concluir esta operacao agora.';
   }
 }
 
@@ -145,14 +149,20 @@ function buildLoadingView(message: string) {
           </div>
           <h2 className="mt-6 text-2xl font-bold">Conectando ao APPLevel</h2>
           <p className="mt-3 app-note">{message}</p>
-          <div className="mt-6 inline-flex items-center gap-2 rounded-full border px-4 py-2 text-xs font-bold uppercase tracking-[0.24em]" style={{ borderColor: 'rgba(232, 175, 72, 0.2)', color: 'var(--gold-mid)' }}>
-            <span className="app-orb__dot" />
-            Session boot
-          </div>
         </section>
       </div>
     </div>
   );
+}
+
+function isSameMonth(value?: { toDate(): Date } | null) {
+  if (!value) {
+    return false;
+  }
+
+  const date = value.toDate();
+  const now = new Date();
+  return date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
 }
 
 const App: React.FC = () => {
@@ -170,12 +180,13 @@ const App: React.FC = () => {
   const [classes, setClasses] = useState<Array<FirestoreEntity<ClassRecord>>>([]);
   const [academyUsers, setAcademyUsers] = useState<Array<FirestoreEntity<UserRecord>>>([]);
   const [attendances, setAttendances] = useState<Array<FirestoreEntity<AttendanceRecord>>>([]);
+  const [attendanceRequests, setAttendanceRequests] = useState<Array<FirestoreEntity<AttendanceRequestRecord>>>([]);
+  const [joinRequests, setJoinRequests] = useState<Array<FirestoreEntity<JoinRequestRecord>>>([]);
   const [rankings, setRankings] = useState<Array<FirestoreEntity<RankingRecord>>>([]);
   const [missions, setMissions] = useState<Array<FirestoreEntity<UserMissionRecord>>>([]);
   const [graduations, setGraduations] = useState<Array<FirestoreEntity<GraduationRecord>>>([]);
   const [competitions, setCompetitions] = useState<Array<FirestoreEntity<CompetitionRecord>>>([]);
   const [fights, setFights] = useState<Array<FirestoreEntity<FightRecord>>>([]);
-  const [storeItems, setStoreItems] = useState<Array<FirestoreEntity<StoreItemRecord>>>([]);
   const [notifications, setNotifications] = useState<Array<FirestoreEntity<NotificationRecord>>>([]);
   const [profileLoading, setProfileLoading] = useState(false);
   const [academyLoading, setAcademyLoading] = useState(false);
@@ -243,12 +254,13 @@ const App: React.FC = () => {
       setClasses([]);
       setAcademyUsers([]);
       setAttendances([]);
+      setAttendanceRequests([]);
+      setJoinRequests([]);
       setRankings([]);
       setMissions([]);
       setGraduations([]);
       setCompetitions([]);
       setFights([]);
-      setStoreItems([]);
       setNotifications([]);
       setSessionError('');
       return;
@@ -291,18 +303,14 @@ const App: React.FC = () => {
 
     let cancelled = false;
 
-    const validateSession = async () => {
-      try {
-        await backendFunctions.validateSessionAccess();
-        await backendFunctions.rebuildUserDerivedState({});
-      } catch (error) {
+    void backendFunctions
+      .validateSessionAccess()
+      .then(() => backendFunctions.rebuildUserDerivedState({}))
+      .catch((error) => {
         if (!cancelled) {
           setSessionError(getErrorMessage(error));
         }
-      }
-    };
-
-    void validateSession();
+      });
 
     return () => {
       cancelled = true;
@@ -332,15 +340,7 @@ const App: React.FC = () => {
   }, [profile]);
 
   useEffect(() => {
-    if (!profile || profile.role !== 'superadmin') {
-      return;
-    }
-
-    if (allAcademies.length === 0) {
-      return;
-    }
-
-    if (!selectedAcademyId) {
+    if (!profile || profile.role !== 'superadmin' || !selectedAcademyId) {
       return;
     }
 
@@ -374,6 +374,38 @@ const App: React.FC = () => {
 
   useEffect(() => {
     if (!profile) {
+      setJoinRequests([]);
+      setAttendanceRequests([]);
+      return;
+    }
+
+    if (profile.role === 'student') {
+      const unsubscribe = subscribeToAttendanceRequests(
+        { userId: profile.id },
+        setAttendanceRequests,
+        (error) => setSessionError(getErrorMessage(error)),
+      );
+
+      setJoinRequests([]);
+      return unsubscribe;
+    }
+
+    const scopedAcademyId = profile.role === 'superadmin'
+      ? (selectedAcademyId || undefined)
+      : profile.academyId;
+
+    const unsubscribers = [
+      subscribeToJoinRequests(scopedAcademyId, setJoinRequests, (error) => setSessionError(getErrorMessage(error))),
+      subscribeToAttendanceRequests({ academyId: scopedAcademyId }, setAttendanceRequests, (error) => setSessionError(getErrorMessage(error))),
+    ];
+
+    return () => {
+      unsubscribers.forEach((unsubscribe) => unsubscribe());
+    };
+  }, [profile, selectedAcademyId]);
+
+  useEffect(() => {
+    if (!profile) {
       return;
     }
 
@@ -402,7 +434,6 @@ const App: React.FC = () => {
       subscribeToUserGraduations(profile.academyId, profile.id, setGraduations, (error) => setSessionError(getErrorMessage(error))),
       subscribeToCompetitions(scopedAcademyId, setCompetitions, (error) => setSessionError(getErrorMessage(error))),
       subscribeToUserFights(profile.academyId, profile.id, setFights, (error) => setSessionError(getErrorMessage(error))),
-      subscribeToStoreItems(scopedAcademyId, setStoreItems, (error) => setSessionError(getErrorMessage(error))),
     ];
 
     if (profile.role !== 'student') {
@@ -435,17 +466,9 @@ const App: React.FC = () => {
     }
   }
 
-  function handleEnterAcademy(academyId: string) {
-    setSelectedAcademyId(academyId);
-  }
-
-  function handleClearFocusedAcademy() {
-    setSelectedAcademyId('');
-  }
-
   async function handleCreateQuickClass() {
     if (!profile) {
-      throw new Error('Seu perfil ainda não foi carregado.');
+      throw new Error('Seu perfil ainda nao foi carregado.');
     }
 
     const now = new Date();
@@ -503,6 +526,46 @@ const App: React.FC = () => {
     }
   }
 
+  async function handleSubmitAttendanceRequest(classId: string) {
+    try {
+      await backendFunctions.submitAttendanceRequest({ classId });
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
+  }
+
+  async function handleApproveAttendanceRequest(requestId: string) {
+    try {
+      await backendFunctions.approveAttendanceRequest({ requestId });
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
+  }
+
+  async function handleRejectAttendanceRequest(requestId: string) {
+    try {
+      await backendFunctions.rejectAttendanceRequest({ requestId });
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
+  }
+
+  async function handleApproveJoinRequest(requestId: string) {
+    try {
+      await backendFunctions.approveJoinRequest({ requestId });
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
+  }
+
+  async function handleRejectJoinRequest(requestId: string) {
+    try {
+      await backendFunctions.rejectJoinRequest({ requestId });
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
+  }
+
   async function handleUpdateAcademy(payload: {
     academyId: string;
     name: string;
@@ -536,9 +599,11 @@ const App: React.FC = () => {
     lastName: string;
     email: string;
     password: string;
-    role: 'student' | 'professor' | 'admin' | 'superadmin';
+    role: 'professor' | 'admin' | 'superadmin';
     academyId?: string;
+    cpf?: string;
     phone?: string;
+    birthDate?: string;
     belt?: string;
     grade?: number;
     stripes?: number;
@@ -566,10 +631,19 @@ const App: React.FC = () => {
     }
   }
 
+  async function handleUpdateStudentBeltGrade(payload: { userId: string; belt: string; grade: number; stripes?: number }) {
+    try {
+      await backendFunctions.updateStudentBeltGrade(payload);
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
+  }
+
   async function handleSendNotification(payload: {
     title: string;
     body: string;
     academyId?: string;
+    channel?: NotificationChannel;
     targetRole?: 'student' | 'professor' | 'admin' | 'superadmin';
     targetBelt?: string;
   }) {
@@ -588,8 +662,50 @@ const App: React.FC = () => {
     }
   }
 
+  async function handleSaveOwnProfile(payload: {
+    firstName?: string;
+    lastName?: string;
+    cpf?: string;
+    phone?: string;
+    birthDate?: string;
+    isCompetitor?: boolean;
+    photoFile?: File | null;
+  }) {
+    if (!authUser) {
+      throw new Error('Sessao invalida.');
+    }
+
+    let photoPath: string | undefined;
+    if (payload.photoFile) {
+      photoPath = await uploadUserPhoto(authUser.uid, payload.photoFile);
+    }
+
+    try {
+      await backendFunctions.updateOwnStudentProfile({
+        firstName: payload.firstName,
+        lastName: payload.lastName,
+        cpf: payload.cpf,
+        phone: payload.phone,
+        birthDate: payload.birthDate,
+        isCompetitor: payload.isCompetitor,
+        photoPath,
+      });
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
+  }
+
+  async function handleChangeOwnEmail(nextEmail: string, currentPassword: string) {
+    try {
+      await updateSignedInEmail(currentPassword, nextEmail);
+      await backendFunctions.syncOwnUserEmail({ email: nextEmail });
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
+  }
+
   if (!authReady) {
-    return buildLoadingView('Validando a sua sessão com o Firebase.');
+    return buildLoadingView('Validando a sua sessao com o Firebase.');
   }
 
   if (!authUser) {
@@ -597,7 +713,7 @@ const App: React.FC = () => {
   }
 
   if (profileLoading || academyLoading || !profile || !academy) {
-    return buildLoadingView('Carregando perfil, academia e permissões.');
+    return buildLoadingView('Carregando perfil, academia e permissoes.');
   }
 
   const currentUser = toUiUser({
@@ -612,16 +728,7 @@ const App: React.FC = () => {
     currentUser.role === UserRole.ADMIN ||
     currentUser.role === UserRole.SUPERADMIN;
   const branch = toBranch(academy);
-  const attendanceThisMonth = attendances.filter((attendance) => {
-    if (!attendance.checkedInAt) {
-      return false;
-    }
-
-    const checkedInDate = attendance.checkedInAt.toDate();
-    const now = new Date();
-
-    return checkedInDate.getMonth() === now.getMonth() && checkedInDate.getFullYear() === now.getFullYear();
-  });
+  const attendanceThisMonth = attendances.filter((attendance) => isSameMonth(attendance.checkedInAt));
   const attendanceDays = [...new Set(attendanceThisMonth.map((attendance) => attendance.checkedInAt?.toDate().getDate()).filter(Boolean))] as number[];
   const rankingEntry = isSuperAdmin && academy.id !== profile.academyId
     ? null
@@ -629,7 +736,18 @@ const App: React.FC = () => {
   const students = academyUsers
     .filter((user) => user.role === 'student')
     .map((user) => toUiUser({ id: user.id, user, graduations: [], fights: [] }));
-  const products = storeItems.filter((item) => item.status === 'active').map(toProduct);
+  const classNameById = new Map(classes.map((lesson) => [lesson.id, lesson.title]));
+  const finishedClassesThisMonth = classes.filter((lesson) => lesson.status === 'finished' && isSameMonth(lesson.scheduledStart));
+  const attendedFinishedClassIds = new Set(
+    attendanceThisMonth
+      .map((attendance) => attendance.classId)
+      .filter((classId) => finishedClassesThisMonth.some((lesson) => lesson.id === classId)),
+  );
+  const attendanceRate = finishedClassesThisMonth.length === 0
+    ? 0
+    : Math.round((attendedFinishedClassIds.size / finishedClassesThisMonth.length) * 100);
+  const studentAttendanceRequests = attendanceRequests.filter((entry) => entry.userId === profile.id);
+  const canActionRequests = currentUser.role === UserRole.PROFESSOR || currentUser.role === UserRole.SUPERADMIN;
 
   const renderContent = () => {
     switch (activeTab) {
@@ -645,8 +763,8 @@ const App: React.FC = () => {
               rankings={rankings}
               competitions={competitions}
               selectedAcademyId={selectedAcademyId}
-              onEnterAcademy={handleEnterAcademy}
-              onClearFocus={handleClearFocusedAcademy}
+              onEnterAcademy={setSelectedAcademyId}
+              onClearFocus={() => setSelectedAcademyId('')}
             />
           )
           : isStaff ? (
@@ -671,22 +789,24 @@ const App: React.FC = () => {
             userRole={currentUser.role}
             currentUserId={currentUser.id}
             classes={classes}
+            attendanceRequests={studentAttendanceRequests}
             onCreateQuickClass={handleCreateQuickClass}
             onStartClass={handleStartClass}
             onFinishClass={handleFinishClass}
             onRefreshQr={handleRefreshQr}
             onRegisterAttendance={handleRegisterAttendance}
+            onSubmitAttendanceRequest={handleSubmitAttendanceRequest}
           />
         );
       case 'competition':
         return <CompetitionView competitions={competitions} fights={fights} />;
-      case 'gamification':
+      case 'graduation':
         return (
-          <GamificationView
-            missions={missions}
-            rankings={rankings}
-            currentUserId={currentUser.id}
-            currentPoints={profile.missionPoints}
+          <GraduationView
+            user={currentUser}
+            profile={profile}
+            academy={academy}
+            graduations={graduations}
           />
         );
       case 'students':
@@ -708,6 +828,7 @@ const App: React.FC = () => {
             onCreateAcademy={handleCreateAcademy}
             onCreateUser={handleCreateUser}
             onSaveProgressionRules={handleSaveProgressionRules}
+            onUpdateStudentBeltGrade={handleUpdateStudentBeltGrade}
           />
         );
       case 'notifications':
@@ -715,14 +836,22 @@ const App: React.FC = () => {
           <NotificationsView
             academy={academy}
             userRole={currentUser.role}
+            currentUserId={currentUser.id}
             academyUsers={academyUsers}
             classes={classes}
             notifications={notifications}
+            joinRequests={joinRequests}
+            attendanceRequests={attendanceRequests}
             academies={allAcademies}
             selectedAcademyId={selectedAcademyId}
+            canActionRequests={canActionRequests}
             onSelectAcademy={setSelectedAcademyId}
             onSendNotification={handleSendNotification}
             onMarkRead={handleMarkNotificationRead}
+            onApproveJoinRequest={handleApproveJoinRequest}
+            onRejectJoinRequest={handleRejectJoinRequest}
+            onApproveAttendanceRequest={handleApproveAttendanceRequest}
+            onRejectAttendanceRequest={handleRejectAttendanceRequest}
           />
         );
       case 'learning':
@@ -733,8 +862,6 @@ const App: React.FC = () => {
             userRole={currentUser.role}
           />
         );
-      case 'store':
-        return <StoreView products={products} branch={branch} />;
       case 'profile':
         return (
           <ProfileView
@@ -743,41 +870,24 @@ const App: React.FC = () => {
             totalClasses={profile.attendanceCount}
             rankingPosition={rankingEntry?.position ?? null}
             academyName={academy.name}
+            attendanceRate={attendanceRate}
+            attendances={attendances}
+            classNameById={classNameById}
+            graduations={graduations}
+            onSaveProfile={handleSaveOwnProfile}
+            onChangeEmail={handleChangeOwnEmail}
             onLogout={handleLogout}
           />
         );
       default:
-        return isSuperAdmin
-          ? (
-            <SuperadminDashboardView
-              academies={allAcademies}
-              allUsers={allUsers}
-              academy={academy}
-              academyUsers={academyUsers}
-              classes={classes}
-              rankings={rankings}
-              competitions={competitions}
-              selectedAcademyId={selectedAcademyId}
-              onEnterAcademy={handleEnterAcademy}
-              onClearFocus={handleClearFocusedAcademy}
-            />
-          )
-          : isStaff ? (
-            <StaffDashboardView
-              user={currentUser}
-              academy={academy}
-              academyUsers={academyUsers}
-              classes={classes}
-              notifications={notifications}
-            />
-          ) : (
-            <HomeView
-              user={currentUser}
-              branch={branch}
-              monthlyAttendanceCount={attendanceThisMonth.length}
-              attendanceDays={attendanceDays}
-            />
-          );
+        return (
+          <HomeView
+            user={currentUser}
+            branch={branch}
+            monthlyAttendanceCount={attendanceThisMonth.length}
+            attendanceDays={attendanceDays}
+          />
+        );
     }
   };
 
@@ -785,9 +895,7 @@ const App: React.FC = () => {
     <>
       {sessionError ? (
         <div className="fixed top-24 left-4 right-4 z-[70] mx-auto max-w-lg">
-          <div className="app-toast text-sm">
-            {sessionError}
-          </div>
+          <div className="app-toast text-sm">{sessionError}</div>
         </div>
       ) : null}
 

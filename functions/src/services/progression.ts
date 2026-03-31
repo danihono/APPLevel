@@ -42,16 +42,24 @@ function getCurrentMilestone(totalAttendances: number, milestones: ProgressionMi
   return current;
 }
 
-export function resolveProgression(totalAttendances: number, rules?: Partial<ProgressionRules> | null): ProgressionSnapshot {
+function getMilestoneByBelt(belt: string, milestones: ProgressionMilestone[]): ProgressionMilestone {
+  const normalizedBelt = belt.trim().toLowerCase();
+  return milestones.find((item) => item.belt === normalizedBelt) ?? milestones[0];
+}
+
+export function resolveProgressionTargets(
+  currentBelt: string,
+  currentStripes: number,
+  rules?: Partial<ProgressionRules> | null,
+): ProgressionSnapshot {
   const normalizedRules = normalizeProgressionRules(rules);
   const milestones = normalizedRules.milestones;
-  const currentMilestone = getCurrentMilestone(totalAttendances, milestones);
+  const currentMilestone = getMilestoneByBelt(currentBelt, milestones);
   const currentIndex = milestones.findIndex((item) => item.belt === currentMilestone.belt);
   const nextMilestone = milestones[currentIndex + 1];
-  const withinCurrentBelt = Math.max(0, totalAttendances - currentMilestone.minAttendances);
   const stripes = Math.min(
     currentMilestone.maxStripes,
-    Math.floor(withinCurrentBelt / currentMilestone.stripeEvery),
+    Math.max(0, Math.floor(currentStripes)),
   );
 
   const nextStripeAttendanceTarget =
@@ -68,4 +76,17 @@ export function resolveProgression(totalAttendances: number, rules?: Partial<Pro
     nextBeltAttendanceTarget,
     ruleVersion: normalizedRules.version,
   };
+}
+
+export function resolveProgression(totalAttendances: number, rules?: Partial<ProgressionRules> | null): ProgressionSnapshot {
+  const normalizedRules = normalizeProgressionRules(rules);
+  const milestones = normalizedRules.milestones;
+  const currentMilestone = getCurrentMilestone(totalAttendances, milestones);
+  const withinCurrentBelt = Math.max(0, totalAttendances - currentMilestone.minAttendances);
+  const automaticStripes = Math.min(
+    currentMilestone.maxStripes,
+    Math.floor(withinCurrentBelt / currentMilestone.stripeEvery),
+  );
+
+  return resolveProgressionTargets(currentMilestone.belt, automaticStripes, normalizedRules);
 }

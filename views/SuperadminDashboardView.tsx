@@ -33,6 +33,7 @@ interface SuperadminDashboardViewProps {
 }
 
 type SortMode = 'attention' | 'students' | 'attendance';
+type StatusFilter = 'all' | 'active' | 'inactive' | 'suspended';
 
 interface AcademyRow {
   id: string;
@@ -191,7 +192,7 @@ const SuperadminDashboardView: React.FC<SuperadminDashboardViewProps> = ({
   onClearFocus,
 }) => {
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive' | 'suspended'>('all');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [sortMode, setSortMode] = useState<SortMode>('attention');
 
   const usersByAcademyId = useMemo(() => {
@@ -387,6 +388,46 @@ const SuperadminDashboardView: React.FC<SuperadminDashboardViewProps> = ({
   const focusTopRankings = [...rankings]
     .sort((left, right) => left.position - right.position || right.score - left.score)
     .slice(0, 3);
+  const activeStudentBase = filteredActiveUsers.filter((user) => user.role === 'student').length;
+  const overviewKpis = [
+    {
+      label: 'Academias',
+      value: formatNumber(totalAcademies),
+      note: `${formatNumber(activeAcademies)} ativas`,
+    },
+    {
+      label: 'Alunos ativos',
+      value: formatNumber(globalStudents),
+      note: `${formatNumber(globalUsers)} usuarios`,
+    },
+    {
+      label: 'Liderancas',
+      value: formatNumber(globalLeaders),
+      note: `${formatNumber(globalMasterBlack)} master black`,
+    },
+    {
+      label: 'Presenca media',
+      value: formatNumber(averageAttendance),
+      note: `${formatNumber(academiesInAttention)} em atencao`,
+    },
+  ];
+  const focusStats = focusAcademyRow
+    ? [
+      { label: 'Alunos ativos', value: formatNumber(focusActiveStudents) },
+      { label: 'Liderancas', value: formatNumber(focusLeaders) },
+      { label: 'Aulas ao vivo', value: formatNumber(focusActiveClasses) },
+      { label: 'Competicoes abertas', value: formatNumber(focusOpenCompetitions) },
+    ]
+    : [];
+  const focusOperationalRows = focusAcademyRow
+    ? [
+      { label: 'Presenca media', value: formatNumber(focusAcademyRow.averageAttendance) },
+      { label: 'Ranking acumulado', value: formatNumber(focusAcademyRow.totalRankingPoints) },
+      { label: 'Aulas agendadas', value: formatNumber(focusScheduledClasses) },
+      { label: 'Competicoes concluidas', value: formatNumber(focusFinishedCompetitions) },
+      { label: 'Ultima atividade', value: focusAcademyRow.lastActivityLabel },
+    ]
+    : [];
 
   const totalRowsForRing = Math.max(totalAcademies, 1);
   const activeDegrees = (activeAcademies / totalRowsForRing) * 360;
@@ -395,92 +436,73 @@ const SuperadminDashboardView: React.FC<SuperadminDashboardViewProps> = ({
 
   return (
     <div className="view-shell superadmin-dashboard">
-      <section className="app-panel app-panel--hero app-panel-pad superadmin-hero">
-        <div className="superadmin-hero__copy">
-          <p className="app-section-label">Central do superadmin</p>
-          <h1 className="app-section-title">Rede das academias sob controle.</h1>
-          <p className="app-section-copy">
-            Esta visao foi reorganizada para leitura executiva: crescimento, risco operacional, lideranca
-            e a academia em foco em um unico painel.
-          </p>
-        </div>
+      <section className="superadmin-hero">
+        <div className={`superadmin-focus-inline ${focusAcademyRow ? 'is-focused' : 'is-network'}`}>
+          <div className="superadmin-focus-inline__copy">
+            <p className="app-section-label">{focusAcademyRow ? 'Academia em foco' : 'Modo de leitura'}</p>
+            <div className="superadmin-focus-inline__title">
+              <h2 className="text-xl font-bold">{focusAcademyRow ? focusAcademyRow.name : 'Rede inteira'}</h2>
+              <span className={focusAcademyRow ? getStatusBadgeClass(focusAcademyRow.status) : 'app-badge app-badge--gold'}>
+                {focusAcademyRow ? getStatusLabel(focusAcademyRow.status) : 'Consolidado'}
+              </span>
+            </div>
+          </div>
 
-        <div className="superadmin-focus-banner">
-          {focusAcademyRow ? (
-            <>
-              <div className="superadmin-focus-banner__header">
-                <div>
-                  <p className="app-section-label">Academia em foco</p>
-                  <h2 className="text-2xl font-bold">{focusAcademyRow.name}</h2>
-                </div>
-                <span className={getStatusBadgeClass(focusAcademyRow.status)}>
-                  {getStatusLabel(focusAcademyRow.status)}
-                </span>
-              </div>
-
-              <div className="superadmin-chip-row">
+          <div className="superadmin-focus-inline__meta">
+            {focusAcademyRow ? (
+              <>
                 <span className="app-badge app-badge--muted">{focusAcademyRow.timezone}</span>
                 <span className="app-badge app-badge--gold">{focusAcademyRow.lastActivityLabel}</span>
-              </div>
-
-              <p className="superadmin-focus-banner__note">
-                Alunos e gestao passam a usar esta academia como contexto principal. Use a central sem foco para ler a rede inteira.
-              </p>
-
-              <button type="button" onClick={onClearFocus} className="app-button app-button--ghost app-button--small mt-4">
-                Ver rede inteira
-              </button>
-            </>
-          ) : (
-            <>
-              <div className="superadmin-focus-banner__header">
-                <div>
-                  <p className="app-section-label">Modo de leitura</p>
-                  <h2 className="text-2xl font-bold">Nenhuma academia em foco</h2>
-                </div>
-                <span className="app-badge app-badge--gold">Rede inteira</span>
-              </div>
-
-              <p className="superadmin-focus-banner__note">
-                Este e o padrao da central: todas as estatisticas aparecem consolidadas. Escolha uma academia so quando quiser aprofundar a operacao.
-              </p>
-            </>
-          )}
+                <span className="app-badge app-badge--muted">{formatNumber(focusActiveStudents)} alunos ativos</span>
+                {focusAcademyRow.invitedUsers > 0 ? (
+                  <span className="app-badge app-badge--gold">{formatNumber(focusAcademyRow.invitedUsers)} convites</span>
+                ) : null}
+                {focusAcademyRow.attentionReasons.length > 0 ? (
+                  <span className="app-badge app-badge--danger">{formatNumber(focusAcademyRow.attentionReasons.length)} sinais</span>
+                ) : (
+                  <span className="app-badge app-badge--success">Sem alertas</span>
+                )}
+                <button type="button" onClick={onClearFocus} className="app-button app-button--ghost app-button--small">
+                  Ver rede inteira
+                </button>
+              </>
+            ) : (
+              <>
+                <span className="app-badge app-badge--gold">Leitura consolidada</span>
+                <span className="app-badge app-badge--muted">{formatNumber(totalAcademies)} academias</span>
+                <span className="app-badge app-badge--muted">{formatNumber(globalStudents)} alunos ativos</span>
+                <span className={`app-badge ${academiesInAttention > 0 ? 'app-badge--danger' : 'app-badge--success'}`}>
+                  {formatNumber(academiesInAttention)} em atencao
+                </span>
+              </>
+            )}
+          </div>
         </div>
 
         <div className="superadmin-kpi-grid">
-          <article className="app-stat-card">
-            <p className="app-stat-card__label">Academias monitoradas</p>
-            <p className="app-stat-card__value">{formatNumber(totalAcademies)}</p>
-            <p className="app-stat-card__note">{activeAcademies} ativas no recorte atual</p>
-          </article>
-          <article className="app-stat-card">
-            <p className="app-stat-card__label">Alunos ativos</p>
-            <p className="app-stat-card__value">{formatNumber(globalStudents)}</p>
-            <p className="app-stat-card__note">{formatNumber(globalUsers)} usuarios no total</p>
-          </article>
-          <article className="app-stat-card">
-            <p className="app-stat-card__label">Liderancas ativas</p>
-            <p className="app-stat-card__value">{formatNumber(globalLeaders)}</p>
-            <p className="app-stat-card__note">{formatNumber(globalMasterBlack)} master black em cargos-chave</p>
-          </article>
-          <article className="app-stat-card">
-            <p className="app-stat-card__label">Media de presenca</p>
-            <p className="app-stat-card__value">{formatNumber(averageAttendance)}</p>
-            <p className="app-stat-card__note">{academiesInAttention} academias com sinal de atencao</p>
-          </article>
+          {overviewKpis.map((kpi) => (
+            <article key={kpi.label} className="superadmin-kpi-tile">
+              <p className="superadmin-kpi-tile__label">{kpi.label}</p>
+              <p className="superadmin-kpi-tile__value">{kpi.value}</p>
+              <p className="superadmin-kpi-tile__note">{kpi.note}</p>
+            </article>
+          ))}
         </div>
       </section>
 
-      <section className="app-panel app-panel-pad">
-        <div className="flex items-center gap-3">
-          <div className="app-icon-shell">
-            <Filter size={18} />
+      <section className="app-panel app-panel-pad superadmin-filter-panel">
+        <div className="superadmin-filter-panel__header">
+          <div className="flex items-center gap-3">
+            <div className="app-icon-shell">
+              <Filter size={18} />
+            </div>
+            <div>
+              <p className="app-section-label">Controles da leitura</p>
+              <h2 className="text-xl font-bold">Filtros da rede</h2>
+            </div>
           </div>
-          <div>
-            <p className="app-section-label">Controles da leitura</p>
-            <h2 className="text-xl font-bold">Refine a rede que aparece na central</h2>
-          </div>
+
+          <span className="app-badge app-badge--muted">{formatNumber(filteredRows.length)} academias no recorte</span>
         </div>
 
         <div className="superadmin-filter-grid">
@@ -498,7 +520,7 @@ const SuperadminDashboardView: React.FC<SuperadminDashboardViewProps> = ({
             <span className="app-field__label">Status</span>
             <select
               value={statusFilter}
-              onChange={(event) => setStatusFilter(event.target.value as 'all' | 'active' | 'inactive' | 'suspended')}
+              onChange={(event) => setStatusFilter(event.target.value as StatusFilter)}
               className="app-select"
             >
               <option value="all">Todos os status</option>
@@ -554,21 +576,21 @@ const SuperadminDashboardView: React.FC<SuperadminDashboardViewProps> = ({
                   <span className="app-badge app-badge--success">Ativas</span>
                   <strong>{formatNumber(activeAcademies)}</strong>
                 </div>
-                <p className="app-stat-card__note">Academias prontas para operar no recorte atual.</p>
+                <p className="superadmin-status-card__note">Operando no recorte atual</p>
               </div>
               <div className="superadmin-status-card">
                 <div className="superadmin-status-card__top">
                   <span className="app-badge app-badge--muted">Inativas</span>
                   <strong>{formatNumber(inactiveAcademies)}</strong>
                 </div>
-                <p className="app-stat-card__note">Unidades fora da rotina ativa, mas nao suspensas.</p>
+                <p className="superadmin-status-card__note">Fora da rotina principal</p>
               </div>
               <div className="superadmin-status-card">
                 <div className="superadmin-status-card__top">
                   <span className="app-badge app-badge--danger">Suspensas</span>
                   <strong>{formatNumber(suspendedAcademies)}</strong>
                 </div>
-                <p className="app-stat-card__note">Pedem intervencao imediata de governanca.</p>
+                <p className="superadmin-status-card__note">Pedem acao imediata</p>
               </div>
             </div>
           </div>
@@ -586,7 +608,7 @@ const SuperadminDashboardView: React.FC<SuperadminDashboardViewProps> = ({
               <div className="superadmin-alert-list">
                 {attentionRows.map((academyRow) => (
                   <div key={academyRow.id} className="superadmin-alert-item">
-                    <div>
+                    <div className="superadmin-alert-item__copy">
                       <strong>{academyRow.name}</strong>
                       <p>
                         {academyRow.attentionReasons[0]}
@@ -595,7 +617,10 @@ const SuperadminDashboardView: React.FC<SuperadminDashboardViewProps> = ({
                           : ''}
                       </p>
                     </div>
-                    <span>{academyRow.lastActivityLabel}</span>
+                    <div className="superadmin-alert-item__meta">
+                      <span className="app-badge app-badge--danger">{formatNumber(academyRow.attentionReasons.length)} sinais</span>
+                      <span>{academyRow.lastActivityLabel}</span>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -605,7 +630,7 @@ const SuperadminDashboardView: React.FC<SuperadminDashboardViewProps> = ({
           </div>
         </article>
 
-        <article className="app-panel app-panel--tint app-panel-pad">
+        <article className="app-panel app-panel--tint app-panel-pad superadmin-focus-panel">
           <div className="flex items-center gap-3">
             <div className="app-icon-shell">
               <Building2 size={18} />
@@ -620,94 +645,82 @@ const SuperadminDashboardView: React.FC<SuperadminDashboardViewProps> = ({
 
           {focusAcademyRow ? (
             <>
-              <p className="app-section-copy mt-4">
-                A unidade escolhida dita o contexto das abas operacionais e ganha uma leitura propria aqui no topo.
-              </p>
+              <div className="superadmin-chip-row superadmin-focus-panel__chips">
+                <span className="app-badge app-badge--muted">{focusAcademyRow.timezone}</span>
+                <span className="app-badge app-badge--gold">{focusAcademyRow.lastActivityLabel}</span>
+                <span className="app-badge app-badge--muted">{formatNumber(rankings.length)} atletas no ranking</span>
+                {focusAcademyRow.attentionReasons.length > 0 ? (
+                  <span className="app-badge app-badge--danger">
+                    {formatNumber(focusAcademyRow.attentionReasons.length)} sinais ativos
+                  </span>
+                ) : (
+                  <span className="app-badge app-badge--success">Operacao estavel</span>
+                )}
+              </div>
 
               <div className="superadmin-focus-stats">
-                <div className="superadmin-mini-stat">
-                  <span>Alunos ativos</span>
-                  <strong>{formatNumber(focusActiveStudents)}</strong>
-                </div>
-                <div className="superadmin-mini-stat">
-                  <span>Liderancas ativas</span>
-                  <strong>{formatNumber(focusLeaders)}</strong>
-                </div>
-                <div className="superadmin-mini-stat">
-                  <span>Aulas ao vivo</span>
-                  <strong>{formatNumber(focusActiveClasses)}</strong>
-                </div>
-                <div className="superadmin-mini-stat">
-                  <span>Competicoes abertas</span>
-                  <strong>{formatNumber(focusOpenCompetitions)}</strong>
-                </div>
+                {focusStats.map((metric) => (
+                  <div key={metric.label} className="superadmin-mini-stat">
+                    <span>{metric.label}</span>
+                    <strong>{metric.value}</strong>
+                  </div>
+                ))}
               </div>
 
-              <div className="superadmin-subsection">
-                <div className="superadmin-subsection__header">
-                  <div className="flex items-center gap-2">
-                    <Activity size={16} />
-                    <strong>Resumo operacional</strong>
+              <div className="superadmin-focus-panel__grid">
+                <div className="superadmin-subsection">
+                  <div className="superadmin-subsection__header">
+                    <div className="flex items-center gap-2">
+                      <Activity size={16} />
+                      <strong>Resumo operacional</strong>
+                    </div>
+                    <span>{focusAcademyRow.timezone}</span>
                   </div>
-                  <span>{focusAcademyRow.timezone}</span>
-                </div>
 
-                <div className="superadmin-detail-list">
-                  <div className="superadmin-detail-row">
-                    <span>Media de presenca da base ativa</span>
-                    <strong>{formatNumber(focusAcademyRow.averageAttendance)}</strong>
-                  </div>
-                  <div className="superadmin-detail-row">
-                    <span>Pontos de ranking acumulados</span>
-                    <strong>{formatNumber(focusAcademyRow.totalRankingPoints)}</strong>
-                  </div>
-                  <div className="superadmin-detail-row">
-                    <span>Aulas agendadas</span>
-                    <strong>{formatNumber(focusScheduledClasses)}</strong>
-                  </div>
-                  <div className="superadmin-detail-row">
-                    <span>Competicoes concluidas</span>
-                    <strong>{formatNumber(focusFinishedCompetitions)}</strong>
-                  </div>
-                  <div className="superadmin-detail-row">
-                    <span>Ultima atividade observada</span>
-                    <strong>{focusAcademyRow.lastActivityLabel}</strong>
-                  </div>
-                </div>
-              </div>
-
-              <div className="superadmin-subsection">
-                <div className="superadmin-subsection__header">
-                  <div className="flex items-center gap-2">
-                    <Trophy size={16} />
-                    <strong>Top ranking da academia</strong>
-                  </div>
-                  <span>{formatNumber(rankings.length)} atletas</span>
-                </div>
-
-                {focusTopRankings.length > 0 ? (
-                  <div className="superadmin-ranking-list">
-                    {focusTopRankings.map((entry) => (
-                      <div key={entry.userId} className="superadmin-ranking-row">
-                        <div>
-                          <strong>{entry.displayName}</strong>
-                          <p>Faixa {entry.belt}</p>
-                        </div>
-                        <div className="text-right">
-                          <strong>#{entry.position}</strong>
-                          <p>{formatNumber(entry.score)} pts</p>
-                        </div>
+                  <div className="superadmin-detail-list">
+                    {focusOperationalRows.map((row) => (
+                      <div key={row.label} className="superadmin-detail-row">
+                        <span>{row.label}</span>
+                        <strong>{row.value}</strong>
                       </div>
                     ))}
                   </div>
-                ) : (
-                  <div className="app-empty">Ainda nao existe ranking calculado para esta academia.</div>
-                )}
+                </div>
+
+                <div className="superadmin-subsection">
+                  <div className="superadmin-subsection__header">
+                    <div className="flex items-center gap-2">
+                      <Trophy size={16} />
+                      <strong>Top ranking</strong>
+                    </div>
+                    <span>{formatNumber(rankings.length)} atletas</span>
+                  </div>
+
+                  {focusTopRankings.length > 0 ? (
+                    <div className="superadmin-ranking-list">
+                      {focusTopRankings.map((entry) => (
+                        <div key={entry.userId} className="superadmin-ranking-row">
+                          <div>
+                            <strong>{entry.displayName}</strong>
+                            <p>Faixa {entry.belt}</p>
+                          </div>
+                          <div className="text-right">
+                            <strong>#{entry.position}</strong>
+                            <p>{formatNumber(entry.score)} pts</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="app-empty">Ainda nao existe ranking calculado para esta academia.</div>
+                  )}
+                </div>
               </div>
             </>
           ) : (
-            <div className="app-empty">
-              Nenhuma academia esta em foco agora. As metricas desta tela permanecem consolidadas para a rede inteira.
+            <div className="app-empty superadmin-focus-empty">
+              <strong>Rede inteira em leitura consolidada.</strong>
+              <span>Escolha uma academia no mapa abaixo para destrinchar alunos, aulas e ranking.</span>
             </div>
           )}
         </article>
@@ -794,7 +807,7 @@ const SuperadminDashboardView: React.FC<SuperadminDashboardViewProps> = ({
           <div className="superadmin-subsection">
             <div className="superadmin-subsection__header">
               <strong>Faixas da base ativa</strong>
-              <span>{formatNumber(filteredActiveUsers.filter((user) => user.role === 'student').length)} alunos</span>
+              <span>{formatNumber(activeStudentBase)} alunos</span>
             </div>
 
             <div className="superadmin-belt-grid">
@@ -824,9 +837,10 @@ const SuperadminDashboardView: React.FC<SuperadminDashboardViewProps> = ({
             <p className="app-section-label">Mapa operacional</p>
             <h2 className="app-section-title">Academias da rede</h2>
             <p className="app-section-copy">
-              Cada card resume status, capacidade de lideranca, ritmo de uso e acesso rapido para trocar o contexto da operacao.
+              Cards compactos com status, base ativa, capacidade e risco operacional.
             </p>
           </div>
+          <span className="app-badge app-badge--muted">{formatNumber(filteredRows.length)} academias</span>
         </div>
 
         {filteredRows.length > 0 ? (
@@ -837,43 +851,48 @@ const SuperadminDashboardView: React.FC<SuperadminDashboardViewProps> = ({
               const activationRate = percentOf(academyRow.activeUsers, academyRow.totalUsers);
 
               return (
-                <article key={academyRow.id} className={`app-panel app-panel-pad ${selected ? 'app-panel--tint' : ''}`}>
+                <article key={academyRow.id} className={`app-panel app-panel-pad superadmin-academy-card ${selected ? 'app-panel--tint' : ''}`}>
                   <div className="superadmin-card-header">
-                    <div>
+                    <div className="superadmin-card-header__main">
                       <div className="superadmin-card-header__title">
-                        <h3 className="text-2xl font-bold">{academyRow.name}</h3>
+                        <h3 className="superadmin-card-title">{academyRow.name}</h3>
                         <span className={getStatusBadgeClass(academyRow.status)}>
-                          {selected ? 'Em foco' : getStatusLabel(academyRow.status)}
+                          {getStatusLabel(academyRow.status)}
                         </span>
+                        {selected ? <span className="app-badge app-badge--gold">Em foco</span> : null}
                       </div>
-                      <p className="app-section-copy mt-3">
-                        {academyRow.slug} . {academyRow.timezone}
-                      </p>
+                      <div className="superadmin-chip-row superadmin-chip-row--tight superadmin-card-meta">
+                        <span className="app-badge app-badge--muted">{academyRow.slug}</span>
+                        <span className="app-badge app-badge--muted">{academyRow.timezone}</span>
+                        {academyRow.invitedUsers > 0 ? (
+                          <span className="app-badge app-badge--gold">{formatNumber(academyRow.invitedUsers)} convites</span>
+                        ) : null}
+                      </div>
                     </div>
 
                     <button
                       type="button"
                       onClick={() => onEnterAcademy(academyRow.id)}
-                      className={`app-button ${selected ? 'app-button--gold' : 'app-button--dark'}`}
+                      className={`app-button app-button--small ${selected ? 'app-button--gold' : 'app-button--dark'}`}
                     >
-                      {selected ? 'Academia em foco' : 'Colocar em foco'}
+                      {selected ? 'Em foco' : 'Focar'}
                     </button>
                   </div>
 
                   <div className="superadmin-card-stats">
-                    <div className="superadmin-mini-stat">
+                    <div className="superadmin-mini-stat superadmin-mini-stat--compact">
                       <span>Usuarios totais</span>
                       <strong>{formatNumber(academyRow.totalUsers)}</strong>
                     </div>
-                    <div className="superadmin-mini-stat">
+                    <div className="superadmin-mini-stat superadmin-mini-stat--compact">
                       <span>Alunos ativos</span>
                       <strong>{formatNumber(academyRow.activeStudents)}</strong>
                     </div>
-                    <div className="superadmin-mini-stat">
-                      <span>Liderancas ativas</span>
+                    <div className="superadmin-mini-stat superadmin-mini-stat--compact">
+                      <span>Liderancas</span>
                       <strong>{formatNumber(academyRow.leaderCount)}</strong>
                     </div>
-                    <div className="superadmin-mini-stat">
+                    <div className="superadmin-mini-stat superadmin-mini-stat--compact">
                       <span>Presenca media</span>
                       <strong>{formatNumber(academyRow.averageAttendance)}</strong>
                     </div>
@@ -932,15 +951,9 @@ const SuperadminDashboardView: React.FC<SuperadminDashboardViewProps> = ({
                   ) : (
                     <div className="superadmin-card-ok">
                       <ShieldCheck size={16} />
-                      <span>Operacao sem alertas relevantes no recorte atual.</span>
+                      <span>Operacao sem alertas relevantes.</span>
                     </div>
                   )}
-
-                  {academyRow.invitedUsers > 0 ? (
-                    <p className="app-stat-card__note mt-4">
-                      {formatNumber(academyRow.invitedUsers)} contas ainda aguardam ativacao.
-                    </p>
-                  ) : null}
                 </article>
               );
             })}

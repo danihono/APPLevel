@@ -1,5 +1,6 @@
 import React, { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  Award,
   Bell,
   BookOpen,
   Building2,
@@ -51,6 +52,11 @@ const pageMeta: Record<string, { kicker: string; title: string; description: str
     kicker: 'Momentum',
     title: 'Misses, ranking e recompensa com energia de produto premium.',
     description: 'Tudo agora conversa com a linguagem dourada da navegacao e dos controles interativos.',
+  },
+  graduation: {
+    kicker: 'Graduacao',
+    title: 'Faixa atual, requisitos e historico em um so lugar.',
+    description: 'Acompanhe progresso, proximos marcos e o historico oficial de graduacoes da academia.',
   },
   students: {
     kicker: 'Roster',
@@ -152,6 +158,7 @@ const Layout: React.FC<LayoutProps> = ({
     userRole === UserRole.ADMIN ||
     userRole === UserRole.SUPERADMIN;
   const isSuperAdmin = userRole === UserRole.SUPERADMIN;
+  const themeLabel = isDarkMode ? 'Dark mode' : 'Light mode';
 
   const navItems = useMemo<NavItem[]>(() => (
     userRole === UserRole.SUPERADMIN
@@ -173,11 +180,10 @@ const Layout: React.FC<LayoutProps> = ({
         ]
         : [
         { id: 'home', icon: Home, label: 'Inicio' },
-        { id: 'calendar', icon: Calendar, label: 'Agenda' },
+        { id: 'calendar', icon: Calendar, label: 'Aulas' },
         { id: 'competition', icon: Trophy, label: 'Compete' },
-        { id: 'gamification', icon: Target, label: 'Missoes' },
-        ...(isStaff ? [{ id: 'students', icon: Users, label: 'Alunos' }] : []),
-        { id: 'store', icon: ShoppingBag, label: 'Store' },
+        { id: 'graduation', icon: Award, label: 'Graduacao' },
+        { id: 'notifications', icon: Bell, label: 'Avisos' },
         { id: 'profile', icon: UserIcon, label: 'Perfil' },
         ]
   ), [isStaff, userRole]);
@@ -322,25 +328,25 @@ const Layout: React.FC<LayoutProps> = ({
           {isSuperAdmin ? renderDesktopSidebar() : null}
 
           <div className={isSuperAdmin ? 'app-content-shell' : ''}>
-            <header className="app-topbar">
-              <div className="app-panel app-topbar-panel w-full">
-                <div className="flex flex-wrap items-start justify-between gap-4">
-                  <div className="app-brand">
-                    <div className="app-brand__mark">LVL</div>
+            <header className={`app-topbar ${isSuperAdmin ? 'app-topbar--superadmin' : ''}`}>
+              <div className={`${isSuperAdmin ? 'app-topbar-panel app-topbar-panel--superadmin' : 'app-panel app-topbar-panel'} w-full`}>
+                <div className={`flex flex-wrap items-start justify-between gap-4 ${isSuperAdmin ? 'app-topbar-panel__inner app-topbar-panel__inner--superadmin' : ''}`}>
+                  <div className={`app-brand ${isSuperAdmin ? 'app-brand--compact' : ''}`}>
+                    <div className={`app-brand__mark ${isSuperAdmin ? 'app-brand__mark--compact' : ''}`}>LVL</div>
                     <div className="app-brand__text">
                       <p className="app-kicker">Plataforma APPLevel</p>
-                      <h1 className="app-headline">{currentPage.title}</h1>
-                      <p className="app-copy">{currentPage.description}</p>
+                      <h1 className={`app-headline ${isSuperAdmin ? 'app-headline--compact' : ''}`}>{currentPage.title}</h1>
+                      <p className={`app-copy ${isSuperAdmin ? 'app-copy--compact' : ''}`}>{currentPage.description}</p>
                     </div>
                   </div>
 
-                  <div className="app-topbar__status">
-                    <div className="app-orb">
+                  <div className={`app-topbar__status ${isSuperAdmin ? 'app-topbar__status--compact' : ''}`}>
+                    <div className={`app-orb ${isSuperAdmin ? 'app-orb--compact' : ''}`}>
                       <span className="app-orb__dot" />
                       {currentPage.kicker}
                     </div>
-                    <div className="app-orb">{getRoleLabel(userRole)}</div>
-                    <div className="app-orb">{isDarkMode ? 'Dark mode' : 'Light mode'}</div>
+                    <div className={`app-orb ${isSuperAdmin ? 'app-orb--compact' : ''}`}>{getRoleLabel(userRole)}</div>
+                    <div className={`app-orb ${isSuperAdmin ? 'app-orb--compact' : ''}`}>{themeLabel}</div>
                   </div>
                 </div>
               </div>

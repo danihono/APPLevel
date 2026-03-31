@@ -30,6 +30,10 @@ service cloud.firestore {
       return signedIn() && role() == 'professor';
     }
 
+    function isApprover() {
+      return signedIn() && (role() == 'professor' || role() == 'superadmin');
+    }
+
     function isStudent() {
       return signedIn() && role() == 'student';
     }
@@ -46,20 +50,6 @@ service cloud.firestore {
       return signedIn() && request.auth.uid == userId;
     }
 
-    function selfUserEditableKeys() {
-      return [
-        'firstName',
-        'lastName',
-        'displayName',
-        'phone',
-        'photoPath',
-        'birthDate',
-        'fcmTokens',
-        'lastLoginAt',
-        'updatedAt'
-      ];
-    }
-
     function notificationEditableKeys() {
       return ['readAt', 'status', 'updatedAt'];
     }
@@ -74,27 +64,7 @@ service cloud.firestore {
           && sameAcademy(request.resource.data.academyId)
         );
 
-      allow update: if isAcademyStaff(resource.data.academyId)
-        || (
-          isSelf(userId)
-          && request.resource.data.academyId == resource.data.academyId
-          && request.resource.data.role == resource.data.role
-          && request.resource.data.belt == resource.data.belt
-          && request.resource.data.stripes == resource.data.stripes
-          && request.resource.data.grade == resource.data.grade
-          && request.resource.data.status == resource.data.status
-          && request.resource.data.attendanceCount == resource.data.attendanceCount
-          && request.resource.data.qrCheckinsCount == resource.data.qrCheckinsCount
-          && request.resource.data.currentStreak == resource.data.currentStreak
-          && request.resource.data.longestStreak == resource.data.longestStreak
-          && request.resource.data.competitionPoints == resource.data.competitionPoints
-          && request.resource.data.missionPoints == resource.data.missionPoints
-          && request.resource.data.rankingPoints == resource.data.rankingPoints
-          && request.resource.data.beltPromotions == resource.data.beltPromotions
-          && request.resource.data.nextStripeAttendanceTarget == resource.data.nextStripeAttendanceTarget
-          && request.resource.data.nextBeltAttendanceTarget == resource.data.nextBeltAttendanceTarget
-          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(selfUserEditableKeys())
-        );
+      allow update: if isAcademyStaff(resource.data.academyId);
 
       allow delete: if isSuperAdmin() || (isAdmin() && sameAcademy(resource.data.academyId));
     }
@@ -122,6 +92,20 @@ service cloud.firestore {
     match /graduations/{graduationId} {
       allow read: if sameAcademy(resource.data.academyId)
         && (isAcademyStaff(resource.data.academyId) || isSelf(resource.data.userId));
+      allow write: if false;
+    }
+
+    match /join_requests/{requestId} {
+      allow read: if isApprover() && sameAcademy(resource.data.academyId);
+      allow write: if false;
+    }
+
+    match /attendance_requests/{requestId} {
+      allow read: if (
+        (isApprover() && sameAcademy(resource.data.academyId))
+        || isSelf(resource.data.userId)
+        || (isAdmin() && sameAcademy(resource.data.academyId))
+      );
       allow write: if false;
     }
 

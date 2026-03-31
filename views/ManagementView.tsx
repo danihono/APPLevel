@@ -34,7 +34,7 @@ interface ManagementViewProps {
     lastName: string;
     email: string;
     password: string;
-    role: 'student' | 'professor' | 'admin' | 'superadmin';
+    role: 'professor' | 'admin' | 'superadmin';
     academyId?: string;
     phone?: string;
     belt?: string;
@@ -49,6 +49,12 @@ interface ManagementViewProps {
       stripeEvery: number;
       maxStripes: number;
     }>;
+  }) => Promise<void>;
+  onUpdateStudentBeltGrade: (payload: {
+    userId: string;
+    belt: string;
+    grade: number;
+    stripes?: number;
   }) => Promise<void>;
 }
 
@@ -98,6 +104,7 @@ const ManagementView: React.FC<ManagementViewProps> = ({
   onCreateAcademy,
   onCreateUser,
   onSaveProgressionRules,
+  onUpdateStudentBeltGrade,
 }) => {
   const canManage = userRole === UserRole.ADMIN || userRole === UserRole.SUPERADMIN;
   const isSuperAdmin = userRole === UserRole.SUPERADMIN;
@@ -148,7 +155,7 @@ const ManagementView: React.FC<ManagementViewProps> = ({
   const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [role, setRole] = useState<'student' | 'professor' | 'admin' | 'superadmin'>('student');
+  const [role, setRole] = useState<'professor' | 'admin' | 'superadmin'>('professor');
   const [userAcademyId, setUserAcademyId] = useState(selectedAcademyId || managedAcademy.id || '');
   const [phone, setPhone] = useState('');
   const [belt, setBelt] = useState('white');
@@ -158,6 +165,12 @@ const ManagementView: React.FC<ManagementViewProps> = ({
   const [rulesBusy, setRulesBusy] = useState(false);
   const [rulesFeedback, setRulesFeedback] = useState('');
   const [rulesError, setRulesError] = useState('');
+  const [selectedStudentId, setSelectedStudentId] = useState('');
+  const [studentBelt, setStudentBelt] = useState('white');
+  const [studentGrade, setStudentGrade] = useState(0);
+  const [studentProgressBusy, setStudentProgressBusy] = useState(false);
+  const [studentProgressFeedback, setStudentProgressFeedback] = useState('');
+  const [studentProgressError, setStudentProgressError] = useState('');
 
   useEffect(() => {
     setAcademyName(managedAcademy.name);
@@ -212,6 +225,21 @@ const ManagementView: React.FC<ManagementViewProps> = ({
       window.cancelAnimationFrame(frame);
     };
   }, [focusSection, managedAcademy.id, onFocusSectionHandled]);
+
+  useEffect(() => {
+    const selectedStudent = students.find((entry) => entry.id === selectedStudentId) ?? students[0];
+
+    if (!selectedStudent) {
+      setSelectedStudentId('');
+      setStudentBelt('white');
+      setStudentGrade(0);
+      return;
+    }
+
+    setSelectedStudentId(selectedStudent.id);
+    setStudentBelt(selectedStudent.belt);
+    setStudentGrade(selectedStudent.grade ?? selectedStudent.stripes ?? 0);
+  }, [selectedStudentId, students]);
 
   async function handleSaveAcademy(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -296,7 +324,7 @@ const ManagementView: React.FC<ManagementViewProps> = ({
       setLastName('');
       setEmail('');
       setPassword('');
-      setRole('student');
+      setRole('professor');
       setUserAcademyId(selectedAcademyId && academies.some((entry) => entry.id === selectedAcademyId)
         ? selectedAcademyId
         : (academies[0]?.id ?? ''));
@@ -332,6 +360,34 @@ const ManagementView: React.FC<ManagementViewProps> = ({
       setRulesError(submitError instanceof Error ? submitError.message : 'Nao foi possivel salvar as regras.');
     } finally {
       setRulesBusy(false);
+    }
+  }
+
+  async function handleSaveStudentProgress(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!selectedStudentId) {
+      setStudentProgressError('Selecione um aluno para atualizar a graduacao.');
+      setStudentProgressFeedback('');
+      return;
+    }
+
+    setStudentProgressBusy(true);
+    setStudentProgressFeedback('');
+    setStudentProgressError('');
+
+    try {
+      await onUpdateStudentBeltGrade({
+        userId: selectedStudentId,
+        belt: studentBelt,
+        grade: studentGrade,
+        stripes: studentGrade,
+      });
+      setStudentProgressFeedback('Graduacao do aluno atualizada com sucesso.');
+    } catch (submitError) {
+      setStudentProgressError(submitError instanceof Error ? submitError.message : 'Nao foi possivel atualizar a graduacao.');
+    } finally {
+      setStudentProgressBusy(false);
     }
   }
 
@@ -546,7 +602,8 @@ const ManagementView: React.FC<ManagementViewProps> = ({
             </form>
           ) : null}
 
-          <form onSubmit={handleCreateUser} className="app-panel app-panel-pad">
+          {isSuperAdmin ? (
+            <form onSubmit={handleCreateUser} className="app-panel app-panel-pad">
             <div className="flex items-center gap-3">
               <div className="app-icon-shell">
                 <UserPlus size={18} />
@@ -580,8 +637,7 @@ const ManagementView: React.FC<ManagementViewProps> = ({
               </label>
               <label className="app-field">
                 <span className="app-field__label">Perfil</span>
-                <select value={role} onChange={(event) => setRole(event.target.value as 'student' | 'professor' | 'admin' | 'superadmin')} className="app-select">
-                  <option value="student">Aluno</option>
+                <select value={role} onChange={(event) => setRole(event.target.value as 'professor' | 'admin' | 'superadmin')} className="app-select">
                   <option value="professor">Professor</option>
                   <option value="admin">Admin</option>
                   {isSuperAdmin ? <option value="superadmin">Superadmin</option> : null}
@@ -631,6 +687,55 @@ const ManagementView: React.FC<ManagementViewProps> = ({
               <UserPlus size={16} />
               {userBusy ? 'Criando...' : 'Criar acesso'}
             </button>
+            </form>
+          ) : null}
+
+          <form onSubmit={handleSaveStudentProgress} className="app-panel app-panel-pad">
+            <div className="flex items-center gap-3">
+              <div className="app-icon-shell">
+                <GraduationCap size={18} />
+              </div>
+              <div>
+                <p className="app-section-label">Graduacao manual</p>
+                <h2 className="text-xl font-bold">Faixa e grau do aluno</h2>
+              </div>
+            </div>
+
+            <div className="mt-6 space-y-4">
+              <FeedbackBlock success={studentProgressFeedback} error={studentProgressError} />
+            </div>
+
+            <div className="mt-6 app-grid-2">
+              <label className="app-field md:col-span-2">
+                <span className="app-field__label">Aluno</span>
+                <select value={selectedStudentId} onChange={(event) => setSelectedStudentId(event.target.value)} className="app-select" required>
+                  {students.map((entry) => (
+                    <option key={entry.id} value={entry.id}>{entry.displayName}</option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="app-field">
+                <span className="app-field__label">Faixa</span>
+                <select value={studentBelt} onChange={(event) => setStudentBelt(event.target.value)} className="app-select">
+                  {beltPresets.map((entry) => <option key={entry} value={entry}>{entry}</option>)}
+                </select>
+              </label>
+
+              <label className="app-field">
+                <span className="app-field__label">Grau</span>
+                <input type="number" min={0} value={studentGrade} onChange={(event) => setStudentGrade(Number(event.target.value))} className="app-input" />
+              </label>
+            </div>
+
+            <button type="submit" disabled={studentProgressBusy || students.length === 0} className="app-button app-button--gold mt-6">
+              <Save size={16} />
+              {studentProgressBusy ? 'Salvando...' : 'Salvar graduacao do aluno'}
+            </button>
+
+            {students.length === 0 ? (
+              <div className="app-empty mt-6">Nenhum aluno ativo na unidade para atualizar graduacao.</div>
+            ) : null}
           </form>
 
           <section className="app-panel app-panel-pad">
