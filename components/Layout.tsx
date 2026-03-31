@@ -1,5 +1,8 @@
 import React, { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  Bell,
+  BookOpen,
+  Building2,
   Calendar,
   Home,
   Moon,
@@ -30,14 +33,14 @@ interface NavItem {
 
 const pageMeta: Record<string, { kicker: string; title: string; description: string }> = {
   home: {
-    kicker: 'Dojo pulse',
-    title: 'Um painel vivo para a rotina da academia.',
-    description: 'Cada aba agora entra na mesma linguagem: vidro, metal, luz ambiente e foco real em acoes.',
+    kicker: 'Dashboard',
+    title: 'Visao rapida da operacao da academia.',
+    description: 'Acompanhe equipe, alunos, aulas do dia e pendencias sem sair do fluxo principal.',
   },
   calendar: {
-    kicker: 'Class control',
-    title: 'Agenda e operacao de treino em uma cabine fluida.',
-    description: 'Aulas, QR, presenca e sessoes ativas com leitura rapida e botoes mais dramatizados.',
+    kicker: 'Calendario',
+    title: 'Gestao de aulas por data e por semana.',
+    description: 'Navegue no tempo, filtre entre minhas aulas e todas, e mantenha a operacao organizada no mobile.',
   },
   competition: {
     kicker: 'Fight mode',
@@ -55,9 +58,19 @@ const pageMeta: Record<string, { kicker: string; title: string; description: str
     description: 'Busca, filtros e perfis seguem a mesma estetica glass com acentos metalicos.',
   },
   management: {
-    kicker: 'Control room',
-    title: 'Gestao pesada com interface leve de operar.',
-    description: 'Formularios, indicadores e blocos de configuracao ganharam profundidade e hierarquia visual.',
+    kicker: 'Minha academia',
+    title: 'Estrutura, equipe, alunos e configuracoes em um so lugar.',
+    description: 'Veja instrutores, acompanhe alunos e ajuste graduacoes e regras sem mudar a base do app.',
+  },
+  notifications: {
+    kicker: 'Eventos',
+    title: 'Notificacoes, solicitacoes e graduacoes em uma central unica.',
+    description: 'Acompanhe comunicados, pedidos pendentes e alunos prontos para avaliacao com leitura rapida.',
+  },
+  learning: {
+    kicker: 'Learning hub',
+    title: 'Videos, trilhas e quizzes para a equipe.',
+    description: 'Uma area de capacitacao pensada para professores assistirem conteudos e validarem aprendizado.',
   },
   store: {
     kicker: 'Merch',
@@ -68,6 +81,34 @@ const pageMeta: Record<string, { kicker: string; title: string; description: str
     kicker: 'Identity',
     title: 'Perfil com mais presenca, contraste e senso de progresso.',
     description: 'Cartoes, metricas e atalhos seguem a nova base de superficies e transicoes.',
+  },
+};
+
+const superadminPageMeta: Record<string, { kicker: string; title: string; description: string }> = {
+  home: {
+    kicker: 'Central da rede',
+    title: 'Visao executiva das academias.',
+    description: 'Acompanhe crescimento, risco operacional e a academia em foco em uma tela pensada para decisao.',
+  },
+  notifications: {
+    kicker: 'Comunicacao',
+    title: 'Avisos da rede por equipe, academia ou faixa.',
+    description: 'Dispare comunicados para toda a rede ou segmente por academia, perfil e faixa em um fluxo unico.',
+  },
+  students: {
+    kicker: 'Base ativa',
+    title: 'Alunos da academia em foco.',
+    description: 'Veja a base, os filtros e os perfis da unidade que esta no contexto atual da rede.',
+  },
+  management: {
+    kicker: 'Governanca',
+    title: 'Gestao global de academias e liderancas.',
+    description: 'Crie unidades, ajuste limites e organize permissoes sem perder a visao consolidada da operacao.',
+  },
+  profile: {
+    kicker: 'Conta',
+    title: 'Sua conta de governanca na plataforma.',
+    description: 'Sessao, acesso e identidade do superadmin em um espaco mais direto e coerente com o restante da rede.',
   },
 };
 
@@ -110,17 +151,27 @@ const Layout: React.FC<LayoutProps> = ({
     userRole === UserRole.PROFESSOR ||
     userRole === UserRole.ADMIN ||
     userRole === UserRole.SUPERADMIN;
+  const isSuperAdmin = userRole === UserRole.SUPERADMIN;
 
   const navItems = useMemo<NavItem[]>(() => (
     userRole === UserRole.SUPERADMIN
       ? [
-        { id: 'home', icon: Home, label: 'Dashboard' },
-        { id: 'calendar', icon: Calendar, label: 'Aulas' },
-        { id: 'students', icon: Users, label: 'Academias' },
+        { id: 'home', icon: Home, label: 'Central' },
+        { id: 'notifications', icon: Bell, label: 'Comunicacao' },
+        { id: 'students', icon: Users, label: 'Alunos' },
         { id: 'management', icon: Shield, label: 'Gestao' },
         { id: 'profile', icon: UserIcon, label: 'Perfil' },
       ]
-      : [
+      : isStaff
+        ? [
+          { id: 'home', icon: Home, label: 'Inicio' },
+          { id: 'calendar', icon: Calendar, label: 'Calendario' },
+          { id: 'management', icon: Building2, label: 'Academia' },
+          { id: 'notifications', icon: Bell, label: 'Avisos' },
+          { id: 'learning', icon: BookOpen, label: 'Learning' },
+          { id: 'profile', icon: UserIcon, label: 'Perfil' },
+        ]
+        : [
         { id: 'home', icon: Home, label: 'Inicio' },
         { id: 'calendar', icon: Calendar, label: 'Agenda' },
         { id: 'competition', icon: Trophy, label: 'Compete' },
@@ -128,10 +179,13 @@ const Layout: React.FC<LayoutProps> = ({
         ...(isStaff ? [{ id: 'students', icon: Users, label: 'Alunos' }] : []),
         { id: 'store', icon: ShoppingBag, label: 'Store' },
         { id: 'profile', icon: UserIcon, label: 'Perfil' },
-      ]
+        ]
   ), [isStaff, userRole]);
 
-  const currentPage = pageMeta[activeTab] ?? pageMeta.home;
+  const currentPage = userRole === UserRole.SUPERADMIN
+    ? (superadminPageMeta[activeTab] ?? superadminPageMeta.home)
+    : (pageMeta[activeTab] ?? pageMeta.home);
+  const isWideLayout = isSuperAdmin;
 
   useEffect(() => {
     const updateIndicator = () => {
@@ -201,37 +255,103 @@ const Layout: React.FC<LayoutProps> = ({
     }, 620);
   };
 
-  return (
-    <div className="app-shell">
-      <div className="app-frame">
-        <header className="app-topbar">
-          <div className="app-panel app-topbar-panel w-full">
-            <div className="flex flex-wrap items-start justify-between gap-4">
-              <div className="app-brand">
-                <div className="app-brand__mark">LVL</div>
-                <div className="app-brand__text">
-                  <p className="app-kicker">Floating dojo UI</p>
-                  <h1 className="app-headline">{currentPage.title}</h1>
-                  <p className="app-copy">{currentPage.description}</p>
-                </div>
-              </div>
-
-              <div className="app-topbar__status">
-                <div className="app-orb">
-                  <span className="app-orb__dot" />
-                  {currentPage.kicker}
-                </div>
-                <div className="app-orb">{getRoleLabel(userRole)}</div>
-                <div className="app-orb">{isDarkMode ? 'Dark mode' : 'Light mode'}</div>
-              </div>
-            </div>
-          </div>
-        </header>
-
-        <main className="app-main">{children}</main>
+  const renderDesktopSidebar = () => (
+    <aside className="app-sidebar app-panel">
+      <div className="app-sidebar__brand">
+        <div className="app-brand__mark">LVL</div>
+        <div className="app-sidebar__brand-copy">
+          <p className="app-kicker">Plataforma APPLevel</p>
+          <h2 className="app-sidebar__title">Superadmin</h2>
+          <p className="app-sidebar__text">Controle da rede pensado para escritorio e responsivo no celular.</p>
+        </div>
       </div>
 
-      <nav className="app-toolbar safe-area-bottom" aria-label="Navegacao principal">
+      <div className="app-sidebar__meta">
+        <div className="app-orb">
+          <span className="app-orb__dot" />
+          {currentPage.kicker}
+        </div>
+        <div className="app-orb">{getRoleLabel(userRole)}</div>
+      </div>
+
+      <nav className="app-sidebar__nav" aria-label="Navegacao do superadmin">
+        {navItems.map((item) => {
+          const Icon = item.icon;
+          const isActive = activeTab === item.id;
+
+          return (
+            <button
+              key={item.id}
+              type="button"
+              onClick={() => setActiveTab(item.id)}
+              className={`app-sidebar__button ${isActive ? 'is-active' : ''}`}
+              aria-current={isActive ? 'page' : undefined}
+            >
+              <span className="app-sidebar__icon">
+                <Icon size={19} strokeWidth={1.85} />
+              </span>
+              <span className="app-sidebar__label">{item.label}</span>
+            </button>
+          );
+        })}
+      </nav>
+
+      <button
+        type="button"
+        onClick={handleThemeToggle}
+        className={`app-sidebar__theme ${themeAnimating ? 'is-popping' : ''}`}
+        aria-label="Alternar tema"
+        title="Alternar tema"
+      >
+        <div>
+          <p className="app-kicker">Tema</p>
+          <strong>{isDarkMode ? 'Dark mode' : 'Light mode'}</strong>
+        </div>
+        <div className="app-sidebar__theme-icon">
+          <Sun size={19} strokeWidth={1.85} className="theme-toggle__icon theme-toggle__icon--sun" />
+          <Moon size={19} strokeWidth={1.85} className="theme-toggle__icon theme-toggle__icon--moon" />
+        </div>
+      </button>
+    </aside>
+  );
+
+  return (
+    <div className={`app-shell ${isSuperAdmin ? 'app-shell--superadmin' : ''}`}>
+      <div className={`app-frame ${isWideLayout ? 'app-frame--wide' : ''}`}>
+        <div className={isSuperAdmin ? 'app-desktop-shell' : ''}>
+          {isSuperAdmin ? renderDesktopSidebar() : null}
+
+          <div className={isSuperAdmin ? 'app-content-shell' : ''}>
+            <header className="app-topbar">
+              <div className="app-panel app-topbar-panel w-full">
+                <div className="flex flex-wrap items-start justify-between gap-4">
+                  <div className="app-brand">
+                    <div className="app-brand__mark">LVL</div>
+                    <div className="app-brand__text">
+                      <p className="app-kicker">Plataforma APPLevel</p>
+                      <h1 className="app-headline">{currentPage.title}</h1>
+                      <p className="app-copy">{currentPage.description}</p>
+                    </div>
+                  </div>
+
+                  <div className="app-topbar__status">
+                    <div className="app-orb">
+                      <span className="app-orb__dot" />
+                      {currentPage.kicker}
+                    </div>
+                    <div className="app-orb">{getRoleLabel(userRole)}</div>
+                    <div className="app-orb">{isDarkMode ? 'Dark mode' : 'Light mode'}</div>
+                  </div>
+                </div>
+              </div>
+            </header>
+
+            <main className="app-main">{children}</main>
+          </div>
+        </div>
+      </div>
+
+      <nav className={`app-toolbar safe-area-bottom ${isSuperAdmin ? 'app-toolbar--superadmin' : ''}`} aria-label="Navegacao principal">
         <div className="app-toolbar__surface">
           <div className="app-toolbar__track" ref={navTrackRef}>
             <div

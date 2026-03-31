@@ -291,7 +291,7 @@ export function subscribeToStoreItems(
 
 export function subscribeToNotifications(
   params: {
-    academyId: string;
+    academyId?: string;
     userId: string;
     includeAcademyFeed: boolean;
   },
@@ -300,7 +300,9 @@ export function subscribeToNotifications(
 ) {
   const baseCollection = collection(firebaseDb, 'notifications');
   const notificationQuery = params.includeAcademyFeed
-    ? query(baseCollection, where('academyId', '==', params.academyId))
+    ? params.academyId
+      ? query(baseCollection, where('academyId', '==', params.academyId))
+      : query(baseCollection, orderBy('createdAt', 'desc'))
     : query(
       baseCollection,
       where('academyId', '==', params.academyId),

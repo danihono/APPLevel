@@ -5,9 +5,12 @@ import CalendarView from './views/CalendarView';
 import CompetitionView from './views/CompetitionView';
 import GamificationView from './views/GamificationView';
 import HomeView from './views/HomeView';
+import LearningHubView from './views/LearningHubView';
 import LoginView from './views/LoginView';
 import ManagementView from './views/ManagementView';
+import NotificationsView from './views/NotificationsView';
 import ProfileView from './views/ProfileView';
+import StaffDashboardView from './views/StaffDashboardView';
 import StoreView from './views/StoreView';
 import SuperadminDashboardView from './views/SuperadminDashboardView';
 import StudentsView from './views/StudentsView';
@@ -21,6 +24,7 @@ import {
   subscribeToAcademyUsers,
   subscribeToAllUsers,
   subscribeToCompetitions,
+  subscribeToNotifications,
   subscribeToRankings,
   subscribeToStoreItems,
   subscribeToUserAttendances,
@@ -38,11 +42,13 @@ import type {
   CompetitionRecord,
   FightRecord,
   GraduationRecord,
+  NotificationRecord,
   RankingRecord,
   StoreItemRecord,
   UserMissionRecord,
   UserRecord,
 } from './services/firebase/models';
+import { UserRole } from './types';
 
 const THEME_STORAGE_PREFIX = 'applevel-theme';
 
@@ -153,6 +159,7 @@ const App: React.FC = () => {
   const [authReady, setAuthReady] = useState(false);
   const [authUser, setAuthUser] = useState<FirebaseUser | null>(null);
   const [activeTab, setActiveTab] = useState('home');
+  const [managementFocusSection, setManagementFocusSection] = useState<'master-black' | null>(null);
   const [themeScope, setThemeScope] = useState('guest');
   const [isDarkMode, setIsDarkMode] = useState(() => readThemePreference('guest') ?? prefersDarkTheme());
   const [profile, setProfile] = useState<FirestoreEntity<UserRecord> | null>(null);
@@ -169,6 +176,7 @@ const App: React.FC = () => {
   const [competitions, setCompetitions] = useState<Array<FirestoreEntity<CompetitionRecord>>>([]);
   const [fights, setFights] = useState<Array<FirestoreEntity<FightRecord>>>([]);
   const [storeItems, setStoreItems] = useState<Array<FirestoreEntity<StoreItemRecord>>>([]);
+  const [notifications, setNotifications] = useState<Array<FirestoreEntity<NotificationRecord>>>([]);
   const [profileLoading, setProfileLoading] = useState(false);
   const [academyLoading, setAcademyLoading] = useState(false);
   const [sessionError, setSessionError] = useState('');
@@ -241,6 +249,7 @@ const App: React.FC = () => {
       setCompetitions([]);
       setFights([]);
       setStoreItems([]);
+      setNotifications([]);
       setSessionError('');
       return;
     }
@@ -312,8 +321,6 @@ const App: React.FC = () => {
       return;
     }
 
-    setSelectedAcademyId((current) => current || profile.academyId);
-
     const unsubscribers = [
       subscribeToAcademies(setAllAcademies, (error) => setSessionError(getErrorMessage(error))),
       subscribeToAllUsers(setAllUsers, (error) => setSessionError(getErrorMessage(error))),
@@ -333,13 +340,37 @@ const App: React.FC = () => {
       return;
     }
 
-    if (selectedAcademyId && allAcademies.some((entry) => entry.id === selectedAcademyId)) {
+    if (!selectedAcademyId) {
       return;
     }
 
-    const fallbackAcademy = allAcademies.find((entry) => entry.id === profile.academyId) ?? allAcademies[0];
-    setSelectedAcademyId(fallbackAcademy.id);
+    if (allAcademies.some((entry) => entry.id === selectedAcademyId)) {
+      return;
+    }
+
+    setSelectedAcademyId('');
   }, [allAcademies, profile, selectedAcademyId]);
+
+  useEffect(() => {
+    if (!profile) {
+      setNotifications([]);
+      return;
+    }
+
+    const scopedAcademyId = profile.role === 'superadmin'
+      ? (selectedAcademyId || undefined)
+      : profile.academyId;
+
+    return subscribeToNotifications(
+      {
+        academyId: scopedAcademyId,
+        userId: profile.id,
+        includeAcademyFeed: profile.role !== 'student',
+      },
+      setNotifications,
+      (error) => setSessionError(getErrorMessage(error)),
+    );
+  }, [profile, selectedAcademyId]);
 
   useEffect(() => {
     if (!profile) {
@@ -402,6 +433,14 @@ const App: React.FC = () => {
     } catch (error) {
       setSessionError(getErrorMessage(error));
     }
+  }
+
+  function handleEnterAcademy(academyId: string) {
+    setSelectedAcademyId(academyId);
+  }
+
+  function handleClearFocusedAcademy() {
+    setSelectedAcademyId('');
   }
 
   async function handleCreateQuickClass() {
@@ -527,6 +566,28 @@ const App: React.FC = () => {
     }
   }
 
+  async function handleSendNotification(payload: {
+    title: string;
+    body: string;
+    academyId?: string;
+    targetRole?: 'student' | 'professor' | 'admin' | 'superadmin';
+    targetBelt?: string;
+  }) {
+    try {
+      await backendFunctions.sendSegmentedNotification(payload);
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
+  }
+
+  async function handleMarkNotificationRead(notificationId: string) {
+    try {
+      await backendFunctions.markNotificationRead({ notificationId });
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
+  }
+
   if (!authReady) {
     return buildLoadingView('Validando a sua sessão com o Firebase.');
   }
@@ -546,6 +607,10 @@ const App: React.FC = () => {
     fights,
   });
   const isSuperAdmin = profile.role === 'superadmin';
+  const isStaff =
+    currentUser.role === UserRole.PROFESSOR ||
+    currentUser.role === UserRole.ADMIN ||
+    currentUser.role === UserRole.SUPERADMIN;
   const branch = toBranch(academy);
   const attendanceThisMonth = attendances.filter((attendance) => {
     if (!attendance.checkedInAt) {
@@ -574,11 +639,25 @@ const App: React.FC = () => {
             <SuperadminDashboardView
               academies={allAcademies}
               allUsers={allUsers}
+              academy={academy}
+              academyUsers={academyUsers}
+              classes={classes}
+              rankings={rankings}
+              competitions={competitions}
               selectedAcademyId={selectedAcademyId}
-              onSelectAcademy={setSelectedAcademyId}
+              onEnterAcademy={handleEnterAcademy}
+              onClearFocus={handleClearFocusedAcademy}
             />
           )
-          : (
+          : isStaff ? (
+            <StaffDashboardView
+              user={currentUser}
+              academy={academy}
+              academyUsers={academyUsers}
+              classes={classes}
+              notifications={notifications}
+            />
+          ) : (
             <HomeView
               user={currentUser}
               branch={branch}
@@ -623,10 +702,35 @@ const App: React.FC = () => {
             allUsers={allUsers}
             selectedAcademyId={selectedAcademyId}
             onSelectAcademy={setSelectedAcademyId}
+            focusSection={managementFocusSection}
+            onFocusSectionHandled={() => setManagementFocusSection(null)}
             onUpdateAcademy={handleUpdateAcademy}
             onCreateAcademy={handleCreateAcademy}
             onCreateUser={handleCreateUser}
             onSaveProgressionRules={handleSaveProgressionRules}
+          />
+        );
+      case 'notifications':
+        return (
+          <NotificationsView
+            academy={academy}
+            userRole={currentUser.role}
+            academyUsers={academyUsers}
+            classes={classes}
+            notifications={notifications}
+            academies={allAcademies}
+            selectedAcademyId={selectedAcademyId}
+            onSelectAcademy={setSelectedAcademyId}
+            onSendNotification={handleSendNotification}
+            onMarkRead={handleMarkNotificationRead}
+          />
+        );
+      case 'learning':
+        return (
+          <LearningHubView
+            academyName={academy.name}
+            userName={currentUser.name}
+            userRole={currentUser.role}
           />
         );
       case 'store':
@@ -635,6 +739,7 @@ const App: React.FC = () => {
         return (
           <ProfileView
             user={currentUser}
+            profile={profile}
             totalClasses={profile.attendanceCount}
             rankingPosition={rankingEntry?.position ?? null}
             academyName={academy.name}
@@ -647,11 +752,25 @@ const App: React.FC = () => {
             <SuperadminDashboardView
               academies={allAcademies}
               allUsers={allUsers}
+              academy={academy}
+              academyUsers={academyUsers}
+              classes={classes}
+              rankings={rankings}
+              competitions={competitions}
               selectedAcademyId={selectedAcademyId}
-              onSelectAcademy={setSelectedAcademyId}
+              onEnterAcademy={handleEnterAcademy}
+              onClearFocus={handleClearFocusedAcademy}
             />
           )
-          : (
+          : isStaff ? (
+            <StaffDashboardView
+              user={currentUser}
+              academy={academy}
+              academyUsers={academyUsers}
+              classes={classes}
+              notifications={notifications}
+            />
+          ) : (
             <HomeView
               user={currentUser}
               branch={branch}

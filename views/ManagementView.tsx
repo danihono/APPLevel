@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { Building2, Save, Settings2, ShieldCheck, UserPlus } from 'lucide-react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Building2, GraduationCap, Save, Settings2, ShieldCheck, UserPlus, Users } from 'lucide-react';
 import type { FirestoreEntity } from '../services/firebase/data';
 import type { AcademyRecord, ClassRecord, UserRecord } from '../services/firebase/models';
 import { UserRole } from '../types';
@@ -13,6 +13,8 @@ interface ManagementViewProps {
   allUsers?: Array<FirestoreEntity<UserRecord>>;
   selectedAcademyId?: string;
   onSelectAcademy?: (academyId: string) => void;
+  focusSection?: 'master-black' | null;
+  onFocusSectionHandled?: () => void;
   onUpdateAcademy: (payload: {
     academyId: string;
     name: string;
@@ -68,6 +70,19 @@ function FeedbackBlock({ success, error }: { success?: string; error?: string })
   );
 }
 
+function roleLabel(role: UserRecord['role']) {
+  switch (role) {
+    case 'admin':
+      return 'Head Coach';
+    case 'professor':
+      return 'Instrutor';
+    case 'superadmin':
+      return 'Superadmin';
+    default:
+      return 'Aluno';
+  }
+}
+
 const ManagementView: React.FC<ManagementViewProps> = ({
   userRole,
   academy,
@@ -77,6 +92,8 @@ const ManagementView: React.FC<ManagementViewProps> = ({
   allUsers = [],
   selectedAcademyId,
   onSelectAcademy,
+  focusSection,
+  onFocusSectionHandled,
   onUpdateAcademy,
   onCreateAcademy,
   onCreateUser,
@@ -101,8 +118,11 @@ const ManagementView: React.FC<ManagementViewProps> = ({
   }, [academyUsers, allUsers, isSuperAdmin, managedAcademy.id]);
 
   const activeStudents = managedUsers.filter((entry) => entry.role === 'student' && entry.status === 'active');
+  const instructors = managedUsers.filter((entry) => entry.role !== 'student');
+  const students = managedUsers.filter((entry) => entry.role === 'student');
   const masterBlackUsers = managedUsers.filter(isMasterBlack);
   const activeClasses = classes.filter((entry) => entry.status === 'active').length;
+  const masterBlackSectionRef = useRef<HTMLElement | null>(null);
 
   const [academyName, setAcademyName] = useState(managedAcademy.name);
   const [academyTimezone, setAcademyTimezone] = useState(managedAcademy.timezone);
@@ -129,6 +149,7 @@ const ManagementView: React.FC<ManagementViewProps> = ({
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [role, setRole] = useState<'student' | 'professor' | 'admin' | 'superadmin'>('student');
+  const [userAcademyId, setUserAcademyId] = useState(selectedAcademyId || managedAcademy.id || '');
   const [phone, setPhone] = useState('');
   const [belt, setBelt] = useState('white');
   const [grade, setGrade] = useState(0);
@@ -151,6 +172,46 @@ const ManagementView: React.FC<ManagementViewProps> = ({
       maxStripes: 4,
     })));
   }, [managedAcademy]);
+
+  useEffect(() => {
+    if (!isSuperAdmin) {
+      return;
+    }
+
+    setUserAcademyId((current) => {
+      if (role === 'superadmin') {
+        return '';
+      }
+
+      if (current && academies.some((entry) => entry.id === current)) {
+        return current;
+      }
+
+      if (selectedAcademyId && academies.some((entry) => entry.id === selectedAcademyId)) {
+        return selectedAcademyId;
+      }
+
+      return academies[0]?.id ?? '';
+    });
+  }, [academies, isSuperAdmin, managedAcademy.id, role, selectedAcademyId]);
+
+  useEffect(() => {
+    if (focusSection !== 'master-black') {
+      return;
+    }
+
+    const frame = window.requestAnimationFrame(() => {
+      masterBlackSectionRef.current?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'start',
+      });
+      onFocusSectionHandled?.();
+    });
+
+    return () => {
+      window.cancelAnimationFrame(frame);
+    };
+  }, [focusSection, managedAcademy.id, onFocusSectionHandled]);
 
   async function handleSaveAcademy(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -202,6 +263,16 @@ const ManagementView: React.FC<ManagementViewProps> = ({
 
   async function handleCreateUser(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+
+    const requiresExistingAcademy = isSuperAdmin && role !== 'superadmin';
+    const academyExists = academies.some((entry) => entry.id === userAcademyId);
+
+    if (requiresExistingAcademy && !academyExists) {
+      setUserError('Selecione uma unidade existente para este acesso.');
+      setUserFeedback('');
+      return;
+    }
+
     setUserBusy(true);
     setUserFeedback('');
     setUserError('');
@@ -213,7 +284,9 @@ const ManagementView: React.FC<ManagementViewProps> = ({
         email,
         password,
         role,
-        academyId: isSuperAdmin ? managedAcademy.id : undefined,
+        academyId: isSuperAdmin
+          ? (role === 'superadmin' ? undefined : userAcademyId)
+          : undefined,
         phone: phone || undefined,
         belt,
         grade,
@@ -224,6 +297,9 @@ const ManagementView: React.FC<ManagementViewProps> = ({
       setEmail('');
       setPassword('');
       setRole('student');
+      setUserAcademyId(selectedAcademyId && academies.some((entry) => entry.id === selectedAcademyId)
+        ? selectedAcademyId
+        : (academies[0]?.id ?? ''));
       setPhone('');
       setBelt('white');
       setGrade(0);
@@ -264,10 +340,10 @@ const ManagementView: React.FC<ManagementViewProps> = ({
       <section className="app-panel app-panel--hero app-panel-pad">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="max-w-3xl">
-            <p className="app-section-label">Control room</p>
-            <h1 className="app-section-title">Gestao pesada com interface leve de operar.</h1>
+            <p className="app-section-label">Minha academia</p>
+            <h1 className="app-section-title">Estrutura, pessoas e configuracoes da unidade</h1>
             <p className="app-section-copy">
-              {managedAcademy.name} - configure status, limite de master black, acessos e regras sem cair num layout padrao.
+              {managedAcademy.name} com foco em equipe, alunos, graduacoes e nas configuracoes mais importantes da academia.
             </p>
           </div>
 
@@ -290,12 +366,12 @@ const ManagementView: React.FC<ManagementViewProps> = ({
 
       <section className="app-stat-grid">
         <article className="app-panel app-panel-pad">
-          <p className="app-stat-card__label">Alunos ativos</p>
-          <p className="app-stat-card__value">{activeStudents.length}</p>
+          <p className="app-stat-card__label">Instrutores</p>
+          <p className="app-stat-card__value">{instructors.length}</p>
         </article>
         <article className="app-panel app-panel-pad">
-          <p className="app-stat-card__label">Aulas ativas</p>
-          <p className="app-stat-card__value">{activeClasses}</p>
+          <p className="app-stat-card__label">Alunos ativos</p>
+          <p className="app-stat-card__value">{activeStudents.length}</p>
         </article>
         <article className="app-panel app-panel-pad">
           <p className="app-stat-card__label">Master black</p>
@@ -304,14 +380,83 @@ const ManagementView: React.FC<ManagementViewProps> = ({
           </p>
         </article>
         <article className="app-panel app-panel-pad">
-          <p className="app-stat-card__label">Status</p>
-          <p className="app-stat-card__value capitalize">{managedAcademy.status}</p>
+          <p className="app-stat-card__label">Aulas ativas</p>
+          <p className="app-stat-card__value">{activeClasses}</p>
+        </article>
+      </section>
+
+      <section ref={masterBlackSectionRef} className="app-grid-2">
+        <article className="app-panel app-panel-pad">
+          <div className="flex items-center gap-3">
+            <div className="app-icon-shell">
+              <ShieldCheck size={18} />
+            </div>
+            <div>
+              <p className="app-section-label">Instrutores</p>
+              <h2 className="text-xl font-bold">Equipe da academia</h2>
+            </div>
+          </div>
+
+          <div className="mt-6 app-list">
+            {instructors.map((entry) => (
+              <div key={entry.id} className="app-list-card">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-bold">{entry.displayName}</p>
+                    <p className="mt-1 text-xs text-[color:var(--text-soft)]">
+                      {roleLabel(entry.role)} • {entry.email}
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <span className="app-badge app-badge--gold">{entry.belt}</span>
+                    <span className="app-badge app-badge--muted">{entry.status}</span>
+                  </div>
+                </div>
+              </div>
+            ))}
+
+            {instructors.length === 0 ? (
+              <div className="app-empty">Nenhum instrutor vinculado a esta academia ainda.</div>
+            ) : null}
+          </div>
+        </article>
+
+        <article className="app-panel app-panel-pad">
+          <div className="flex items-center gap-3">
+            <div className="app-icon-shell">
+              <Users size={18} />
+            </div>
+            <div>
+              <p className="app-section-label">Alunos</p>
+              <h2 className="text-xl font-bold">Base de alunos</h2>
+            </div>
+          </div>
+
+          <div className="mt-6 app-list">
+            {students.slice(0, 8).map((entry) => (
+              <div key={entry.id} className="app-list-card">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-bold">{entry.displayName}</p>
+                    <p className="mt-1 text-xs text-[color:var(--text-soft)]">
+                      {entry.attendanceCount} presencas • faixa {entry.belt}
+                    </p>
+                  </div>
+                  <span className="app-badge app-badge--muted">{entry.status}</span>
+                </div>
+              </div>
+            ))}
+
+            {students.length === 0 ? (
+              <div className="app-empty">Nenhum aluno cadastrado nesta academia.</div>
+            ) : null}
+          </div>
         </article>
       </section>
 
       {!canManage ? (
         <div className="app-empty">
-          Este perfil tem apenas visualizacao. A gestao completa fica disponivel para admins e superadmins.
+          Este perfil tem apenas visualizacao. As configuracoes da academia ficam disponiveis para admins e superadmins.
         </div>
       ) : (
         <>
@@ -321,8 +466,8 @@ const ManagementView: React.FC<ManagementViewProps> = ({
                 <Settings2 size={18} />
               </div>
               <div>
-                <p className="app-section-label">Academia</p>
-                <h2 className="text-xl font-bold">Configuracoes da unidade</h2>
+                <p className="app-section-label">Configuracoes</p>
+                <h2 className="text-xl font-bold">Ajustes da academia</h2>
               </div>
             </div>
 
@@ -362,36 +507,6 @@ const ManagementView: React.FC<ManagementViewProps> = ({
               {academyBusy ? 'Salvando...' : 'Salvar academia'}
             </button>
           </form>
-
-          <section className="app-panel app-panel-pad">
-            <div className="flex items-center gap-3">
-              <div className="app-icon-shell">
-                <ShieldCheck size={18} />
-              </div>
-              <div>
-                <p className="app-section-label">Master black</p>
-                <h2 className="text-xl font-bold">Liderancas da academia</h2>
-              </div>
-            </div>
-
-            <div className="mt-6 app-list">
-              {masterBlackUsers.map((entry) => (
-                <div key={entry.id} className="app-list-card">
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <div>
-                      <p className="text-sm font-bold">{entry.displayName}</p>
-                      <p className="mt-1 text-xs text-[color:var(--text-soft)]">{entry.role} - {entry.email}</p>
-                    </div>
-                    <span className="app-badge app-badge--gold">{entry.belt}</span>
-                  </div>
-                </div>
-              ))}
-
-              {masterBlackUsers.length === 0 ? (
-                <div className="app-empty">Nenhum master black cadastrado nesta academia ainda.</div>
-              ) : null}
-            </div>
-          </section>
 
           {isSuperAdmin ? (
             <form onSubmit={handleCreateAcademy} className="app-panel app-panel-pad">
@@ -472,6 +587,26 @@ const ManagementView: React.FC<ManagementViewProps> = ({
                   {isSuperAdmin ? <option value="superadmin">Superadmin</option> : null}
                 </select>
               </label>
+              {isSuperAdmin ? (
+                <label className="app-field">
+                  <span className="app-field__label">Unidade do acesso</span>
+                  <select
+                    value={role === 'superadmin' ? '' : userAcademyId}
+                    onChange={(event) => setUserAcademyId(event.target.value)}
+                    className="app-select"
+                    disabled={role === 'superadmin'}
+                    required={role !== 'superadmin'}
+                  >
+                    <option value="">{role === 'superadmin' ? 'Acesso global do superadmin' : 'Selecione uma unidade'}</option>
+                    {academies.map((entry) => (
+                      <option key={entry.id} value={entry.id}>{entry.name}</option>
+                    ))}
+                  </select>
+                  <span className="app-field__hint">
+                    Admins, professores e alunos ficam vinculados a uma unica unidade existente. Para master black, use Professor ou Admin com faixa preta. Apenas superadmin acessa toda a rede.
+                  </span>
+                </label>
+              ) : null}
               <label className="app-field">
                 <span className="app-field__label">Telefone</span>
                 <input value={phone} onChange={(event) => setPhone(event.target.value)} className="app-input" />
@@ -501,11 +636,11 @@ const ManagementView: React.FC<ManagementViewProps> = ({
           <section className="app-panel app-panel-pad">
             <div className="flex items-center gap-3">
               <div className="app-icon-shell">
-                <ShieldCheck size={18} />
+                <GraduationCap size={18} />
               </div>
               <div>
                 <p className="app-section-label">Graduacao</p>
-                <h2 className="text-xl font-bold">Regras por faixa</h2>
+                <h2 className="text-xl font-bold">Graduacoes e regras por faixa</h2>
               </div>
             </div>
 
