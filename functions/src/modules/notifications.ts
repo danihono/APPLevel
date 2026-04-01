@@ -11,6 +11,8 @@ import {
   requiredString,
 } from '../lib/payload';
 
+const callableOptions = { region: 'southamerica-east1', invoker: 'public' as const };
+
 function chunk<T>(items: T[], size: number): T[][] {
   const chunks: T[][] = [];
 
@@ -21,7 +23,7 @@ function chunk<T>(items: T[], size: number): T[][] {
   return chunks;
 }
 
-export const registerDeviceToken = onCall({ region: 'southamerica-east1' }, async (request) => {
+export const registerDeviceToken = onCall(callableOptions, async (request) => {
   const actor = await getRequestContext(request, 'student');
   const token = requiredString(request.data, 'token');
 
@@ -35,7 +37,7 @@ export const registerDeviceToken = onCall({ region: 'southamerica-east1' }, asyn
   };
 });
 
-export const sendSegmentedNotification = onCall({ region: 'southamerica-east1' }, async (request) => {
+export const sendSegmentedNotification = onCall(callableOptions, async (request) => {
   const actor = await getRequestContext(request, 'professor');
   const title = requiredString(request.data, 'title');
   const body = requiredString(request.data, 'body');
@@ -144,7 +146,7 @@ export const sendSegmentedNotification = onCall({ region: 'southamerica-east1' }
   };
 });
 
-export const markNotificationRead = onCall({ region: 'southamerica-east1' }, async (request) => {
+export const markNotificationRead = onCall(callableOptions, async (request) => {
   const actor = await getRequestContext(request, 'student');
   const notificationId = requiredString(request.data, 'notificationId');
   const notificationRef = db.collection(COLLECTIONS.notifications).doc(notificationId);

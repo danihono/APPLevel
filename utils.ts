@@ -4,16 +4,32 @@
  * - https://www.youtube.com/watch?v=VIDEO_ID
  * - https://youtu.be/VIDEO_ID
  */
-export const getYouTubeEmbedUrl = (url: string): string => {
-  let videoId = '';
-  
-  if (url.includes('youtube.com/watch?v=')) {
-    videoId = url.split('v=')[1].split('&')[0];
-  } else if (url.includes('youtu.be/')) {
-    videoId = url.split('youtu.be/')[1].split('?')[0];
-  } else if (url.includes('youtube.com/embed/')) {
-    return url; // Already an embed URL
+export const getYouTubeVideoId = (url: string): string => {
+  try {
+    const parsed = new URL(url);
+    const host = parsed.hostname.replace(/^www\./, '');
+
+    if (host === 'youtu.be') {
+      return parsed.pathname.replace(/^\/+/, '').split('/')[0];
+    }
+
+    if (host === 'youtube.com' || host === 'm.youtube.com') {
+      if (parsed.pathname === '/watch') {
+        return parsed.searchParams.get('v') ?? '';
+      }
+
+      if (parsed.pathname.startsWith('/embed/')) {
+        return parsed.pathname.replace('/embed/', '').split('/')[0];
+      }
+    }
+  } catch {
+    return '';
   }
-  
+
+  return '';
+};
+
+export const getYouTubeEmbedUrl = (url: string): string => {
+  const videoId = getYouTubeVideoId(url);
   return videoId ? `https://www.youtube.com/embed/${videoId}` : url;
 };

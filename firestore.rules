@@ -31,7 +31,7 @@ service cloud.firestore {
     }
 
     function isApprover() {
-      return signedIn() && (role() == 'professor' || role() == 'superadmin');
+      return signedIn() && (role() == 'professor' || role() == 'admin' || role() == 'superadmin');
     }
 
     function isStudent() {
@@ -170,6 +170,61 @@ service cloud.firestore {
         );
 
       allow delete: if (isAdmin() && sameAcademy(resource.data.academyId)) || isSuperAdmin();
+    }
+
+    match /learning_tracks/{trackId} {
+      allow read: if isSuperAdmin()
+        || (
+          signedIn()
+          && role() == 'professor'
+          && resource.data.status == 'published'
+        );
+      allow write: if false;
+    }
+
+    match /learning_courses/{courseId} {
+      allow read: if isSuperAdmin()
+        || (
+          signedIn()
+          && role() == 'professor'
+          && resource.data.status == 'published'
+        );
+      allow write: if false;
+    }
+
+    match /learning_lessons/{lessonId} {
+      allow read: if isSuperAdmin()
+        || (
+          signedIn()
+          && role() == 'professor'
+          && resource.data.status == 'published'
+        );
+      allow write: if false;
+    }
+
+    match /learning_quizzes/{lessonId} {
+      allow read: if isSuperAdmin();
+      allow write: if false;
+    }
+
+    match /learning_progress/{progressId} {
+      allow read: if isSuperAdmin()
+        || (
+          signedIn()
+          && role() == 'professor'
+          && resource.data.userId == request.auth.uid
+        );
+      allow write: if false;
+    }
+
+    match /learning_quiz_attempts/{attemptId} {
+      allow read: if isSuperAdmin()
+        || (
+          signedIn()
+          && role() == 'professor'
+          && resource.data.userId == request.auth.uid
+        );
+      allow write: if false;
     }
   }
 }

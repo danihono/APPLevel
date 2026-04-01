@@ -12,6 +12,8 @@ import {
   requiredString,
 } from '../lib/payload';
 
+const callableOptions = { region: 'southamerica-east1', invoker: 'public' as const };
+
 async function getClassOrThrow(classId: string): Promise<FirebaseFirestore.DocumentSnapshot<FirebaseFirestore.DocumentData>> {
   const classSnap = await db.collection(COLLECTIONS.classes).doc(classId).get();
   assertCondition(classSnap.exists, 'not-found', 'Aula não encontrada.');
@@ -45,7 +47,7 @@ function buildQrResponse(classId: string, academyId: string, token: string, expi
   };
 }
 
-export const upsertClassSchedule = onCall({ region: 'southamerica-east1' }, async (request) => {
+export const upsertClassSchedule = onCall(callableOptions, async (request) => {
   const actor = await getRequestContext(request, 'professor');
   const classId = optionalString(request.data, 'classId');
   const academyId = optionalString(request.data, 'academyId') ?? actor.academyId;
@@ -107,7 +109,7 @@ export const upsertClassSchedule = onCall({ region: 'southamerica-east1' }, asyn
   };
 });
 
-export const startClassSession = onCall({ region: 'southamerica-east1' }, async (request) => {
+export const startClassSession = onCall(callableOptions, async (request) => {
   const actor = await getRequestContext(request, 'professor');
   const classId = requiredString(request.data, 'classId');
   const qrDurationMinutes = optionalNumber(request.data, 'qrDurationMinutes') ?? 10;
@@ -133,7 +135,7 @@ export const startClassSession = onCall({ region: 'southamerica-east1' }, async 
   return buildQrResponse(classId, classData.academyId, token, expiresAt);
 });
 
-export const finishClassSession = onCall({ region: 'southamerica-east1' }, async (request) => {
+export const finishClassSession = onCall(callableOptions, async (request) => {
   const actor = await getRequestContext(request, 'professor');
   const classId = requiredString(request.data, 'classId');
   const classSnap = await getClassOrThrow(classId);
@@ -154,7 +156,7 @@ export const finishClassSession = onCall({ region: 'southamerica-east1' }, async
   };
 });
 
-export const generateClassQrCode = onCall({ region: 'southamerica-east1' }, async (request) => {
+export const generateClassQrCode = onCall(callableOptions, async (request) => {
   const actor = await getRequestContext(request, 'professor');
   const classId = requiredString(request.data, 'classId');
   const qrDurationMinutes = optionalNumber(request.data, 'qrDurationMinutes') ?? 10;

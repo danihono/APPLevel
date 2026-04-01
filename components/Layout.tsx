@@ -5,6 +5,8 @@ import {
   BookOpen,
   Building2,
   Calendar,
+  ChevronLeft,
+  ChevronRight,
   Home,
   Moon,
   Shield,
@@ -31,6 +33,8 @@ interface NavItem {
   icon: React.ComponentType<{ size?: number; strokeWidth?: number; className?: string }>;
   label: string;
 }
+
+const SUPERADMIN_SIDEBAR_STORAGE_KEY = 'applevel:superadmin-sidebar-collapsed';
 
 const pageMeta: Record<string, { kicker: string; title: string; description: string }> = {
   home: {
@@ -111,6 +115,11 @@ const superadminPageMeta: Record<string, { kicker: string; title: string; descri
     title: 'Gestao global de academias e liderancas.',
     description: 'Crie unidades, ajuste limites e organize permissoes sem perder a visao consolidada da operacao.',
   },
+  learning: {
+    kicker: 'Learning hub',
+    title: 'Capacitacao da rede com trilhas, aulas e quizzes.',
+    description: 'Publique o catalogo global e acompanhe o progresso dos professores por academia.',
+  },
   profile: {
     kicker: 'Conta',
     title: 'Sua conta de governanca na plataforma.',
@@ -145,6 +154,17 @@ const Layout: React.FC<LayoutProps> = ({
   const navRefs = useRef<Record<string, HTMLButtonElement | null>>({});
   const themeTimerRef = useRef<number | null>(null);
   const [themeAnimating, setThemeAnimating] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => {
+    if (typeof window === 'undefined') {
+      return false;
+    }
+
+    try {
+      return window.localStorage.getItem(SUPERADMIN_SIDEBAR_STORAGE_KEY) === 'true';
+    } catch {
+      return false;
+    }
+  });
   const [indicator, setIndicator] = useState({
     x: 0,
     y: 0,
@@ -158,6 +178,7 @@ const Layout: React.FC<LayoutProps> = ({
     userRole === UserRole.ADMIN ||
     userRole === UserRole.SUPERADMIN;
   const isSuperAdmin = userRole === UserRole.SUPERADMIN;
+  const sidebarCollapsed = isSuperAdmin && isSidebarCollapsed;
   const themeLabel = isDarkMode ? 'Dark mode' : 'Light mode';
 
   const navItems = useMemo<NavItem[]>(() => (
@@ -167,9 +188,10 @@ const Layout: React.FC<LayoutProps> = ({
         { id: 'notifications', icon: Bell, label: 'Comunicacao' },
         { id: 'students', icon: Users, label: 'Alunos' },
         { id: 'management', icon: Shield, label: 'Gestao' },
+        { id: 'learning', icon: BookOpen, label: 'Learning' },
         { id: 'profile', icon: UserIcon, label: 'Perfil' },
       ]
-      : isStaff
+      : userRole === UserRole.PROFESSOR
         ? [
           { id: 'home', icon: Home, label: 'Inicio' },
           { id: 'calendar', icon: Calendar, label: 'Calendario' },
@@ -178,6 +200,14 @@ const Layout: React.FC<LayoutProps> = ({
           { id: 'learning', icon: BookOpen, label: 'Learning' },
           { id: 'profile', icon: UserIcon, label: 'Perfil' },
         ]
+        : isStaff
+          ? [
+            { id: 'home', icon: Home, label: 'Inicio' },
+            { id: 'calendar', icon: Calendar, label: 'Calendario' },
+            { id: 'management', icon: Building2, label: 'Academia' },
+            { id: 'notifications', icon: Bell, label: 'Avisos' },
+            { id: 'profile', icon: UserIcon, label: 'Perfil' },
+          ]
         : [
         { id: 'home', icon: Home, label: 'Inicio' },
         { id: 'calendar', icon: Calendar, label: 'Aulas' },
@@ -244,6 +274,18 @@ const Layout: React.FC<LayoutProps> = ({
     }
   }, []);
 
+  useEffect(() => {
+    if (!isSuperAdmin || typeof window === 'undefined') {
+      return;
+    }
+
+    try {
+      window.localStorage.setItem(SUPERADMIN_SIDEBAR_STORAGE_KEY, String(isSidebarCollapsed));
+    } catch {
+      // Ignore storage write failures so the layout still works in restricted browsers.
+    }
+  }, [isSidebarCollapsed, isSuperAdmin]);
+
   const handleThemeToggle = () => {
     if (themeTimerRef.current) {
       window.clearTimeout(themeTimerRef.current);
@@ -262,17 +304,30 @@ const Layout: React.FC<LayoutProps> = ({
   };
 
   const renderDesktopSidebar = () => (
-    <aside className="app-sidebar app-panel">
-      <div className="app-sidebar__brand">
-        <div className="app-brand__mark">LVL</div>
-        <div className="app-sidebar__brand-copy">
-          <p className="app-kicker">Plataforma APPLevel</p>
-          <h2 className="app-sidebar__title">Superadmin</h2>
-          <p className="app-sidebar__text">Controle da rede pensado para escritorio e responsivo no celular.</p>
+    <aside className={`app-sidebar app-panel ${sidebarCollapsed ? 'app-sidebar--collapsed' : ''}`}>
+      <div className="app-sidebar__header">
+        <div className="app-sidebar__brand">
+          <div className="app-brand__mark">LVL</div>
+          <div className="app-sidebar__brand-copy" aria-hidden={sidebarCollapsed}>
+            <p className="app-kicker">Plataforma APPLevel</p>
+            <h2 className="app-sidebar__title">Superadmin</h2>
+            <p className="app-sidebar__text">Controle da rede pensado para escritorio e responsivo no celular.</p>
+          </div>
         </div>
+
+        <button
+          type="button"
+          onClick={() => setIsSidebarCollapsed((current) => !current)}
+          className="app-sidebar__collapse"
+          aria-label={sidebarCollapsed ? 'Expandir barra lateral' : 'Minimizar barra lateral'}
+          aria-pressed={sidebarCollapsed}
+          title={sidebarCollapsed ? 'Expandir barra lateral' : 'Minimizar barra lateral'}
+        >
+          {sidebarCollapsed ? <ChevronRight size={18} strokeWidth={2} /> : <ChevronLeft size={18} strokeWidth={2} />}
+        </button>
       </div>
 
-      <div className="app-sidebar__meta">
+      <div className="app-sidebar__meta" aria-hidden={sidebarCollapsed}>
         <div className="app-orb">
           <span className="app-orb__dot" />
           {currentPage.kicker}
@@ -291,12 +346,14 @@ const Layout: React.FC<LayoutProps> = ({
               type="button"
               onClick={() => setActiveTab(item.id)}
               className={`app-sidebar__button ${isActive ? 'is-active' : ''}`}
+              aria-label={item.label}
               aria-current={isActive ? 'page' : undefined}
+              title={item.label}
             >
               <span className="app-sidebar__icon">
                 <Icon size={19} strokeWidth={1.85} />
               </span>
-              <span className="app-sidebar__label">{item.label}</span>
+              <span className="app-sidebar__label" aria-hidden={sidebarCollapsed}>{item.label}</span>
             </button>
           );
         })}
@@ -309,7 +366,7 @@ const Layout: React.FC<LayoutProps> = ({
         aria-label="Alternar tema"
         title="Alternar tema"
       >
-        <div>
+        <div className="app-sidebar__theme-copy" aria-hidden={sidebarCollapsed}>
           <p className="app-kicker">Tema</p>
           <strong>{isDarkMode ? 'Dark mode' : 'Light mode'}</strong>
         </div>
@@ -322,7 +379,9 @@ const Layout: React.FC<LayoutProps> = ({
   );
 
   return (
-    <div className={`app-shell ${isSuperAdmin ? 'app-shell--superadmin' : ''}`}>
+    <div
+      className={`app-shell ${isSuperAdmin ? 'app-shell--superadmin' : ''} ${sidebarCollapsed ? 'is-sidebar-collapsed' : ''}`.trim()}
+    >
       <div className={`app-frame ${isWideLayout ? 'app-frame--wide' : ''}`}>
         <div className={isSuperAdmin ? 'app-desktop-shell' : ''}>
           {isSuperAdmin ? renderDesktopSidebar() : null}

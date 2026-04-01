@@ -1,5 +1,5 @@
 import { Timestamp } from 'firebase-admin/firestore';
-import { onCall } from 'firebase-functions/v2/https';
+import { onCall, onRequest } from 'firebase-functions/v2/https';
 import {
   AcademyDoc,
   COLLECTIONS,
@@ -25,6 +25,14 @@ import {
 import { syncUserDerivedState } from '../services/userState';
 
 const CPF_LENGTH = 11;
+const callableOptions = { region: 'southamerica-east1', invoker: 'public' as const };
+const publicRequestOptions = { ...callableOptions, cors: true };
+
+type SignupAcademySummary = {
+  academyId: string;
+  name: string;
+  timezone: string;
+};
 
 async function setClaims(uid: string, role: Role, academyId: string): Promise<void> {
   await auth.setCustomUserClaims(uid, {
@@ -78,6 +86,14 @@ function assertProfessorOrSuperadmin(actorRole: Role): void {
     actorRole === 'professor' || actorRole === 'superadmin',
     'permission-denied',
     'Somente professor ou superadmin podem executar esta acao.',
+  );
+}
+
+function assertRequestApproverRole(actorRole: Role): void {
+  assertCondition(
+    actorRole === 'professor' || actorRole === 'admin' || actorRole === 'superadmin',
+    'permission-denied',
+    'Somente professor, admin ou superadmin podem executar esta acao.',
   );
 }
 
@@ -190,7 +206,7 @@ async function listApproversForAcademy(academyId: string): Promise<string[]> {
 
   for (const doc of academyUsers.docs) {
     const user = doc.data() as UserDoc;
-    if (user.role === 'professor') {
+    if (user.role === 'professor' || user.role === 'admin') {
       recipients.add(doc.id);
     }
   }
@@ -235,23 +251,44 @@ function buildStudentUserDoc(joinRequest: JoinRequestDoc, now: Timestamp): UserD
   };
 }
 
-export const listSignupAcademies = onCall({ region: 'southamerica-east1' }, async () => {
-  const snapshot = await db
-    .collection(COLLECTIONS.academies)
-    .where('status', '==', 'active')
-    .get();
+async function listActiveSignupAcademies(): Promise<SignupAcademySummary[]> {
+  const snapshot = await db.collection(COLLECTIONS.academies).get();
 
   return snapshot.docs
-    .map((doc) => doc.data() as AcademyDoc)
+    .map((doc) => {
+      const academy = doc.data() as Partial<AcademyDoc>;
+      return {
+        academyId: academy.id ?? doc.id,
+        name: academy.name ?? 'Unidade sem nome',
+        timezone: academy.timezone ?? 'America/Sao_Paulo',
+        status: academy.status ?? 'active',
+      };
+    })
+    .filter((academy) => academy.status === 'active')
     .sort((left, right) => left.name.localeCompare(right.name, 'pt-BR'))
-    .map((academy) => ({
-      academyId: academy.id,
-      name: academy.name,
-      timezone: academy.timezone,
+    .map(({ academyId, name, timezone }) => ({
+      academyId,
+      name,
+      timezone,
     }));
+}
+
+export const getPublicSignupAcademies = onRequest(publicRequestOptions, async (request, response) => {
+  if (request.method !== 'GET') {
+    response.set('Allow', 'GET');
+    response.status(405).json({ error: 'Method Not Allowed' });
+    return;
+  }
+
+  const academies = await listActiveSignupAcademies();
+  response.status(200).json({ academies });
 });
 
-export const submitStudentSignup = onCall({ region: 'southamerica-east1' }, async (request) => {
+export const listSignupAcademies = onCall(callableOptions, async () => {
+  return listActiveSignupAcademies();
+});
+
+export const submitStudentSignup = onCall(callableOptions, async (request) => {
   const academyId = requiredString(request.data, 'academyId');
   const email = normalizeEmail(requiredString(request.data, 'email'));
   const password = requiredString(request.data, 'password');
@@ -340,7 +377,7 @@ export const submitStudentSignup = onCall({ region: 'southamerica-east1' }, asyn
   }
 });
 
-export const createAcademy = onCall({ region: 'southamerica-east1' }, async (request) => {
+export const createAcademy = onCall(callableOptions, async (request) => {
   const actor = await getRequestContext(request, 'superadmin');
   const name = requiredString(request.data, 'name');
   const slug = optionalString(request.data, 'slug') ?? name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
@@ -385,7 +422,7 @@ export const createAcademy = onCall({ region: 'southamerica-east1' }, async (req
   };
 });
 
-export const createUserWithRole = onCall({ region: 'southamerica-east1' }, async (request) => {
+export const createUserWithRole = onCall(callableOptions, async (request) => {
   const actor = await getRequestContext(request, 'superadmin');
   const firstName = requiredString(request.data, 'firstName');
   const lastName = requiredString(request.data, 'lastName');
@@ -456,9 +493,9 @@ export const createUserWithRole = onCall({ region: 'southamerica-east1' }, async
   };
 });
 
-export const approveJoinRequest = onCall({ region: 'southamerica-east1' }, async (request) => {
+export const approveJoinRequest = onCall(callableOptions, async (request) => {
   const actor = await getRequestContext(request, 'professor');
-  assertProfessorOrSuperadmin(actor.role);
+  assertRequestApproverRole(actor.role);
 
   const requestId = requiredString(request.data, 'requestId');
   const joinRequestRef = db.collection(COLLECTIONS.joinRequests).doc(requestId);
@@ -526,9 +563,9 @@ export const approveJoinRequest = onCall({ region: 'southamerica-east1' }, async
   };
 });
 
-export const rejectJoinRequest = onCall({ region: 'southamerica-east1' }, async (request) => {
+export const rejectJoinRequest = onCall(callableOptions, async (request) => {
   const actor = await getRequestContext(request, 'professor');
-  assertProfessorOrSuperadmin(actor.role);
+  assertRequestApproverRole(actor.role);
 
   const requestId = requiredString(request.data, 'requestId');
   const joinRequestRef = db.collection(COLLECTIONS.joinRequests).doc(requestId);
@@ -569,7 +606,7 @@ export const rejectJoinRequest = onCall({ region: 'southamerica-east1' }, async 
   };
 });
 
-export const assignUserToAcademy = onCall({ region: 'southamerica-east1' }, async (request) => {
+export const assignUserToAcademy = onCall(callableOptions, async (request) => {
   const actor = await getRequestContext(request, 'admin');
   const targetUserId = requiredString(request.data, 'userId');
   const academyId = requiredString(request.data, 'academyId');
@@ -598,7 +635,7 @@ export const assignUserToAcademy = onCall({ region: 'southamerica-east1' }, asyn
   };
 });
 
-export const setUserRole = onCall({ region: 'southamerica-east1' }, async (request) => {
+export const setUserRole = onCall(callableOptions, async (request) => {
   const actor = await getRequestContext(request, 'admin');
   const targetUserId = requiredString(request.data, 'userId');
   const role = requiredString(request.data, 'role') as Role;
@@ -628,7 +665,7 @@ export const setUserRole = onCall({ region: 'southamerica-east1' }, async (reque
   };
 });
 
-export const updateOwnStudentProfile = onCall({ region: 'southamerica-east1' }, async (request) => {
+export const updateOwnStudentProfile = onCall(callableOptions, async (request) => {
   const actor = await getRequestContext(request, 'student');
   assertCondition(actor.role === 'student', 'permission-denied', 'Somente alunos podem editar este perfil.');
 
@@ -669,7 +706,7 @@ export const updateOwnStudentProfile = onCall({ region: 'southamerica-east1' }, 
   };
 });
 
-export const syncOwnUserEmail = onCall({ region: 'southamerica-east1' }, async (request) => {
+export const syncOwnUserEmail = onCall(callableOptions, async (request) => {
   const actor = await getRequestContext(request, 'student');
   assertCondition(actor.role === 'student', 'permission-denied', 'Somente alunos podem editar este perfil.');
 
@@ -693,7 +730,7 @@ export const syncOwnUserEmail = onCall({ region: 'southamerica-east1' }, async (
   };
 });
 
-export const updateStudentBeltGrade = onCall({ region: 'southamerica-east1' }, async (request) => {
+export const updateStudentBeltGrade = onCall(callableOptions, async (request) => {
   const actor = await getRequestContext(request, 'professor');
   assertProfessorOrSuperadmin(actor.role);
 
@@ -743,8 +780,20 @@ export const updateStudentBeltGrade = onCall({ region: 'southamerica-east1' }, a
   };
 });
 
-export const validateSessionAccess = onCall({ region: 'southamerica-east1' }, async (request) => {
+export const validateSessionAccess = onCall(callableOptions, async (request) => {
   const actor = await getRequestContext(request, 'student');
+  const tokenRole = typeof request.auth?.token?.role === 'string'
+    ? request.auth.token.role
+    : '';
+  const tokenAcademyId = typeof request.auth?.token?.academyId === 'string'
+    ? request.auth.token.academyId
+    : '';
+  const claimsUpdated = tokenRole !== actor.role || tokenAcademyId !== actor.academyId;
+
+  if (claimsUpdated) {
+    await setClaims(actor.uid, actor.role, actor.academyId);
+  }
+
   return {
     uid: actor.uid,
     academyId: actor.academyId,
@@ -752,5 +801,6 @@ export const validateSessionAccess = onCall({ region: 'southamerica-east1' }, as
     displayName: actor.user.displayName,
     belt: actor.user.belt,
     stripes: actor.user.stripes,
+    claimsUpdated,
   };
 });

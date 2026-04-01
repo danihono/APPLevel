@@ -264,6 +264,13 @@ img {
 
 .app-shell--superadmin {
   padding-bottom: 8.5rem;
+  --superadmin-sidebar-width: 18.75rem;
+  --superadmin-sidebar-collapsed-width: 5.75rem;
+  --superadmin-sidebar-gap: 1.4rem;
+}
+
+.app-shell--superadmin.is-sidebar-collapsed {
+  --superadmin-sidebar-width: var(--superadmin-sidebar-collapsed-width);
 }
 
 .app-frame {
@@ -369,19 +376,60 @@ html.dark .app-panel--tint {
   display: none;
 }
 
+.app-sidebar__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.85rem;
+}
+
 .app-sidebar__brand {
   display: flex;
   align-items: flex-start;
   gap: 0.95rem;
+  min-width: 0;
 }
 
 .app-sidebar__brand-copy {
   min-width: 0;
+  max-width: 12rem;
+  transition:
+    opacity 220ms ease,
+    transform 220ms ease,
+    max-width 220ms ease;
 }
 
 .app-sidebar__title {
   margin-top: 0.3rem;
   font-size: 1.4rem;
+}
+
+.app-sidebar__collapse {
+  flex: none;
+  width: 3rem;
+  height: 3rem;
+  border: 1px solid var(--border);
+  border-radius: 1rem;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.4), rgba(255, 255, 255, 0.14));
+  color: var(--text-strong);
+  box-shadow: var(--shadow-soft);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition:
+    transform 220ms ease,
+    border-color 220ms ease,
+    background 220ms ease;
+}
+
+html.dark .app-sidebar__collapse {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.03));
+}
+
+.app-sidebar__collapse:hover,
+.app-sidebar__collapse:focus-visible {
+  transform: translateY(-2px);
+  border-color: rgba(232, 175, 72, 0.28);
 }
 
 .app-sidebar__text {
@@ -396,6 +444,13 @@ html.dark .app-panel--tint {
   flex-wrap: wrap;
   gap: 0.55rem;
   margin-top: 1.2rem;
+  max-height: 8rem;
+  overflow: hidden;
+  transition:
+    opacity 220ms ease,
+    transform 220ms ease,
+    max-height 220ms ease,
+    margin-top 220ms ease;
 }
 
 .app-sidebar__nav {
@@ -467,6 +522,13 @@ html.dark .app-sidebar__button.is-active {
 .app-sidebar__label {
   font-weight: 800;
   letter-spacing: 0.04em;
+  white-space: nowrap;
+  max-width: 10rem;
+  overflow: hidden;
+  transition:
+    opacity 220ms ease,
+    transform 220ms ease,
+    max-width 220ms ease;
 }
 
 .app-sidebar__theme {
@@ -482,6 +544,15 @@ html.dark .app-sidebar__button.is-active {
     transform 220ms ease,
     border-color 220ms ease,
     background 220ms ease;
+}
+
+.app-sidebar__theme-copy {
+  min-width: 0;
+  max-width: 11rem;
+  transition:
+    opacity 220ms ease,
+    transform 220ms ease,
+    max-width 220ms ease;
 }
 
 .app-sidebar__theme strong {
@@ -501,6 +572,60 @@ html.dark .app-sidebar__button.is-active {
   display: grid;
   place-items: center;
   overflow: hidden;
+}
+
+.app-sidebar--collapsed .app-sidebar__header {
+  flex-direction: column;
+  align-items: center;
+  gap: 0.8rem;
+}
+
+.app-sidebar--collapsed .app-sidebar__brand {
+  width: 100%;
+  justify-content: center;
+  align-items: center;
+  gap: 0;
+}
+
+.app-sidebar--collapsed .app-sidebar__brand-copy,
+.app-sidebar--collapsed .app-sidebar__label,
+.app-sidebar--collapsed .app-sidebar__theme-copy {
+  opacity: 0;
+  max-width: 0;
+  overflow: hidden;
+  transform: translateX(-0.4rem);
+  pointer-events: none;
+}
+
+.app-sidebar--collapsed .app-sidebar__brand-copy,
+.app-sidebar--collapsed .app-sidebar__meta,
+.app-sidebar--collapsed .app-sidebar__theme-copy,
+.app-sidebar--collapsed .app-sidebar__label {
+  display: none;
+}
+
+.app-sidebar--collapsed .app-sidebar__meta {
+  margin-top: 0;
+  max-height: 0;
+  opacity: 0;
+  transform: translateY(-0.4rem);
+  pointer-events: none;
+}
+
+.app-sidebar--collapsed .app-sidebar__nav {
+  width: 100%;
+  margin-top: 0.85rem;
+}
+
+.app-sidebar--collapsed .app-sidebar__button,
+.app-sidebar--collapsed .app-sidebar__theme {
+  justify-content: center;
+  gap: 0;
+  padding-inline: 0;
+}
+
+.app-sidebar--collapsed .app-sidebar__theme {
+  min-height: 4rem;
 }
 
 .app-brand {
@@ -2035,28 +2160,42 @@ html.dark .superadmin-belt-dot {
 
 @media (min-width: 980px) {
   .app-shell--superadmin {
-    padding: 1.25rem 1.25rem 1.5rem;
+    padding: 1.25rem 1.25rem 1.5rem calc(var(--superadmin-sidebar-width) + var(--superadmin-sidebar-gap));
+    transition: padding-left 260ms ease;
   }
 
   .app-shell--superadmin .app-frame--wide {
     width: min(100%, 98rem);
+    margin: 0 auto 0 0;
   }
 
   .app-shell--superadmin .app-desktop-shell {
-    display: grid;
-    grid-template-columns: 18.5rem minmax(0, 1fr);
-    gap: 1.2rem;
-    align-items: start;
+    display: block;
   }
 
   .app-shell--superadmin .app-sidebar {
     display: flex;
     flex-direction: column;
     gap: 0;
-    position: sticky;
-    top: 1.25rem;
-    min-height: calc(100vh - 2.5rem);
-    padding: 1.15rem;
+    position: fixed;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    z-index: 40;
+    width: var(--superadmin-sidebar-width);
+    min-height: 100vh;
+    padding: 1rem 0.85rem 1rem 0.85rem;
+    border-radius: 0 2rem 2rem 0;
+    border-left: 0;
+    overflow-y: auto;
+    transition:
+      width 260ms ease,
+      padding 260ms ease,
+      border-radius 260ms ease;
+  }
+
+  .app-shell--superadmin.is-sidebar-collapsed .app-sidebar {
+    padding-inline: 0.65rem;
   }
 
   .app-shell--superadmin .app-topbar {
@@ -2086,6 +2225,12 @@ html.dark .superadmin-belt-dot {
 
   .app-topbar-panel--superadmin {
     padding: 0 0 0.9rem;
+  }
+}
+
+@media (min-width: 980px) {
+  .app-shell--superadmin {
+    padding: 1.25rem 1.25rem 1.5rem calc(var(--superadmin-sidebar-width) + var(--superadmin-sidebar-gap));
   }
 }
 

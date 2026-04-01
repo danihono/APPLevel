@@ -1,66 +1,830 @@
-import React from 'react';
-import { BookOpen, CirclePlay, ClipboardCheck, TimerReset } from 'lucide-react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import {
+  BookOpen,
+  CheckCircle2,
+  CirclePlay,
+  ClipboardCheck,
+  Filter,
+  Lock,
+  Network,
+  Plus,
+  Save,
+  ShieldCheck,
+  TimerReset,
+  Users,
+} from 'lucide-react';
+import LearningVideoPlayer from '../components/LearningVideoPlayer';
+import ProgressBar from '../components/ProgressBar';
+import type { FirestoreEntity } from '../services/firebase/data';
+import type {
+  AcademyRecord,
+  LearningCourseRecord,
+  LearningLessonRecord,
+  LearningProgressRecord,
+  LearningQuizRecord,
+  LearningTrackRecord,
+  UserRecord,
+} from '../services/firebase/models';
 import { UserRole } from '../types';
+
+type QuizQuestionDraft = {
+  prompt: string;
+  options: string[];
+  correctOptionIndex: number;
+};
+
+type QuizQuestionSession = {
+  id: string;
+  prompt: string;
+  options: string[];
+};
+
+type OrderedLesson = {
+  lesson: FirestoreEntity<LearningLessonRecord>;
+  course: FirestoreEntity<LearningCourseRecord> | null;
+};
+
+type LessonRuntimeStatus = 'locked' | 'available' | 'watching' | 'ready' | 'completed';
 
 interface LearningHubViewProps {
   academyName: string;
   userName: string;
   userRole?: UserRole;
+  selectedAcademyId?: string;
+  selectedAcademy?: FirestoreEntity<AcademyRecord> | null;
+  academies?: Array<FirestoreEntity<AcademyRecord>>;
+  allUsers?: Array<FirestoreEntity<UserRecord>>;
+  academyUsers?: Array<FirestoreEntity<UserRecord>>;
+  tracks: Array<FirestoreEntity<LearningTrackRecord>>;
+  courses: Array<FirestoreEntity<LearningCourseRecord>>;
+  lessons: Array<FirestoreEntity<LearningLessonRecord>>;
+  quizzes: Array<FirestoreEntity<LearningQuizRecord>>;
+  progressRecords: Array<FirestoreEntity<LearningProgressRecord>>;
+  onSelectAcademy?: (academyId: string) => void;
+  onUpsertTrack: (payload: {
+    trackId?: string;
+    title: string;
+    description?: string;
+    order: number;
+    status: 'draft' | 'published';
+  }) => Promise<{ trackId: string }>;
+  onUpsertCourse: (payload: {
+    courseId?: string;
+    trackId: string;
+    title: string;
+    description?: string;
+    order: number;
+    status: 'draft' | 'published';
+  }) => Promise<{ courseId: string; trackId: string }>;
+  onUpsertLesson: (payload: {
+    lessonId?: string;
+    trackId: string;
+    courseId: string;
+    title: string;
+    description?: string;
+    videoUrl: string;
+    order: number;
+    status: 'draft' | 'published';
+    passingScore: number;
+  }) => Promise<{ lessonId: string; courseId: string; trackId: string }>;
+  onUpsertQuiz: (payload: {
+    lessonId: string;
+    questions: Array<{
+      prompt: string;
+      options: string[];
+      correctOptionIndex: number;
+    }>;
+  }) => Promise<{ lessonId: string }>;
+  onRecordPlayback: (payload: {
+    lessonId: string;
+    currentSeconds: number;
+    durationSeconds: number;
+  }) => Promise<{ watchPercent: number; quizReady: boolean }>;
+  onStartQuiz: (lessonId: string) => Promise<{
+    questions: QuizQuestionSession[];
+    passingScore: number;
+    attemptCount: number;
+  }>;
+  onSubmitQuiz: (payload: {
+    lessonId: string;
+    answers: number[];
+  }) => Promise<{
+    scorePercent: number;
+    passed: boolean;
+    unlockedLessonId?: string;
+  }>;
 }
 
-const lessonTracks = [
-  {
-    id: 'fundamentos-kids',
-    title: 'Didatica para aula Kids',
-    category: 'Metodologia',
-    duration: '18 min',
-    level: 'Obrigatorio',
-    status: 'Concluido',
-    progress: '100%',
-  },
-  {
-    id: 'sequencia-faixa-preta',
-    title: 'Sequencias tecnicas para a turma avancada',
-    category: 'Tecnica',
-    duration: '24 min',
-    level: 'Em andamento',
-    status: 'Em andamento',
-    progress: '62%',
-  },
-  {
-    id: 'protocolo-aula',
-    title: 'Protocolo de abertura, chamada e encerramento',
-    category: 'Operacao',
-    duration: '12 min',
-    level: 'Novo',
-    status: 'Nao iniciado',
-    progress: '0%',
-  },
-];
+function sortByOrder<T extends { order: number; title: string }>(items: T[]): T[] {
+  return [...items].sort((left, right) => left.order - right.order || left.title.localeCompare(right.title, 'pt-BR'));
+}
 
-const quizCards = [
-  {
-    id: 'quiz-kids',
-    title: 'Quiz: conduzir a aula Kids',
-    questions: 6,
-    passingScore: '80%',
-    due: 'Disponivel agora',
-  },
-  {
-    id: 'quiz-operacao',
-    title: 'Quiz: fluxo operacional do tatame',
-    questions: 5,
-    passingScore: '80%',
-    due: 'Disponivel agora',
-  },
-];
+function emptyQuestion(): QuizQuestionDraft {
+  return { prompt: '', options: ['', '', '', ''], correctOptionIndex: 0 };
+}
 
-const LearningHubView: React.FC<LearningHubViewProps> = ({
-  academyName,
-  userName,
-  userRole,
-}) => {
-  const roleLabel = userRole === UserRole.ADMIN ? 'Head Coach' : 'Instrutor';
+function contentBadge(status: 'draft' | 'published') {
+  return status === 'published' ? 'app-badge app-badge--success' : 'app-badge app-badge--muted';
+}
+
+function contentLabel(status: 'draft' | 'published') {
+  return status === 'published' ? 'Publicado' : 'Rascunho';
+}
+
+function statusBadge(status: LessonRuntimeStatus) {
+  if (status === 'completed') return 'app-badge app-badge--success';
+  if (status === 'ready' || status === 'watching') return 'app-badge app-badge--gold';
+  return 'app-badge app-badge--muted';
+}
+
+function statusLabel(status: LessonRuntimeStatus) {
+  if (status === 'completed') return 'Concluida';
+  if (status === 'ready') return 'Quiz liberado';
+  if (status === 'watching') return 'Em andamento';
+  if (status === 'available') return 'Disponivel';
+  return 'Bloqueada';
+}
+
+function isProfessor(user: FirestoreEntity<UserRecord>) {
+  return user.role === 'professor';
+}
+
+function buildOrderedLessons(
+  trackId: string,
+  courses: Array<FirestoreEntity<LearningCourseRecord>>,
+  lessons: Array<FirestoreEntity<LearningLessonRecord>>,
+): OrderedLesson[] {
+  const trackCourses = sortByOrder(courses.filter((course) => course.trackId === trackId));
+  const courseById = new Map(trackCourses.map((course) => [course.id, course]));
+
+  return lessons
+    .filter((lesson) => lesson.trackId === trackId && courseById.has(lesson.courseId))
+    .sort((left, right) => {
+      const courseDelta = (courseById.get(left.courseId)?.order ?? 0) - (courseById.get(right.courseId)?.order ?? 0);
+      return courseDelta || left.order - right.order || left.title.localeCompare(right.title, 'pt-BR');
+    })
+    .map((lesson) => ({ lesson, course: courseById.get(lesson.courseId) ?? null }));
+}
+
+function lessonRuntimeStatus(
+  orderedLessons: OrderedLesson[],
+  progressByLessonId: Map<string, FirestoreEntity<LearningProgressRecord>>,
+  lessonId: string,
+): LessonRuntimeStatus {
+  const lessonIndex = orderedLessons.findIndex((entry) => entry.lesson.id === lessonId);
+  if (lessonIndex < 0) {
+    return 'locked';
+  }
+
+  const current = progressByLessonId.get(lessonId);
+  if (current?.quizPassed) {
+    return 'completed';
+  }
+
+  if (lessonIndex > 0) {
+    const previousLessonId = orderedLessons[lessonIndex - 1].lesson.id;
+    if (!progressByLessonId.get(previousLessonId)?.quizPassed && !current) {
+      return 'locked';
+    }
+  }
+
+  if (current?.quizReady) {
+    return 'ready';
+  }
+
+  if ((current?.watchPercent ?? 0) > 0) {
+    return 'watching';
+  }
+
+  return 'available';
+}
+
+const LearningHubView: React.FC<LearningHubViewProps> = (props) => {
+  const {
+    academyName,
+    userName,
+    userRole,
+    selectedAcademyId,
+    selectedAcademy,
+    academies = [],
+    allUsers = [],
+    academyUsers = [],
+    tracks,
+    courses,
+    lessons,
+    quizzes,
+    progressRecords,
+    onSelectAcademy,
+    onUpsertTrack,
+    onUpsertCourse,
+    onUpsertLesson,
+    onUpsertQuiz,
+    onRecordPlayback,
+    onStartQuiz,
+    onSubmitQuiz,
+  } = props;
+
+  const isSuperAdmin = userRole === UserRole.SUPERADMIN;
+  const isProfessorRole = userRole === UserRole.PROFESSOR;
+  const firstName = userName.split(' ')[0] ?? userName;
+  const publishedTracks = useMemo(() => sortByOrder(tracks.filter((track) => track.status === 'published')), [tracks]);
+  const publishedCourses = useMemo(() => sortByOrder(courses.filter((course) => course.status === 'published')), [courses]);
+  const publishedLessons = useMemo(() => sortByOrder(lessons.filter((lesson) => lesson.status === 'published')), [lessons]);
+  const sortedTracks = useMemo(() => sortByOrder(tracks), [tracks]);
+  const sortedCourses = useMemo(() => sortByOrder(courses), [courses]);
+  const sortedLessons = useMemo(() => sortByOrder(lessons), [lessons]);
+  const quizByLessonId = useMemo(() => new Map(quizzes.map((quiz) => [quiz.lessonId, quiz])), [quizzes]);
+  const ownProgressByLessonId = useMemo(() => new Map(progressRecords.map((record) => [record.lessonId, record])), [progressRecords]);
+
+  const [activeTrackId, setActiveTrackId] = useState('');
+  const [activeLessonId, setActiveLessonId] = useState('');
+  const [trackSelectionId, setTrackSelectionId] = useState('');
+  const [courseSelectionId, setCourseSelectionId] = useState('');
+  const [lessonSelectionId, setLessonSelectionId] = useState('');
+
+  const [trackForm, setTrackForm] = useState<{
+    title: string;
+    description: string;
+    order: number;
+    status: 'draft' | 'published';
+  }>({ title: '', description: '', order: 1, status: 'draft' });
+  const [courseForm, setCourseForm] = useState<{
+    trackId: string;
+    title: string;
+    description: string;
+    order: number;
+    status: 'draft' | 'published';
+  }>({ trackId: '', title: '', description: '', order: 1, status: 'draft' });
+  const [lessonForm, setLessonForm] = useState<{
+    trackId: string;
+    courseId: string;
+    title: string;
+    description: string;
+    videoUrl: string;
+    order: number;
+    status: 'draft' | 'published';
+    passingScore: number;
+  }>({
+    trackId: '',
+    courseId: '',
+    title: '',
+    description: '',
+    videoUrl: '',
+    order: 1,
+    status: 'draft' as const,
+    passingScore: 80,
+  });
+  const [quizQuestions, setQuizQuestions] = useState<QuizQuestionDraft[]>([emptyQuestion()]);
+
+  const [busyKey, setBusyKey] = useState('');
+  const [editorSuccess, setEditorSuccess] = useState('');
+  const [editorError, setEditorError] = useState('');
+  const [quizSessionLessonId, setQuizSessionLessonId] = useState('');
+  const [quizSessionQuestions, setQuizSessionQuestions] = useState<QuizQuestionSession[]>([]);
+  const [quizSessionAnswers, setQuizSessionAnswers] = useState<number[]>([]);
+  const [quizPassingScore, setQuizPassingScore] = useState(80);
+  const [quizAttemptCount, setQuizAttemptCount] = useState(0);
+  const [quizFeedback, setQuizFeedback] = useState('');
+  const [quizError, setQuizError] = useState('');
+  const [playerError, setPlayerError] = useState('');
+  const [quizBusy, setQuizBusy] = useState(false);
+
+  const playbackSentSecondsRef = useRef<Record<string, number>>({});
+  const playbackPendingRef = useRef<Record<string, boolean>>({});
+
+  const activeTrack = useMemo(
+    () => publishedTracks.find((track) => track.id === activeTrackId) ?? publishedTracks[0] ?? null,
+    [activeTrackId, publishedTracks],
+  );
+  const activeTrackLessons = useMemo(
+    () => activeTrack ? buildOrderedLessons(activeTrack.id, publishedCourses, publishedLessons) : [],
+    [activeTrack, publishedCourses, publishedLessons],
+  );
+  const activeLesson = useMemo(
+    () => activeTrackLessons.find((entry) => entry.lesson.id === activeLessonId) ?? activeTrackLessons[0] ?? null,
+    [activeLessonId, activeTrackLessons],
+  );
+  const activeLessonProgress = activeLesson ? ownProgressByLessonId.get(activeLesson.lesson.id) ?? null : null;
+  const activeLessonStatus = activeLesson ? lessonRuntimeStatus(activeTrackLessons, ownProgressByLessonId, activeLesson.lesson.id) : 'locked';
+  const reportProfessorUsers = selectedAcademyId ? academyUsers.filter(isProfessor) : allUsers.filter(isProfessor);
+  const reportTrackLessons = useMemo(
+    () => activeTrack ? buildOrderedLessons(activeTrack.id, publishedCourses, publishedLessons) : [],
+    [activeTrack, publishedCourses, publishedLessons],
+  );
+  const consolidatedTrackRows = useMemo(() => publishedTracks.map((track) => {
+    const trackLessons = buildOrderedLessons(track.id, publishedCourses, publishedLessons);
+    const professorUsers = allUsers.filter(isProfessor);
+    let startedUsers = 0;
+    let completedUsers = 0;
+
+    professorUsers.forEach((user) => {
+      const userTrackProgress = progressRecords.filter((record) => record.userId === user.id && record.trackId === track.id);
+      const completedLessons = trackLessons.filter((entry) => userTrackProgress.some((record) => record.lessonId === entry.lesson.id && record.quizPassed)).length;
+
+      if (userTrackProgress.length > 0) {
+        startedUsers += 1;
+      }
+
+      if (trackLessons.length > 0 && completedLessons === trackLessons.length) {
+        completedUsers += 1;
+      }
+    });
+
+    return {
+      track,
+      totalLessons: trackLessons.length,
+      startedUsers,
+      completedUsers,
+    };
+  }), [allUsers, progressRecords, publishedCourses, publishedLessons, publishedTracks]);
+
+  useEffect(() => {
+    if (publishedTracks.length === 0) {
+      setActiveTrackId('');
+      return;
+    }
+
+    if (!publishedTracks.some((track) => track.id === activeTrackId)) {
+      setActiveTrackId(publishedTracks[0].id);
+    }
+  }, [activeTrackId, publishedTracks]);
+
+  useEffect(() => {
+    if (!isProfessorRole || activeTrackLessons.length === 0) {
+      setActiveLessonId('');
+      return;
+    }
+
+    const preferredLesson = activeTrackLessons.find((entry) => {
+      const status = lessonRuntimeStatus(activeTrackLessons, ownProgressByLessonId, entry.lesson.id);
+      return status !== 'completed' && status !== 'locked';
+    }) ?? activeTrackLessons[0];
+
+    if (!activeTrackLessons.some((entry) => entry.lesson.id === activeLessonId)) {
+      setActiveLessonId(preferredLesson.lesson.id);
+    }
+  }, [activeLessonId, activeTrackLessons, isProfessorRole, ownProgressByLessonId]);
+
+  useEffect(() => {
+    if (trackSelectionId) {
+      const selectedTrack = sortedTracks.find((track) => track.id === trackSelectionId);
+      if (selectedTrack) {
+        setTrackForm({
+          title: selectedTrack.title,
+          description: selectedTrack.description ?? '',
+          order: selectedTrack.order,
+          status: selectedTrack.status,
+        });
+        return;
+      }
+    }
+
+    setTrackForm({
+      title: '',
+      description: '',
+      order: sortedTracks.length + 1,
+      status: 'draft',
+    });
+  }, [sortedTracks, trackSelectionId]);
+
+  useEffect(() => {
+    if (courseSelectionId) {
+      const selectedCourse = sortedCourses.find((course) => course.id === courseSelectionId);
+      if (selectedCourse) {
+        setCourseForm({
+          trackId: selectedCourse.trackId,
+          title: selectedCourse.title,
+          description: selectedCourse.description ?? '',
+          order: selectedCourse.order,
+          status: selectedCourse.status,
+        });
+        return;
+      }
+    }
+
+    const fallbackTrackId = trackSelectionId || sortedTracks[0]?.id || '';
+    setCourseForm({
+      trackId: fallbackTrackId,
+      title: '',
+      description: '',
+      order: sortedCourses.filter((course) => course.trackId === fallbackTrackId).length + 1,
+      status: 'draft',
+    });
+  }, [courseSelectionId, sortedCourses, sortedTracks, trackSelectionId]);
+
+  useEffect(() => {
+    if (lessonSelectionId) {
+      const selectedLesson = sortedLessons.find((lesson) => lesson.id === lessonSelectionId);
+      if (selectedLesson) {
+        setLessonForm({
+          trackId: selectedLesson.trackId,
+          courseId: selectedLesson.courseId,
+          title: selectedLesson.title,
+          description: selectedLesson.description ?? '',
+          videoUrl: selectedLesson.videoUrl,
+          order: selectedLesson.order,
+          status: selectedLesson.status,
+          passingScore: selectedLesson.passingScore,
+        });
+        const existingQuiz = quizByLessonId.get(selectedLesson.id);
+        setQuizQuestions(existingQuiz?.questions?.length
+          ? existingQuiz.questions.map((question) => ({
+            prompt: question.prompt,
+            options: [...question.options],
+            correctOptionIndex: question.correctOptionIndex,
+          }))
+          : [emptyQuestion()]);
+        return;
+      }
+    }
+
+    const fallbackTrackId = courseForm.trackId || trackSelectionId || sortedTracks[0]?.id || '';
+    const fallbackCourseId = courseForm.trackId
+      ? sortByOrder(sortedCourses.filter((course) => course.trackId === courseForm.trackId))[0]?.id ?? ''
+      : '';
+    setLessonForm({
+      trackId: fallbackTrackId,
+      courseId: fallbackCourseId,
+      title: '',
+      description: '',
+      videoUrl: '',
+      order: sortedLessons.filter((lesson) => lesson.courseId === fallbackCourseId).length + 1,
+      status: 'draft',
+      passingScore: 80,
+    });
+    setQuizQuestions([emptyQuestion()]);
+  }, [courseForm.trackId, lessonSelectionId, quizByLessonId, sortedCourses, sortedLessons, sortedTracks, trackSelectionId]);
+
+  const professorTrackStats = useMemo(() => {
+    const totalLessons = activeTrackLessons.length;
+    const completedLessons = activeTrackLessons.filter((entry) => ownProgressByLessonId.get(entry.lesson.id)?.quizPassed).length;
+    const notStarted = activeTrackLessons.filter((entry) => !ownProgressByLessonId.has(entry.lesson.id)).length;
+    const inProgress = totalLessons - completedLessons - notStarted;
+
+    return {
+      totalLessons,
+      completedLessons,
+      notStarted,
+      inProgress,
+      completionPercent: totalLessons === 0 ? 0 : Math.round((completedLessons / totalLessons) * 100),
+    };
+  }, [activeTrackLessons, ownProgressByLessonId]);
+
+  async function runEditorAction<T>(key: string, action: () => Promise<T>) {
+    setBusyKey(key);
+    setEditorSuccess('');
+    setEditorError('');
+
+    try {
+      return await action();
+    } catch (error) {
+      setEditorError(error instanceof Error ? error.message : 'Nao foi possivel salvar o conteudo.');
+      throw error;
+    } finally {
+      setBusyKey('');
+    }
+  }
+
+  async function handleSaveTrack(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const result = await runEditorAction('track', () => onUpsertTrack({
+      trackId: trackSelectionId || undefined,
+      title: trackForm.title,
+      description: trackForm.description || undefined,
+      order: Number(trackForm.order),
+      status: trackForm.status,
+    }));
+    setTrackSelectionId(result.trackId);
+    setEditorSuccess('Trilha salva com sucesso.');
+  }
+
+  async function handleSaveCourse(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const result = await runEditorAction('course', () => onUpsertCourse({
+      courseId: courseSelectionId || undefined,
+      trackId: courseForm.trackId,
+      title: courseForm.title,
+      description: courseForm.description || undefined,
+      order: Number(courseForm.order),
+      status: courseForm.status,
+    }));
+    setCourseSelectionId(result.courseId);
+    setEditorSuccess('Curso salvo com sucesso.');
+  }
+
+  async function handleSaveLesson(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const result = await runEditorAction('lesson', () => onUpsertLesson({
+      lessonId: lessonSelectionId || undefined,
+      trackId: lessonForm.trackId,
+      courseId: lessonForm.courseId,
+      title: lessonForm.title,
+      description: lessonForm.description || undefined,
+      videoUrl: lessonForm.videoUrl,
+      order: Number(lessonForm.order),
+      status: lessonForm.status,
+      passingScore: Number(lessonForm.passingScore),
+    }));
+    setTrackSelectionId(result.trackId);
+    setCourseSelectionId(result.courseId);
+    setLessonSelectionId(result.lessonId);
+    setEditorSuccess('Aula salva com sucesso.');
+  }
+
+  async function handleSaveQuiz(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!lessonSelectionId) {
+      setEditorError('Selecione uma aula antes de salvar o quiz.');
+      return;
+    }
+
+    await runEditorAction('quiz', () => onUpsertQuiz({
+      lessonId: lessonSelectionId,
+      questions: quizQuestions.map((question) => ({
+        prompt: question.prompt,
+        options: question.options.filter((option) => option.trim().length > 0),
+        correctOptionIndex: question.correctOptionIndex,
+      })),
+    }));
+    setEditorSuccess('Quiz salvo com sucesso.');
+  }
+
+  async function handleOpenQuiz() {
+    if (!activeLesson) {
+      return;
+    }
+
+    setQuizBusy(true);
+    setQuizFeedback('');
+    setQuizError('');
+    try {
+      const response = await onStartQuiz(activeLesson.lesson.id);
+      setQuizSessionLessonId(activeLesson.lesson.id);
+      setQuizSessionQuestions(response.questions);
+      setQuizSessionAnswers(new Array(response.questions.length).fill(-1));
+      setQuizPassingScore(response.passingScore);
+      setQuizAttemptCount(response.attemptCount);
+    } catch (error) {
+      setQuizError(error instanceof Error ? error.message : 'Nao foi possivel abrir o quiz.');
+    } finally {
+      setQuizBusy(false);
+    }
+  }
+
+  async function handleSubmitActiveQuiz(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!quizSessionLessonId) {
+      return;
+    }
+
+    setQuizBusy(true);
+    setQuizFeedback('');
+    setQuizError('');
+    try {
+      const response = await onSubmitQuiz({ lessonId: quizSessionLessonId, answers: quizSessionAnswers });
+      setQuizFeedback(
+        response.passed
+          ? `Quiz aprovado com ${response.scorePercent}% de acerto.`
+          : `Quiz enviado com ${response.scorePercent}% de acerto. Tente novamente para atingir ${quizPassingScore}%.`,
+      );
+      setQuizAttemptCount((current) => current + 1);
+      if (response.unlockedLessonId) {
+        setActiveLessonId(response.unlockedLessonId);
+        setQuizSessionLessonId('');
+        setQuizSessionQuestions([]);
+        setQuizSessionAnswers([]);
+      }
+    } catch (error) {
+      setQuizError(error instanceof Error ? error.message : 'Nao foi possivel enviar o quiz.');
+    } finally {
+      setQuizBusy(false);
+    }
+  }
+
+  async function handlePlaybackProgress(payload: { currentSeconds: number; durationSeconds: number }) {
+    if (!activeLesson) {
+      return;
+    }
+
+    const lessonId = activeLesson.lesson.id;
+    const lastSent = playbackSentSecondsRef.current[lessonId] ?? 0;
+    const reachedMinimum = payload.durationSeconds > 0 && (payload.currentSeconds / payload.durationSeconds) >= 0.8;
+    if (payload.currentSeconds < lastSent + 8 && !reachedMinimum) {
+      return;
+    }
+    if (playbackPendingRef.current[lessonId]) {
+      return;
+    }
+
+    playbackPendingRef.current[lessonId] = true;
+    try {
+      await onRecordPlayback(payload.durationSeconds > 0 ? { ...payload, lessonId } : { lessonId, currentSeconds: 0, durationSeconds: 1 });
+      playbackSentSecondsRef.current[lessonId] = payload.currentSeconds;
+      setPlayerError('');
+    } catch (error) {
+      setPlayerError(error instanceof Error ? error.message : 'Nao foi possivel registrar o progresso do video.');
+    } finally {
+      playbackPendingRef.current[lessonId] = false;
+    }
+  }
+
+  if (userRole === UserRole.ADMIN) {
+    return (
+      <div className="view-shell">
+        <section className="app-panel app-panel--hero app-panel-pad">
+          <p className="app-section-label">Learning hub</p>
+          <h1 className="app-section-title">Modulo restrito ao superadmin e aos professores</h1>
+          <p className="app-section-copy">
+            No v1, o superadmin publica o catalogo e o professor consome as trilhas. O perfil admin fica fora deste fluxo.
+          </p>
+        </section>
+      </div>
+    );
+  }
+
+  if (isProfessorRole) {
+    if (publishedTracks.length === 0) {
+      return (
+        <div className="view-shell">
+          <section className="app-panel app-panel--hero app-panel-pad">
+            <p className="app-section-label">Learning hub</p>
+            <h1 className="app-section-title">Capacitacao continua da equipe</h1>
+            <p className="app-section-copy">
+              Ainda nao existe nenhuma trilha publicada para {academyName}. Assim que o superadmin publicar o catalogo, ele aparecera aqui.
+            </p>
+          </section>
+        </div>
+      );
+    }
+
+    return (
+      <div className="view-shell">
+        <section className="app-panel app-panel--hero app-panel-pad">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div className="max-w-3xl">
+              <p className="app-section-label">Learning hub</p>
+              <h1 className="app-section-title">Capacitacao continua da equipe</h1>
+              <p className="app-section-copy">Videos, trilhas e quizzes obrigatorios para apoiar {academyName} com uma rotina consistente.</p>
+            </div>
+            <div className="app-orb"><BookOpen size={16} />Professor</div>
+          </div>
+
+          <div className="app-stat-grid mt-6">
+            <article className="app-stat-card">
+              <p className="app-stat-card__label">Trilhas publicadas</p>
+              <p className="app-stat-card__value">{publishedTracks.length}</p>
+            </article>
+            <article className="app-stat-card">
+              <p className="app-stat-card__label">Aulas concluidas</p>
+              <p className="app-stat-card__value">{professorTrackStats.completedLessons}</p>
+            </article>
+            <article className="app-stat-card">
+              <p className="app-stat-card__label">Seu progresso</p>
+              <p className="app-stat-card__value">{professorTrackStats.completionPercent}%</p>
+            </article>
+          </div>
+        </section>
+
+        <section className="app-panel app-panel-pad">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="app-icon-shell"><Filter size={18} /></div>
+              <div>
+                <p className="app-section-label">Trilha em foco</p>
+                <h2 className="text-xl font-bold">{activeTrack?.title ?? 'Selecione uma trilha'}</h2>
+              </div>
+            </div>
+            <label className="app-field min-w-[18rem]">
+              <span className="app-field__label">Trilha</span>
+              <select value={activeTrack?.id ?? ''} onChange={(event) => setActiveTrackId(event.target.value)} className="app-select">
+                {publishedTracks.map((track) => <option key={track.id} value={track.id}>{track.title}</option>)}
+              </select>
+            </label>
+          </div>
+          <div className="mt-6">
+            <ProgressBar label="Progresso da trilha" current={professorTrackStats.completedLessons} total={Math.max(professorTrackStats.totalLessons, 1)} />
+          </div>
+        </section>
+
+        <section className="app-grid-2">
+          <article className="app-panel app-panel-pad">
+            <div className="flex items-center gap-3">
+              <div className="app-icon-shell"><BookOpen size={18} /></div>
+              <div>
+                <p className="app-section-label">Biblioteca</p>
+                <h2 className="text-xl font-bold">Aulas da trilha</h2>
+              </div>
+            </div>
+            <div className="mt-6 app-list">
+              {activeTrackLessons.map((entry) => {
+                const runtimeStatus = lessonRuntimeStatus(activeTrackLessons, ownProgressByLessonId, entry.lesson.id);
+                const progress = ownProgressByLessonId.get(entry.lesson.id);
+                return (
+                  <button key={entry.lesson.id} type="button" onClick={() => runtimeStatus !== 'locked' && setActiveLessonId(entry.lesson.id)} disabled={runtimeStatus === 'locked'} className="app-list-card text-left">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-bold">{entry.lesson.title}</p>
+                        <p className="mt-1 text-xs text-[color:var(--text-soft)]">{entry.course?.title ?? 'Curso'} • nota minima {entry.lesson.passingScore}%</p>
+                        <p className="mt-2 text-xs text-[color:var(--text-muted)]">{progress ? `${progress.watchPercent}% assistido` : 'Aguardando inicio'}</p>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {runtimeStatus === 'locked' ? <Lock size={16} /> : null}
+                        <span className={statusBadge(runtimeStatus)}>{statusLabel(runtimeStatus)}</span>
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </article>
+
+          <article className="app-panel app-panel-pad">
+            <div className="flex items-center gap-3">
+              <div className="app-icon-shell"><CirclePlay size={18} /></div>
+              <div>
+                <p className="app-section-label">Aula atual</p>
+                <h2 className="text-xl font-bold">{activeLesson?.lesson.title ?? 'Selecione uma aula'}</h2>
+              </div>
+            </div>
+
+            {activeLesson ? (
+              <>
+                <div className="mt-6">
+                  {activeLessonStatus === 'locked'
+                    ? <div className="app-empty">Conclua a aula anterior para liberar este conteudo.</div>
+                    : <LearningVideoPlayer lessonKey={activeLesson.lesson.id} videoUrl={activeLesson.lesson.videoUrl} onProgress={handlePlaybackProgress} />}
+                </div>
+
+                <div className="mt-6 rounded-[1.4rem] border border-white/10 bg-white/5 p-4">
+                  <p className="text-[11px] uppercase tracking-[0.18em] text-[color:var(--text-soft)]">Proxima acao</p>
+                  <p className="mt-2 text-lg font-bold">{firstName}, avance ate 80% do video para abrir o quiz.</p>
+                  <p className="mt-2 text-sm text-[color:var(--text-muted)]">{activeLesson.lesson.description || 'O quiz libera automaticamente quando voce atinge o minimo exigido da aula.'}</p>
+                  <div className="mt-4">
+                    <ProgressBar label="Progresso do video" current={Math.min(activeLessonProgress?.watchPercent ?? 0, 100)} total={100} />
+                  </div>
+                  {playerError ? <div className="app-alert app-alert--error mt-4">{playerError}</div> : null}
+                </div>
+
+                <div className="mt-6 flex flex-wrap items-center gap-3">
+                  <button type="button" onClick={() => void handleOpenQuiz()} disabled={quizBusy || (!activeLessonProgress?.quizReady && !activeLessonProgress?.quizPassed)} className="app-button app-button--gold">
+                    <ClipboardCheck size={16} />
+                    {quizBusy ? 'Processando...' : activeLessonProgress?.quizPassed ? 'Refazer quiz' : 'Abrir quiz'}
+                  </button>
+                  <span className="app-badge app-badge--muted">Tentativas: {activeLessonProgress?.attemptCount ?? 0}</span>
+                </div>
+
+                {quizSessionLessonId === activeLesson.lesson.id && quizSessionQuestions.length > 0 ? (
+                  <form onSubmit={handleSubmitActiveQuiz} className="mt-6 space-y-4">
+                    {quizFeedback ? <div className="app-alert app-alert--success">{quizFeedback}</div> : null}
+                    {quizError ? <div className="app-alert app-alert--error">{quizError}</div> : null}
+                    {quizSessionQuestions.map((question, questionIndex) => (
+                      <div key={question.id} className="app-panel app-panel--soft p-4">
+                        <p className="text-sm font-bold">{questionIndex + 1}. {question.prompt}</p>
+                        <div className="mt-4 space-y-3">
+                          {question.options.map((option, optionIndex) => (
+                            <label key={`${question.id}-${optionIndex}`} className="app-field flex items-center gap-3">
+                              <input type="radio" name={`quiz-${question.id}`} checked={quizSessionAnswers[questionIndex] === optionIndex} onChange={() => setQuizSessionAnswers((current) => current.map((answer, index) => index === questionIndex ? optionIndex : answer))} />
+                              <span>{option}</span>
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                    <button type="submit" disabled={quizBusy} className="app-button app-button--gold">
+                      <CheckCircle2 size={16} />
+                      {quizBusy ? 'Enviando...' : `Enviar quiz (${quizPassingScore}% minimo)`}
+                    </button>
+                  </form>
+                ) : null}
+              </>
+            ) : <div className="app-empty mt-6">Selecione uma aula para assistir e validar o aprendizado.</div>}
+          </article>
+        </section>
+
+        <section className="app-panel app-panel-pad">
+          <div className="flex items-center gap-3">
+            <div className="app-icon-shell"><TimerReset size={18} /></div>
+            <div>
+              <p className="app-section-label">Status</p>
+              <h2 className="text-xl font-bold">Panorama da trilha</h2>
+            </div>
+          </div>
+          <div className="mt-6 grid gap-3 md:grid-cols-3">
+            <div className="app-list-card"><p className="text-[11px] uppercase tracking-[0.16em] text-[color:var(--text-soft)]">Nao iniciado</p><p className="mt-2 text-2xl font-bold">{professorTrackStats.notStarted}</p></div>
+            <div className="app-list-card"><p className="text-[11px] uppercase tracking-[0.16em] text-[color:var(--text-soft)]">Em andamento</p><p className="mt-2 text-2xl font-bold">{professorTrackStats.inProgress}</p></div>
+            <div className="app-list-card"><p className="text-[11px] uppercase tracking-[0.16em] text-[color:var(--text-soft)]">Concluido</p><p className="mt-2 text-2xl font-bold">{professorTrackStats.completedLessons}</p></div>
+          </div>
+        </section>
+      </div>
+    );
+  }
+
+  const reportRows = reportProfessorUsers.map((user) => {
+    const progressByLesson = new Map(progressRecords.filter((record) => record.userId === user.id && record.trackId === activeTrack?.id).map((record) => [record.lessonId, record]));
+    const completed = reportTrackLessons.filter((entry) => progressByLesson.get(entry.lesson.id)?.quizPassed).length;
+    const currentEntry = reportTrackLessons.find((entry) => lessonRuntimeStatus(reportTrackLessons, progressByLesson, entry.lesson.id) !== 'completed') ?? reportTrackLessons[reportTrackLessons.length - 1] ?? null;
+    return { user, progressByLesson, completed, currentEntry };
+  });
 
   return (
     <div className="view-shell">
@@ -68,154 +832,193 @@ const LearningHubView: React.FC<LearningHubViewProps> = ({
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="max-w-3xl">
             <p className="app-section-label">Learning hub</p>
-            <h1 className="app-section-title">Capacitacao continua da equipe</h1>
-            <p className="app-section-copy">
-              Videos, trilhas e quizzes para apoiar {academyName} com uma rotina de desenvolvimento mais consistente.
-            </p>
+            <h1 className="app-section-title">Governanca do catalogo e progresso da rede</h1>
+            <p className="app-section-copy">Crie trilhas globais, publique cursos e acompanhe a capacitacao dos professores por academia.</p>
           </div>
-
-          <div className="app-orb">
-            <BookOpen size={16} />
-            {roleLabel}
-          </div>
+          <div className="app-orb"><ShieldCheck size={16} />Superadmin</div>
         </div>
 
         <div className="app-stat-grid mt-6">
-          <article className="app-stat-card">
-            <p className="app-stat-card__label">Trilhas ativas</p>
-            <p className="app-stat-card__value">{lessonTracks.length}</p>
-            <p className="app-stat-card__note">Conteudos publicados para a equipe</p>
-          </article>
-          <article className="app-stat-card">
-            <p className="app-stat-card__label">Quizzes</p>
-            <p className="app-stat-card__value">{quizCards.length}</p>
-            <p className="app-stat-card__note">Validacoes de aprendizado disponiveis</p>
-          </article>
-          <article className="app-stat-card">
-            <p className="app-stat-card__label">Seu foco</p>
-            <p className="app-stat-card__value">62%</p>
-            <p className="app-stat-card__note">Progresso na trilha principal</p>
-          </article>
+          <article className="app-stat-card"><p className="app-stat-card__label">Trilhas</p><p className="app-stat-card__value">{sortedTracks.length}</p></article>
+          <article className="app-stat-card"><p className="app-stat-card__label">Aulas publicadas</p><p className="app-stat-card__value">{publishedLessons.length}</p></article>
+          <article className="app-stat-card"><p className="app-stat-card__label">Professores</p><p className="app-stat-card__value">{allUsers.filter(isProfessor).length}</p></article>
+        </div>
+      </section>
+
+      <section className="app-panel app-panel-pad">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="app-icon-shell"><Network size={18} /></div>
+            <div>
+              <p className="app-section-label">Filtro operacional</p>
+              <h2 className="text-xl font-bold">{selectedAcademy?.name ?? 'Rede inteira'}</h2>
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-3">
+            <label className="app-field min-w-[18rem]">
+              <span className="app-field__label">Academia</span>
+              <select value={selectedAcademyId ?? ''} onChange={(event) => onSelectAcademy?.(event.target.value)} className="app-select">
+                <option value="">Rede inteira</option>
+                {academies.map((academyOption) => <option key={academyOption.id} value={academyOption.id}>{academyOption.name}</option>)}
+              </select>
+            </label>
+            <label className="app-field min-w-[18rem]">
+              <span className="app-field__label">Trilha analisada</span>
+              <select value={activeTrack?.id ?? ''} onChange={(event) => setActiveTrackId(event.target.value)} className="app-select">
+                {publishedTracks.map((track) => <option key={track.id} value={track.id}>{track.title}</option>)}
+              </select>
+            </label>
+          </div>
         </div>
       </section>
 
       <section className="app-panel app-panel-pad">
         <div className="flex items-center gap-3">
-          <div className="app-icon-shell">
-            <CirclePlay size={18} />
-          </div>
+          <div className="app-icon-shell"><Users size={18} /></div>
           <div>
-            <p className="app-section-label">Destaque</p>
-            <h2 className="text-2xl font-bold">Videoaula em andamento</h2>
+            <p className="app-section-label">{selectedAcademyId ? 'Academia em foco' : 'Rede inteira'}</p>
+            <h2 className="text-xl font-bold">Professores e status da trilha</h2>
           </div>
         </div>
-
-        <div className="mt-6 overflow-hidden rounded-[1.8rem] border border-white/10 bg-[radial-gradient(circle_at_top_left,rgba(232,175,72,0.22),transparent_35%),linear-gradient(160deg,rgba(255,255,255,0.1),rgba(255,255,255,0.03))] p-6">
-          <p className="text-[11px] uppercase tracking-[0.22em] text-[color:var(--text-soft)]">Agora assistindo</p>
-          <h3 className="mt-3 text-2xl font-bold">{lessonTracks[1].title}</h3>
-          <p className="mt-3 max-w-2xl text-sm leading-7 text-[color:var(--text-muted)]">
-            Um espaco para o professor assistir a aula gravada, revisar pontos-chave e seguir direto para o quiz da mesma trilha.
-          </p>
-          <div className="mt-5 flex flex-wrap gap-3">
-            <span className="app-badge app-badge--gold">{lessonTracks[1].duration}</span>
-            <span className="app-badge app-badge--muted">{lessonTracks[1].category}</span>
-            <span className="app-badge app-badge--muted">{lessonTracks[1].progress} concluido</span>
+        {!selectedAcademyId ? (
+          <div className="mt-6 grid gap-3 md:grid-cols-3">
+            {consolidatedTrackRows.map((row) => (
+              <div key={row.track.id} className="app-list-card">
+                <p className="text-sm font-bold">{row.track.title}</p>
+                <p className="mt-2 text-xs text-[color:var(--text-soft)]">{row.totalLessons} aulas publicadas</p>
+                <p className="mt-2 text-sm text-[color:var(--text-muted)]">{row.startedUsers} professores iniciaram • {row.completedUsers} concluiram</p>
+              </div>
+            ))}
           </div>
+        ) : null}
+        <div className="mt-6 app-list">
+          {reportRows.map((row) => (
+            <div key={row.user.id} className="app-list-card">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <p className="text-sm font-bold">{row.user.displayName}</p>
+                  <p className="mt-1 text-xs text-[color:var(--text-soft)]">{row.completed}/{reportTrackLessons.length} aulas concluidas</p>
+                </div>
+                <span className="app-badge app-badge--muted">{row.currentEntry ? `Atual: ${row.currentEntry.lesson.title}` : 'Sem aulas publicadas'}</span>
+              </div>
+              <div className="mt-4 flex flex-wrap gap-2">
+                {reportTrackLessons.map((entry) => {
+                  const runtimeStatus = lessonRuntimeStatus(reportTrackLessons, row.progressByLesson, entry.lesson.id);
+                  return <span key={`${row.user.id}-${entry.lesson.id}`} className={statusBadge(runtimeStatus)}>{entry.lesson.title} • {statusLabel(runtimeStatus)}</span>;
+                })}
+              </div>
+            </div>
+          ))}
+          {reportRows.length === 0 ? <div className="app-empty">Nenhum professor encontrado no recorte atual.</div> : null}
         </div>
       </section>
 
       <section className="app-grid-2">
-        <article className="app-panel app-panel-pad">
-          <div className="flex items-center gap-3">
-            <div className="app-icon-shell">
-              <BookOpen size={18} />
-            </div>
-            <div>
-              <p className="app-section-label">Trilhas</p>
-              <h2 className="text-xl font-bold">Biblioteca de videoaulas</h2>
-            </div>
+        <form onSubmit={handleSaveTrack} className="app-panel app-panel-pad">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3"><div className="app-icon-shell"><BookOpen size={18} /></div><div><p className="app-section-label">Trilha</p><h2 className="text-xl font-bold">Editor de trilhas</h2></div></div>
+            <button type="button" onClick={() => setTrackSelectionId('')} className="app-button app-button--dark app-button--small"><Plus size={14} />Nova</button>
           </div>
+          {editorSuccess ? <div className="app-alert app-alert--success mt-6">{editorSuccess}</div> : null}
+          {editorError ? <div className="app-alert app-alert--error mt-6">{editorError}</div> : null}
+          <div className="mt-6 app-grid-2">
+            <label className="app-field md:col-span-2"><span className="app-field__label">Trilha existente</span><select value={trackSelectionId} onChange={(event) => setTrackSelectionId(event.target.value)} className="app-select"><option value="">Nova trilha</option>{sortedTracks.map((track) => <option key={track.id} value={track.id}>{track.title} • {contentLabel(track.status)}</option>)}</select></label>
+            <label className="app-field md:col-span-2"><span className="app-field__label">Titulo</span><input value={trackForm.title} onChange={(event) => setTrackForm((current) => ({ ...current, title: event.target.value }))} className="app-input" required /></label>
+            <label className="app-field md:col-span-2"><span className="app-field__label">Descricao</span><textarea value={trackForm.description} onChange={(event) => setTrackForm((current) => ({ ...current, description: event.target.value }))} className="app-input min-h-[7rem]" /></label>
+            <label className="app-field"><span className="app-field__label">Ordem</span><input type="number" min={1} value={trackForm.order} onChange={(event) => setTrackForm((current) => ({ ...current, order: Number(event.target.value) }))} className="app-input" /></label>
+            <label className="app-field"><span className="app-field__label">Status</span><select value={trackForm.status} onChange={(event) => setTrackForm((current) => ({ ...current, status: event.target.value as 'draft' | 'published' }))} className="app-select"><option value="draft">Rascunho</option><option value="published">Publicado</option></select></label>
+          </div>
+          <button type="submit" disabled={busyKey === 'track'} className="app-button app-button--gold mt-6"><Save size={16} />{busyKey === 'track' ? 'Salvando...' : 'Salvar trilha'}</button>
+        </form>
 
-          <div className="mt-6 app-list">
-            {lessonTracks.map((track) => (
-              <div key={track.id} className="app-list-card">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <p className="text-sm font-bold">{track.title}</p>
-                    <p className="mt-1 text-xs text-[color:var(--text-soft)]">
-                      {track.category} • {track.duration} • {track.level}
-                    </p>
+        <form onSubmit={handleSaveCourse} className="app-panel app-panel-pad">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3"><div className="app-icon-shell"><BookOpen size={18} /></div><div><p className="app-section-label">Curso</p><h2 className="text-xl font-bold">Editor de cursos</h2></div></div>
+            <button type="button" onClick={() => setCourseSelectionId('')} className="app-button app-button--dark app-button--small"><Plus size={14} />Novo</button>
+          </div>
+          <div className="mt-6 app-grid-2">
+            <label className="app-field md:col-span-2"><span className="app-field__label">Trilha pai</span><select value={courseForm.trackId} onChange={(event) => setCourseForm((current) => ({ ...current, trackId: event.target.value }))} className="app-select" required><option value="">Selecione uma trilha</option>{sortedTracks.map((track) => <option key={track.id} value={track.id}>{track.title}</option>)}</select></label>
+            <label className="app-field md:col-span-2"><span className="app-field__label">Curso existente</span><select value={courseSelectionId} onChange={(event) => setCourseSelectionId(event.target.value)} className="app-select"><option value="">Novo curso</option>{sortByOrder(sortedCourses.filter((course) => course.trackId === courseForm.trackId)).map((course) => <option key={course.id} value={course.id}>{course.title} • {contentLabel(course.status)}</option>)}</select></label>
+            <label className="app-field md:col-span-2"><span className="app-field__label">Titulo</span><input value={courseForm.title} onChange={(event) => setCourseForm((current) => ({ ...current, title: event.target.value }))} className="app-input" required /></label>
+            <label className="app-field md:col-span-2"><span className="app-field__label">Descricao</span><textarea value={courseForm.description} onChange={(event) => setCourseForm((current) => ({ ...current, description: event.target.value }))} className="app-input min-h-[7rem]" /></label>
+            <label className="app-field"><span className="app-field__label">Ordem</span><input type="number" min={1} value={courseForm.order} onChange={(event) => setCourseForm((current) => ({ ...current, order: Number(event.target.value) }))} className="app-input" /></label>
+            <label className="app-field"><span className="app-field__label">Status</span><select value={courseForm.status} onChange={(event) => setCourseForm((current) => ({ ...current, status: event.target.value as 'draft' | 'published' }))} className="app-select"><option value="draft">Rascunho</option><option value="published">Publicado</option></select></label>
+          </div>
+          <button type="submit" disabled={busyKey === 'course'} className="app-button app-button--gold mt-6"><Save size={16} />{busyKey === 'course' ? 'Salvando...' : 'Salvar curso'}</button>
+        </form>
+      </section>
+
+      <section className="app-grid-2">
+        <form onSubmit={handleSaveLesson} className="app-panel app-panel-pad">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3"><div className="app-icon-shell"><CirclePlay size={18} /></div><div><p className="app-section-label">Aula</p><h2 className="text-xl font-bold">Editor de aulas</h2></div></div>
+            <button type="button" onClick={() => setLessonSelectionId('')} className="app-button app-button--dark app-button--small"><Plus size={14} />Nova</button>
+          </div>
+          <div className="mt-6 app-grid-2">
+            <label className="app-field"><span className="app-field__label">Trilha pai</span><select value={lessonForm.trackId} onChange={(event) => setLessonForm((current) => ({ ...current, trackId: event.target.value }))} className="app-select" required><option value="">Selecione uma trilha</option>{sortedTracks.map((track) => <option key={track.id} value={track.id}>{track.title}</option>)}</select></label>
+            <label className="app-field"><span className="app-field__label">Curso pai</span><select value={lessonForm.courseId} onChange={(event) => setLessonForm((current) => ({ ...current, courseId: event.target.value }))} className="app-select" required><option value="">Selecione um curso</option>{sortByOrder(sortedCourses.filter((course) => course.trackId === lessonForm.trackId)).map((course) => <option key={course.id} value={course.id}>{course.title}</option>)}</select></label>
+            <label className="app-field md:col-span-2"><span className="app-field__label">Aula existente</span><select value={lessonSelectionId} onChange={(event) => setLessonSelectionId(event.target.value)} className="app-select"><option value="">Nova aula</option>{sortByOrder(sortedLessons.filter((lesson) => lesson.courseId === lessonForm.courseId)).map((lesson) => <option key={lesson.id} value={lesson.id}>{lesson.title} • {contentLabel(lesson.status)}</option>)}</select></label>
+            <label className="app-field md:col-span-2"><span className="app-field__label">Titulo</span><input value={lessonForm.title} onChange={(event) => setLessonForm((current) => ({ ...current, title: event.target.value }))} className="app-input" required /></label>
+            <label className="app-field md:col-span-2"><span className="app-field__label">Descricao</span><textarea value={lessonForm.description} onChange={(event) => setLessonForm((current) => ({ ...current, description: event.target.value }))} className="app-input min-h-[7rem]" /></label>
+            <label className="app-field md:col-span-2"><span className="app-field__label">URL do YouTube</span><input value={lessonForm.videoUrl} onChange={(event) => setLessonForm((current) => ({ ...current, videoUrl: event.target.value }))} className="app-input" placeholder="https://www.youtube.com/watch?v=..." required /></label>
+            <label className="app-field"><span className="app-field__label">Ordem</span><input type="number" min={1} value={lessonForm.order} onChange={(event) => setLessonForm((current) => ({ ...current, order: Number(event.target.value) }))} className="app-input" /></label>
+            <label className="app-field"><span className="app-field__label">Nota minima (%)</span><input type="number" min={1} max={100} value={lessonForm.passingScore} onChange={(event) => setLessonForm((current) => ({ ...current, passingScore: Number(event.target.value) }))} className="app-input" /></label>
+            <label className="app-field md:col-span-2"><span className="app-field__label">Status</span><select value={lessonForm.status} onChange={(event) => setLessonForm((current) => ({ ...current, status: event.target.value as 'draft' | 'published' }))} className="app-select"><option value="draft">Rascunho</option><option value="published">Publicado</option></select></label>
+          </div>
+          <button type="submit" disabled={busyKey === 'lesson'} className="app-button app-button--gold mt-6"><Save size={16} />{busyKey === 'lesson' ? 'Salvando...' : 'Salvar aula'}</button>
+        </form>
+
+        <form onSubmit={handleSaveQuiz} className="app-panel app-panel-pad">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3"><div className="app-icon-shell"><ClipboardCheck size={18} /></div><div><p className="app-section-label">Quiz</p><h2 className="text-xl font-bold">Editor do quiz</h2></div></div>
+            <button type="button" onClick={() => setQuizQuestions((current) => [...current, emptyQuestion()])} disabled={!lessonSelectionId} className="app-button app-button--dark app-button--small"><Plus size={14} />Pergunta</button>
+          </div>
+          {lessonSelectionId ? (
+            <div className="mt-6 space-y-4">
+              {quizQuestions.map((question, questionIndex) => (
+                <div key={`quiz-question-${questionIndex}`} className="app-panel app-panel--soft p-4">
+                  <label className="app-field"><span className="app-field__label">Pergunta {questionIndex + 1}</span><input value={question.prompt} onChange={(event) => setQuizQuestions((current) => current.map((item, index) => index === questionIndex ? { ...item, prompt: event.target.value } : item))} className="app-input" required /></label>
+                  <div className="mt-4 space-y-3">
+                    {question.options.map((option, optionIndex) => (
+                      <div key={`quiz-option-${questionIndex}-${optionIndex}`} className="flex items-center gap-3">
+                        <input type="radio" checked={question.correctOptionIndex === optionIndex} onChange={() => setQuizQuestions((current) => current.map((item, index) => index === questionIndex ? { ...item, correctOptionIndex: optionIndex } : item))} />
+                        <input value={option} onChange={(event) => setQuizQuestions((current) => current.map((item, index) => index === questionIndex ? { ...item, options: item.options.map((itemOption, itemOptionIndex) => itemOptionIndex === optionIndex ? event.target.value : itemOption) } : item))} className="app-input" placeholder={`Opcao ${optionIndex + 1}`} required />
+                      </div>
+                    ))}
                   </div>
-                  <span className={track.status === 'Concluido' ? 'app-badge app-badge--success' : 'app-badge app-badge--gold'}>
-                    {track.status}
-                  </span>
                 </div>
-              </div>
-            ))}
-          </div>
-        </article>
-
-        <article className="app-panel app-panel-pad">
-          <div className="flex items-center gap-3">
-            <div className="app-icon-shell">
-              <ClipboardCheck size={18} />
+              ))}
             </div>
-            <div>
-              <p className="app-section-label">Quiz</p>
-              <h2 className="text-xl font-bold">Validacao da videoaula</h2>
-            </div>
-          </div>
-
-          <div className="mt-6 app-list">
-            {quizCards.map((quiz) => (
-              <div key={quiz.id} className="app-list-card">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <p className="text-sm font-bold">{quiz.title}</p>
-                    <p className="mt-1 text-xs text-[color:var(--text-soft)]">
-                      {quiz.questions} perguntas • aproveitamento minimo {quiz.passingScore}
-                    </p>
-                  </div>
-                  <span className="app-badge app-badge--muted">{quiz.due}</span>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          <div className="mt-6 rounded-[1.4rem] border border-white/10 bg-white/5 p-4">
-            <p className="text-[11px] uppercase tracking-[0.18em] text-[color:var(--text-soft)]">Proxima acao</p>
-            <p className="mt-2 text-lg font-bold">{userName.split(' ')[0]}, finalize a trilha principal e abra o quiz.</p>
-            <p className="mt-2 text-sm text-[color:var(--text-muted)]">
-              A tela ja suporta a logica de video + quiz e pode ser conectada depois a uma colecao real de conteudos.
-            </p>
-          </div>
-        </article>
+          ) : <div className="app-empty mt-6">Salve ou selecione uma aula para editar o quiz.</div>}
+          <button type="submit" disabled={busyKey === 'quiz' || !lessonSelectionId} className="app-button app-button--gold mt-6"><Save size={16} />{busyKey === 'quiz' ? 'Salvando...' : 'Salvar quiz'}</button>
+        </form>
       </section>
 
       <section className="app-panel app-panel-pad">
         <div className="flex items-center gap-3">
-          <div className="app-icon-shell">
-            <TimerReset size={18} />
-          </div>
+          <div className="app-icon-shell"><BookOpen size={18} /></div>
           <div>
-            <p className="app-section-label">Progresso</p>
-            <h2 className="text-xl font-bold">Status de acompanhamento</h2>
+            <p className="app-section-label">Mapa do catalogo</p>
+            <h2 className="text-xl font-bold">Trilhas, cursos e aulas</h2>
           </div>
         </div>
-
-        <div className="mt-6 grid gap-3 md:grid-cols-3">
-          <div className="app-list-card">
-            <p className="text-[11px] uppercase tracking-[0.16em] text-[color:var(--text-soft)]">Nao iniciado</p>
-            <p className="mt-2 text-2xl font-bold">1</p>
-          </div>
-          <div className="app-list-card">
-            <p className="text-[11px] uppercase tracking-[0.16em] text-[color:var(--text-soft)]">Em andamento</p>
-            <p className="mt-2 text-2xl font-bold">1</p>
-          </div>
-          <div className="app-list-card">
-            <p className="text-[11px] uppercase tracking-[0.16em] text-[color:var(--text-soft)]">Concluido</p>
-            <p className="mt-2 text-2xl font-bold">1</p>
-          </div>
+        <div className="mt-6 app-list">
+          {sortedTracks.map((track) => (
+            <div key={track.id} className="app-list-card">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <p className="text-sm font-bold">{track.title}</p>
+                  <p className="mt-1 text-xs text-[color:var(--text-soft)]">{track.description || 'Sem descricao'}</p>
+                </div>
+                <span className={contentBadge(track.status)}>{contentLabel(track.status)}</span>
+              </div>
+              <div className="mt-4 flex flex-wrap gap-2">
+                {sortByOrder(sortedCourses.filter((course) => course.trackId === track.id)).flatMap((course) => sortByOrder(sortedLessons.filter((lesson) => lesson.courseId === course.id)).map((lesson) => (
+                  <span key={lesson.id} className={contentBadge(lesson.status)}>{course.title}: {lesson.title} • quiz {lesson.quizQuestionCount}</span>
+                )))}
+              </div>
+            </div>
+          ))}
         </div>
       </section>
     </div>

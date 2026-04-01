@@ -8,6 +8,8 @@ import { optionalString } from '../lib/payload';
 import { normalizeProgressionRules } from '../services/progression';
 import { syncUserDerivedState } from '../services/userState';
 
+const callableOptions = { region: 'southamerica-east1', invoker: 'public' as const };
+
 function parseMilestones(data: unknown): ProgressionMilestone[] {
   const milestones = (data as Record<string, unknown> | null)?.milestones;
   assertCondition(Array.isArray(milestones) && milestones.length > 0, 'invalid-argument', 'milestones é obrigatório.');
@@ -28,7 +30,7 @@ function parseMilestones(data: unknown): ProgressionMilestone[] {
   });
 }
 
-export const upsertAcademyProgressionRules = onCall({ region: 'southamerica-east1' }, async (request) => {
+export const upsertAcademyProgressionRules = onCall(callableOptions, async (request) => {
   const actor = await getRequestContext(request, 'admin');
   const academyId = optionalString(request.data, 'academyId') ?? actor.academyId;
 
@@ -60,7 +62,7 @@ export const upsertAcademyProgressionRules = onCall({ region: 'southamerica-east
   };
 });
 
-export const evaluateUserProgression = onCall({ region: 'southamerica-east1' }, async (request) => {
+export const evaluateUserProgression = onCall(callableOptions, async (request) => {
   const actor = await getRequestContext(request, 'student');
   const targetUserId = optionalString(request.data, 'userId') ?? actor.uid;
 
@@ -73,7 +75,7 @@ export const evaluateUserProgression = onCall({ region: 'southamerica-east1' }, 
   return syncUserDerivedState(targetUserId, actor.academyId);
 });
 
-export const rebuildUserDerivedState = onCall({ region: 'southamerica-east1' }, async (request) => {
+export const rebuildUserDerivedState = onCall(callableOptions, async (request) => {
   const actor = await getRequestContext(request, 'student');
   const targetUserId = optionalString(request.data, 'userId') ?? actor.uid;
 

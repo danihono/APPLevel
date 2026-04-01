@@ -7,6 +7,12 @@ export const COLLECTIONS = {
   fights: 'fights',
   graduations: 'graduations',
   joinRequests: 'join_requests',
+  learningCourses: 'learning_courses',
+  learningLessons: 'learning_lessons',
+  learningProgress: 'learning_progress',
+  learningQuizAttempts: 'learning_quiz_attempts',
+  learningQuizzes: 'learning_quizzes',
+  learningTracks: 'learning_tracks',
   missions: 'missions',
   notifications: 'notifications',
   rankings: 'rankings',
@@ -35,6 +41,7 @@ export type NotificationChannel = 'academy' | 'team' | 'system';
 export type NotificationKind = 'notice' | 'join_request' | 'attendance_request' | 'graduation';
 export type JoinRequestStatus = 'pending' | 'approved' | 'rejected';
 export type AttendanceRequestStatus = 'pending' | 'approved' | 'rejected';
+export type LearningContentStatus = 'draft' | 'published';
 
 export interface ProgressionMilestone {
   belt: string;
@@ -239,6 +246,94 @@ export interface StoreItemDoc {
   stock?: number;
   imagePath?: string;
   status: 'active' | 'inactive';
+  createdAt: FirebaseFirestore.Timestamp;
+  updatedAt: FirebaseFirestore.Timestamp;
+}
+
+export interface LearningTrackDoc {
+  title: string;
+  description?: string;
+  order: number;
+  status: LearningContentStatus;
+  createdAt: FirebaseFirestore.Timestamp;
+  updatedAt: FirebaseFirestore.Timestamp;
+}
+
+export interface LearningCourseDoc {
+  trackId: string;
+  title: string;
+  description?: string;
+  order: number;
+  status: LearningContentStatus;
+  createdAt: FirebaseFirestore.Timestamp;
+  updatedAt: FirebaseFirestore.Timestamp;
+}
+
+export interface LearningLessonDoc {
+  trackId: string;
+  courseId: string;
+  title: string;
+  description?: string;
+  videoUrl: string;
+  order: number;
+  status: LearningContentStatus;
+  passingScore: number;
+  requiredWatchPercent: number;
+  quizQuestionCount: number;
+  createdAt: FirebaseFirestore.Timestamp;
+  updatedAt: FirebaseFirestore.Timestamp;
+}
+
+export interface LearningQuizQuestionDoc {
+  prompt: string;
+  options: string[];
+  correctOptionIndex: number;
+}
+
+export interface LearningQuizDoc {
+  lessonId: string;
+  trackId: string;
+  courseId: string;
+  passingScore: number;
+  questions: LearningQuizQuestionDoc[];
+  createdAt: FirebaseFirestore.Timestamp;
+  updatedAt: FirebaseFirestore.Timestamp;
+}
+
+export interface LearningProgressDoc {
+  academyId: string;
+  userId: string;
+  userDisplayName: string;
+  trackId: string;
+  courseId: string;
+  lessonId: string;
+  videoSecondsWatched: number;
+  durationSeconds: number;
+  watchPercent: number;
+  videoCompleted: boolean;
+  quizReady: boolean;
+  quizPassed: boolean;
+  lastScore: number;
+  bestScore: number;
+  attemptCount: number;
+  unlockedAt: FirebaseFirestore.Timestamp;
+  passedAt?: FirebaseFirestore.Timestamp;
+  lastAttemptAt?: FirebaseFirestore.Timestamp;
+  createdAt: FirebaseFirestore.Timestamp;
+  updatedAt: FirebaseFirestore.Timestamp;
+}
+
+export interface LearningQuizAttemptDoc {
+  academyId: string;
+  userId: string;
+  userDisplayName: string;
+  trackId: string;
+  courseId: string;
+  lessonId: string;
+  answers: number[];
+  scorePercent: number;
+  passed: boolean;
+  attemptNumber: number;
   createdAt: FirebaseFirestore.Timestamp;
   updatedAt: FirebaseFirestore.Timestamp;
 }

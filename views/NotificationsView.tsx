@@ -297,7 +297,7 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
               className={`app-segment__button ${activeTab === 'requests' ? 'is-active' : ''}`}
             >
               <ClipboardCheck size={16} />
-              Solicitacoes
+              {`Solicitacoes${requestItems.length > 0 ? ` (${requestItems.length})` : ''}`}
             </button>
             <button
               type="button"
@@ -523,7 +523,7 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
                   </button>
                 </div>
               ) : (
-                <div className="mt-5 app-empty">Somente professor ou superadmin podem agir sobre esta solicitacao.</div>
+                <div className="mt-5 app-empty">Somente professor, admin ou superadmin podem agir sobre esta solicitacao.</div>
               )}
             </article>
           ))}

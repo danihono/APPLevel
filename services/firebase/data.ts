@@ -18,6 +18,11 @@ import type {
   FightRecord,
   GraduationRecord,
   JoinRequestRecord,
+  LearningCourseRecord,
+  LearningLessonRecord,
+  LearningProgressRecord,
+  LearningQuizRecord,
+  LearningTrackRecord,
   NotificationRecord,
   RankingRecord,
   StoreItemRecord,
@@ -367,6 +372,127 @@ export function subscribeToNotifications(
       const records = snapshot.docs
         .map((item) => mapDoc<NotificationRecord>(item))
         .sort((left, right) => toMillis(right.createdAt) - toMillis(left.createdAt));
+      listener(records);
+    },
+    onError,
+  );
+}
+
+export function subscribeToLearningTracks(
+  params: {
+    publishedOnly: boolean;
+  },
+  listener: (records: Array<FirestoreEntity<LearningTrackRecord>>) => void,
+  onError?: (error: Error) => void,
+) {
+  const baseCollection = collection(firebaseDb, 'learning_tracks');
+  const learningTrackQuery = params.publishedOnly
+    ? query(baseCollection, where('status', '==', 'published'))
+    : baseCollection;
+
+  return onSnapshot(
+    learningTrackQuery,
+    (snapshot) => {
+      const records = snapshot.docs
+        .map((item) => mapDoc<LearningTrackRecord>(item))
+        .sort((left, right) => left.order - right.order || left.title.localeCompare(right.title, 'pt-BR'));
+      listener(records);
+    },
+    onError,
+  );
+}
+
+export function subscribeToLearningCourses(
+  params: {
+    publishedOnly: boolean;
+  },
+  listener: (records: Array<FirestoreEntity<LearningCourseRecord>>) => void,
+  onError?: (error: Error) => void,
+) {
+  const baseCollection = collection(firebaseDb, 'learning_courses');
+  const learningCourseQuery = params.publishedOnly
+    ? query(baseCollection, where('status', '==', 'published'))
+    : baseCollection;
+
+  return onSnapshot(
+    learningCourseQuery,
+    (snapshot) => {
+      const records = snapshot.docs
+        .map((item) => mapDoc<LearningCourseRecord>(item))
+        .sort((left, right) => left.order - right.order || left.title.localeCompare(right.title, 'pt-BR'));
+      listener(records);
+    },
+    onError,
+  );
+}
+
+export function subscribeToLearningLessons(
+  params: {
+    publishedOnly: boolean;
+  },
+  listener: (records: Array<FirestoreEntity<LearningLessonRecord>>) => void,
+  onError?: (error: Error) => void,
+) {
+  const baseCollection = collection(firebaseDb, 'learning_lessons');
+  const learningLessonQuery = params.publishedOnly
+    ? query(baseCollection, where('status', '==', 'published'))
+    : baseCollection;
+
+  return onSnapshot(
+    learningLessonQuery,
+    (snapshot) => {
+      const records = snapshot.docs
+        .map((item) => mapDoc<LearningLessonRecord>(item))
+        .sort((left, right) => left.order - right.order || left.title.localeCompare(right.title, 'pt-BR'));
+      listener(records);
+    },
+    onError,
+  );
+}
+
+export function subscribeToLearningQuizzes(
+  listener: (records: Array<FirestoreEntity<LearningQuizRecord>>) => void,
+  onError?: (error: Error) => void,
+) {
+  return onSnapshot(
+    collection(firebaseDb, 'learning_quizzes'),
+    (snapshot) => {
+      const records = snapshot.docs
+        .map((item) => mapDoc<LearningQuizRecord>(item))
+        .sort((left, right) => left.lessonId.localeCompare(right.lessonId, 'pt-BR'));
+      listener(records);
+    },
+    onError,
+  );
+}
+
+export function subscribeToLearningProgress(
+  params: {
+    academyId?: string;
+    userId?: string;
+  },
+  listener: (records: Array<FirestoreEntity<LearningProgressRecord>>) => void,
+  onError?: (error: Error) => void,
+) {
+  const baseCollection = collection(firebaseDb, 'learning_progress');
+  const progressQuery = params.userId
+    ? query(baseCollection, where('userId', '==', params.userId))
+    : params.academyId
+      ? query(baseCollection, where('academyId', '==', params.academyId))
+      : baseCollection;
+
+  return onSnapshot(
+    progressQuery,
+    (snapshot) => {
+      const records = snapshot.docs
+        .map((item) => mapDoc<LearningProgressRecord>(item))
+        .sort((left, right) => {
+          if (left.userDisplayName !== right.userDisplayName) {
+            return left.userDisplayName.localeCompare(right.userDisplayName, 'pt-BR');
+          }
+
+          return toMillis(right.updatedAt) - toMillis(left.updatedAt);
+        });
       listener(records);
     },
     onError,

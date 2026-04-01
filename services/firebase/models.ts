@@ -13,6 +13,7 @@ export type NotificationChannel = 'academy' | 'team' | 'system';
 export type NotificationKind = 'notice' | 'join_request' | 'attendance_request' | 'graduation';
 export type JoinRequestStatus = 'pending' | 'approved' | 'rejected';
 export type AttendanceRequestStatus = 'pending' | 'approved' | 'rejected';
+export type LearningContentStatus = 'draft' | 'published';
 
 export interface AcademyRecord {
   id: string;
@@ -248,6 +249,94 @@ export interface StoreItemRecord {
   stock?: number;
   imagePath?: string;
   status: 'active' | 'inactive';
+  createdAt?: Timestamp;
+  updatedAt?: Timestamp;
+}
+
+export interface LearningTrackRecord {
+  title: string;
+  description?: string;
+  order: number;
+  status: LearningContentStatus;
+  createdAt?: Timestamp;
+  updatedAt?: Timestamp;
+}
+
+export interface LearningCourseRecord {
+  trackId: string;
+  title: string;
+  description?: string;
+  order: number;
+  status: LearningContentStatus;
+  createdAt?: Timestamp;
+  updatedAt?: Timestamp;
+}
+
+export interface LearningLessonRecord {
+  trackId: string;
+  courseId: string;
+  title: string;
+  description?: string;
+  videoUrl: string;
+  order: number;
+  status: LearningContentStatus;
+  passingScore: number;
+  requiredWatchPercent: number;
+  quizQuestionCount: number;
+  createdAt?: Timestamp;
+  updatedAt?: Timestamp;
+}
+
+export interface LearningQuizQuestionRecord {
+  prompt: string;
+  options: string[];
+  correctOptionIndex: number;
+}
+
+export interface LearningQuizRecord {
+  lessonId: string;
+  trackId: string;
+  courseId: string;
+  passingScore: number;
+  questions: LearningQuizQuestionRecord[];
+  createdAt?: Timestamp;
+  updatedAt?: Timestamp;
+}
+
+export interface LearningProgressRecord {
+  academyId: string;
+  userId: string;
+  userDisplayName: string;
+  trackId: string;
+  courseId: string;
+  lessonId: string;
+  videoSecondsWatched: number;
+  durationSeconds: number;
+  watchPercent: number;
+  videoCompleted: boolean;
+  quizReady: boolean;
+  quizPassed: boolean;
+  lastScore: number;
+  bestScore: number;
+  attemptCount: number;
+  unlockedAt?: Timestamp;
+  passedAt?: Timestamp;
+  lastAttemptAt?: Timestamp;
+  createdAt?: Timestamp;
+  updatedAt?: Timestamp;
+}
+
+export interface LearningQuizAttemptRecord {
+  academyId: string;
+  userId: string;
+  userDisplayName: string;
+  trackId: string;
+  courseId: string;
+  lessonId: string;
+  answers: number[];
+  scorePercent: number;
+  passed: boolean;
+  attemptNumber: number;
   createdAt?: Timestamp;
   updatedAt?: Timestamp;
 }

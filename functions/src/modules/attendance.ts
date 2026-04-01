@@ -16,6 +16,8 @@ import { optionalString, requiredString } from '../lib/payload';
 import { hashQrToken } from '../lib/security';
 import { bumpClassAttendanceCounter, syncUserDerivedState } from '../services/userState';
 
+const callableOptions = { region: 'southamerica-east1', invoker: 'public' as const };
+
 async function ensureNoAttendanceDuplicate(academyId: string, classId: string, userId: string): Promise<void> {
   const duplicateSnapshot = await db
     .collection(COLLECTIONS.attendances)
@@ -123,7 +125,7 @@ async function listSuperadminIds(): Promise<string[]> {
   return snapshot.docs.map((doc) => doc.id);
 }
 
-export const registerAttendance = onCall({ region: 'southamerica-east1' }, async (request) => {
+export const registerAttendance = onCall(callableOptions, async (request) => {
   const actor = await getRequestContext(request, 'student');
   const classId = requiredString(request.data, 'classId');
   const qrToken = optionalString(request.data, 'qrToken');
@@ -180,7 +182,7 @@ export const registerAttendance = onCall({ region: 'southamerica-east1' }, async
   };
 });
 
-export const submitAttendanceRequest = onCall({ region: 'southamerica-east1' }, async (request) => {
+export const submitAttendanceRequest = onCall(callableOptions, async (request) => {
   const actor = await getRequestContext(request, 'student');
   assertCondition(actor.role === 'student', 'permission-denied', 'Somente alunos podem solicitar presenca.');
 
@@ -249,12 +251,12 @@ export const submitAttendanceRequest = onCall({ region: 'southamerica-east1' }, 
   };
 });
 
-export const approveAttendanceRequest = onCall({ region: 'southamerica-east1' }, async (request) => {
+export const approveAttendanceRequest = onCall(callableOptions, async (request) => {
   const actor = await getRequestContext(request, 'professor');
   assertCondition(
-    actor.role === 'professor' || actor.role === 'superadmin',
+    actor.role === 'professor' || actor.role === 'admin' || actor.role === 'superadmin',
     'permission-denied',
-    'Somente professor ou superadmin podem aprovar solicitacoes de presenca.',
+    'Somente professor, admin ou superadmin podem aprovar solicitacoes de presenca.',
   );
   const requestId = requiredString(request.data, 'requestId');
   const requestRef = db.collection(COLLECTIONS.attendanceRequests).doc(requestId);
@@ -264,9 +266,9 @@ export const approveAttendanceRequest = onCall({ region: 'southamerica-east1' },
   const attendanceRequest = attendanceRequestSnap.data() as AttendanceRequestDoc;
   assertCondition(attendanceRequest.status === 'pending', 'failed-precondition', 'Esta solicitacao ja foi processada.');
   assertCondition(
-    actor.role === 'superadmin' || actor.uid === attendanceRequest.professorId,
+    actor.role === 'superadmin' || actor.role === 'admin' || actor.uid === attendanceRequest.professorId,
     'permission-denied',
-    'Somente o professor da aula ou o superadmin podem aprovar esta solicitacao.',
+    'Somente o professor da aula, um admin da unidade ou o superadmin podem aprovar esta solicitacao.',
   );
 
   const [classSnap, targetUser] = await Promise.all([
@@ -322,12 +324,12 @@ export const approveAttendanceRequest = onCall({ region: 'southamerica-east1' },
   };
 });
 
-export const rejectAttendanceRequest = onCall({ region: 'southamerica-east1' }, async (request) => {
+export const rejectAttendanceRequest = onCall(callableOptions, async (request) => {
   const actor = await getRequestContext(request, 'professor');
   assertCondition(
-    actor.role === 'professor' || actor.role === 'superadmin',
+    actor.role === 'professor' || actor.role === 'admin' || actor.role === 'superadmin',
     'permission-denied',
-    'Somente professor ou superadmin podem rejeitar solicitacoes de presenca.',
+    'Somente professor, admin ou superadmin podem rejeitar solicitacoes de presenca.',
   );
   const requestId = requiredString(request.data, 'requestId');
   const requestRef = db.collection(COLLECTIONS.attendanceRequests).doc(requestId);
@@ -337,9 +339,9 @@ export const rejectAttendanceRequest = onCall({ region: 'southamerica-east1' }, 
   const attendanceRequest = attendanceRequestSnap.data() as AttendanceRequestDoc;
   assertCondition(attendanceRequest.status === 'pending', 'failed-precondition', 'Esta solicitacao ja foi processada.');
   assertCondition(
-    actor.role === 'superadmin' || actor.uid === attendanceRequest.professorId,
+    actor.role === 'superadmin' || actor.role === 'admin' || actor.uid === attendanceRequest.professorId,
     'permission-denied',
-    'Somente o professor da aula ou o superadmin podem rejeitar esta solicitacao.',
+    'Somente o professor da aula, um admin da unidade ou o superadmin podem rejeitar esta solicitacao.',
   );
 
   await requestRef.update({

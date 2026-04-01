@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { KeyRound, UserPlus } from 'lucide-react';
-import { backendFunctions } from '../services/firebase/functions';
+import { backendFunctions, isRetryableSignupAcademyFetchError } from '../services/firebase/functions';
 
 interface LoginViewProps {
   onLogin: (email: string, password: string) => Promise<void>;
@@ -25,6 +25,7 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
   const [signupError, setSignupError] = useState('');
   const [academyOptions, setAcademyOptions] = useState<Array<{ academyId: string; name: string; timezone: string }>>([]);
   const [academyLoading, setAcademyLoading] = useState(false);
+  const [academyOptionsLoaded, setAcademyOptionsLoaded] = useState(false);
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [signupEmail, setSignupEmail] = useState('');
@@ -37,41 +38,84 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
   const [isCompetitor, setIsCompetitor] = useState(false);
 
   useEffect(() => {
-    if (mode !== 'signup' || academyOptions.length > 0 || academyLoading) {
+    if (mode !== 'signup' || academyOptionsLoaded) {
       return;
     }
 
     let active = true;
-    setAcademyLoading(true);
-    setSignupError('');
+    const applyAcademyOptions = (records: Array<{ academyId: string; name: string; timezone: string }>) => {
+      setAcademyOptions(records);
+      setAcademyId((current) => current || records[0]?.academyId || '');
 
-    void backendFunctions
-      .listSignupAcademies()
-      .then((records) => {
+      if (records.length === 0) {
+        setSignupError('Nenhuma unidade ativa esta disponivel no momento.');
+      }
+    };
+
+    const applyAcademyError = (fetchError: unknown) => {
+      setSignupError(fetchError instanceof Error ? fetchError.message : 'Nao foi possivel carregar as unidades.');
+    };
+
+    const loadAcademies = async () => {
+      setAcademyLoading(true);
+      setSignupError('');
+
+      try {
+        const records = await backendFunctions.listSignupAcademies();
+
         if (!active) {
           return;
         }
 
-        setAcademyOptions(records);
-        setAcademyId((current) => current || records[0]?.academyId || '');
-      })
-      .catch((fetchError) => {
+        applyAcademyOptions(records);
+        return;
+      } catch (fetchError) {
+        if (active && isRetryableSignupAcademyFetchError(fetchError)) {
+          try {
+            const retryRecords = await backendFunctions.listSignupAcademies();
+
+            if (!active) {
+              return;
+            }
+
+            applyAcademyOptions(retryRecords);
+            return;
+          } catch (retryError) {
+            if (!active) {
+              return;
+            }
+
+            applyAcademyError(retryError);
+            return;
+          }
+        }
+
         if (!active) {
           return;
         }
 
-        setSignupError(fetchError instanceof Error ? fetchError.message : 'Nao foi possivel carregar as unidades.');
-      })
-      .finally(() => {
+        applyAcademyError(fetchError);
+      } finally {
         if (active) {
           setAcademyLoading(false);
+          setAcademyOptionsLoaded(true);
         }
-      });
+      }
+    };
+
+    void loadAcademies();
 
     return () => {
       active = false;
     };
-  }, [academyLoading, academyOptions.length, mode]);
+  }, [academyOptionsLoaded, mode]);
+
+  const handleRetryAcademies = () => {
+    setAcademyOptions([]);
+    setAcademyId('');
+    setSignupError('');
+    setAcademyOptionsLoaded(false);
+  };
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -241,12 +285,58 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
 
                 <label className="app-field">
                   <span className="app-field__label">Unidade</span>
-                  <select value={academyId} onChange={(event) => setAcademyId(event.target.value)} className="app-select" disabled={academyLoading} required>
-                    {academyOptions.map((academyOption) => (
-                      <option key={academyOption.academyId} value={academyOption.academyId}>{academyOption.name}</option>
-                    ))}
+                  <select
+                    value={academyId}
+                    onChange={(event) => setAcademyId(event.target.value)}
+                    className="app-select"
+                    disabled={academyLoading || academyOptions.length === 0}
+                    required
+                  >
+                    {academyLoading ? (
+                      <option value="">Carregando unidades...</option>
+                    ) : academyOptions.length === 0 ? (
+                      <option value="">Nenhuma unidade disponivel</option>
+                    ) : (
+                      academyOptions.map((academyOption) => (
+                        <option key={academyOption.academyId} value={academyOption.academyId}>
+                          {academyOption.name}
+                        </option>
+                      ))
+                    )}
                   </select>
                 </label>
+
+                {academyOptions.length > 0 && academyId ? (
+                  <div className="app-field__hint">
+                    Academy ID selecionado: <strong>{academyId}</strong>
+                  </div>
+                ) : null}
+
+                {!academyLoading && academyOptions.length === 0 ? (
+                  <label className="app-field">
+                    <span className="app-field__label">Academy ID manual</span>
+                    <input
+                      value={academyId}
+                      onChange={(event) => setAcademyId(event.target.value)}
+                      className="app-input"
+                      placeholder="Cole aqui o Academy ID da unidade"
+                      required
+                    />
+                    <span className="app-field__hint">
+                      Se a lista nao carregar, voce ainda pode entrar com o ID da academia manualmente.
+                    </span>
+                  </label>
+                ) : null}
+
+                {!academyLoading && academyOptions.length === 0 ? (
+                  <button
+                    type="button"
+                    onClick={handleRetryAcademies}
+                    className="app-button app-button--ghost app-button--block"
+                  >
+                    Tentar carregar unidades novamente
+                  </button>
+                ) : null}
 
                 <label className="app-field">
                   <span className="app-field__label">Faixa</span>

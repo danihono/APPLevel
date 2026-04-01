@@ -12,6 +12,8 @@ import {
 } from '../lib/payload';
 import { syncUserDerivedState } from '../services/userState';
 
+const callableOptions = { region: 'southamerica-east1', invoker: 'public' as const };
+
 const ALLOWED_METRICS: MissionMetric[] = [
   'attendance_count',
   'attendance_streak',
@@ -20,7 +22,7 @@ const ALLOWED_METRICS: MissionMetric[] = [
   'belt_promotions',
 ];
 
-export const upsertMission = onCall({ region: 'southamerica-east1' }, async (request) => {
+export const upsertMission = onCall(callableOptions, async (request) => {
   const actor = await getRequestContext(request, 'admin');
   const missionId = optionalString(request.data, 'missionId');
   const academyId = optionalString(request.data, 'academyId') ?? actor.academyId;
@@ -67,7 +69,7 @@ export const upsertMission = onCall({ region: 'southamerica-east1' }, async (req
   };
 });
 
-export const syncUserMissionProgress = onCall({ region: 'southamerica-east1' }, async (request) => {
+export const syncUserMissionProgress = onCall(callableOptions, async (request) => {
   const actor = await getRequestContext(request, 'student');
   const targetUserId = optionalString(request.data, 'userId') ?? actor.uid;
 

@@ -25,6 +25,11 @@ import {
   subscribeToAttendanceRequests,
   subscribeToCompetitions,
   subscribeToJoinRequests,
+  subscribeToLearningCourses,
+  subscribeToLearningLessons,
+  subscribeToLearningProgress,
+  subscribeToLearningQuizzes,
+  subscribeToLearningTracks,
   subscribeToNotifications,
   subscribeToRankings,
   subscribeToUserAttendances,
@@ -44,6 +49,11 @@ import type {
   FightRecord,
   GraduationRecord,
   JoinRequestRecord,
+  LearningCourseRecord,
+  LearningLessonRecord,
+  LearningProgressRecord,
+  LearningQuizRecord,
+  LearningTrackRecord,
   NotificationChannel,
   NotificationRecord,
   RankingRecord,
@@ -188,11 +198,29 @@ const App: React.FC = () => {
   const [competitions, setCompetitions] = useState<Array<FirestoreEntity<CompetitionRecord>>>([]);
   const [fights, setFights] = useState<Array<FirestoreEntity<FightRecord>>>([]);
   const [notifications, setNotifications] = useState<Array<FirestoreEntity<NotificationRecord>>>([]);
+  const [learningTracks, setLearningTracks] = useState<Array<FirestoreEntity<LearningTrackRecord>>>([]);
+  const [learningCourses, setLearningCourses] = useState<Array<FirestoreEntity<LearningCourseRecord>>>([]);
+  const [learningLessons, setLearningLessons] = useState<Array<FirestoreEntity<LearningLessonRecord>>>([]);
+  const [learningQuizzes, setLearningQuizzes] = useState<Array<FirestoreEntity<LearningQuizRecord>>>([]);
+  const [learningProgress, setLearningProgress] = useState<Array<FirestoreEntity<LearningProgressRecord>>>([]);
   const [profileLoading, setProfileLoading] = useState(false);
   const [academyLoading, setAcademyLoading] = useState(false);
+  const [sessionValidated, setSessionValidated] = useState(false);
   const [sessionError, setSessionError] = useState('');
+  const [sessionErrorSource, setSessionErrorSource] = useState('');
 
   const toggleTheme = () => setIsDarkMode((value) => !value);
+
+  const clearSessionError = () => {
+    setSessionError('');
+    setSessionErrorSource('');
+  };
+
+  const reportSessionError = (source: string, error: unknown) => {
+    console.error(`[session:${source}]`, error);
+    setSessionError(getErrorMessage(error));
+    setSessionErrorSource(source);
+  };
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', isDarkMode);
@@ -228,7 +256,7 @@ const App: React.FC = () => {
           try {
             await nextUser.getIdToken(true);
           } catch (error) {
-            setSessionError(getErrorMessage(error));
+            reportSessionError('auth:getIdToken', error);
           }
         }
 
@@ -262,13 +290,19 @@ const App: React.FC = () => {
       setCompetitions([]);
       setFights([]);
       setNotifications([]);
-      setSessionError('');
+      setLearningTracks([]);
+      setLearningCourses([]);
+      setLearningLessons([]);
+      setLearningQuizzes([]);
+      setLearningProgress([]);
+      setSessionValidated(false);
+      clearSessionError();
       return;
     }
 
     let active = true;
     setProfileLoading(true);
-    setSessionError('');
+    clearSessionError();
 
     const unsubscribe = subscribeToUserProfile(
       authUser.uid,
@@ -286,7 +320,7 @@ const App: React.FC = () => {
         }
 
         setProfileLoading(false);
-        setSessionError(getErrorMessage(error));
+        reportSessionError('profile:subscribeToUserProfile', error);
       },
     );
 
@@ -298,17 +332,27 @@ const App: React.FC = () => {
 
   useEffect(() => {
     if (!authUser) {
+      setSessionValidated(false);
       return;
     }
 
     let cancelled = false;
+    setSessionValidated(false);
 
     void backendFunctions
       .validateSessionAccess()
-      .then(() => backendFunctions.rebuildUserDerivedState({}))
+      .then(async (session) => {
+        if (session.claimsUpdated) {
+          await authUser.getIdToken(true);
+        }
+
+        if (!cancelled) {
+          setSessionValidated(true);
+        }
+      })
       .catch((error) => {
         if (!cancelled) {
-          setSessionError(getErrorMessage(error));
+          reportSessionError('session:validateSessionAccess', error);
         }
       });
 
@@ -318,7 +362,27 @@ const App: React.FC = () => {
   }, [authUser]);
 
   useEffect(() => {
-    if (!profile) {
+    if (!authUser || !sessionValidated) {
+      return;
+    }
+
+    let cancelled = false;
+
+    void backendFunctions.rebuildUserDerivedState({}).catch((error) => {
+      if (!cancelled) {
+        reportSessionError('session:rebuildUserDerivedState', error);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [authUser, sessionValidated]);
+
+  useEffect(() => {
+    if (!profile || !sessionValidated) {
+      setAllAcademies([]);
+      setAllUsers([]);
       return;
     }
 
@@ -330,14 +394,14 @@ const App: React.FC = () => {
     }
 
     const unsubscribers = [
-      subscribeToAcademies(setAllAcademies, (error) => setSessionError(getErrorMessage(error))),
-      subscribeToAllUsers(setAllUsers, (error) => setSessionError(getErrorMessage(error))),
+      subscribeToAcademies(setAllAcademies, (error) => reportSessionError('data:subscribeToAcademies', error)),
+      subscribeToAllUsers(setAllUsers, (error) => reportSessionError('data:subscribeToAllUsers', error)),
     ];
 
     return () => {
       unsubscribers.forEach((unsubscribe) => unsubscribe());
     };
-  }, [profile]);
+  }, [profile, sessionValidated]);
 
   useEffect(() => {
     if (!profile || profile.role !== 'superadmin' || !selectedAcademyId) {
@@ -352,7 +416,7 @@ const App: React.FC = () => {
   }, [allAcademies, profile, selectedAcademyId]);
 
   useEffect(() => {
-    if (!profile) {
+    if (!profile || !sessionValidated) {
       setNotifications([]);
       return;
     }
@@ -368,12 +432,12 @@ const App: React.FC = () => {
         includeAcademyFeed: profile.role !== 'student',
       },
       setNotifications,
-      (error) => setSessionError(getErrorMessage(error)),
+      (error) => reportSessionError('data:subscribeToNotifications', error),
     );
-  }, [profile, selectedAcademyId]);
+  }, [profile, selectedAcademyId, sessionValidated]);
 
   useEffect(() => {
-    if (!profile) {
+    if (!profile || !sessionValidated) {
       setJoinRequests([]);
       setAttendanceRequests([]);
       return;
@@ -383,7 +447,7 @@ const App: React.FC = () => {
       const unsubscribe = subscribeToAttendanceRequests(
         { userId: profile.id },
         setAttendanceRequests,
-        (error) => setSessionError(getErrorMessage(error)),
+        (error) => reportSessionError('data:subscribeToAttendanceRequests:self', error),
       );
 
       setJoinRequests([]);
@@ -395,17 +459,30 @@ const App: React.FC = () => {
       : profile.academyId;
 
     const unsubscribers = [
-      subscribeToJoinRequests(scopedAcademyId, setJoinRequests, (error) => setSessionError(getErrorMessage(error))),
-      subscribeToAttendanceRequests({ academyId: scopedAcademyId }, setAttendanceRequests, (error) => setSessionError(getErrorMessage(error))),
+      subscribeToJoinRequests(scopedAcademyId, setJoinRequests, (error) => reportSessionError('data:subscribeToJoinRequests', error)),
+      subscribeToAttendanceRequests(
+        { academyId: scopedAcademyId },
+        setAttendanceRequests,
+        (error) => reportSessionError('data:subscribeToAttendanceRequests:academy', error),
+      ),
     ];
 
     return () => {
       unsubscribers.forEach((unsubscribe) => unsubscribe());
     };
-  }, [profile, selectedAcademyId]);
+  }, [profile, selectedAcademyId, sessionValidated]);
 
   useEffect(() => {
-    if (!profile) {
+    if (!profile || !sessionValidated) {
+      setAcademy(null);
+      setClasses([]);
+      setAcademyUsers([]);
+      setAttendances([]);
+      setRankings([]);
+      setMissions([]);
+      setGraduations([]);
+      setCompetitions([]);
+      setFights([]);
       return;
     }
 
@@ -424,21 +501,21 @@ const App: React.FC = () => {
         },
         (error) => {
           setAcademyLoading(false);
-          setSessionError(getErrorMessage(error));
+          reportSessionError('data:subscribeToAcademy', error);
         },
       ),
-      subscribeToAcademyClasses(scopedAcademyId, setClasses, (error) => setSessionError(getErrorMessage(error))),
-      subscribeToUserAttendances(profile.academyId, profile.id, setAttendances, (error) => setSessionError(getErrorMessage(error))),
-      subscribeToRankings(scopedAcademyId, setRankings, (error) => setSessionError(getErrorMessage(error))),
-      subscribeToUserMissions(profile.academyId, profile.id, setMissions, (error) => setSessionError(getErrorMessage(error))),
-      subscribeToUserGraduations(profile.academyId, profile.id, setGraduations, (error) => setSessionError(getErrorMessage(error))),
-      subscribeToCompetitions(scopedAcademyId, setCompetitions, (error) => setSessionError(getErrorMessage(error))),
-      subscribeToUserFights(profile.academyId, profile.id, setFights, (error) => setSessionError(getErrorMessage(error))),
+      subscribeToAcademyClasses(scopedAcademyId, setClasses, (error) => reportSessionError('data:subscribeToAcademyClasses', error)),
+      subscribeToUserAttendances(profile.academyId, profile.id, setAttendances, (error) => reportSessionError('data:subscribeToUserAttendances', error)),
+      subscribeToRankings(scopedAcademyId, setRankings, (error) => reportSessionError('data:subscribeToRankings', error)),
+      subscribeToUserMissions(profile.academyId, profile.id, setMissions, (error) => reportSessionError('data:subscribeToUserMissions', error)),
+      subscribeToUserGraduations(profile.academyId, profile.id, setGraduations, (error) => reportSessionError('data:subscribeToUserGraduations', error)),
+      subscribeToCompetitions(scopedAcademyId, setCompetitions, (error) => reportSessionError('data:subscribeToCompetitions', error)),
+      subscribeToUserFights(profile.academyId, profile.id, setFights, (error) => reportSessionError('data:subscribeToUserFights', error)),
     ];
 
     if (profile.role !== 'student') {
       unsubscribers.push(
-        subscribeToAcademyUsers(scopedAcademyId, setAcademyUsers, (error) => setSessionError(getErrorMessage(error))),
+        subscribeToAcademyUsers(scopedAcademyId, setAcademyUsers, (error) => reportSessionError('data:subscribeToAcademyUsers', error)),
       );
     } else {
       setAcademyUsers([]);
@@ -447,7 +524,68 @@ const App: React.FC = () => {
     return () => {
       unsubscribers.forEach((unsubscribe) => unsubscribe());
     };
-  }, [profile, selectedAcademyId]);
+  }, [profile, selectedAcademyId, sessionValidated]);
+
+  useEffect(() => {
+    if (!profile || !sessionValidated || activeTab !== 'learning') {
+      setLearningTracks([]);
+      setLearningCourses([]);
+      setLearningLessons([]);
+      setLearningQuizzes([]);
+      setLearningProgress([]);
+      return;
+    }
+
+    if (profile.role !== 'professor' && profile.role !== 'superadmin') {
+      setLearningTracks([]);
+      setLearningCourses([]);
+      setLearningLessons([]);
+      setLearningQuizzes([]);
+      setLearningProgress([]);
+      return;
+    }
+
+    const publishedOnly = profile.role === 'professor';
+    const unsubscribers = [
+      subscribeToLearningTracks(
+        { publishedOnly },
+        setLearningTracks,
+        (error) => reportSessionError('data:subscribeToLearningTracks', error),
+      ),
+      subscribeToLearningCourses(
+        { publishedOnly },
+        setLearningCourses,
+        (error) => reportSessionError('data:subscribeToLearningCourses', error),
+      ),
+      subscribeToLearningLessons(
+        { publishedOnly },
+        setLearningLessons,
+        (error) => reportSessionError('data:subscribeToLearningLessons', error),
+      ),
+      subscribeToLearningProgress(
+        profile.role === 'superadmin'
+          ? { academyId: selectedAcademyId || undefined }
+          : { userId: profile.id },
+        setLearningProgress,
+        (error) => reportSessionError('data:subscribeToLearningProgress', error),
+      ),
+    ];
+
+    if (profile.role === 'superadmin') {
+      unsubscribers.push(
+        subscribeToLearningQuizzes(
+          setLearningQuizzes,
+          (error) => reportSessionError('data:subscribeToLearningQuizzes', error),
+        ),
+      );
+    } else {
+      setLearningQuizzes([]);
+    }
+
+    return () => {
+      unsubscribers.forEach((unsubscribe) => unsubscribe());
+    };
+  }, [activeTab, profile, selectedAcademyId, sessionValidated]);
 
   async function handleLogin(email: string, password: string) {
     try {
@@ -462,7 +600,7 @@ const App: React.FC = () => {
       await logout();
       setActiveTab('home');
     } catch (error) {
-      setSessionError(getErrorMessage(error));
+      reportSessionError('auth:signInWithEmail', error);
     }
   }
 
@@ -662,6 +800,99 @@ const App: React.FC = () => {
     }
   }
 
+  async function handleUpsertLearningTrack(payload: {
+    trackId?: string;
+    title: string;
+    description?: string;
+    order: number;
+    status: 'draft' | 'published';
+  }) {
+    try {
+      return await backendFunctions.upsertLearningTrack(payload);
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
+  }
+
+  async function handleUpsertLearningCourse(payload: {
+    courseId?: string;
+    trackId: string;
+    title: string;
+    description?: string;
+    order: number;
+    status: 'draft' | 'published';
+  }) {
+    try {
+      return await backendFunctions.upsertLearningCourse(payload);
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
+  }
+
+  async function handleUpsertLearningLesson(payload: {
+    lessonId?: string;
+    trackId: string;
+    courseId: string;
+    title: string;
+    description?: string;
+    videoUrl: string;
+    order: number;
+    status: 'draft' | 'published';
+    passingScore: number;
+  }) {
+    try {
+      return await backendFunctions.upsertLearningLesson(payload);
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
+  }
+
+  async function handleUpsertLessonQuiz(payload: {
+    lessonId: string;
+    questions: Array<{
+      prompt: string;
+      options: string[];
+      correctOptionIndex: number;
+    }>;
+  }) {
+    try {
+      return await backendFunctions.upsertLessonQuiz(payload);
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
+  }
+
+  async function handleRecordLessonPlayback(payload: {
+    lessonId: string;
+    currentSeconds: number;
+    durationSeconds: number;
+  }) {
+    try {
+      return await backendFunctions.recordLessonPlayback(payload);
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
+  }
+
+  async function handleStartLessonQuiz(lessonId: string) {
+    try {
+      return await backendFunctions.startLessonQuiz({ lessonId });
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
+  }
+
+  async function handleSubmitLessonQuiz(payload: {
+    lessonId: string;
+    answers: number[];
+  }) {
+    try {
+      return await backendFunctions.submitLessonQuiz(payload);
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
+  }
+
   async function handleSaveOwnProfile(payload: {
     firstName?: string;
     lastName?: string;
@@ -712,7 +943,15 @@ const App: React.FC = () => {
     return <LoginView onLogin={handleLogin} />;
   }
 
-  if (profileLoading || academyLoading || !profile || !academy) {
+  if (profileLoading || !profile) {
+    return buildLoadingView('Carregando perfil, academia e permissoes.');
+  }
+
+  if (!sessionValidated) {
+    return buildLoadingView('Sincronizando permissoes da sua sessao.');
+  }
+
+  if (academyLoading || !academy) {
     return buildLoadingView('Carregando perfil, academia e permissoes.');
   }
 
@@ -747,7 +986,13 @@ const App: React.FC = () => {
     ? 0
     : Math.round((attendedFinishedClassIds.size / finishedClassesThisMonth.length) * 100);
   const studentAttendanceRequests = attendanceRequests.filter((entry) => entry.userId === profile.id);
-  const canActionRequests = currentUser.role === UserRole.PROFESSOR || currentUser.role === UserRole.SUPERADMIN;
+  const canActionRequests =
+    currentUser.role === UserRole.PROFESSOR ||
+    currentUser.role === UserRole.ADMIN ||
+    currentUser.role === UserRole.SUPERADMIN;
+  const focusedLearningAcademy = selectedAcademyId
+    ? (allAcademies.find((entry) => entry.id === selectedAcademyId) ?? null)
+    : null;
 
   const renderContent = () => {
     switch (activeTab) {
@@ -860,6 +1105,24 @@ const App: React.FC = () => {
             academyName={academy.name}
             userName={currentUser.name}
             userRole={currentUser.role}
+            selectedAcademyId={selectedAcademyId}
+            selectedAcademy={focusedLearningAcademy}
+            academies={allAcademies}
+            allUsers={allUsers}
+            academyUsers={academyUsers}
+            tracks={learningTracks}
+            courses={learningCourses}
+            lessons={learningLessons}
+            quizzes={learningQuizzes}
+            progressRecords={learningProgress}
+            onSelectAcademy={setSelectedAcademyId}
+            onUpsertTrack={handleUpsertLearningTrack}
+            onUpsertCourse={handleUpsertLearningCourse}
+            onUpsertLesson={handleUpsertLearningLesson}
+            onUpsertQuiz={handleUpsertLessonQuiz}
+            onRecordPlayback={handleRecordLessonPlayback}
+            onStartQuiz={handleStartLessonQuiz}
+            onSubmitQuiz={handleSubmitLessonQuiz}
           />
         );
       case 'profile':
@@ -895,7 +1158,12 @@ const App: React.FC = () => {
     <>
       {sessionError ? (
         <div className="fixed top-24 left-4 right-4 z-[70] mx-auto max-w-lg">
-          <div className="app-toast text-sm">{sessionError}</div>
+          <div className="app-toast text-sm">
+            <div>{sessionError}</div>
+            {import.meta.env.DEV && sessionErrorSource ? (
+              <div className="mt-1 text-xs opacity-80">{sessionErrorSource}</div>
+            ) : null}
+          </div>
         </div>
       ) : null}
 

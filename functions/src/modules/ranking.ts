@@ -6,7 +6,9 @@ import { assertCondition } from '../lib/errors';
 import { optionalString } from '../lib/payload';
 import { syncAllUsersInAcademy, syncUserDerivedState } from '../services/userState';
 
-export const recalculateUserRanking = onCall({ region: 'southamerica-east1' }, async (request) => {
+const callableOptions = { region: 'southamerica-east1', invoker: 'public' as const };
+
+export const recalculateUserRanking = onCall(callableOptions, async (request) => {
   const actor = await getRequestContext(request, 'student');
   const targetUserId = optionalString(request.data, 'userId') ?? actor.uid;
 
@@ -19,7 +21,7 @@ export const recalculateUserRanking = onCall({ region: 'southamerica-east1' }, a
   return syncUserDerivedState(targetUserId, actor.academyId);
 });
 
-export const recalculateAcademyRankings = onCall({ region: 'southamerica-east1' }, async (request) => {
+export const recalculateAcademyRankings = onCall(callableOptions, async (request) => {
   const actor = await getRequestContext(request, 'admin');
   const academyId = optionalString(request.data, 'academyId') ?? actor.academyId;
 

@@ -5,10 +5,17 @@ import type {
   CreateAcademyPayload,
   CreateUserPayload,
   JoinRequestStatus,
+  LearningContentStatus,
   MissionMetric,
   NotificationChannel,
 } from './models';
 import { firebaseFunctions } from './client';
+
+type SignupAcademyRecord = {
+  academyId: string;
+  name: string;
+  timezone: string;
+};
 
 async function callFunction<TResponse, TPayload = unknown>(
   functionName: string,
@@ -19,9 +26,17 @@ async function callFunction<TResponse, TPayload = unknown>(
   return response.data;
 }
 
+export function isRetryableSignupAcademyFetchError(error: unknown): boolean {
+  const code = typeof error === 'object' && error && 'code' in error
+    ? String((error as { code: unknown }).code)
+    : '';
+
+  return code === 'functions/unavailable' || code === 'functions/deadline-exceeded';
+}
+
 export const backendFunctions = {
   listSignupAcademies: () =>
-    callFunction<Array<{ academyId: string; name: string; timezone: string }>>('listSignupAcademies', {}),
+    callFunction<SignupAcademyRecord[]>('listSignupAcademies', {}),
 
   submitStudentSignup: (payload: {
     academyId: string;
@@ -59,6 +74,7 @@ export const backendFunctions = {
       displayName: string;
       belt: string;
       stripes: number;
+      claimsUpdated: boolean;
     }>('validateSessionAccess', {}),
 
   upsertClassSchedule: (payload: {
@@ -195,4 +211,73 @@ export const backendFunctions = {
 
   markNotificationRead: (payload: { notificationId: string }) =>
     callFunction<{ notificationId: string; status: string }>('markNotificationRead', payload),
+
+  upsertLearningTrack: (payload: {
+    trackId?: string;
+    title: string;
+    description?: string;
+    order: number;
+    status: LearningContentStatus;
+  }) => callFunction<{ trackId: string; status: LearningContentStatus }>('upsertLearningTrack', payload),
+
+  upsertLearningCourse: (payload: {
+    courseId?: string;
+    trackId: string;
+    title: string;
+    description?: string;
+    order: number;
+    status: LearningContentStatus;
+  }) => callFunction<{ courseId: string; trackId: string; status: LearningContentStatus }>('upsertLearningCourse', payload),
+
+  upsertLearningLesson: (payload: {
+    lessonId?: string;
+    trackId: string;
+    courseId: string;
+    title: string;
+    description?: string;
+    videoUrl: string;
+    order: number;
+    status: LearningContentStatus;
+    passingScore: number;
+  }) => callFunction<{
+    lessonId: string;
+    courseId: string;
+    trackId: string;
+    status: LearningContentStatus;
+  }>('upsertLearningLesson', payload),
+
+  upsertLessonQuiz: (payload: {
+    lessonId: string;
+    questions: Array<{
+      prompt: string;
+      options: string[];
+      correctOptionIndex: number;
+    }>;
+  }) => callFunction<{ lessonId: string; questionCount: number }>('upsertLessonQuiz', payload),
+
+  recordLessonPlayback: (payload: {
+    lessonId: string;
+    currentSeconds: number;
+    durationSeconds: number;
+  }) => callFunction<{ lessonId: string; watchPercent: number; quizReady: boolean }>('recordLessonPlayback', payload),
+
+  startLessonQuiz: (payload: { lessonId: string }) =>
+    callFunction<{
+      questions: Array<{
+        id: string;
+        prompt: string;
+        options: string[];
+      }>;
+      passingScore: number;
+      attemptCount: number;
+    }>('startLessonQuiz', payload),
+
+  submitLessonQuiz: (payload: {
+    lessonId: string;
+    answers: number[];
+  }) => callFunction<{
+    scorePercent: number;
+    passed: boolean;
+    unlockedLessonId?: string;
+  }>('submitLessonQuiz', payload),
 };
