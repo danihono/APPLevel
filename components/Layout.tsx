@@ -178,6 +178,7 @@ const Layout: React.FC<LayoutProps> = ({
     userRole === UserRole.ADMIN ||
     userRole === UserRole.SUPERADMIN;
   const isSuperAdmin = userRole === UserRole.SUPERADMIN;
+  const showTopbar = !isStaff;
   const sidebarCollapsed = isSuperAdmin && isSidebarCollapsed;
   const themeLabel = isDarkMode ? 'Dark mode' : 'Light mode';
 
@@ -206,6 +207,7 @@ const Layout: React.FC<LayoutProps> = ({
             { id: 'calendar', icon: Calendar, label: 'Calendario' },
             { id: 'management', icon: Building2, label: 'Academia' },
             { id: 'notifications', icon: Bell, label: 'Avisos' },
+            { id: 'learning', icon: BookOpen, label: 'Learning' },
             { id: 'profile', icon: UserIcon, label: 'Perfil' },
           ]
         : [
@@ -387,29 +389,31 @@ const Layout: React.FC<LayoutProps> = ({
           {isSuperAdmin ? renderDesktopSidebar() : null}
 
           <div className={isSuperAdmin ? 'app-content-shell' : ''}>
-            <header className={`app-topbar ${isSuperAdmin ? 'app-topbar--superadmin' : ''}`}>
-              <div className={`${isSuperAdmin ? 'app-topbar-panel app-topbar-panel--superadmin' : 'app-panel app-topbar-panel'} w-full`}>
-                <div className={`flex flex-wrap items-start justify-between gap-4 ${isSuperAdmin ? 'app-topbar-panel__inner app-topbar-panel__inner--superadmin' : ''}`}>
-                  <div className={`app-brand ${isSuperAdmin ? 'app-brand--compact' : ''}`}>
-                    <div className={`app-brand__mark ${isSuperAdmin ? 'app-brand__mark--compact' : ''}`}>LVL</div>
-                    <div className="app-brand__text">
-                      <p className="app-kicker">Plataforma APPLevel</p>
-                      <h1 className={`app-headline ${isSuperAdmin ? 'app-headline--compact' : ''}`}>{currentPage.title}</h1>
-                      <p className={`app-copy ${isSuperAdmin ? 'app-copy--compact' : ''}`}>{currentPage.description}</p>
+            {showTopbar ? (
+              <header className={`app-topbar ${isSuperAdmin ? 'app-topbar--superadmin' : ''}`}>
+                <div className={`${isSuperAdmin ? 'app-topbar-panel app-topbar-panel--superadmin' : 'app-panel app-topbar-panel'} w-full`}>
+                  <div className={`flex flex-wrap items-start justify-between gap-4 ${isSuperAdmin ? 'app-topbar-panel__inner app-topbar-panel__inner--superadmin' : ''}`}>
+                    <div className={`app-brand ${isSuperAdmin ? 'app-brand--compact' : ''}`}>
+                      <div className={`app-brand__mark ${isSuperAdmin ? 'app-brand__mark--compact' : ''}`}>LVL</div>
+                      <div className="app-brand__text">
+                        <p className="app-kicker">Plataforma APPLevel</p>
+                        <h1 className={`app-headline ${isSuperAdmin ? 'app-headline--compact' : ''}`}>{currentPage.title}</h1>
+                        <p className={`app-copy ${isSuperAdmin ? 'app-copy--compact' : ''}`}>{currentPage.description}</p>
+                      </div>
                     </div>
-                  </div>
 
-                  <div className={`app-topbar__status ${isSuperAdmin ? 'app-topbar__status--compact' : ''}`}>
-                    <div className={`app-orb ${isSuperAdmin ? 'app-orb--compact' : ''}`}>
-                      <span className="app-orb__dot" />
-                      {currentPage.kicker}
+                    <div className={`app-topbar__status ${isSuperAdmin ? 'app-topbar__status--compact' : ''}`}>
+                      <div className={`app-orb ${isSuperAdmin ? 'app-orb--compact' : ''}`}>
+                        <span className="app-orb__dot" />
+                        {currentPage.kicker}
+                      </div>
+                      <div className={`app-orb ${isSuperAdmin ? 'app-orb--compact' : ''}`}>{getRoleLabel(userRole)}</div>
+                      <div className={`app-orb ${isSuperAdmin ? 'app-orb--compact' : ''}`}>{themeLabel}</div>
                     </div>
-                    <div className={`app-orb ${isSuperAdmin ? 'app-orb--compact' : ''}`}>{getRoleLabel(userRole)}</div>
-                    <div className={`app-orb ${isSuperAdmin ? 'app-orb--compact' : ''}`}>{themeLabel}</div>
                   </div>
                 </div>
-              </div>
-            </header>
+              </header>
+            ) : null}
 
             <main className="app-main">{children}</main>
           </div>

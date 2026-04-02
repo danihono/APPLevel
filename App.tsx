@@ -14,7 +14,7 @@ import StaffDashboardView from './views/StaffDashboardView';
 import SuperadminDashboardView from './views/SuperadminDashboardView';
 import StudentsView from './views/StudentsView';
 import { logout, signInWithEmail, subscribeToAuthState, updateSignedInEmail } from './services/firebase/auth';
-import { formatDateLabel, toBranch, toUiUser } from './services/firebase/adapters';
+import { toBranch, toUiUser } from './services/firebase/adapters';
 import {
   type FirestoreEntity,
   subscribeToAcademies,
@@ -536,7 +536,7 @@ const App: React.FC = () => {
       return;
     }
 
-    if (profile.role !== 'professor' && profile.role !== 'superadmin') {
+    if (profile.role !== 'professor' && profile.role !== 'admin' && profile.role !== 'superadmin') {
       setLearningTracks([]);
       setLearningCourses([]);
       setLearningLessons([]);
@@ -545,7 +545,7 @@ const App: React.FC = () => {
       return;
     }
 
-    const publishedOnly = profile.role === 'professor';
+    const publishedOnly = profile.role === 'professor' || profile.role === 'admin';
     const unsubscribers = [
       subscribeToLearningTracks(
         { publishedOnly },
@@ -604,24 +604,29 @@ const App: React.FC = () => {
     }
   }
 
-  async function handleCreateQuickClass() {
-    if (!profile) {
-      throw new Error('Seu perfil ainda nao foi carregado.');
+  async function handleCreateClass(classPayloads: Array<{
+    title: string;
+    description?: string;
+    professorId: string;
+    professorName: string;
+    tatame: string;
+    scheduledStart: string;
+    scheduledEnd: string;
+    capacity: number;
+  }>) {
+    for (const payload of classPayloads) {
+      await backendFunctions.upsertClassSchedule({
+        title: payload.title,
+        description: payload.description,
+        professorId: payload.professorId,
+        professorName: payload.professorName,
+        tatame: payload.tatame,
+        scheduledStart: payload.scheduledStart,
+        scheduledEnd: payload.scheduledEnd,
+        capacity: payload.capacity,
+        checkinWindowMinutes: academy?.classCheckinWindowMinutes ?? 15,
+      });
     }
-
-    const now = new Date();
-    const end = new Date(now.getTime() + 60 * 60 * 1000);
-
-    await backendFunctions.upsertClassSchedule({
-      title: `Treino ${formatDateLabel(now)}`,
-      tatame: 'Tatame Principal',
-      professorId: profile.id,
-      professorName: profile.displayName,
-      scheduledStart: now.toISOString(),
-      scheduledEnd: end.toISOString(),
-      capacity: 30,
-      checkinWindowMinutes: academy?.classCheckinWindowMinutes ?? 15,
-    });
   }
 
   async function handleStartClass(classId: string) {
@@ -1028,14 +1033,20 @@ const App: React.FC = () => {
               attendanceDays={attendanceDays}
             />
           );
-      case 'calendar':
+      case 'calendar': {
+        const professors = academyUsers
+          .filter((u) => u.role === 'professor' || u.role === 'admin' || u.role === 'superadmin')
+          .map((u) => ({ id: u.id, displayName: u.displayName }));
+
         return (
           <CalendarView
             userRole={currentUser.role}
             currentUserId={currentUser.id}
+            currentUserName={profile.displayName}
+            professors={professors}
             classes={classes}
             attendanceRequests={studentAttendanceRequests}
-            onCreateQuickClass={handleCreateQuickClass}
+            onCreateClass={handleCreateClass}
             onStartClass={handleStartClass}
             onFinishClass={handleFinishClass}
             onRefreshQr={handleRefreshQr}
@@ -1043,6 +1054,7 @@ const App: React.FC = () => {
             onSubmitAttendanceRequest={handleSubmitAttendanceRequest}
           />
         );
+      }
       case 'competition':
         return <CompetitionView competitions={competitions} fights={fights} />;
       case 'graduation':

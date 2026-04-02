@@ -63,7 +63,7 @@ function normalizePercentage(value: number, fieldName: string): number {
 }
 
 function assertProfessorOnly(actorRole: string): void {
-  assertCondition(actorRole === 'professor', 'permission-denied', 'Somente professores podem consumir o Learning Hub.');
+  assertCondition(actorRole === 'professor' || actorRole === 'admin', 'permission-denied', 'Somente professores e admins podem consumir o Learning Hub.');
 }
 
 function isYouTubeUrl(value: string): boolean {

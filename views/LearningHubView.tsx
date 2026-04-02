@@ -4,6 +4,7 @@ import {
   CheckCircle2,
   CirclePlay,
   ClipboardCheck,
+  Eye,
   Filter,
   Lock,
   Network,
@@ -225,7 +226,7 @@ const LearningHubView: React.FC<LearningHubViewProps> = (props) => {
   } = props;
 
   const isSuperAdmin = userRole === UserRole.SUPERADMIN;
-  const isProfessorRole = userRole === UserRole.PROFESSOR;
+  const isProfessorRole = userRole === UserRole.PROFESSOR || userRole === UserRole.ADMIN;
   const firstName = userName.split(' ')[0] ?? userName;
   const publishedTracks = useMemo(() => sortByOrder(tracks.filter((track) => track.status === 'published')), [tracks]);
   const publishedCourses = useMemo(() => sortByOrder(courses.filter((course) => course.status === 'published')), [courses]);
@@ -628,30 +629,24 @@ const LearningHubView: React.FC<LearningHubViewProps> = (props) => {
     }
   }
 
-  if (userRole === UserRole.ADMIN) {
-    return (
-      <div className="view-shell">
-        <section className="app-panel app-panel--hero app-panel-pad">
-          <p className="app-section-label">Learning hub</p>
-          <h1 className="app-section-title">Modulo restrito ao superadmin e aos professores</h1>
-          <p className="app-section-copy">
-            No v1, o superadmin publica o catalogo e o professor consome as trilhas. O perfil admin fica fora deste fluxo.
-          </p>
-        </section>
-      </div>
-    );
-  }
-
   if (isProfessorRole) {
     if (publishedTracks.length === 0) {
       return (
         <div className="view-shell">
           <section className="app-panel app-panel--hero app-panel-pad">
-            <p className="app-section-label">Learning hub</p>
-            <h1 className="app-section-title">Capacitacao continua da equipe</h1>
-            <p className="app-section-copy">
-              Ainda nao existe nenhuma trilha publicada para {academyName}. Assim que o superadmin publicar o catalogo, ele aparecera aqui.
-            </p>
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div>
+                <p className="app-section-label">Learning hub</p>
+                <h1 className="app-section-title">Capacitacao continua da equipe</h1>
+                <p className="app-section-copy">
+                  Ainda nao existe nenhuma trilha publicada para {academyName}. Assim que o superadmin publicar o catalogo, ele aparecera aqui.
+                </p>
+              </div>
+              <div className="flex flex-col items-end gap-2">
+                <div className="app-orb"><BookOpen size={16} />Master Black</div>
+                <div className="flex items-center gap-1.5 text-xs text-[color:var(--text-muted)]"><Eye size={12} />Modo telespectador</div>
+              </div>
+            </div>
           </section>
         </div>
       );
@@ -666,7 +661,10 @@ const LearningHubView: React.FC<LearningHubViewProps> = (props) => {
               <h1 className="app-section-title">Capacitacao continua da equipe</h1>
               <p className="app-section-copy">Videos, trilhas e quizzes obrigatorios para apoiar {academyName} com uma rotina consistente.</p>
             </div>
-            <div className="app-orb"><BookOpen size={16} />Professor</div>
+            <div className="flex flex-col items-end gap-2">
+              <div className="app-orb"><BookOpen size={16} />Master Black</div>
+              <div className="flex items-center gap-1.5 text-xs text-[color:var(--text-muted)]"><Eye size={12} />Modo telespectador</div>
+            </div>
           </div>
 
           <div className="app-stat-grid mt-6">
