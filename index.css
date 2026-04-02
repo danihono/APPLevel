@@ -267,6 +267,8 @@ img {
   --superadmin-sidebar-width: 18.75rem;
   --superadmin-sidebar-collapsed-width: 5.75rem;
   --superadmin-sidebar-gap: 1.4rem;
+  --superadmin-sidebar-motion-duration: 260ms;
+  --superadmin-sidebar-motion-ease: cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .app-shell--superadmin.is-sidebar-collapsed {
@@ -381,6 +383,9 @@ html.dark .app-panel--tint {
   align-items: flex-start;
   justify-content: space-between;
   gap: 0.85rem;
+  transition:
+    gap var(--superadmin-sidebar-motion-duration) var(--superadmin-sidebar-motion-ease),
+    transform var(--superadmin-sidebar-motion-duration) var(--superadmin-sidebar-motion-ease);
 }
 
 .app-sidebar__brand {
@@ -388,15 +393,19 @@ html.dark .app-panel--tint {
   align-items: flex-start;
   gap: 0.95rem;
   min-width: 0;
+  transition:
+    gap var(--superadmin-sidebar-motion-duration) var(--superadmin-sidebar-motion-ease),
+    transform var(--superadmin-sidebar-motion-duration) var(--superadmin-sidebar-motion-ease);
 }
 
 .app-sidebar__brand-copy {
   min-width: 0;
   max-width: 12rem;
+  overflow: hidden;
   transition:
-    opacity 220ms ease,
-    transform 220ms ease,
-    max-width 220ms ease;
+    opacity 180ms 60ms ease,
+    transform 180ms 60ms ease,
+    max-width 0ms ease;
 }
 
 .app-sidebar__title {
@@ -419,7 +428,8 @@ html.dark .app-panel--tint {
   transition:
     transform 220ms ease,
     border-color 220ms ease,
-    background 220ms ease;
+    background 220ms ease,
+    box-shadow 220ms ease;
 }
 
 html.dark .app-sidebar__collapse {
@@ -449,18 +459,20 @@ html.dark .app-sidebar__collapse {
   transition:
     opacity 220ms ease,
     transform 220ms ease,
-    max-height 220ms ease,
-    margin-top 220ms ease;
+    max-height 280ms ease,
+    margin-top 280ms ease;
 }
 
 .app-sidebar__nav {
   display: grid;
   gap: 0.7rem;
-  margin-top: 1.4rem;
+  margin-top: 1rem;
+  transition:
+    margin-top var(--superadmin-sidebar-motion-duration) var(--superadmin-sidebar-motion-ease),
+    gap var(--superadmin-sidebar-motion-duration) var(--superadmin-sidebar-motion-ease);
 }
 
-.app-sidebar__button,
-.app-sidebar__theme {
+.app-sidebar__button {
   width: 100%;
   border: 1px solid var(--border);
   border-radius: 1.5rem;
@@ -471,8 +483,7 @@ html.dark .app-sidebar__collapse {
   -webkit-backdrop-filter: blur(18px);
 }
 
-html.dark .app-sidebar__button,
-html.dark .app-sidebar__theme {
+html.dark .app-sidebar__button {
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02));
 }
 
@@ -486,13 +497,14 @@ html.dark .app-sidebar__theme {
   transition:
     transform 220ms ease,
     border-color 220ms ease,
-    background 220ms ease;
+    background 220ms ease,
+    padding var(--superadmin-sidebar-motion-duration) var(--superadmin-sidebar-motion-ease),
+    gap var(--superadmin-sidebar-motion-duration) var(--superadmin-sidebar-motion-ease),
+    justify-content var(--superadmin-sidebar-motion-duration) var(--superadmin-sidebar-motion-ease);
 }
 
 .app-sidebar__button:hover,
-.app-sidebar__button:focus-visible,
-.app-sidebar__theme:hover,
-.app-sidebar__theme:focus-visible {
+.app-sidebar__button:focus-visible {
   transform: translateY(-2px);
   border-color: rgba(232, 175, 72, 0.28);
 }
@@ -517,6 +529,10 @@ html.dark .app-sidebar__button.is-active {
   border-radius: 1rem;
   background: rgba(232, 175, 72, 0.12);
   color: var(--gold-mid);
+  flex: none;
+  transition:
+    transform var(--superadmin-sidebar-motion-duration) var(--superadmin-sidebar-motion-ease),
+    border-radius var(--superadmin-sidebar-motion-duration) var(--superadmin-sidebar-motion-ease);
 }
 
 .app-sidebar__label {
@@ -526,52 +542,9 @@ html.dark .app-sidebar__button.is-active {
   max-width: 10rem;
   overflow: hidden;
   transition:
-    opacity 220ms ease,
-    transform 220ms ease,
-    max-width 220ms ease;
-}
-
-.app-sidebar__theme {
-  margin-top: auto;
-  min-height: 4.75rem;
-  padding: 1rem 1.1rem;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  text-align: left;
-  transition:
-    transform 220ms ease,
-    border-color 220ms ease,
-    background 220ms ease;
-}
-
-.app-sidebar__theme-copy {
-  min-width: 0;
-  max-width: 11rem;
-  transition:
-    opacity 220ms ease,
-    transform 220ms ease,
-    max-width 220ms ease;
-}
-
-.app-sidebar__theme strong {
-  display: block;
-  margin-top: 0.25rem;
-  font-family: var(--font-display);
-  font-size: 1.05rem;
-}
-
-.app-sidebar__theme-icon {
-  position: relative;
-  width: 2.8rem;
-  height: 2.8rem;
-  border-radius: 1rem;
-  background: rgba(232, 175, 72, 0.12);
-  color: var(--gold-mid);
-  display: grid;
-  place-items: center;
-  overflow: hidden;
+    opacity 160ms 50ms ease,
+    transform 160ms 50ms ease,
+    max-width 0ms ease;
 }
 
 .app-sidebar--collapsed .app-sidebar__header {
@@ -588,44 +561,32 @@ html.dark .app-sidebar__button.is-active {
 }
 
 .app-sidebar--collapsed .app-sidebar__brand-copy,
-.app-sidebar--collapsed .app-sidebar__label,
-.app-sidebar--collapsed .app-sidebar__theme-copy {
+.app-sidebar--collapsed .app-sidebar__label {
   opacity: 0;
   max-width: 0;
   overflow: hidden;
   transform: translateX(-0.4rem);
   pointer-events: none;
-}
-
-.app-sidebar--collapsed .app-sidebar__brand-copy,
-.app-sidebar--collapsed .app-sidebar__meta,
-.app-sidebar--collapsed .app-sidebar__theme-copy,
-.app-sidebar--collapsed .app-sidebar__label {
-  display: none;
-}
-
-.app-sidebar--collapsed .app-sidebar__meta {
-  margin-top: 0;
-  max-height: 0;
-  opacity: 0;
-  transform: translateY(-0.4rem);
-  pointer-events: none;
+  transition:
+    opacity 160ms ease,
+    transform 160ms ease,
+    max-width 0ms 160ms;
 }
 
 .app-sidebar--collapsed .app-sidebar__nav {
   width: 100%;
   margin-top: 0.85rem;
+  gap: 0.6rem;
 }
 
-.app-sidebar--collapsed .app-sidebar__button,
-.app-sidebar--collapsed .app-sidebar__theme {
+.app-sidebar--collapsed .app-sidebar__button {
   justify-content: center;
   gap: 0;
   padding-inline: 0;
 }
 
-.app-sidebar--collapsed .app-sidebar__theme {
-  min-height: 4rem;
+.app-sidebar--collapsed .app-sidebar__icon {
+  transform: scale(0.96);
 }
 
 .app-brand {
@@ -1080,6 +1041,32 @@ html.dark .app-segment__button.is-active {
   background: rgba(255, 255, 255, 0.07);
 }
 
+.learning-superadmin-tabs {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 0.45rem;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+}
+
+.learning-superadmin-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.learning-superadmin-tabs__button {
+  flex: 0 0 auto;
+  white-space: nowrap;
+  padding-inline: 1.05rem;
+}
+
+.learning-superadmin-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
 .app-chip-row {
   display: flex;
   gap: 0.7rem;
@@ -1225,6 +1212,17 @@ html.dark .app-list-card {
 .app-list-card:hover {
   transform: translateY(-2px);
   border-color: rgba(232, 175, 72, 0.24);
+}
+
+.profile-theme-picker {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.profile-theme-choice {
+  min-width: 0;
 }
 
 .app-icon-shell {
@@ -1411,65 +1409,6 @@ html.dark .app-empty {
   background: var(--toolbar-plate);
   border: 1px solid rgba(255, 255, 255, 0.08);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16);
-}
-
-.theme-toggle {
-  position: relative;
-  z-index: 2;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 3.4rem;
-  min-width: 3.4rem;
-  height: 3.4rem;
-  padding: 0;
-  border: 0;
-  border-radius: 1.2rem;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.34), rgba(255, 255, 255, 0.12));
-  color: var(--text-strong);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2);
-  transition: transform 240ms cubic-bezier(0.34, 1.2, 0.64, 1), background 220ms ease;
-  overflow: hidden;
-  appearance: none;
-  -webkit-appearance: none;
-}
-
-html.dark .theme-toggle {
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.03));
-}
-
-.theme-toggle:hover,
-.theme-toggle:focus-visible {
-  transform: translateY(-2px);
-}
-
-.theme-toggle.is-popping {
-  animation: toggle-pop 620ms cubic-bezier(0.34, 1.2, 0.64, 1);
-}
-
-.theme-toggle__icon {
-  position: absolute;
-  transition: opacity 320ms ease, transform 420ms cubic-bezier(0.34, 1.2, 0.64, 1);
-}
-
-html:not(.dark) .theme-toggle__icon--sun {
-  opacity: 1;
-  transform: rotate(0deg) scale(1);
-}
-
-html:not(.dark) .theme-toggle__icon--moon {
-  opacity: 0;
-  transform: rotate(-90deg) scale(0.4);
-}
-
-html.dark .theme-toggle__icon--sun {
-  opacity: 0;
-  transform: rotate(90deg) scale(0.4);
-}
-
-html.dark .theme-toggle__icon--moon {
-  opacity: 1;
-  transform: rotate(0deg) scale(1);
 }
 
 .progress-shell {
@@ -2161,7 +2100,8 @@ html.dark .superadmin-belt-dot {
 @media (min-width: 980px) {
   .app-shell--superadmin {
     padding: 1.25rem 1.25rem 1.5rem calc(var(--superadmin-sidebar-width) + var(--superadmin-sidebar-gap));
-    transition: padding-left 260ms ease;
+    transition: padding-left var(--superadmin-sidebar-motion-duration) var(--superadmin-sidebar-motion-ease);
+    will-change: padding-left;
   }
 
   .app-shell--superadmin .app-frame--wide {
@@ -2187,11 +2127,17 @@ html.dark .superadmin-belt-dot {
     padding: 1rem 0.85rem 1rem 0.85rem;
     border-radius: 0 2rem 2rem 0;
     border-left: 0;
+    overflow-x: clip;
     overflow-y: auto;
+    scrollbar-gutter: stable;
     transition:
-      width 260ms ease,
-      padding 260ms ease,
-      border-radius 260ms ease;
+      width var(--superadmin-sidebar-motion-duration) var(--superadmin-sidebar-motion-ease),
+      padding var(--superadmin-sidebar-motion-duration) var(--superadmin-sidebar-motion-ease),
+      border-radius var(--superadmin-sidebar-motion-duration) var(--superadmin-sidebar-motion-ease),
+      box-shadow 240ms ease;
+    will-change: width, padding;
+    contain: layout paint style;
+    transform: translateZ(0);
   }
 
   .app-shell--superadmin.is-sidebar-collapsed .app-sidebar {
@@ -2208,6 +2154,21 @@ html.dark .superadmin-belt-dot {
 
   .app-toolbar--superadmin {
     display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-shell--superadmin,
+  .app-shell--superadmin .app-sidebar,
+  .app-sidebar__header,
+  .app-sidebar__brand,
+  .app-sidebar__brand-copy,
+  .app-sidebar__meta,
+  .app-sidebar__nav,
+  .app-sidebar__button,
+  .app-sidebar__icon,
+  .app-sidebar__label {
+    transition: none !important;
   }
 }
 
@@ -2239,8 +2200,7 @@ html.dark .superadmin-belt-dot {
     width: calc(100% - 1rem);
   }
 
-  .app-nav-button,
-  .theme-toggle {
+  .app-nav-button {
     height: 3rem;
   }
 
@@ -2249,8 +2209,7 @@ html.dark .superadmin-belt-dot {
     padding: 0.32rem;
   }
 
-  .app-nav-button svg,
-  .theme-toggle svg {
+  .app-nav-button svg {
     width: 1.12rem;
     height: 1.12rem;
   }
@@ -2260,6 +2219,10 @@ html.dark .superadmin-belt-dot {
   }
 
   .app-stat-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .profile-theme-picker {
     grid-template-columns: 1fr;
   }
 
@@ -2297,24 +2260,6 @@ html.dark .superadmin-belt-dot {
 
   100% {
     transform: translate3d(0, 0, 0);
-  }
-}
-
-@keyframes toggle-pop {
-  0% {
-    transform: scale(1);
-  }
-
-  38% {
-    transform: scale(1.25);
-  }
-
-  70% {
-    transform: scale(0.94);
-  }
-
-  100% {
-    transform: scale(1);
   }
 }
 

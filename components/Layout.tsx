@@ -8,11 +8,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Home,
-  Moon,
   Shield,
-  ShoppingBag,
-  Sun,
-  Target,
   Trophy,
   User as UserIcon,
   Users,
@@ -23,8 +19,6 @@ interface LayoutProps {
   children: React.ReactNode;
   activeTab: string;
   setActiveTab: (tab: string) => void;
-  isDarkMode: boolean;
-  toggleTheme: () => void;
   userRole?: UserRole;
 }
 
@@ -146,14 +140,10 @@ const Layout: React.FC<LayoutProps> = ({
   children,
   activeTab,
   setActiveTab,
-  isDarkMode,
-  toggleTheme,
   userRole,
 }) => {
   const navTrackRef = useRef<HTMLDivElement | null>(null);
   const navRefs = useRef<Record<string, HTMLButtonElement | null>>({});
-  const themeTimerRef = useRef<number | null>(null);
-  const [themeAnimating, setThemeAnimating] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => {
     if (typeof window === 'undefined') {
       return false;
@@ -180,7 +170,6 @@ const Layout: React.FC<LayoutProps> = ({
   const isSuperAdmin = userRole === UserRole.SUPERADMIN;
   const showTopbar = !isStaff;
   const sidebarCollapsed = isSuperAdmin && isSidebarCollapsed;
-  const themeLabel = isDarkMode ? 'Dark mode' : 'Light mode';
 
   const navItems = useMemo<NavItem[]>(() => (
     userRole === UserRole.SUPERADMIN
@@ -270,12 +259,6 @@ const Layout: React.FC<LayoutProps> = ({
     };
   }, [activeTab, navItems]);
 
-  useEffect(() => () => {
-    if (themeTimerRef.current) {
-      window.clearTimeout(themeTimerRef.current);
-    }
-  }, []);
-
   useEffect(() => {
     if (!isSuperAdmin || typeof window === 'undefined') {
       return;
@@ -288,23 +271,6 @@ const Layout: React.FC<LayoutProps> = ({
     }
   }, [isSidebarCollapsed, isSuperAdmin]);
 
-  const handleThemeToggle = () => {
-    if (themeTimerRef.current) {
-      window.clearTimeout(themeTimerRef.current);
-    }
-
-    setThemeAnimating(false);
-    window.requestAnimationFrame(() => {
-      setThemeAnimating(true);
-    });
-
-    toggleTheme();
-
-    themeTimerRef.current = window.setTimeout(() => {
-      setThemeAnimating(false);
-    }, 620);
-  };
-
   const renderDesktopSidebar = () => (
     <aside className={`app-sidebar app-panel ${sidebarCollapsed ? 'app-sidebar--collapsed' : ''}`}>
       <div className="app-sidebar__header">
@@ -313,7 +279,6 @@ const Layout: React.FC<LayoutProps> = ({
           <div className="app-sidebar__brand-copy" aria-hidden={sidebarCollapsed}>
             <p className="app-kicker">Plataforma APPLevel</p>
             <h2 className="app-sidebar__title">Superadmin</h2>
-            <p className="app-sidebar__text">Controle da rede pensado para escritorio e responsivo no celular.</p>
           </div>
         </div>
 
@@ -327,14 +292,6 @@ const Layout: React.FC<LayoutProps> = ({
         >
           {sidebarCollapsed ? <ChevronRight size={18} strokeWidth={2} /> : <ChevronLeft size={18} strokeWidth={2} />}
         </button>
-      </div>
-
-      <div className="app-sidebar__meta" aria-hidden={sidebarCollapsed}>
-        <div className="app-orb">
-          <span className="app-orb__dot" />
-          {currentPage.kicker}
-        </div>
-        <div className="app-orb">{getRoleLabel(userRole)}</div>
       </div>
 
       <nav className="app-sidebar__nav" aria-label="Navegacao do superadmin">
@@ -360,23 +317,6 @@ const Layout: React.FC<LayoutProps> = ({
           );
         })}
       </nav>
-
-      <button
-        type="button"
-        onClick={handleThemeToggle}
-        className={`app-sidebar__theme ${themeAnimating ? 'is-popping' : ''}`}
-        aria-label="Alternar tema"
-        title="Alternar tema"
-      >
-        <div className="app-sidebar__theme-copy" aria-hidden={sidebarCollapsed}>
-          <p className="app-kicker">Tema</p>
-          <strong>{isDarkMode ? 'Dark mode' : 'Light mode'}</strong>
-        </div>
-        <div className="app-sidebar__theme-icon">
-          <Sun size={19} strokeWidth={1.85} className="theme-toggle__icon theme-toggle__icon--sun" />
-          <Moon size={19} strokeWidth={1.85} className="theme-toggle__icon theme-toggle__icon--moon" />
-        </div>
-      </button>
     </aside>
   );
 
@@ -408,7 +348,6 @@ const Layout: React.FC<LayoutProps> = ({
                         {currentPage.kicker}
                       </div>
                       <div className={`app-orb ${isSuperAdmin ? 'app-orb--compact' : ''}`}>{getRoleLabel(userRole)}</div>
-                      <div className={`app-orb ${isSuperAdmin ? 'app-orb--compact' : ''}`}>{themeLabel}</div>
                     </div>
                   </div>
                 </div>
@@ -464,19 +403,6 @@ const Layout: React.FC<LayoutProps> = ({
                 </Fragment>
               );
             })}
-
-            <span className="app-nav-divider" aria-hidden="true" />
-
-            <button
-              type="button"
-              onClick={handleThemeToggle}
-              className={`theme-toggle ${themeAnimating ? 'is-popping' : ''}`}
-              aria-label="Alternar tema"
-              title="Alternar tema"
-            >
-              <Sun size={21} strokeWidth={1.85} className="theme-toggle__icon theme-toggle__icon--sun" />
-              <Moon size={21} strokeWidth={1.85} className="theme-toggle__icon theme-toggle__icon--moon" />
-            </button>
           </div>
         </div>
       </nav>

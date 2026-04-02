@@ -112,14 +112,6 @@ function readThemePreference(scope: string): boolean | null {
   return null;
 }
 
-function prefersDarkTheme() {
-  if (typeof window === 'undefined') {
-    return true;
-  }
-
-  return window.matchMedia('(prefers-color-scheme: dark)').matches;
-}
-
 function buildLoadingView(message: string) {
   return (
     <div className="app-auth-shell">
@@ -181,7 +173,7 @@ const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState('home');
   const [managementFocusSection, setManagementFocusSection] = useState<'master-black' | null>(null);
   const [themeScope, setThemeScope] = useState('guest');
-  const [isDarkMode, setIsDarkMode] = useState(() => readThemePreference('guest') ?? prefersDarkTheme());
+  const [isDarkMode, setIsDarkMode] = useState(() => readThemePreference('guest') ?? false);
   const [profile, setProfile] = useState<FirestoreEntity<UserRecord> | null>(null);
   const [academy, setAcademy] = useState<FirestoreEntity<AcademyRecord> | null>(null);
   const [allAcademies, setAllAcademies] = useState<Array<FirestoreEntity<AcademyRecord>>>([]);
@@ -209,7 +201,9 @@ const App: React.FC = () => {
   const [sessionError, setSessionError] = useState('');
   const [sessionErrorSource, setSessionErrorSource] = useState('');
 
-  const toggleTheme = () => setIsDarkMode((value) => !value);
+  const setThemeMode = (mode: 'light' | 'dark') => {
+    setIsDarkMode(mode === 'dark');
+  };
 
   const clearSessionError = () => {
     setSessionError('');
@@ -235,10 +229,7 @@ const App: React.FC = () => {
 
     const storedPreference = readThemePreference(nextScope);
     setThemeScope(nextScope);
-
-    if (storedPreference !== null) {
-      setIsDarkMode(storedPreference);
-    }
+    setIsDarkMode(storedPreference ?? false);
   }, [authUser?.uid, themeScope]);
 
   useEffect(() => {
@@ -1149,6 +1140,8 @@ const App: React.FC = () => {
             attendances={attendances}
             classNameById={classNameById}
             graduations={graduations}
+            isDarkMode={isDarkMode}
+            onSetThemeMode={setThemeMode}
             onSaveProfile={handleSaveOwnProfile}
             onChangeEmail={handleChangeOwnEmail}
             onLogout={handleLogout}
@@ -1182,8 +1175,6 @@ const App: React.FC = () => {
       <Layout
         activeTab={activeTab}
         setActiveTab={setActiveTab}
-        isDarkMode={isDarkMode}
-        toggleTheme={toggleTheme}
         userRole={currentUser.role}
       >
         {renderContent()}

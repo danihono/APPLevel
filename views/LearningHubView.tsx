@@ -47,6 +47,8 @@ type OrderedLesson = {
 
 type LessonRuntimeStatus = 'locked' | 'available' | 'watching' | 'ready' | 'completed';
 
+type SuperadminLearningTab = 'overview' | 'tracks' | 'courses' | 'lessons' | 'quizzes' | 'catalog';
+
 interface LearningHubViewProps {
   academyName: string;
   userName: string;
@@ -200,6 +202,50 @@ function lessonRuntimeStatus(
   return 'available';
 }
 
+const superadminLearningTabs: Array<{
+  id: SuperadminLearningTab;
+  label: string;
+  title: string;
+  description: string;
+}> = [
+  {
+    id: 'overview',
+    label: 'Visao geral',
+    title: 'Relatorios e acompanhamento da rede',
+    description: 'Acompanhe academias, trilhas publicadas e o ritmo de capacitacao dos professores em um so lugar.',
+  },
+  {
+    id: 'tracks',
+    label: 'Trilhas',
+    title: 'Governanca de trilhas',
+    description: 'Crie, ordene e publique as trilhas que estruturam a jornada de aprendizado da rede.',
+  },
+  {
+    id: 'courses',
+    label: 'Cursos',
+    title: 'Estrutura de cursos',
+    description: 'Organize cursos por trilha e mantenha a biblioteca editorial mais clara para a equipe.',
+  },
+  {
+    id: 'lessons',
+    label: 'Aulas',
+    title: 'Cadastro de aulas',
+    description: 'Centralize videos, descricoes e criterios de aprovacao sem misturar com outros blocos operacionais.',
+  },
+  {
+    id: 'quizzes',
+    label: 'Quizzes',
+    title: 'Validacao de aprendizado',
+    description: 'Edite perguntas e respostas por aula com um fluxo dedicado, sem depender da tela inteira.',
+  },
+  {
+    id: 'catalog',
+    label: 'Catalogo',
+    title: 'Mapa consolidado do catalogo',
+    description: 'Visualize a hierarquia completa entre trilhas, cursos e aulas publicadas ou em rascunho.',
+  },
+];
+
 const LearningHubView: React.FC<LearningHubViewProps> = (props) => {
   const {
     academyName,
@@ -242,6 +288,7 @@ const LearningHubView: React.FC<LearningHubViewProps> = (props) => {
   const [trackSelectionId, setTrackSelectionId] = useState('');
   const [courseSelectionId, setCourseSelectionId] = useState('');
   const [lessonSelectionId, setLessonSelectionId] = useState('');
+  const [superadminTab, setSuperadminTab] = useState<SuperadminLearningTab>('overview');
 
   const [trackForm, setTrackForm] = useState<{
     title: string;
@@ -338,6 +385,7 @@ const LearningHubView: React.FC<LearningHubViewProps> = (props) => {
       completedUsers,
     };
   }), [allUsers, progressRecords, publishedCourses, publishedLessons, publishedTracks]);
+  const activeSuperadminTabMeta = superadminLearningTabs.find((tab) => tab.id === superadminTab) ?? superadminLearningTabs[0];
 
   useEffect(() => {
     if (publishedTracks.length === 0) {
@@ -823,54 +871,107 @@ const LearningHubView: React.FC<LearningHubViewProps> = (props) => {
     const currentEntry = reportTrackLessons.find((entry) => lessonRuntimeStatus(reportTrackLessons, progressByLesson, entry.lesson.id) !== 'completed') ?? reportTrackLessons[reportTrackLessons.length - 1] ?? null;
     return { user, progressByLesson, completed, currentEntry };
   });
+  const renderEditorAlerts = () => (
+    <>
+      {editorSuccess ? <div className="app-alert app-alert--success mt-6">{editorSuccess}</div> : null}
+      {editorError ? <div className="app-alert app-alert--error mt-6">{editorError}</div> : null}
+    </>
+  );
 
   return (
     <div className="view-shell">
-      <section className="app-panel app-panel--hero app-panel-pad">
+      <section className="app-panel app-panel-pad">
         <div className="flex flex-wrap items-start justify-between gap-4">
-          <div className="max-w-3xl">
-            <p className="app-section-label">Learning hub</p>
-            <h1 className="app-section-title">Governanca do catalogo e progresso da rede</h1>
-            <p className="app-section-copy">Crie trilhas globais, publique cursos e acompanhe a capacitacao dos professores por academia.</p>
+          <div>
+            <p className="app-section-label">Navegacao da hub</p>
+            <h2 className="text-xl font-bold">{activeSuperadminTabMeta.title}</h2>
+            <p className="mt-2 text-sm text-[color:var(--text-muted)]">{activeSuperadminTabMeta.description}</p>
           </div>
-          <div className="app-orb"><ShieldCheck size={16} />Superadmin</div>
+          <div className="app-orb">{superadminLearningTabs.length} secoes</div>
         </div>
 
-        <div className="app-stat-grid mt-6">
-          <article className="app-stat-card"><p className="app-stat-card__label">Trilhas</p><p className="app-stat-card__value">{sortedTracks.length}</p></article>
-          <article className="app-stat-card"><p className="app-stat-card__label">Aulas publicadas</p><p className="app-stat-card__value">{publishedLessons.length}</p></article>
-          <article className="app-stat-card"><p className="app-stat-card__label">Professores</p><p className="app-stat-card__value">{allUsers.filter(isProfessor).length}</p></article>
+        <div className="mt-6">
+          <div className="app-segment learning-superadmin-tabs" role="tablist" aria-label="Secoes da learning hub do superadmin">
+            {superadminLearningTabs.map((tab) => {
+              const isActive = superadminTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  id={`learning-superadmin-tab-${tab.id}`}
+                  type="button"
+                  role="tab"
+                  aria-selected={isActive}
+                  aria-controls={`learning-superadmin-panel-${tab.id}`}
+                  onClick={() => setSuperadminTab(tab.id)}
+                  className={`app-segment__button learning-superadmin-tabs__button ${isActive ? 'is-active' : ''}`}
+                >
+                  {tab.label}
+                </button>
+              );
+            })}
+          </div>
         </div>
       </section>
 
-      <section className="app-panel app-panel-pad">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="app-icon-shell"><Network size={18} /></div>
-            <div>
-              <p className="app-section-label">Filtro operacional</p>
-              <h2 className="text-xl font-bold">{selectedAcademy?.name ?? 'Rede inteira'}</h2>
+      <div
+        id={`learning-superadmin-panel-${superadminTab}`}
+        role="tabpanel"
+        aria-labelledby={`learning-superadmin-tab-${superadminTab}`}
+        className="learning-superadmin-panel"
+      >
+        {superadminTab === 'overview' ? (
+          <section className="app-panel app-panel--hero app-panel-pad">
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div className="max-w-3xl">
+                <p className="app-section-label">Learning hub</p>
+                <h1 className="app-section-title">Governanca do catalogo e progresso da rede</h1>
+                <p className="app-section-copy">Crie trilhas globais, publique cursos e acompanhe a capacitacao dos professores por academia.</p>
+              </div>
+              <div className="app-orb"><ShieldCheck size={16} />Superadmin</div>
             </div>
-          </div>
-          <div className="flex flex-wrap gap-3">
-            <label className="app-field min-w-[18rem]">
-              <span className="app-field__label">Academia</span>
-              <select value={selectedAcademyId ?? ''} onChange={(event) => onSelectAcademy?.(event.target.value)} className="app-select">
-                <option value="">Rede inteira</option>
-                {academies.map((academyOption) => <option key={academyOption.id} value={academyOption.id}>{academyOption.name}</option>)}
-              </select>
-            </label>
-            <label className="app-field min-w-[18rem]">
-              <span className="app-field__label">Trilha analisada</span>
-              <select value={activeTrack?.id ?? ''} onChange={(event) => setActiveTrackId(event.target.value)} className="app-select">
-                {publishedTracks.map((track) => <option key={track.id} value={track.id}>{track.title}</option>)}
-              </select>
-            </label>
-          </div>
-        </div>
-      </section>
+            <div className="app-stat-grid mt-6">
+              <article className="app-stat-card"><p className="app-stat-card__label">Academias</p><p className="app-stat-card__value">{academies.length}</p></article>
+              <article className="app-stat-card"><p className="app-stat-card__label">Trilhas</p><p className="app-stat-card__value">{sortedTracks.length}</p></article>
+              <article className="app-stat-card"><p className="app-stat-card__label">Cursos publicados</p><p className="app-stat-card__value">{publishedCourses.length}</p></article>
+              <article className="app-stat-card"><p className="app-stat-card__label">Aulas publicadas</p><p className="app-stat-card__value">{publishedLessons.length}</p></article>
+              <article className="app-stat-card"><p className="app-stat-card__label">Quizzes</p><p className="app-stat-card__value">{quizzes.length}</p></article>
+              <article className="app-stat-card"><p className="app-stat-card__label">Professores</p><p className="app-stat-card__value">{allUsers.filter(isProfessor).length}</p></article>
+            </div>
+          </section>
+        ) : null}
 
-      <section className="app-panel app-panel-pad">
+        {superadminTab === 'overview' ? (
+          <section className="app-panel app-panel-pad">
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="app-icon-shell"><Network size={18} /></div>
+                <div>
+                  <p className="app-section-label">Filtro operacional</p>
+                  <h2 className="text-xl font-bold">{selectedAcademy?.name ?? 'Rede inteira'}</h2>
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-3">
+                <label className="app-field min-w-[18rem]">
+                  <span className="app-field__label">Academia</span>
+                  <select value={selectedAcademyId ?? ''} onChange={(event) => onSelectAcademy?.(event.target.value)} className="app-select">
+                    <option value="">Rede inteira</option>
+                    {academies.map((academyOption) => <option key={academyOption.id} value={academyOption.id}>{academyOption.name}</option>)}
+                  </select>
+                </label>
+                <label className="app-field min-w-[18rem]">
+                  <span className="app-field__label">Trilha analisada</span>
+                  <select value={activeTrack?.id ?? ''} onChange={(event) => setActiveTrackId(event.target.value)} className="app-select" disabled={publishedTracks.length === 0}>
+                    {publishedTracks.length === 0 ? <option value="">Nenhuma trilha publicada</option> : null}
+                    {publishedTracks.map((track) => <option key={track.id} value={track.id}>{track.title}</option>)}
+                  </select>
+                </label>
+              </div>
+            </div>
+          </section>
+        ) : null}
+
+        {superadminTab === 'overview' ? (
+          <section className="app-panel app-panel-pad">
         <div className="flex items-center gap-3">
           <div className="app-icon-shell"><Users size={18} /></div>
           <div>
@@ -878,7 +979,9 @@ const LearningHubView: React.FC<LearningHubViewProps> = (props) => {
             <h2 className="text-xl font-bold">Professores e status da trilha</h2>
           </div>
         </div>
-        {!selectedAcademyId ? (
+        {publishedTracks.length === 0 ? (
+          <div className="app-empty mt-6">Publique pelo menos uma trilha para liberar o acompanhamento de progresso da rede.</div>
+        ) : !selectedAcademyId ? (
           <div className="mt-6 grid gap-3 md:grid-cols-3">
             {consolidatedTrackRows.map((row) => (
               <div key={row.track.id} className="app-list-card">
@@ -889,6 +992,7 @@ const LearningHubView: React.FC<LearningHubViewProps> = (props) => {
             ))}
           </div>
         ) : null}
+        {publishedTracks.length > 0 ? (
         <div className="mt-6 app-list">
           {reportRows.map((row) => (
             <div key={row.user.id} className="app-list-card">
@@ -909,16 +1013,17 @@ const LearningHubView: React.FC<LearningHubViewProps> = (props) => {
           ))}
           {reportRows.length === 0 ? <div className="app-empty">Nenhum professor encontrado no recorte atual.</div> : null}
         </div>
-      </section>
+        ) : null}
+          </section>
+        ) : null}
 
-      <section className="app-grid-2">
-        <form onSubmit={handleSaveTrack} className="app-panel app-panel-pad">
+      <section className={`app-grid-2 ${superadminTab === 'tracks' || superadminTab === 'courses' ? '' : 'hidden'}`}>
+        <form onSubmit={handleSaveTrack} className={`app-panel app-panel-pad md:col-span-2 ${superadminTab === 'tracks' ? '' : 'hidden'}`}>
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-3"><div className="app-icon-shell"><BookOpen size={18} /></div><div><p className="app-section-label">Trilha</p><h2 className="text-xl font-bold">Editor de trilhas</h2></div></div>
             <button type="button" onClick={() => setTrackSelectionId('')} className="app-button app-button--dark app-button--small"><Plus size={14} />Nova</button>
           </div>
-          {editorSuccess ? <div className="app-alert app-alert--success mt-6">{editorSuccess}</div> : null}
-          {editorError ? <div className="app-alert app-alert--error mt-6">{editorError}</div> : null}
+          {renderEditorAlerts()}
           <div className="mt-6 app-grid-2">
             <label className="app-field md:col-span-2"><span className="app-field__label">Trilha existente</span><select value={trackSelectionId} onChange={(event) => setTrackSelectionId(event.target.value)} className="app-select"><option value="">Nova trilha</option>{sortedTracks.map((track) => <option key={track.id} value={track.id}>{track.title} • {contentLabel(track.status)}</option>)}</select></label>
             <label className="app-field md:col-span-2"><span className="app-field__label">Titulo</span><input value={trackForm.title} onChange={(event) => setTrackForm((current) => ({ ...current, title: event.target.value }))} className="app-input" required /></label>
@@ -929,13 +1034,14 @@ const LearningHubView: React.FC<LearningHubViewProps> = (props) => {
           <button type="submit" disabled={busyKey === 'track'} className="app-button app-button--gold mt-6"><Save size={16} />{busyKey === 'track' ? 'Salvando...' : 'Salvar trilha'}</button>
         </form>
 
-        <form onSubmit={handleSaveCourse} className="app-panel app-panel-pad">
+        <form onSubmit={handleSaveCourse} className={`app-panel app-panel-pad md:col-span-2 ${superadminTab === 'courses' ? '' : 'hidden'}`}>
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-3"><div className="app-icon-shell"><BookOpen size={18} /></div><div><p className="app-section-label">Curso</p><h2 className="text-xl font-bold">Editor de cursos</h2></div></div>
             <button type="button" onClick={() => setCourseSelectionId('')} className="app-button app-button--dark app-button--small"><Plus size={14} />Novo</button>
           </div>
+          {renderEditorAlerts()}
           <div className="mt-6 app-grid-2">
-            <label className="app-field md:col-span-2"><span className="app-field__label">Trilha pai</span><select value={courseForm.trackId} onChange={(event) => setCourseForm((current) => ({ ...current, trackId: event.target.value }))} className="app-select" required><option value="">Selecione uma trilha</option>{sortedTracks.map((track) => <option key={track.id} value={track.id}>{track.title}</option>)}</select></label>
+            <label className="app-field md:col-span-2"><span className="app-field__label">Trilha pai</span><select value={courseForm.trackId} onChange={(event) => { const nextTrackId = event.target.value; setCourseSelectionId(''); setCourseForm((current) => ({ ...current, trackId: nextTrackId, order: sortedCourses.filter((course) => course.trackId === nextTrackId).length + 1 })); }} className="app-select" required><option value="">Selecione uma trilha</option>{sortedTracks.map((track) => <option key={track.id} value={track.id}>{track.title}</option>)}</select></label>
             <label className="app-field md:col-span-2"><span className="app-field__label">Curso existente</span><select value={courseSelectionId} onChange={(event) => setCourseSelectionId(event.target.value)} className="app-select"><option value="">Novo curso</option>{sortByOrder(sortedCourses.filter((course) => course.trackId === courseForm.trackId)).map((course) => <option key={course.id} value={course.id}>{course.title} • {contentLabel(course.status)}</option>)}</select></label>
             <label className="app-field md:col-span-2"><span className="app-field__label">Titulo</span><input value={courseForm.title} onChange={(event) => setCourseForm((current) => ({ ...current, title: event.target.value }))} className="app-input" required /></label>
             <label className="app-field md:col-span-2"><span className="app-field__label">Descricao</span><textarea value={courseForm.description} onChange={(event) => setCourseForm((current) => ({ ...current, description: event.target.value }))} className="app-input min-h-[7rem]" /></label>
@@ -946,15 +1052,16 @@ const LearningHubView: React.FC<LearningHubViewProps> = (props) => {
         </form>
       </section>
 
-      <section className="app-grid-2">
-        <form onSubmit={handleSaveLesson} className="app-panel app-panel-pad">
+      <section className={`app-grid-2 ${superadminTab === 'lessons' || superadminTab === 'quizzes' ? '' : 'hidden'}`}>
+        <form onSubmit={handleSaveLesson} className={`app-panel app-panel-pad md:col-span-2 ${superadminTab === 'lessons' ? '' : 'hidden'}`}>
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-3"><div className="app-icon-shell"><CirclePlay size={18} /></div><div><p className="app-section-label">Aula</p><h2 className="text-xl font-bold">Editor de aulas</h2></div></div>
             <button type="button" onClick={() => setLessonSelectionId('')} className="app-button app-button--dark app-button--small"><Plus size={14} />Nova</button>
           </div>
+          {renderEditorAlerts()}
           <div className="mt-6 app-grid-2">
-            <label className="app-field"><span className="app-field__label">Trilha pai</span><select value={lessonForm.trackId} onChange={(event) => setLessonForm((current) => ({ ...current, trackId: event.target.value }))} className="app-select" required><option value="">Selecione uma trilha</option>{sortedTracks.map((track) => <option key={track.id} value={track.id}>{track.title}</option>)}</select></label>
-            <label className="app-field"><span className="app-field__label">Curso pai</span><select value={lessonForm.courseId} onChange={(event) => setLessonForm((current) => ({ ...current, courseId: event.target.value }))} className="app-select" required><option value="">Selecione um curso</option>{sortByOrder(sortedCourses.filter((course) => course.trackId === lessonForm.trackId)).map((course) => <option key={course.id} value={course.id}>{course.title}</option>)}</select></label>
+            <label className="app-field"><span className="app-field__label">Trilha pai</span><select value={lessonForm.trackId} onChange={(event) => { const nextTrackId = event.target.value; const nextCourseId = sortByOrder(sortedCourses.filter((course) => course.trackId === nextTrackId))[0]?.id ?? ''; setLessonSelectionId(''); setLessonForm((current) => ({ ...current, trackId: nextTrackId, courseId: nextCourseId })); }} className="app-select" required><option value="">Selecione uma trilha</option>{sortedTracks.map((track) => <option key={track.id} value={track.id}>{track.title}</option>)}</select></label>
+            <label className="app-field"><span className="app-field__label">Curso pai</span><select value={lessonForm.courseId} onChange={(event) => { const nextCourseId = event.target.value; setLessonSelectionId(''); setLessonForm((current) => ({ ...current, courseId: nextCourseId })); }} className="app-select" required><option value="">Selecione um curso</option>{sortByOrder(sortedCourses.filter((course) => course.trackId === lessonForm.trackId)).map((course) => <option key={course.id} value={course.id}>{course.title}</option>)}</select></label>
             <label className="app-field md:col-span-2"><span className="app-field__label">Aula existente</span><select value={lessonSelectionId} onChange={(event) => setLessonSelectionId(event.target.value)} className="app-select"><option value="">Nova aula</option>{sortByOrder(sortedLessons.filter((lesson) => lesson.courseId === lessonForm.courseId)).map((lesson) => <option key={lesson.id} value={lesson.id}>{lesson.title} • {contentLabel(lesson.status)}</option>)}</select></label>
             <label className="app-field md:col-span-2"><span className="app-field__label">Titulo</span><input value={lessonForm.title} onChange={(event) => setLessonForm((current) => ({ ...current, title: event.target.value }))} className="app-input" required /></label>
             <label className="app-field md:col-span-2"><span className="app-field__label">Descricao</span><textarea value={lessonForm.description} onChange={(event) => setLessonForm((current) => ({ ...current, description: event.target.value }))} className="app-input min-h-[7rem]" /></label>
@@ -966,10 +1073,34 @@ const LearningHubView: React.FC<LearningHubViewProps> = (props) => {
           <button type="submit" disabled={busyKey === 'lesson'} className="app-button app-button--gold mt-6"><Save size={16} />{busyKey === 'lesson' ? 'Salvando...' : 'Salvar aula'}</button>
         </form>
 
-        <form onSubmit={handleSaveQuiz} className="app-panel app-panel-pad">
+        <form onSubmit={handleSaveQuiz} className={`app-panel app-panel-pad md:col-span-2 ${superadminTab === 'quizzes' ? '' : 'hidden'}`}>
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-3"><div className="app-icon-shell"><ClipboardCheck size={18} /></div><div><p className="app-section-label">Quiz</p><h2 className="text-xl font-bold">Editor do quiz</h2></div></div>
             <button type="button" onClick={() => setQuizQuestions((current) => [...current, emptyQuestion()])} disabled={!lessonSelectionId} className="app-button app-button--dark app-button--small"><Plus size={14} />Pergunta</button>
+          </div>
+          {renderEditorAlerts()}
+          <div className="mt-6 app-grid-2">
+            <label className="app-field">
+              <span className="app-field__label">Trilha pai</span>
+              <select value={lessonForm.trackId} onChange={(event) => { const nextTrackId = event.target.value; const nextCourseId = sortByOrder(sortedCourses.filter((course) => course.trackId === nextTrackId))[0]?.id ?? ''; setLessonSelectionId(''); setLessonForm((current) => ({ ...current, trackId: nextTrackId, courseId: nextCourseId })); }} className="app-select" required>
+                <option value="">Selecione uma trilha</option>
+                {sortedTracks.map((track) => <option key={track.id} value={track.id}>{track.title}</option>)}
+              </select>
+            </label>
+            <label className="app-field">
+              <span className="app-field__label">Curso pai</span>
+              <select value={lessonForm.courseId} onChange={(event) => { const nextCourseId = event.target.value; setLessonSelectionId(''); setLessonForm((current) => ({ ...current, courseId: nextCourseId })); }} className="app-select" required>
+                <option value="">Selecione um curso</option>
+                {sortByOrder(sortedCourses.filter((course) => course.trackId === lessonForm.trackId)).map((course) => <option key={course.id} value={course.id}>{course.title}</option>)}
+              </select>
+            </label>
+            <label className="app-field md:col-span-2">
+              <span className="app-field__label">Aula para o quiz</span>
+              <select value={lessonSelectionId} onChange={(event) => setLessonSelectionId(event.target.value)} className="app-select">
+                <option value="">Selecione uma aula</option>
+                {sortByOrder(sortedLessons.filter((lesson) => lesson.courseId === lessonForm.courseId)).map((lesson) => <option key={lesson.id} value={lesson.id}>{lesson.title} • {contentLabel(lesson.status)}</option>)}
+              </select>
+            </label>
           </div>
           {lessonSelectionId ? (
             <div className="mt-6 space-y-4">
@@ -987,12 +1118,12 @@ const LearningHubView: React.FC<LearningHubViewProps> = (props) => {
                 </div>
               ))}
             </div>
-          ) : <div className="app-empty mt-6">Salve ou selecione uma aula para editar o quiz.</div>}
+          ) : <div className="app-empty mt-6">Selecione uma aula para editar o quiz correspondente.</div>}
           <button type="submit" disabled={busyKey === 'quiz' || !lessonSelectionId} className="app-button app-button--gold mt-6"><Save size={16} />{busyKey === 'quiz' ? 'Salvando...' : 'Salvar quiz'}</button>
         </form>
       </section>
 
-      <section className="app-panel app-panel-pad">
+      <section className={`app-panel app-panel-pad ${superadminTab === 'catalog' ? '' : 'hidden'}`}>
         <div className="flex items-center gap-3">
           <div className="app-icon-shell"><BookOpen size={18} /></div>
           <div>
@@ -1019,6 +1150,7 @@ const LearningHubView: React.FC<LearningHubViewProps> = (props) => {
           ))}
         </div>
       </section>
+    </div>
     </div>
   );
 };

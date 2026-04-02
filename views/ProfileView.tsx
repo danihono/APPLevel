@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { LogOut, Mail, Phone, Save, ShieldCheck, Sparkles, Upload, UserRound } from 'lucide-react';
+import { LogOut, Mail, Moon, Phone, Save, ShieldCheck, Sparkles, Sun, Upload, UserRound } from 'lucide-react';
 import type { FirestoreEntity } from '../services/firebase/data';
 import type { AttendanceRecord, GraduationRecord, UserRecord } from '../services/firebase/models';
 import type { User } from '../types';
@@ -14,6 +14,8 @@ interface ProfileViewProps {
   attendances: Array<FirestoreEntity<AttendanceRecord>>;
   classNameById: Map<string, string>;
   graduations: Array<FirestoreEntity<GraduationRecord>>;
+  isDarkMode: boolean;
+  onSetThemeMode: (mode: 'light' | 'dark') => void;
   onSaveProfile: (payload: {
     firstName?: string;
     lastName?: string;
@@ -50,6 +52,8 @@ const ProfileView: React.FC<ProfileViewProps> = ({
   attendances,
   classNameById,
   graduations,
+  isDarkMode,
+  onSetThemeMode,
   onSaveProfile,
   onChangeEmail,
   onLogout,
@@ -74,6 +78,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({
   const nextStripeRemaining = Math.max(user.classesToNextStripe - user.currentStripeProgress, 0);
   const nextBeltRemaining = Math.max(user.totalClassesToNextBelt - user.currentBeltProgress, 0);
   const canEditProfile = profile.role === 'student';
+  const currentThemeLabel = isDarkMode ? 'Escuro' : 'Claro';
 
   useEffect(() => {
     setFirstName(profile.firstName);
@@ -290,6 +295,41 @@ const ProfileView: React.FC<ProfileViewProps> = ({
             <div className="app-list-card">
               <p className="text-sm font-bold">Faixa e grau</p>
               <p className="mt-1 text-xs text-[color:var(--text-soft)]">Alteracao feita apenas por professor ou superadmin.</p>
+            </div>
+          </div>
+
+          <div className="mt-6 app-list-card">
+            <div className="flex items-center gap-3">
+              <div className="app-icon-shell">
+                {isDarkMode ? <Moon size={18} /> : <Sun size={18} />}
+              </div>
+              <div>
+                <p className="text-sm font-bold">Aparencia</p>
+                <p className="mt-1 text-xs text-[color:var(--text-soft)]">
+                  Tema atual: {currentThemeLabel}. O padrao da plataforma agora e claro.
+                </p>
+              </div>
+            </div>
+
+            <div className="profile-theme-picker">
+              <button
+                type="button"
+                onClick={() => onSetThemeMode('light')}
+                className={`app-button app-button--small app-button--block ${!isDarkMode ? 'app-button--gold' : 'app-button--ghost'} profile-theme-choice`}
+                aria-pressed={!isDarkMode}
+              >
+                <Sun size={16} />
+                Claro
+              </button>
+              <button
+                type="button"
+                onClick={() => onSetThemeMode('dark')}
+                className={`app-button app-button--small app-button--block ${isDarkMode ? 'app-button--gold' : 'app-button--ghost'} profile-theme-choice`}
+                aria-pressed={isDarkMode}
+              >
+                <Moon size={16} />
+                Escuro
+              </button>
             </div>
           </div>
 

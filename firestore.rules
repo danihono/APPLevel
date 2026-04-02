@@ -176,7 +176,7 @@ service cloud.firestore {
       allow read: if isSuperAdmin()
         || (
           signedIn()
-          && role() == 'professor'
+          && (role() == 'professor' || role() == 'admin')
           && resource.data.status == 'published'
         );
       allow write: if false;
@@ -186,7 +186,7 @@ service cloud.firestore {
       allow read: if isSuperAdmin()
         || (
           signedIn()
-          && role() == 'professor'
+          && (role() == 'professor' || role() == 'admin')
           && resource.data.status == 'published'
         );
       allow write: if false;
@@ -196,7 +196,7 @@ service cloud.firestore {
       allow read: if isSuperAdmin()
         || (
           signedIn()
-          && role() == 'professor'
+          && (role() == 'professor' || role() == 'admin')
           && resource.data.status == 'published'
         );
       allow write: if false;
@@ -211,7 +211,7 @@ service cloud.firestore {
       allow read: if isSuperAdmin()
         || (
           signedIn()
-          && role() == 'professor'
+          && (role() == 'professor' || role() == 'admin')
           && resource.data.userId == request.auth.uid
         );
       allow write: if false;
@@ -221,7 +221,7 @@ service cloud.firestore {
       allow read: if isSuperAdmin()
         || (
           signedIn()
-          && role() == 'professor'
+          && (role() == 'professor' || role() == 'admin')
           && resource.data.userId == request.auth.uid
         );
       allow write: if false;
