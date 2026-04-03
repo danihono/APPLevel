@@ -1,4 +1,4 @@
-import { httpsCallable } from 'firebase/functions';
+import { httpsCallable, httpsCallableFromURL } from 'firebase/functions';
 import type {
   AppRole,
   AttendanceRequestStatus,
@@ -17,11 +17,34 @@ type SignupAcademyRecord = {
   timezone: string;
 };
 
+const useFirebaseEmulators = import.meta.env.DEV && import.meta.env.VITE_USE_FIREBASE_EMULATORS === 'true';
+const hostedCallableProxyOrigin =
+  import.meta.env.VITE_CALLABLE_PROXY_ORIGIN ||
+  (import.meta.env.VITE_FIREBASE_PROJECT_ID ? `https://${import.meta.env.VITE_FIREBASE_PROJECT_ID}.web.app` : '');
+
+function resolveCallableUrl(functionName: string): string | null {
+  if (useFirebaseEmulators || typeof window === 'undefined') {
+    return null;
+  }
+
+  const proxyBase =
+    import.meta.env.DEV && hostedCallableProxyOrigin
+      ? hostedCallableProxyOrigin
+      : window.location.origin;
+
+  const proxyUrl = new URL('/api/callable', proxyBase);
+  proxyUrl.searchParams.set('fn', functionName);
+  return proxyUrl.toString();
+}
+
 async function callFunction<TResponse, TPayload = unknown>(
   functionName: string,
   payload: TPayload,
 ): Promise<TResponse> {
-  const callable = httpsCallable<TPayload, TResponse>(firebaseFunctions, functionName);
+  const callableUrl = resolveCallableUrl(functionName);
+  const callable = callableUrl
+    ? httpsCallableFromURL<TPayload, TResponse>(firebaseFunctions, callableUrl)
+    : httpsCallable<TPayload, TResponse>(firebaseFunctions, functionName);
   const response = await callable(payload);
   return response.data;
 }

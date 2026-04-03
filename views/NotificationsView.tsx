@@ -121,6 +121,7 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [feedback, setFeedback] = useState('');
+  const [processingRequestId, setProcessingRequestId] = useState<string | null>(null);
   const canBroadcast =
     userRole === UserRole.PROFESSOR ||
     userRole === UserRole.ADMIN ||
@@ -237,6 +238,38 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
       await onMarkRead(notificationId);
     } catch (markError) {
       setError(markError instanceof Error ? markError.message : 'Nao foi possivel marcar a notificacao como lida.');
+    }
+  }
+
+  async function handleApprove(item: { id: string; kind: string }) {
+    setProcessingRequestId(item.id);
+    setError('');
+    try {
+      if (item.kind === 'join_request') {
+        await onApproveJoinRequest(item.id);
+      } else {
+        await onApproveAttendanceRequest(item.id);
+      }
+    } catch (actionError) {
+      setError(actionError instanceof Error ? actionError.message : 'Nao foi possivel aprovar a solicitacao.');
+    } finally {
+      setProcessingRequestId(null);
+    }
+  }
+
+  async function handleReject(item: { id: string; kind: string }) {
+    setProcessingRequestId(item.id);
+    setError('');
+    try {
+      if (item.kind === 'join_request') {
+        await onRejectJoinRequest(item.id);
+      } else {
+        await onRejectAttendanceRequest(item.id);
+      }
+    } catch (actionError) {
+      setError(actionError instanceof Error ? actionError.message : 'Nao foi possivel rejeitar a solicitacao.');
+    } finally {
+      setProcessingRequestId(null);
     }
   }
 
@@ -487,6 +520,7 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
 
       {!isStudent && activeTab === 'requests' ? (
         <section className="app-list">
+          {error ? <div className="app-alert app-alert--error mb-4">{error}</div> : null}
           {requestItems.map((item) => (
             <article key={`${item.kind}-${item.id}`} className="app-panel app-panel-pad">
               <div className="flex flex-wrap items-start justify-between gap-4">
@@ -507,15 +541,17 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
                 <div className="mt-5 flex flex-wrap gap-3">
                   <button
                     type="button"
-                    onClick={() => void (item.kind === 'join_request' ? onApproveJoinRequest(item.id) : onApproveAttendanceRequest(item.id))}
+                    disabled={processingRequestId === item.id}
+                    onClick={() => void handleApprove(item)}
                     className="app-button app-button--gold app-button--small"
                   >
                     <CheckCircle2 size={15} />
-                    Aprovar
+                    {processingRequestId === item.id ? 'Processando...' : 'Aprovar'}
                   </button>
                   <button
                     type="button"
-                    onClick={() => void (item.kind === 'join_request' ? onRejectJoinRequest(item.id) : onRejectAttendanceRequest(item.id))}
+                    disabled={processingRequestId === item.id}
+                    onClick={() => void handleReject(item)}
                     className="app-button app-button--danger app-button--small"
                   >
                     <XCircle size={15} />

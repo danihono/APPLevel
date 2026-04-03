@@ -86,6 +86,12 @@ function getErrorMessage(error: unknown): string {
     case 'functions/unauthenticated':
     case 'unauthenticated':
       return 'Sua sessao expirou. Entre novamente.';
+    case 'functions/internal':
+    case 'internal':
+      return 'Nao foi possivel concluir a operacao no servidor agora. Atualize a pagina e tente novamente.';
+    case 'functions/unavailable':
+    case 'unavailable':
+      return 'O servidor nao respondeu agora. Tente novamente em alguns instantes.';
     default:
       if (error instanceof Error && error.message) {
         return error.message;

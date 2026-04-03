@@ -9,7 +9,7 @@
     "build": "tsc -p tsconfig.json",
     "bootstrap:tenant": "npm run build && node lib/scripts/bootstrapTenant.js",
     "clean": "rimraf lib",
-    "deploy": "firebase deploy --only functions",
+    "deploy": "firebase deploy --only functions && npm --prefix .. run firebase:fix-invokers",
     "emulators": "firebase emulators:start --only functions,firestore,auth,storage",
     "lint": "tsc --noEmit -p tsconfig.json"
   },

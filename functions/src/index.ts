@@ -51,6 +51,7 @@ import {
   upsertLearningTrack,
   upsertLessonQuiz,
 } from './modules/learning';
+import { callableProxy } from './modules/proxy';
 import {
   markNotificationRead,
   registerDeviceToken,
@@ -66,6 +67,7 @@ export {
   approveJoinRequest,
   approveAttendanceRequest,
   assignUserToAcademy,
+  callableProxy,
   createAcademy,
   createUserWithRole,
   createUserWithRole as createUser,
