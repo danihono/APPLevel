@@ -1043,6 +1043,9 @@ const App: React.FC = () => {
             professors={professors}
             classes={classes}
             attendanceRequests={studentAttendanceRequests}
+            attendances={attendances}
+            attendanceRate={attendanceRate}
+            classNameById={classNameById}
             onCreateClass={handleCreateClass}
             onStartClass={handleStartClass}
             onFinishClass={handleFinishClass}

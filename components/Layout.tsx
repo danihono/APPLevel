@@ -33,57 +33,57 @@ const SUPERADMIN_SIDEBAR_STORAGE_KEY = 'applevel:superadmin-sidebar-collapsed';
 const pageMeta: Record<string, { kicker: string; title: string; description: string }> = {
   home: {
     kicker: 'Dashboard',
-    title: 'Visao rapida da operacao da academia.',
+    title: 'Inicio',
     description: 'Acompanhe equipe, alunos, aulas do dia e pendencias sem sair do fluxo principal.',
   },
   calendar: {
     kicker: 'Calendario',
-    title: 'Gestao de aulas por data e por semana.',
+    title: 'Calendario',
     description: 'Navegue no tempo, filtre entre minhas aulas e todas, e mantenha a operacao organizada no mobile.',
   },
   competition: {
     kicker: 'Fight mode',
-    title: 'Performance, eventos e historico sem cara de planilha.',
+    title: 'Competicao',
     description: 'Competicao ficou mais editorial, com areas claras para calendario, resultados e video.',
   },
   gamification: {
     kicker: 'Momentum',
-    title: 'Misses, ranking e recompensa com energia de produto premium.',
+    title: 'Gamificacao',
     description: 'Tudo agora conversa com a linguagem dourada da navegacao e dos controles interativos.',
   },
   graduation: {
     kicker: 'Graduacao',
-    title: 'Faixa atual, requisitos e historico em um so lugar.',
+    title: 'Graduacao',
     description: 'Acompanhe progresso, proximos marcos e o historico oficial de graduacoes da academia.',
   },
   students: {
     kicker: 'Roster',
-    title: 'Leitura de alunos mais limpa, mais forte e muito menos padrao.',
+    title: 'Alunos',
     description: 'Busca, filtros e perfis seguem a mesma estetica glass com acentos metalicos.',
   },
   management: {
     kicker: 'Minha academia',
-    title: 'Estrutura, equipe, alunos e configuracoes em um so lugar.',
+    title: 'Academia',
     description: 'Veja instrutores, acompanhe alunos e ajuste graduacoes e regras sem mudar a base do app.',
   },
   notifications: {
     kicker: 'Eventos',
-    title: 'Notificacoes, solicitacoes e graduacoes em uma central unica.',
+    title: 'Notificacoes',
     description: 'Acompanhe comunicados, pedidos pendentes e alunos prontos para avaliacao com leitura rapida.',
   },
   learning: {
     kicker: 'Learning hub',
-    title: 'Videos, trilhas e quizzes para a equipe.',
+    title: 'Learning Hub',
     description: 'Uma area de capacitacao pensada para professores assistirem conteudos e validarem aprendizado.',
   },
   store: {
     kicker: 'Merch',
-    title: 'Loja com atmosfera premium e vitrines mais desejaveis.',
+    title: 'Loja',
     description: 'Produtos, busca e chamadas de acao herdaram o mesmo sistema dourado do resto da experiencia.',
   },
   profile: {
     kicker: 'Identity',
-    title: 'Perfil com mais presenca, contraste e senso de progresso.',
+    title: 'Perfil',
     description: 'Cartoes, metricas e atalhos seguem a nova base de superficies e transicoes.',
   },
 };
@@ -91,50 +91,35 @@ const pageMeta: Record<string, { kicker: string; title: string; description: str
 const superadminPageMeta: Record<string, { kicker: string; title: string; description: string }> = {
   home: {
     kicker: 'Central da rede',
-    title: 'Visao executiva das academias.',
+    title: 'Central',
     description: 'Acompanhe crescimento, risco operacional e a academia em foco em uma tela pensada para decisao.',
   },
   notifications: {
     kicker: 'Comunicacao',
-    title: 'Avisos da rede por equipe, academia ou faixa.',
+    title: 'Comunicacao',
     description: 'Dispare comunicados para toda a rede ou segmente por academia, perfil e faixa em um fluxo unico.',
   },
   students: {
     kicker: 'Base ativa',
-    title: 'Alunos da academia em foco.',
+    title: 'Alunos',
     description: 'Veja a base, os filtros e os perfis da unidade que esta no contexto atual da rede.',
   },
   management: {
     kicker: 'Governanca',
-    title: 'Gestao global de academias e liderancas.',
+    title: 'Gestao',
     description: 'Crie unidades, ajuste limites e organize permissoes sem perder a visao consolidada da operacao.',
   },
   learning: {
     kicker: 'Learning hub',
-    title: 'Capacitacao da rede com trilhas, aulas e quizzes.',
+    title: 'Learning Hub',
     description: 'Publique o catalogo global e acompanhe o progresso dos professores por academia.',
   },
   profile: {
     kicker: 'Conta',
-    title: 'Sua conta de governanca na plataforma.',
+    title: 'Perfil',
     description: 'Sessao, acesso e identidade do superadmin em um espaco mais direto e coerente com o restante da rede.',
   },
 };
-
-function getRoleLabel(userRole?: UserRole) {
-  switch (userRole) {
-    case UserRole.SUPERADMIN:
-      return 'Superadmin';
-    case UserRole.ADMIN:
-      return 'Admin';
-    case UserRole.PROFESSOR:
-      return 'Professor';
-    case UserRole.ALUNO:
-      return 'Aluno';
-    default:
-      return 'Equipe';
-  }
-}
 
 const Layout: React.FC<LayoutProps> = ({
   children,
@@ -168,7 +153,7 @@ const Layout: React.FC<LayoutProps> = ({
     userRole === UserRole.ADMIN ||
     userRole === UserRole.SUPERADMIN;
   const isSuperAdmin = userRole === UserRole.SUPERADMIN;
-  const showTopbar = !isStaff;
+  const showTopbar = !isSuperAdmin;
   const sidebarCollapsed = isSuperAdmin && isSidebarCollapsed;
 
   const navItems = useMemo<NavItem[]>(() => (
@@ -330,26 +315,9 @@ const Layout: React.FC<LayoutProps> = ({
 
           <div className={isSuperAdmin ? 'app-content-shell' : ''}>
             {showTopbar ? (
-              <header className={`app-topbar ${isSuperAdmin ? 'app-topbar--superadmin' : ''}`}>
-                <div className={`${isSuperAdmin ? 'app-topbar-panel app-topbar-panel--superadmin' : 'app-panel app-topbar-panel'} w-full`}>
-                  <div className={`flex flex-wrap items-start justify-between gap-4 ${isSuperAdmin ? 'app-topbar-panel__inner app-topbar-panel__inner--superadmin' : ''}`}>
-                    <div className={`app-brand ${isSuperAdmin ? 'app-brand--compact' : ''}`}>
-                      <div className={`app-brand__mark ${isSuperAdmin ? 'app-brand__mark--compact' : ''}`}>LVL</div>
-                      <div className="app-brand__text">
-                        <p className="app-kicker">Plataforma APPLevel</p>
-                        <h1 className={`app-headline ${isSuperAdmin ? 'app-headline--compact' : ''}`}>{currentPage.title}</h1>
-                        <p className={`app-copy ${isSuperAdmin ? 'app-copy--compact' : ''}`}>{currentPage.description}</p>
-                      </div>
-                    </div>
-
-                    <div className={`app-topbar__status ${isSuperAdmin ? 'app-topbar__status--compact' : ''}`}>
-                      <div className={`app-orb ${isSuperAdmin ? 'app-orb--compact' : ''}`}>
-                        <span className="app-orb__dot" />
-                        {currentPage.kicker}
-                      </div>
-                      <div className={`app-orb ${isSuperAdmin ? 'app-orb--compact' : ''}`}>{getRoleLabel(userRole)}</div>
-                    </div>
-                  </div>
+              <header className="app-topbar">
+                <div className="app-pagebar">
+                  <h1 className="app-pagebar__title">{currentPage.title}</h1>
                 </div>
               </header>
             ) : null}

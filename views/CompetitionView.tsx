@@ -35,14 +35,18 @@ const CompetitionView: React.FC<CompetitionViewProps> = ({ competitions, fights 
 
   return (
     <div className="view-shell">
-      <section className="app-panel app-panel--hero app-panel-pad">
-        <p className="app-section-label">Fight mode</p>
-        <h1 className="app-section-title">Competicao e performance com cara editorial.</h1>
-        <p className="app-section-copy">
-          O modulo ganhou foco em leitura rapida, mais contraste e blocos mais nobres para historico e eventos.
-        </p>
+      <section className="app-panel app-panel-pad">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <p className="text-sm font-bold">{competitions.length} eventos cadastrados</p>
+            <p className="mt-2 text-sm text-[color:var(--text-muted)]">
+              {medalCount} medalhas confirmadas • {totalRankingPoints} pontos somados
+            </p>
+          </div>
+          <span className="app-badge app-badge--muted">{videoFights.length} videos</span>
+        </div>
 
-        <div className="mt-6 app-segment app-segment--block">
+        <div className="mt-5 app-segment app-segment--block">
           <button
             type="button"
             onClick={() => setActiveSection('calendar')}

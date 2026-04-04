@@ -131,6 +131,7 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
       ? (academies.find((entry) => entry.id === selectedAcademyId)?.name ?? 'Academia em foco')
       : 'Toda a rede')
     : academy.name;
+  const unreadCount = notifications.filter((entry) => entry.status !== 'read').length;
 
   const studentNotifications = useMemo(
     () => notifications.filter((notification) => {
@@ -275,28 +276,25 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
 
   return (
     <div className="view-shell">
-      <section className="app-panel app-panel--hero app-panel-pad">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div className="max-w-3xl">
-            <p className="app-section-label">{isStudent ? 'Comunicacao da unidade' : isSuperAdmin ? 'Comunicacao da rede' : 'Central da academia'}</p>
-            <h1 className="app-section-title">
-              {isStudent ? 'Avisos da academia e da equipe' : isSuperAdmin ? 'Avisos, solicitacoes e graduacoes da rede' : 'Notificacoes, solicitacoes e graduacoes'}
-            </h1>
-            <p className="app-section-copy">
+      <section className="app-panel app-panel-pad">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <p className="text-sm font-bold">{isStudent ? academy.name : focusedAcademyName}</p>
+            <p className="mt-2 text-sm text-[color:var(--text-muted)]">
               {isStudent
-                ? `Acompanhe os recados gerais da ${academy.name} e os avisos enviados pela equipe da unidade.`
-                : `Contexto atual: ${focusedAcademyName}. Aqui voce acompanha comunicados, filas pendentes e alunos perto da proxima graduacao.`}
+                ? 'Avisos da academia e da equipe em um fluxo mais direto.'
+                : 'Comunicados, solicitacoes e graduacoes do contexto atual.'}
             </p>
           </div>
 
           <div className="app-orb">
             <Bell size={16} />
-            {notifications.filter((entry) => entry.status !== 'read').length} nao lidas
+            {unreadCount} nao lidas
           </div>
         </div>
 
         {isStudent ? (
-          <div className="mt-6 app-segment app-segment--block">
+          <div className="mt-5 app-segment app-segment--block">
             <button
               type="button"
               onClick={() => setStudentChannelTab('academy')}
@@ -315,7 +313,7 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
             </button>
           </div>
         ) : (
-          <div className="mt-6 app-segment app-segment--block">
+          <div className="mt-5 app-segment app-segment--block">
             <button
               type="button"
               onClick={() => setActiveTab('notifications')}

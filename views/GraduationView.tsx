@@ -49,22 +49,22 @@ const GraduationView: React.FC<GraduationViewProps> = ({
 
   return (
     <div className="space-y-6 animate-fadeIn pb-8">
-      <section className="rounded-[28px] border border-gray-100 dark:border-white/5 bg-white dark:bg-dark-card p-6 shadow-sm">
-        <div className="flex flex-wrap items-start justify-between gap-4">
+      <section className="app-panel app-panel-pad">
+        <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
-            <p className="text-[11px] uppercase tracking-[0.3em] text-gold">Graduacao</p>
-            <h1 className="mt-2 text-3xl font-black">Faixa atual: {beltLabel(profile.belt)}</h1>
-            <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+            <p className="app-section-label">Faixa atual</p>
+            <h2 className="mt-2 text-2xl font-bold">{beltLabel(profile.belt)}</h2>
+            <p className="mt-2 text-sm text-[color:var(--text-muted)]">
               Grau atual {profile.grade} • {profile.attendanceCount} presencas registradas
             </p>
           </div>
-          <div className="rounded-2xl border border-gold/20 bg-gold/5 px-4 py-3 text-right">
-            <p className="text-xs uppercase tracking-[0.3em] text-gray-400">Versao da regra</p>
-            <p className="mt-1 text-lg font-bold">v{academy.progressionRules?.version ?? 1}</p>
+          <div className="flex flex-wrap gap-2">
+            <span className="app-badge app-badge--muted">Regra v{academy.progressionRules?.version ?? 1}</span>
+            {examWindow ? <span className="app-badge app-badge--gold">Janela de exame</span> : null}
           </div>
         </div>
 
-        <div className="mt-6">
+        <div className="mt-5">
           <BjjBelt color={user.belt} stripes={user.stripes} />
         </div>
       </section>

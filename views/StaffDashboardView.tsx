@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { BellRing, CalendarDays, ShieldCheck, UserCog, Users } from 'lucide-react';
+import { BellRing, CalendarDays, UserCog, Users } from 'lucide-react';
 import ClassSessionCard from '../components/ClassSessionCard';
 import type { FirestoreEntity } from '../services/firebase/data';
 import type { AcademyRecord, ClassRecord, NotificationRecord, UserRecord } from '../services/firebase/models';
@@ -48,44 +48,39 @@ const StaffDashboardView: React.FC<StaffDashboardViewProps> = ({
 
   return (
     <div className="view-shell">
-      <section className="app-panel app-panel--hero app-panel-pad">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div className="max-w-3xl">
-            <p className="app-section-label">Master Black</p>
-            <h1 className="app-section-title">{academy.name}</h1>
-            <p className="app-section-copy">
-              Hub principal da operacao do dia, com equipe, agenda e o que precisa da sua atencao agora.
+      <section className="app-panel app-panel-pad">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <p className="text-sm font-bold">{academy.name}</p>
+            <p className="mt-2 text-sm text-[color:var(--text-muted)]">
+              Operacao do dia com equipe, agenda e pendencias da unidade.
             </p>
           </div>
-
-          <div className="app-orb">
-            <ShieldCheck size={16} />
-            APPLevel staff
-          </div>
+          <span className="app-badge app-badge--muted">APPLevel staff</span>
         </div>
+      </section>
 
-        <div className="app-stat-grid mt-6">
-          <article className="app-stat-card">
-            <p className="app-stat-card__label">Instrutores</p>
-            <p className="app-stat-card__value">{instructors.length}</p>
-            <p className="app-stat-card__note">Equipe e liderancas ativas</p>
-          </article>
-          <article className="app-stat-card">
-            <p className="app-stat-card__label">Alunos</p>
-            <p className="app-stat-card__value">{students.length}</p>
-            <p className="app-stat-card__note">Base cadastrada nesta unidade</p>
-          </article>
-          <article className="app-stat-card">
-            <p className="app-stat-card__label">Suas aulas de hoje</p>
-            <p className="app-stat-card__value">{myTodayClasses.length}</p>
-            <p className="app-stat-card__note">Aulas em que voce esta escalado</p>
-          </article>
-          <article className="app-stat-card">
-            <p className="app-stat-card__label">Pendencias</p>
-            <p className="app-stat-card__value">{unreadNotifications}</p>
-            <p className="app-stat-card__note">Notificacoes e eventos nao lidos</p>
-          </article>
-        </div>
+      <section className="app-stat-grid">
+        <article className="app-stat-card">
+          <p className="app-stat-card__label">Instrutores</p>
+          <p className="app-stat-card__value">{instructors.length}</p>
+          <p className="app-stat-card__note">Equipe e liderancas ativas</p>
+        </article>
+        <article className="app-stat-card">
+          <p className="app-stat-card__label">Alunos</p>
+          <p className="app-stat-card__value">{students.length}</p>
+          <p className="app-stat-card__note">Base cadastrada nesta unidade</p>
+        </article>
+        <article className="app-stat-card">
+          <p className="app-stat-card__label">Suas aulas de hoje</p>
+          <p className="app-stat-card__value">{myTodayClasses.length}</p>
+          <p className="app-stat-card__note">Aulas em que voce esta escalado</p>
+        </article>
+        <article className="app-stat-card">
+          <p className="app-stat-card__label">Pendencias</p>
+          <p className="app-stat-card__value">{unreadNotifications}</p>
+          <p className="app-stat-card__note">Notificacoes e eventos nao lidos</p>
+        </article>
       </section>
 
       <section className="app-panel app-panel-pad">

@@ -4,7 +4,6 @@ import {
   CheckCircle2,
   CirclePlay,
   ClipboardCheck,
-  Eye,
   Filter,
   Lock,
   Network,
@@ -681,20 +680,11 @@ const LearningHubView: React.FC<LearningHubViewProps> = (props) => {
     if (publishedTracks.length === 0) {
       return (
         <div className="view-shell">
-          <section className="app-panel app-panel--hero app-panel-pad">
-            <div className="flex flex-wrap items-start justify-between gap-4">
-              <div>
-                <p className="app-section-label">Learning hub</p>
-                <h1 className="app-section-title">Capacitacao continua da equipe</h1>
-                <p className="app-section-copy">
-                  Ainda nao existe nenhuma trilha publicada para {academyName}. Assim que o superadmin publicar o catalogo, ele aparecera aqui.
-                </p>
-              </div>
-              <div className="flex flex-col items-end gap-2">
-                <div className="app-orb"><BookOpen size={16} />Master Black</div>
-                <div className="flex items-center gap-1.5 text-xs text-[color:var(--text-muted)]"><Eye size={12} />Modo telespectador</div>
-              </div>
-            </div>
+          <section className="app-panel app-panel-pad">
+            <p className="text-sm font-bold">{academyName}</p>
+            <p className="mt-2 text-sm text-[color:var(--text-muted)]">
+              Ainda nao existe nenhuma trilha publicada. Assim que o superadmin publicar o catalogo, ele aparecera aqui.
+            </p>
           </section>
         </div>
       );
@@ -702,33 +692,34 @@ const LearningHubView: React.FC<LearningHubViewProps> = (props) => {
 
     return (
       <div className="view-shell">
-        <section className="app-panel app-panel--hero app-panel-pad">
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div className="max-w-3xl">
-              <p className="app-section-label">Learning hub</p>
-              <h1 className="app-section-title">Capacitacao continua da equipe</h1>
-              <p className="app-section-copy">Videos, trilhas e quizzes obrigatorios para apoiar {academyName} com uma rotina consistente.</p>
+        <section className="app-panel app-panel-pad">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <p className="text-sm font-bold">{academyName}</p>
+              <p className="mt-2 text-sm text-[color:var(--text-muted)]">
+                Videos, trilhas e quizzes obrigatorios para apoiar a rotina da equipe.
+              </p>
             </div>
-            <div className="flex flex-col items-end gap-2">
-              <div className="app-orb"><BookOpen size={16} />Master Black</div>
-              <div className="flex items-center gap-1.5 text-xs text-[color:var(--text-muted)]"><Eye size={12} />Modo telespectador</div>
+            <div className="flex flex-wrap gap-2">
+              <span className="app-badge app-badge--muted">Master Black</span>
+              <span className="app-badge app-badge--muted">Modo telespectador</span>
             </div>
           </div>
+        </section>
 
-          <div className="app-stat-grid mt-6">
-            <article className="app-stat-card">
-              <p className="app-stat-card__label">Trilhas publicadas</p>
-              <p className="app-stat-card__value">{publishedTracks.length}</p>
-            </article>
-            <article className="app-stat-card">
-              <p className="app-stat-card__label">Aulas concluidas</p>
-              <p className="app-stat-card__value">{professorTrackStats.completedLessons}</p>
-            </article>
-            <article className="app-stat-card">
-              <p className="app-stat-card__label">Seu progresso</p>
-              <p className="app-stat-card__value">{professorTrackStats.completionPercent}%</p>
-            </article>
-          </div>
+        <section className="app-stat-grid">
+          <article className="app-stat-card">
+            <p className="app-stat-card__label">Trilhas publicadas</p>
+            <p className="app-stat-card__value">{publishedTracks.length}</p>
+          </article>
+          <article className="app-stat-card">
+            <p className="app-stat-card__label">Aulas concluidas</p>
+            <p className="app-stat-card__value">{professorTrackStats.completedLessons}</p>
+          </article>
+          <article className="app-stat-card">
+            <p className="app-stat-card__label">Seu progresso</p>
+            <p className="app-stat-card__value">{professorTrackStats.completionPercent}%</p>
+          </article>
         </section>
 
         <section className="app-panel app-panel-pad">

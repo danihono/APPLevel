@@ -304,6 +304,17 @@ img {
   gap: 1rem;
 }
 
+.app-pagebar {
+  width: 100%;
+  padding: 0 0 0.85rem;
+  border-bottom: 1px solid var(--divider);
+}
+
+.app-pagebar__title {
+  font-size: clamp(1.55rem, 1.24rem + 1.08vw, 2.2rem);
+  line-height: 1.04;
+}
+
 .app-panel {
   position: relative;
   overflow: hidden;

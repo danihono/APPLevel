@@ -391,36 +391,33 @@ const ManagementView: React.FC<ManagementViewProps> = ({
     }
   }
 
-  return (
-    <div className="view-shell">
-      <section className="app-panel app-panel--hero app-panel-pad">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div className="max-w-3xl">
-            <p className="app-section-label">Minha academia</p>
-            <h1 className="app-section-title">Estrutura, pessoas e configuracoes da unidade</h1>
-            <p className="app-section-copy">
-              {managedAcademy.name} com foco em equipe, alunos, graduacoes e nas configuracoes mais importantes da academia.
-            </p>
+    return (
+      <div className="view-shell">
+        <section className="app-panel app-panel-pad">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <p className="app-section-label">Academia em foco</p>
+              <h2 className="mt-2 text-xl font-bold">{managedAcademy.name}</h2>
+            </div>
+
+            {isSuperAdmin && onSelectAcademy ? (
+              <label className="app-field min-w-[18rem]">
+                <span className="app-field__label">Academia selecionada</span>
+                <select
+                  value={managedAcademy.id}
+                  onChange={(event) => onSelectAcademy(event.target.value)}
+                  className="app-select"
+                >
+                  {academies.map((entry) => (
+                    <option key={entry.id} value={entry.id}>{entry.name}</option>
+                  ))}
+                </select>
+              </label>
+            ) : null}
           </div>
+        </section>
 
-          {isSuperAdmin && onSelectAcademy ? (
-            <label className="app-field min-w-[18rem]">
-              <span className="app-field__label">Academia selecionada</span>
-              <select
-                value={managedAcademy.id}
-                onChange={(event) => onSelectAcademy(event.target.value)}
-                className="app-select"
-              >
-                {academies.map((entry) => (
-                  <option key={entry.id} value={entry.id}>{entry.name}</option>
-                ))}
-              </select>
-            </label>
-          ) : null}
-        </div>
-      </section>
-
-      <section className="app-stat-grid">
+        <section className="app-stat-grid">
         <article className="app-panel app-panel-pad">
           <p className="app-stat-card__label">Instrutores</p>
           <p className="app-stat-card__value">{instructors.length}</p>

@@ -49,22 +49,31 @@ const HomeView: React.FC<HomeViewProps> = ({
 
   return (
     <div className="view-shell">
-      <section className="app-panel app-panel--hero app-panel-pad">
-        <p className="app-section-label">{branch.name}</p>
-        <h1 className="app-section-title">Ola, {user.name.split(' ')[0]}</h1>
-        <p className="app-section-copy">{branch.location}</p>
+      <section className="app-panel app-panel-pad">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <p className="text-sm font-bold">{branch.name}</p>
+            <p className="mt-2 text-sm text-[color:var(--text-muted)]">
+              Ola, {user.name.split(' ')[0]}. {branch.location}
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <span className="app-badge app-badge--gold">Faixa {user.belt}</span>
+            <span className="app-badge app-badge--muted">{user.type}</span>
+          </div>
+        </div>
+      </section>
 
-        <div className="app-stat-grid mt-6">
-          <div className="app-stat-card">
-            <p className="app-stat-card__label">Categoria</p>
-            <p className="app-stat-card__value">{user.type}</p>
-            <p className="app-stat-card__note">Faixa {user.belt}</p>
-          </div>
-          <div className="app-stat-card">
-            <p className="app-stat-card__label">Treinos no mes</p>
-            <p className="app-stat-card__value">{monthlyAttendanceCount}</p>
-            <p className="app-stat-card__note">{attendanceDays.length} dias diferentes</p>
-          </div>
+      <section className="app-stat-grid">
+        <div className="app-stat-card">
+          <p className="app-stat-card__label">Categoria</p>
+          <p className="app-stat-card__value">{user.type}</p>
+          <p className="app-stat-card__note">Faixa {user.belt}</p>
+        </div>
+        <div className="app-stat-card">
+          <p className="app-stat-card__label">Treinos no mes</p>
+          <p className="app-stat-card__value">{monthlyAttendanceCount}</p>
+          <p className="app-stat-card__note">{attendanceDays.length} dias diferentes</p>
         </div>
       </section>
 

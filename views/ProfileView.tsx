@@ -134,27 +134,28 @@ const ProfileView: React.FC<ProfileViewProps> = ({
 
   return (
     <div className="view-shell">
-      <section className="app-panel app-panel--hero app-panel-pad text-center">
-        <div className="mx-auto flex h-28 w-28 items-center justify-center overflow-hidden rounded-[2rem] border border-[rgba(232,175,72,0.28)] bg-white/10 shadow-[0_22px_48px_rgba(17,17,24,0.16)]">
-          {user.avatar ? (
-            <img src={user.avatar} alt={user.name} className="h-full w-full object-cover" />
-          ) : (
-            <span className="text-4xl font-bold">{user.name.charAt(0)}</span>
-          )}
-        </div>
+      <section className="app-panel app-panel-pad">
+        <div className="flex flex-wrap items-center gap-4">
+          <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-[1.4rem] border border-[rgba(232,175,72,0.28)] bg-white/10 shadow-[0_16px_36px_rgba(17,17,24,0.14)]">
+            {user.avatar ? (
+              <img src={user.avatar} alt={user.name} className="h-full w-full object-cover" />
+            ) : (
+              <span className="text-2xl font-bold">{user.name.charAt(0)}</span>
+            )}
+          </div>
 
-        <div className="mt-5">
-          <p className="app-section-label">Perfil pessoal</p>
-          <h1 className="text-3xl font-bold">{user.name}</h1>
+        <div className="min-w-0 flex-1">
+          <h2 className="text-2xl font-bold">{user.name}</h2>
           <p className="mt-2 text-sm text-[color:var(--text-muted)]">
             {academyName || 'Academia ativa'} • {roleLabel(profile.role)}
           </p>
-          <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+          <div className="mt-3 flex flex-wrap items-center gap-2">
             <span className="app-badge app-badge--gold">Faixa {user.belt}</span>
             <span className="app-badge app-badge--muted">{user.stripes} graus</span>
             <span className="app-badge app-badge--muted">{user.type}</span>
             {profile.isCompetitor ? <span className="app-badge app-badge--muted">Competidor</span> : null}
           </div>
+        </div>
         </div>
       </section>
 
