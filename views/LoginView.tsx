@@ -162,7 +162,7 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
       <div className="app-auth-grid">
         <section className="app-panel app-auth-card">
           <div className="app-brand">
-            <div className="app-brand__mark">LVL</div>
+            <img src="/logo3.png" alt="APPLevel" className="h-20 w-20 object-contain flex-shrink-0" />
             <div className="app-brand__text">
               <p className="app-kicker">Applevel</p>
               <h1 className="app-headline">

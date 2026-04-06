@@ -266,7 +266,7 @@ const Layout: React.FC<LayoutProps> = ({
     <aside className={`app-sidebar app-panel ${sidebarCollapsed ? 'app-sidebar--collapsed' : ''}`}>
       <div className="app-sidebar__header">
         <div className="app-sidebar__brand">
-          <div className="app-brand__mark">LVL</div>
+          <img src="/logo3.png" alt="APPLevel" className="h-20 w-20 object-contain flex-shrink-0" />
           <div className="app-sidebar__brand-copy" aria-hidden={sidebarCollapsed}>
             <p className="app-kicker">Plataforma APPLevel</p>
             <h2 className="app-sidebar__title">Superadmin</h2>

@@ -149,15 +149,8 @@ function buildLoadingView(message: string) {
         </section>
 
         <section className="app-panel app-auth-card app-panel-pad text-center">
-          <div
-            className="mx-auto h-16 w-16 rounded-[1.35rem] border"
-            style={{
-              borderColor: 'rgba(232, 175, 72, 0.28)',
-              background: 'linear-gradient(160deg, rgba(254, 234, 165, 0.96), rgba(232, 175, 72, 0.84) 42%, rgba(110, 74, 28, 0.98) 100%)',
-              boxShadow: '0 24px 48px rgba(145, 97, 29, 0.24)',
-            }}
-          >
-            <div className="h-full w-full animate-spin rounded-[1.25rem] border-4 border-black/10 border-t-black/70" />
+          <div className="mx-auto flex items-center justify-center">
+            <img src="/logo3.png" alt="APPLevel" className="h-40 w-40 object-contain animate-pulse" />
           </div>
           <h2 className="mt-6 text-2xl font-bold">Conectando ao APPLevel</h2>
           <p className="mt-3 app-note">{message}</p>
