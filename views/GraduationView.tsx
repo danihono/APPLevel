@@ -152,7 +152,11 @@ const GraduationView: React.FC<GraduationViewProps> = ({
         </div>
 
         <div className="mt-6 space-y-3">
-          {graduations.map((entry) => (
+          {[...graduations].sort((a, b) => {
+            const aMs = a.promotedAt?.toMillis() ?? 0;
+            const bMs = b.promotedAt?.toMillis() ?? 0;
+            return bMs - aMs;
+          }).map((entry) => (
             <div key={entry.id} className="rounded-2xl border border-gray-100 dark:border-white/5 bg-gray-50 dark:bg-white/5 p-4">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>

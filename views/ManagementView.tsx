@@ -243,6 +243,17 @@ const ManagementView: React.FC<ManagementViewProps> = ({
 
   async function handleSaveAcademy(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+
+    if (academyStatus === 'suspended' && managedAcademy.status !== 'suspended') {
+      if (!window.confirm('Tem certeza que deseja SUSPENDER esta academia? Os alunos serao impedidos de acessar o sistema.')) {
+        return;
+      }
+    } else if (academyStatus === 'inactive' && managedAcademy.status === 'active') {
+      if (!window.confirm('Tem certeza que deseja inativar esta academia?')) {
+        return;
+      }
+    }
+
     setAcademyBusy(true);
     setAcademyFeedback('');
     setAcademyError('');

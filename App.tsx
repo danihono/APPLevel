@@ -3,6 +3,7 @@ import type { User as FirebaseUser } from 'firebase/auth';
 import Layout from './components/Layout';
 import CalendarView from './views/CalendarView';
 import CompetitionView from './views/CompetitionView';
+import GamificationView from './views/GamificationView';
 import GraduationView from './views/GraduationView';
 import HomeView from './views/HomeView';
 import LearningHubView from './views/LearningHubView';
@@ -11,6 +12,7 @@ import ManagementView from './views/ManagementView';
 import NotificationsView from './views/NotificationsView';
 import ProfileView from './views/ProfileView';
 import StaffDashboardView from './views/StaffDashboardView';
+import StoreView from './views/StoreView';
 import SuperadminDashboardView from './views/SuperadminDashboardView';
 import StudentsView from './views/StudentsView';
 import { logout, signInWithEmail, subscribeToAuthState, updateSignedInEmail } from './services/firebase/auth';
@@ -61,6 +63,7 @@ import type {
   UserRecord,
 } from './services/firebase/models';
 import { UserRole } from './types';
+import { MOCK_PRODUCTS } from './constants';
 
 const THEME_STORAGE_PREFIX = 'applevel-theme';
 
@@ -1137,6 +1140,22 @@ const App: React.FC = () => {
             onSubmitQuiz={handleSubmitLessonQuiz}
           />
         );
+      case 'gamification':
+        return (
+          <GamificationView
+            missions={missions}
+            rankings={rankings}
+            currentUserId={profile.id}
+            currentPoints={(profile.missionPoints ?? 0) + (profile.rankingPoints ?? 0)}
+          />
+        );
+      case 'store':
+        return (
+          <StoreView
+            products={MOCK_PRODUCTS}
+            branch={branch}
+          />
+        );
       case 'profile':
         return (
           <ProfileView
@@ -1185,6 +1204,8 @@ const App: React.FC = () => {
         activeTab={activeTab}
         setActiveTab={setActiveTab}
         userRole={currentUser.role}
+        isDarkMode={isDarkMode}
+        onSetThemeMode={setThemeMode}
       >
         {renderContent()}
       </Layout>

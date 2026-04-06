@@ -1,7 +1,7 @@
 import { Timestamp } from 'firebase-admin/firestore';
 import { onCall } from 'firebase-functions/v2/https';
 import { COLLECTIONS, DEFAULT_PROGRESSION_RULES, ProgressionMilestone } from '../domain/models';
-import { getRequestContext } from '../lib/context';
+import { getRequestContext, getUserDoc } from '../lib/context';
 import { assertCondition } from '../lib/errors';
 import { db } from '../lib/firebase';
 import { optionalString } from '../lib/payload';
@@ -72,6 +72,15 @@ export const evaluateUserProgression = onCall(callableOptions, async (request) =
     'Você não pode recalcular a progressão de outro usuário.',
   );
 
+  if (targetUserId !== actor.uid && actor.role !== 'superadmin') {
+    const targetUser = await getUserDoc(targetUserId);
+    assertCondition(
+      targetUser.academyId === actor.academyId,
+      'permission-denied',
+      'Você não pode operar dados de usuários de outra academia.',
+    );
+  }
+
   return syncUserDerivedState(targetUserId, actor.academyId);
 });
 
@@ -84,6 +93,15 @@ export const rebuildUserDerivedState = onCall(callableOptions, async (request) =
     'permission-denied',
     'Você não pode reconstruir o estado derivado de outro usuário.',
   );
+
+  if (targetUserId !== actor.uid && actor.role !== 'superadmin') {
+    const targetUser = await getUserDoc(targetUserId);
+    assertCondition(
+      targetUser.academyId === actor.academyId,
+      'permission-denied',
+      'Você não pode operar dados de usuários de outra academia.',
+    );
+  }
 
   return syncUserDerivedState(targetUserId, actor.academyId);
 });

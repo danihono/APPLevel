@@ -12,6 +12,7 @@ import {
   Trophy,
   User as UserIcon,
   Users,
+  Zap,
 } from 'lucide-react';
 import { UserRole } from '../types';
 
@@ -20,6 +21,8 @@ interface LayoutProps {
   activeTab: string;
   setActiveTab: (tab: string) => void;
   userRole?: UserRole;
+  isDarkMode?: boolean;
+  onSetThemeMode?: (mode: 'light' | 'dark') => void;
 }
 
 interface NavItem {
@@ -126,6 +129,8 @@ const Layout: React.FC<LayoutProps> = ({
   activeTab,
   setActiveTab,
   userRole,
+  isDarkMode,
+  onSetThemeMode,
 }) => {
   const navTrackRef = useRef<HTMLDivElement | null>(null);
   const navRefs = useRef<Record<string, HTMLButtonElement | null>>({});
@@ -187,8 +192,9 @@ const Layout: React.FC<LayoutProps> = ({
         : [
         { id: 'home', icon: Home, label: 'Inicio' },
         { id: 'calendar', icon: Calendar, label: 'Aulas' },
-        { id: 'competition', icon: Trophy, label: 'Compete' },
         { id: 'graduation', icon: Award, label: 'Graduacao' },
+        { id: 'gamification', icon: Zap, label: 'Ranking' },
+        { id: 'competition', icon: Trophy, label: 'Compete' },
         { id: 'notifications', icon: Bell, label: 'Avisos' },
         { id: 'profile', icon: UserIcon, label: 'Perfil' },
         ]

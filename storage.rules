@@ -48,8 +48,10 @@ service firebase.storage {
     }
 
     match /users/{userId}/{allPaths=**} {
-      allow read: if isSelf(userId) || signedIn();
-      allow write: if isSelf(userId) || isAdmin() || isProfessor() || isSuperAdmin();
+      // Fotos de perfil sao semi-publicas dentro do app (visivel para colegas autenticados)
+      allow read: if signedIn();
+      // Escrita restrita ao proprio usuario ou superadmin — professor/admin nao pode alterar arquivos de usuarios de outras academias
+      allow write: if isSelf(userId) || isSuperAdmin();
     }
   }
 }

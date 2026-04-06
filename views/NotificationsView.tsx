@@ -259,6 +259,10 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
   }
 
   async function handleReject(item: { id: string; kind: string }) {
+    const label = item.kind === 'join_request' ? 'solicitacao de cadastro' : 'solicitacao de presenca';
+    if (!window.confirm(`Tem certeza que deseja rejeitar esta ${label}? Esta acao nao pode ser desfeita.`)) {
+      return;
+    }
     setProcessingRequestId(item.id);
     setError('');
     try {

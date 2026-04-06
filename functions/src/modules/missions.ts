@@ -1,7 +1,7 @@
 import { Timestamp } from 'firebase-admin/firestore';
 import { onCall } from 'firebase-functions/v2/https';
 import { COLLECTIONS, MissionDoc, MissionMetric, ROLE_ORDER } from '../domain/models';
-import { getRequestContext } from '../lib/context';
+import { getRequestContext, getUserDoc } from '../lib/context';
 import { assertCondition } from '../lib/errors';
 import { db } from '../lib/firebase';
 import {
@@ -78,6 +78,15 @@ export const syncUserMissionProgress = onCall(callableOptions, async (request) =
     'permission-denied',
     'Você não pode sincronizar missões de outro usuário.',
   );
+
+  if (targetUserId !== actor.uid && actor.role !== 'superadmin') {
+    const targetUser = await getUserDoc(targetUserId);
+    assertCondition(
+      targetUser.academyId === actor.academyId,
+      'permission-denied',
+      'Você não pode operar dados de usuários de outra academia.',
+    );
+  }
 
   return syncUserDerivedState(targetUserId, actor.academyId);
 });

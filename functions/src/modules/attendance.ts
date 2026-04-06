@@ -266,6 +266,11 @@ export const approveAttendanceRequest = onCall(callableOptions, async (request) 
   const attendanceRequest = attendanceRequestSnap.data() as AttendanceRequestDoc;
   assertCondition(attendanceRequest.status === 'pending', 'failed-precondition', 'Esta solicitacao ja foi processada.');
   assertCondition(
+    actor.role === 'superadmin' || attendanceRequest.academyId === actor.academyId,
+    'permission-denied',
+    'Somente a equipe da mesma academia pode aprovar esta solicitacao.',
+  );
+  assertCondition(
     actor.role === 'superadmin' || actor.role === 'admin' || actor.uid === attendanceRequest.professorId,
     'permission-denied',
     'Somente o professor da aula, um admin da unidade ou o superadmin podem aprovar esta solicitacao.',
@@ -338,6 +343,11 @@ export const rejectAttendanceRequest = onCall(callableOptions, async (request) =
   assertCondition(attendanceRequestSnap.exists, 'not-found', 'Solicitacao nao encontrada.');
   const attendanceRequest = attendanceRequestSnap.data() as AttendanceRequestDoc;
   assertCondition(attendanceRequest.status === 'pending', 'failed-precondition', 'Esta solicitacao ja foi processada.');
+  assertCondition(
+    actor.role === 'superadmin' || attendanceRequest.academyId === actor.academyId,
+    'permission-denied',
+    'Somente a equipe da mesma academia pode rejeitar esta solicitacao.',
+  );
   assertCondition(
     actor.role === 'superadmin' || actor.role === 'admin' || actor.uid === attendanceRequest.professorId,
     'permission-denied',

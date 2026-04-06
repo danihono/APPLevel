@@ -292,6 +292,11 @@ export const submitStudentSignup = onCall(callableOptions, async (request) => {
   const academyId = requiredString(request.data, 'academyId');
   const email = normalizeEmail(requiredString(request.data, 'email'));
   const password = requiredString(request.data, 'password');
+  assertCondition(
+    password.length >= 8 && /[0-9]/.test(password),
+    'invalid-argument',
+    'A senha deve ter no mínimo 8 caracteres e conter pelo menos um número.',
+  );
   const firstName = requiredString(request.data, 'firstName');
   const lastName = requiredString(request.data, 'lastName');
   const cpf = assertValidCpf(requiredString(request.data, 'cpf'));
