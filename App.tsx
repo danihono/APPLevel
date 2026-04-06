@@ -1,4 +1,5 @@
 import React, { startTransition, useEffect, useState } from 'react';
+import { CheckCircle, X } from 'lucide-react';
 import type { User as FirebaseUser } from 'firebase/auth';
 import Layout from './components/Layout';
 import CalendarView from './views/CalendarView';
@@ -181,6 +182,10 @@ const App: React.FC = () => {
   const [authUser, setAuthUser] = useState<FirebaseUser | null>(null);
   const [activeTab, setActiveTab] = useState('home');
   const [managementFocusSection, setManagementFocusSection] = useState<'master-black' | null>(null);
+  const [pendingCheckin, setPendingCheckin] = useState<{ token: string; classId: string } | null>(null);
+  const [checkinStatus, setCheckinStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+  const [checkinStep, setCheckinStep] = useState<'initial' | 'confirm'>('initial');
+  const [checkinError, setCheckinError] = useState('');
   const [themeScope, setThemeScope] = useState('guest');
   const [isDarkMode, setIsDarkMode] = useState(() => readThemePreference('guest') ?? false);
   const [profile, setProfile] = useState<FirestoreEntity<UserRecord> | null>(null);
@@ -586,6 +591,21 @@ const App: React.FC = () => {
       unsubscribers.forEach((unsubscribe) => unsubscribe());
     };
   }, [activeTab, profile, selectedAcademyId, sessionValidated]);
+
+  // Show checkin modal when app is opened via QR code link
+  useEffect(() => {
+    if (!profile || !sessionValidated) return;
+    const params = new URLSearchParams(window.location.search);
+    const checkinToken = params.get('checkin');
+    const checkinClassId = params.get('classId');
+    if (!checkinToken || !checkinClassId) return;
+    window.history.replaceState({}, '', window.location.pathname);
+    setCheckinStatus('idle');
+    setCheckinStep('initial');
+    setCheckinError('');
+    setPendingCheckin({ token: checkinToken, classId: checkinClassId });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile, sessionValidated]);
 
   async function handleLogin(email: string, password: string) {
     try {
@@ -1196,6 +1216,123 @@ const App: React.FC = () => {
             {import.meta.env.DEV && sessionErrorSource ? (
               <div className="mt-1 text-xs opacity-80">{sessionErrorSource}</div>
             ) : null}
+          </div>
+        </div>
+      ) : null}
+
+      {pendingCheckin ? (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 200,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          background: 'rgba(0,0,0,0.75)', padding: 20,
+        }}>
+          <div className="app-panel" style={{
+            width: '100%', maxWidth: 340, borderRadius: '1.8rem', padding: 28,
+            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 18,
+          }}>
+            {/* Header */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, alignSelf: 'stretch', justifyContent: 'space-between' }}>
+              <span style={{ fontWeight: 700, fontSize: '1rem' }}>Confirmar presença</span>
+              <button
+                type="button"
+                className="app-button app-button--ghost app-button--icon"
+                style={{ width: 32, height: 32 }}
+                onClick={() => { setPendingCheckin(null); setCheckinStatus('idle'); setCheckinStep('initial'); setCheckinError(''); }}
+                disabled={checkinStatus === 'loading'}
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* Success */}
+            {checkinStatus === 'success' ? (
+              <>
+                <CheckCircle size={48} style={{ color: '#22c55e' }} />
+                <p style={{ fontWeight: 600, fontSize: '1rem', color: '#22c55e' }}>Presença confirmada!</p>
+                <button
+                  type="button"
+                  className="app-button app-button--block"
+                  style={{ background: '#fff', color: '#22c55e', fontWeight: 700, border: '1.5px solid #22c55e' }}
+                  onClick={() => { setPendingCheckin(null); setCheckinStatus('idle'); setCheckinStep('initial'); setActiveTab('calendar'); }}
+                >
+                  Ver calendário
+                </button>
+              </>
+            ) : checkinStep === 'initial' ? (
+              /* Etapa 1 — pergunta */
+              <>
+                <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', textAlign: 'center', lineHeight: 1.5 }}>
+                  Deseja registrar sua presença nesta aula?
+                </p>
+                {checkinError ? (
+                  <p style={{ fontSize: '0.8rem', color: '#f87171', textAlign: 'center' }}>{checkinError}</p>
+                ) : null}
+                <div style={{ display: 'flex', gap: 10, width: '100%' }}>
+                  <button
+                    type="button"
+                    className="app-button app-button--block"
+                    style={{ background: '#fff', color: '#f87171', fontWeight: 700, border: '1.5px solid #f87171' }}
+                    onClick={() => { setPendingCheckin(null); setCheckinStatus('idle'); setCheckinStep('initial'); setCheckinError(''); }}
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="button"
+                    className="app-button app-button--block"
+                    style={{ background: '#fff', color: '#22c55e', fontWeight: 700, border: '1.5px solid #22c55e' }}
+                    onClick={() => { setCheckinStep('confirm'); setCheckinError(''); }}
+                  >
+                    Confirmar
+                  </button>
+                </div>
+              </>
+            ) : (
+              /* Etapa 2 — confirmação final */
+              <>
+                <p style={{ fontSize: '0.9rem', fontWeight: 600, textAlign: 'center' }}>
+                  Tem certeza?
+                </p>
+                <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', textAlign: 'center', lineHeight: 1.5 }}>
+                  Sua presença será registrada permanentemente.
+                </p>
+                {checkinError ? (
+                  <p style={{ fontSize: '0.8rem', color: '#f87171', textAlign: 'center' }}>{checkinError}</p>
+                ) : null}
+                <div style={{ display: 'flex', gap: 10, width: '100%' }}>
+                  <button
+                    type="button"
+                    className="app-button app-button--block"
+                    style={{ background: '#fff', color: '#f87171', fontWeight: 700, border: '1.5px solid #f87171' }}
+                    onClick={() => { setCheckinStep('initial'); setCheckinError(''); }}
+                    disabled={checkinStatus === 'loading'}
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="button"
+                    className="app-button app-button--block"
+                    style={{ background: '#fff', color: '#22c55e', fontWeight: 700, border: '1.5px solid #22c55e' }}
+                    disabled={checkinStatus === 'loading'}
+                    onClick={() => {
+                      setCheckinStatus('loading');
+                      setCheckinError('');
+                      void backendFunctions.registerAttendance({
+                        classId: pendingCheckin.classId,
+                        qrToken: pendingCheckin.token,
+                      }).then(() => {
+                        setCheckinStatus('success');
+                      }).catch((err: unknown) => {
+                        setCheckinStatus('error');
+                        setCheckinStep('initial');
+                        setCheckinError(err instanceof Error ? err.message : 'Erro ao registrar presença.');
+                      });
+                    }}
+                  >
+                    {checkinStatus === 'loading' ? 'Registrando...' : 'Sim, confirmar'}
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       ) : null}

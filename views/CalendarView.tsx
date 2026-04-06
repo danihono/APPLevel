@@ -228,9 +228,19 @@ const CalendarView: React.FC<CalendarViewProps> = ({
         (decoded) => {
           let token: string = decoded.trim();
           try {
-            const parsed = JSON.parse(decoded) as { token?: string };
-            if (parsed.token) token = parsed.token;
-          } catch { /* raw token */ }
+            const url = new URL(decoded);
+            const urlToken = url.searchParams.get('checkin');
+            if (urlToken) { token = urlToken; }
+            else {
+              const parsed = JSON.parse(decoded) as { token?: string };
+              if (parsed.token) token = parsed.token;
+            }
+          } catch {
+            try {
+              const parsed = JSON.parse(decoded) as { token?: string };
+              if (parsed.token) token = parsed.token;
+            } catch { /* raw token */ }
+          }
           setScannerOpen(false);
           void runClassAction(scannerClassId, () => onRegisterAttendance(scannerClassId, token));
         },
@@ -747,7 +757,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                         display: 'flex',
                         justifyContent: 'center',
                       }}>
-                        <QRCodeSVG value={qrData.qrValue} size={200} level="M" />
+                        <QRCodeSVG value={`${window.location.origin}?checkin=${encodeURIComponent(qrData.qrToken)}&classId=${encodeURIComponent(qrData.classId)}`} size={200} level="M" />
                       </div>
                       <p className="mt-2 text-xs text-[color:var(--text-soft)] text-center">
                         {qrCountdown && qrCountdown !== '00:00'
@@ -987,7 +997,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
               Mostre este QR para quem ainda não confirmou presença
             </p>
             <div style={{ background: '#fff', padding: 14, borderRadius: 16 }}>
-              <QRCodeSVG value={finishQrData.qrValue} size={220} level="M" />
+              <QRCodeSVG value={`${window.location.origin}?checkin=${encodeURIComponent(finishQrData.qrToken)}&classId=${encodeURIComponent(finishQrData.classId)}`} size={220} level="M" />
             </div>
             <p style={{ fontSize: '0.78rem', color: 'var(--text-soft)' }}>
               {finishCountdown && finishCountdown !== '00:00'
