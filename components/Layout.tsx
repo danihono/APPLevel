@@ -21,6 +21,7 @@ interface LayoutProps {
   activeTab: string;
   setActiveTab: (tab: string) => void;
   userRole?: UserRole;
+  mobileUnitLabel: string;
   isDarkMode?: boolean;
   onSetThemeMode?: (mode: 'light' | 'dark') => void;
 }
@@ -129,6 +130,7 @@ const Layout: React.FC<LayoutProps> = ({
   activeTab,
   setActiveTab,
   userRole,
+  mobileUnitLabel,
   isDarkMode,
   onSetThemeMode,
 }) => {
@@ -158,7 +160,6 @@ const Layout: React.FC<LayoutProps> = ({
     userRole === UserRole.ADMIN ||
     userRole === UserRole.SUPERADMIN;
   const isSuperAdmin = userRole === UserRole.SUPERADMIN;
-  const showTopbar = !isSuperAdmin;
   const sidebarCollapsed = isSuperAdmin && isSidebarCollapsed;
 
   const navItems = useMemo<NavItem[]>(() => (
@@ -320,13 +321,30 @@ const Layout: React.FC<LayoutProps> = ({
           {isSuperAdmin ? renderDesktopSidebar() : null}
 
           <div className={isSuperAdmin ? 'app-content-shell' : ''}>
-            {showTopbar ? (
-              <header className="app-topbar">
-                <div className="app-pagebar">
-                  <h1 className="app-pagebar__title">{currentPage.title}</h1>
+            <header className={`app-topbar ${isSuperAdmin ? 'app-topbar--superadmin' : ''}`.trim()}>
+              <div className="app-mobile-header" title={mobileUnitLabel}>
+                <div className="app-mobile-header__row">
+                  <div className="app-mobile-header__brand">
+                    <img src="/logo3.png" alt="LEVEL" className="app-mobile-header__brand-mark" />
+                    <span className="app-mobile-header__brand-wordmark">LEVEL</span>
+                  </div>
+
+                  <div className="app-mobile-header__unit">
+                    <img src="/logo3.png" alt="" aria-hidden="true" className="app-mobile-header__unit-mark" />
+                    <span className="app-mobile-header__unit-name">{mobileUnitLabel}</span>
+                  </div>
                 </div>
-              </header>
-            ) : null}
+
+                <div className="app-mobile-header__title-row">
+                  <span className="app-mobile-header__eyebrow">Visao atual</span>
+                  <p className="app-mobile-header__title">{currentPage.title}</p>
+                </div>
+              </div>
+
+              <div className={`app-pagebar ${isSuperAdmin ? 'app-topbar-panel--superadmin' : ''}`.trim()}>
+                <h1 className="app-pagebar__title">{currentPage.title}</h1>
+              </div>
+            </header>
 
             <main className="app-main">{children}</main>
           </div>

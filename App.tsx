@@ -1011,6 +1011,13 @@ const App: React.FC = () => {
   const focusedLearningAcademy = selectedAcademyId
     ? (allAcademies.find((entry) => entry.id === selectedAcademyId) ?? null)
     : null;
+  const mobileUnitLabel = isSuperAdmin
+    ? (
+      selectedAcademyId
+        ? (allAcademies.find((entry) => entry.id === selectedAcademyId)?.name ?? academy.name)
+        : 'Toda a rede'
+    )
+    : academy.name;
 
   const renderContent = () => {
     switch (activeTab) {
@@ -1334,6 +1341,7 @@ const App: React.FC = () => {
         activeTab={activeTab}
         setActiveTab={setActiveTab}
         userRole={currentUser.role}
+        mobileUnitLabel={mobileUnitLabel}
         isDarkMode={isDarkMode}
         onSetThemeMode={setThemeMode}
       >
