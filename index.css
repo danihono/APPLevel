@@ -585,8 +585,10 @@ html.dark .app-panel--tint {
 }
 
 .app-sidebar__title {
-  margin-top: 0.3rem;
-  font-size: 1.4rem;
+  margin: 0.3rem 0 0;
+  font-size: clamp(1rem, 0.94rem + 0.3vw, 1.1rem);
+  line-height: 1.05;
+  letter-spacing: -0.01em;
 }
 
 .app-sidebar__collapse {

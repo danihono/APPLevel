@@ -28,7 +28,7 @@ interface ManagementViewProps {
     slug?: string;
     timezone?: string;
     masterBlackLimit?: number;
-  }) => Promise<void>;
+  }) => Promise<{ academyId: string }>;
   onCreateUser: (payload: {
     firstName: string;
     lastName: string;
@@ -108,21 +108,28 @@ const ManagementView: React.FC<ManagementViewProps> = ({
 }) => {
   const canManage = userRole === UserRole.ADMIN || userRole === UserRole.SUPERADMIN;
   const isSuperAdmin = userRole === UserRole.SUPERADMIN;
-  const managedAcademy = useMemo(() => {
+  const focusedAcademy = useMemo(() => {
     if (!isSuperAdmin) {
       return academy;
     }
 
-    return academies.find((entry) => entry.id === selectedAcademyId) ?? academy;
+    return academies.find((entry) => entry.id === selectedAcademyId) ?? null;
   }, [academies, academy, isSuperAdmin, selectedAcademyId]);
+  const hasManagedAcademy = !isSuperAdmin || focusedAcademy !== null;
+  const managedAcademy = focusedAcademy ?? academy;
+  const hasAnyAcademy = academies.length > 0;
 
   const managedUsers = useMemo(() => {
     if (!isSuperAdmin) {
       return academyUsers;
     }
 
+    if (!focusedAcademy) {
+      return [];
+    }
+
     return allUsers.filter((entry) => entry.academyId === managedAcademy.id);
-  }, [academyUsers, allUsers, isSuperAdmin, managedAcademy.id]);
+  }, [academyUsers, allUsers, focusedAcademy, isSuperAdmin, managedAcademy.id]);
 
   const activeStudents = managedUsers.filter((entry) => entry.role === 'student' && entry.status === 'active');
   const instructors = managedUsers.filter((entry) => entry.role !== 'student');
@@ -244,6 +251,12 @@ const ManagementView: React.FC<ManagementViewProps> = ({
   async function handleSaveAcademy(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
+    if (!hasManagedAcademy) {
+      setAcademyError('Selecione uma unidade para editar as configuracoes.');
+      setAcademyFeedback('');
+      return;
+    }
+
     if (academyStatus === 'suspended' && managedAcademy.status !== 'suspended') {
       if (!window.confirm('Tem certeza que deseja SUSPENDER esta academia? Os alunos serao impedidos de acessar o sistema.')) {
         return;
@@ -282,12 +295,13 @@ const ManagementView: React.FC<ManagementViewProps> = ({
     setAcademyError('');
 
     try {
-      await onCreateAcademy({
+      const createdAcademy = await onCreateAcademy({
         name: academyCreateName,
         slug: academyCreateSlug || undefined,
         timezone: academyCreateTimezone || undefined,
         masterBlackLimit: academyCreateMasterBlackLimit,
       });
+      onSelectAcademy?.(createdAcademy.academyId);
       setAcademyCreateName('');
       setAcademyCreateSlug('');
       setAcademyCreateTimezone('America/Sao_Paulo');
@@ -352,6 +366,12 @@ const ManagementView: React.FC<ManagementViewProps> = ({
   }
 
   async function handleSaveRules() {
+    if (!hasManagedAcademy) {
+      setRulesError('Selecione uma unidade antes de salvar regras de graduacao.');
+      setRulesFeedback('');
+      return;
+    }
+
     setRulesBusy(true);
     setRulesFeedback('');
     setRulesError('');
@@ -376,6 +396,12 @@ const ManagementView: React.FC<ManagementViewProps> = ({
 
   async function handleSaveStudentProgress(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+
+    if (!hasManagedAcademy) {
+      setStudentProgressError('Selecione uma unidade antes de alterar a graduacao de alunos.');
+      setStudentProgressFeedback('');
+      return;
+    }
 
     if (!selectedStudentId) {
       setStudentProgressError('Selecione um aluno para atualizar a graduacao.');
@@ -402,54 +428,72 @@ const ManagementView: React.FC<ManagementViewProps> = ({
     }
   }
 
-    return (
-      <div className="view-shell">
-        <section className="app-panel app-panel-pad">
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div>
-              <p className="app-section-label">Academia em foco</p>
-              <h2 className="mt-2 text-xl font-bold">{managedAcademy.name}</h2>
-            </div>
+  const isEmptyNetwork = isSuperAdmin && !hasAnyAcademy;
+  const isAwaitingAcademyFocus = isSuperAdmin && hasAnyAcademy && !hasManagedAcademy;
+  const networkLeaders = allUsers.filter((entry) => entry.role !== 'student').length;
+  const networkStudents = allUsers.filter((entry) => entry.role === 'student').length;
+  const focusLabel = isEmptyNetwork
+    ? 'Rede LEVEL'
+    : isAwaitingAcademyFocus
+      ? 'Selecione uma unidade'
+      : managedAcademy.name;
+  const focusDescription = isEmptyNetwork
+    ? 'Crie a primeira unidade da LEVEL para liberar a operacao da rede.'
+    : isAwaitingAcademyFocus
+      ? 'Escolha uma unidade para editar configuracoes, acompanhar alunos e ajustar regras locais.'
+      : 'Ajuste operacao, equipe e regras da unidade em foco.';
 
-            {isSuperAdmin && onSelectAcademy ? (
-              <label className="app-field min-w-[18rem]">
-                <span className="app-field__label">Academia selecionada</span>
-                <select
-                  value={managedAcademy.id}
-                  onChange={(event) => onSelectAcademy(event.target.value)}
-                  className="app-select"
-                >
-                  {academies.map((entry) => (
-                    <option key={entry.id} value={entry.id}>{entry.name}</option>
-                  ))}
-                </select>
-              </label>
-            ) : null}
+  return (
+    <div className="view-shell">
+      <section className="app-panel app-panel-pad">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <p className="app-section-label">{isSuperAdmin ? 'Gestao da rede' : 'Academia em foco'}</p>
+            <h2 className="mt-2 text-xl font-bold">{focusLabel}</h2>
+            <p className="mt-2 text-sm text-[color:var(--text-muted)]">{focusDescription}</p>
           </div>
-        </section>
 
-        <section className="app-stat-grid">
+          {isSuperAdmin && onSelectAcademy ? (
+            <label className="app-field min-w-[18rem]">
+              <span className="app-field__label">Unidade selecionada</span>
+              <select
+                value={selectedAcademyId ?? ''}
+                onChange={(event) => onSelectAcademy(event.target.value)}
+                className="app-select"
+              >
+                <option value="">{hasAnyAcademy ? 'Nenhuma unidade selecionada' : 'Nenhuma unidade criada'}</option>
+                {academies.map((entry) => (
+                  <option key={entry.id} value={entry.id}>{entry.name}</option>
+                ))}
+              </select>
+            </label>
+          ) : null}
+        </div>
+      </section>
+
+      <section className="app-stat-grid">
         <article className="app-panel app-panel-pad">
-          <p className="app-stat-card__label">Instrutores</p>
-          <p className="app-stat-card__value">{instructors.length}</p>
+          <p className="app-stat-card__label">{hasManagedAcademy ? 'Instrutores' : 'Unidades'}</p>
+          <p className="app-stat-card__value">{hasManagedAcademy ? instructors.length : academies.length}</p>
         </article>
         <article className="app-panel app-panel-pad">
-          <p className="app-stat-card__label">Alunos ativos</p>
-          <p className="app-stat-card__value">{activeStudents.length}</p>
+          <p className="app-stat-card__label">{hasManagedAcademy ? 'Alunos ativos' : 'Alunos na rede'}</p>
+          <p className="app-stat-card__value">{hasManagedAcademy ? activeStudents.length : networkStudents}</p>
         </article>
         <article className="app-panel app-panel-pad">
-          <p className="app-stat-card__label">Master black</p>
-          <p className={`app-stat-card__value ${masterBlackUsers.length > masterBlackLimit ? 'text-[color:var(--danger)]' : ''}`}>
-            {masterBlackUsers.length}/{masterBlackLimit}
+          <p className="app-stat-card__label">{hasManagedAcademy ? 'Master black' : 'Liderancas'}</p>
+          <p className={`app-stat-card__value ${hasManagedAcademy && masterBlackUsers.length > masterBlackLimit ? 'text-[color:var(--danger)]' : ''}`}>
+            {hasManagedAcademy ? `${masterBlackUsers.length}/${masterBlackLimit}` : networkLeaders}
           </p>
         </article>
         <article className="app-panel app-panel-pad">
-          <p className="app-stat-card__label">Aulas ativas</p>
-          <p className="app-stat-card__value">{activeClasses}</p>
+          <p className="app-stat-card__label">{hasManagedAcademy ? 'Aulas ativas' : 'Status da rede'}</p>
+          <p className="app-stat-card__value">{hasManagedAcademy ? activeClasses : (hasAnyAcademy ? 'Pronta' : 'Inicial')}</p>
         </article>
       </section>
 
-      <section ref={masterBlackSectionRef} className="app-grid-2">
+      {hasManagedAcademy ? (
+        <section ref={masterBlackSectionRef} className="app-grid-2">
         <article className="app-panel app-panel-pad">
           <div className="flex items-center gap-3">
             <div className="app-icon-shell">
@@ -516,7 +560,16 @@ const ManagementView: React.FC<ManagementViewProps> = ({
             ) : null}
           </div>
         </article>
-      </section>
+        </section>
+      ) : (
+        <section className="app-panel app-panel-pad">
+          <div className="app-empty">
+            {isEmptyNetwork
+              ? 'A rede ainda nao tem nenhuma unidade. Use o formulario abaixo para cadastrar a primeira unidade da LEVEL.'
+              : 'Selecione uma unidade para abrir equipe, alunos e configuracoes locais.'}
+          </div>
+        </section>
+      )}
 
       {!canManage ? (
         <div className="app-empty">
@@ -524,53 +577,59 @@ const ManagementView: React.FC<ManagementViewProps> = ({
         </div>
       ) : (
         <>
-          <form onSubmit={handleSaveAcademy} className="app-panel app-panel-pad">
-            <div className="flex items-center gap-3">
-              <div className="app-icon-shell">
-                <Settings2 size={18} />
+          {hasManagedAcademy ? (
+            <form onSubmit={handleSaveAcademy} className="app-panel app-panel-pad">
+              <div className="flex items-center gap-3">
+                <div className="app-icon-shell">
+                  <Settings2 size={18} />
+                </div>
+                <div>
+                  <p className="app-section-label">Configuracoes</p>
+                  <h2 className="text-xl font-bold">Ajustes da academia</h2>
+                </div>
               </div>
-              <div>
-                <p className="app-section-label">Configuracoes</p>
-                <h2 className="text-xl font-bold">Ajustes da academia</h2>
+
+              <div className="mt-6 space-y-4">
+                <FeedbackBlock success={academyFeedback} error={academyError} />
               </div>
-            </div>
 
-            <div className="mt-6 space-y-4">
-              <FeedbackBlock success={academyFeedback} error={academyError} />
-            </div>
+              <div className="mt-6 app-grid-2">
+                <label className="app-field">
+                  <span className="app-field__label">Nome</span>
+                  <input value={academyName} onChange={(event) => setAcademyName(event.target.value)} className="app-input" />
+                </label>
+                <label className="app-field">
+                  <span className="app-field__label">Timezone</span>
+                  <input value={academyTimezone} onChange={(event) => setAcademyTimezone(event.target.value)} className="app-input" />
+                </label>
+                <label className="app-field">
+                  <span className="app-field__label">Status</span>
+                  <select value={academyStatus} onChange={(event) => setAcademyStatus(event.target.value as 'active' | 'inactive' | 'suspended')} className="app-select">
+                    <option value="active">Ativa</option>
+                    <option value="inactive">Inativa</option>
+                    <option value="suspended">Suspensa</option>
+                  </select>
+                </label>
+                <label className="app-field">
+                  <span className="app-field__label">Janela de check-in (min)</span>
+                  <input type="number" min={1} value={checkinWindow} onChange={(event) => setCheckinWindow(Number(event.target.value))} className="app-input" />
+                </label>
+                <label className="app-field">
+                  <span className="app-field__label">Limite de master black</span>
+                  <input type="number" min={0} value={masterBlackLimit} onChange={(event) => setMasterBlackLimit(Number(event.target.value))} className="app-input" />
+                </label>
+              </div>
 
-            <div className="mt-6 app-grid-2">
-              <label className="app-field">
-                <span className="app-field__label">Nome</span>
-                <input value={academyName} onChange={(event) => setAcademyName(event.target.value)} className="app-input" />
-              </label>
-              <label className="app-field">
-                <span className="app-field__label">Timezone</span>
-                <input value={academyTimezone} onChange={(event) => setAcademyTimezone(event.target.value)} className="app-input" />
-              </label>
-              <label className="app-field">
-                <span className="app-field__label">Status</span>
-                <select value={academyStatus} onChange={(event) => setAcademyStatus(event.target.value as 'active' | 'inactive' | 'suspended')} className="app-select">
-                  <option value="active">Ativa</option>
-                  <option value="inactive">Inativa</option>
-                  <option value="suspended">Suspensa</option>
-                </select>
-              </label>
-              <label className="app-field">
-                <span className="app-field__label">Janela de check-in (min)</span>
-                <input type="number" min={1} value={checkinWindow} onChange={(event) => setCheckinWindow(Number(event.target.value))} className="app-input" />
-              </label>
-              <label className="app-field">
-                <span className="app-field__label">Limite de master black</span>
-                <input type="number" min={0} value={masterBlackLimit} onChange={(event) => setMasterBlackLimit(Number(event.target.value))} className="app-input" />
-              </label>
-            </div>
-
-            <button type="submit" disabled={academyBusy} className="app-button app-button--gold mt-6">
-              <Save size={16} />
-              {academyBusy ? 'Salvando...' : 'Salvar academia'}
-            </button>
-          </form>
+              <button type="submit" disabled={academyBusy} className="app-button app-button--gold mt-6">
+                <Save size={16} />
+                {academyBusy ? 'Salvando...' : 'Salvar academia'}
+              </button>
+            </form>
+          ) : (
+            <section className="app-panel app-panel-pad">
+              <div className="app-empty">As configuracoes locais ficam disponiveis assim que voce selecionar uma unidade.</div>
+            </section>
+          )}
 
           {isSuperAdmin ? (
             <form onSubmit={handleCreateAcademy} className="app-panel app-panel-pad">
@@ -691,128 +750,136 @@ const ManagementView: React.FC<ManagementViewProps> = ({
               </label>
             </div>
 
-            <button type="submit" disabled={userBusy} className="app-button app-button--gold mt-6">
+            {!hasAnyAcademy && role !== 'superadmin' ? (
+              <div className="app-empty mt-6">Crie a primeira unidade antes de cadastrar acessos vinculados a unidades.</div>
+            ) : null}
+
+            <button type="submit" disabled={userBusy || (!hasAnyAcademy && role !== 'superadmin')} className="app-button app-button--gold mt-6">
               <UserPlus size={16} />
               {userBusy ? 'Criando...' : 'Criar acesso'}
             </button>
             </form>
           ) : null}
 
-          <form onSubmit={handleSaveStudentProgress} className="app-panel app-panel-pad">
-            <div className="flex items-center gap-3">
-              <div className="app-icon-shell">
-                <GraduationCap size={18} />
-              </div>
-              <div>
-                <p className="app-section-label">Graduacao manual</p>
-                <h2 className="text-xl font-bold">Faixa e grau do aluno</h2>
-              </div>
-            </div>
-
-            <div className="mt-6 space-y-4">
-              <FeedbackBlock success={studentProgressFeedback} error={studentProgressError} />
-            </div>
-
-            <div className="mt-6 app-grid-2">
-              <label className="app-field md:col-span-2">
-                <span className="app-field__label">Aluno</span>
-                <select value={selectedStudentId} onChange={(event) => setSelectedStudentId(event.target.value)} className="app-select" required>
-                  {students.map((entry) => (
-                    <option key={entry.id} value={entry.id}>{entry.displayName}</option>
-                  ))}
-                </select>
-              </label>
-
-              <label className="app-field">
-                <span className="app-field__label">Faixa</span>
-                <select value={studentBelt} onChange={(event) => setStudentBelt(event.target.value)} className="app-select">
-                  {beltPresets.map((entry) => <option key={entry} value={entry}>{entry}</option>)}
-                </select>
-              </label>
-
-              <label className="app-field">
-                <span className="app-field__label">Grau</span>
-                <input type="number" min={0} value={studentGrade} onChange={(event) => setStudentGrade(Number(event.target.value))} className="app-input" />
-              </label>
-            </div>
-
-            <button type="submit" disabled={studentProgressBusy || students.length === 0} className="app-button app-button--gold mt-6">
-              <Save size={16} />
-              {studentProgressBusy ? 'Salvando...' : 'Salvar graduacao do aluno'}
-            </button>
-
-            {students.length === 0 ? (
-              <div className="app-empty mt-6">Nenhum aluno ativo na unidade para atualizar graduacao.</div>
-            ) : null}
-          </form>
-
-          <section className="app-panel app-panel-pad">
-            <div className="flex items-center gap-3">
-              <div className="app-icon-shell">
-                <GraduationCap size={18} />
-              </div>
-              <div>
-                <p className="app-section-label">Graduacao</p>
-                <h2 className="text-xl font-bold">Graduacoes e regras por faixa</h2>
-              </div>
-            </div>
-
-            <div className="mt-6 space-y-4">
-              <FeedbackBlock success={rulesFeedback} error={rulesError} />
-            </div>
-
-            <div className="mt-6 app-list">
-              {rules.map((entry, index) => (
-                <div key={`${entry.belt}-${index}`} className="app-panel app-panel--soft p-4">
-                  <div className="grid gap-4 md:grid-cols-4">
-                    <label className="app-field">
-                      <span className="app-field__label">Faixa</span>
-                      <input
-                        value={entry.belt}
-                        onChange={(event) => setRules((previous) => previous.map((item, itemIndex) => itemIndex === index ? { ...item, belt: event.target.value } : item))}
-                        className="app-input"
-                      />
-                    </label>
-                    <label className="app-field">
-                      <span className="app-field__label">Min. presencas</span>
-                      <input
-                        type="number"
-                        min={0}
-                        value={entry.minAttendances}
-                        onChange={(event) => setRules((previous) => previous.map((item, itemIndex) => itemIndex === index ? { ...item, minAttendances: Number(event.target.value) } : item))}
-                        className="app-input"
-                      />
-                    </label>
-                    <label className="app-field">
-                      <span className="app-field__label">Novo grau a cada</span>
-                      <input
-                        type="number"
-                        min={1}
-                        value={entry.stripeEvery}
-                        onChange={(event) => setRules((previous) => previous.map((item, itemIndex) => itemIndex === index ? { ...item, stripeEvery: Number(event.target.value) } : item))}
-                        className="app-input"
-                      />
-                    </label>
-                    <label className="app-field">
-                      <span className="app-field__label">Max. graus</span>
-                      <input
-                        type="number"
-                        min={1}
-                        value={entry.maxStripes}
-                        onChange={(event) => setRules((previous) => previous.map((item, itemIndex) => itemIndex === index ? { ...item, maxStripes: Number(event.target.value) } : item))}
-                        className="app-input"
-                      />
-                    </label>
+          {hasManagedAcademy ? (
+            <>
+              <form onSubmit={handleSaveStudentProgress} className="app-panel app-panel-pad">
+                <div className="flex items-center gap-3">
+                  <div className="app-icon-shell">
+                    <GraduationCap size={18} />
+                  </div>
+                  <div>
+                    <p className="app-section-label">Graduacao manual</p>
+                    <h2 className="text-xl font-bold">Faixa e grau do aluno</h2>
                   </div>
                 </div>
-              ))}
-            </div>
 
-            <button type="button" onClick={() => void handleSaveRules()} disabled={rulesBusy} className="app-button app-button--dark mt-6">
-              <Save size={16} />
-              {rulesBusy ? 'Salvando...' : 'Salvar regras'}
-            </button>
-          </section>
+                <div className="mt-6 space-y-4">
+                  <FeedbackBlock success={studentProgressFeedback} error={studentProgressError} />
+                </div>
+
+                <div className="mt-6 app-grid-2">
+                  <label className="app-field md:col-span-2">
+                    <span className="app-field__label">Aluno</span>
+                    <select value={selectedStudentId} onChange={(event) => setSelectedStudentId(event.target.value)} className="app-select" required>
+                      {students.map((entry) => (
+                        <option key={entry.id} value={entry.id}>{entry.displayName}</option>
+                      ))}
+                    </select>
+                  </label>
+
+                  <label className="app-field">
+                    <span className="app-field__label">Faixa</span>
+                    <select value={studentBelt} onChange={(event) => setStudentBelt(event.target.value)} className="app-select">
+                      {beltPresets.map((entry) => <option key={entry} value={entry}>{entry}</option>)}
+                    </select>
+                  </label>
+
+                  <label className="app-field">
+                    <span className="app-field__label">Grau</span>
+                    <input type="number" min={0} value={studentGrade} onChange={(event) => setStudentGrade(Number(event.target.value))} className="app-input" />
+                  </label>
+                </div>
+
+                <button type="submit" disabled={studentProgressBusy || students.length === 0} className="app-button app-button--gold mt-6">
+                  <Save size={16} />
+                  {studentProgressBusy ? 'Salvando...' : 'Salvar graduacao do aluno'}
+                </button>
+
+                {students.length === 0 ? (
+                  <div className="app-empty mt-6">Nenhum aluno ativo na unidade para atualizar graduacao.</div>
+                ) : null}
+              </form>
+
+              <section className="app-panel app-panel-pad">
+                <div className="flex items-center gap-3">
+                  <div className="app-icon-shell">
+                    <GraduationCap size={18} />
+                  </div>
+                  <div>
+                    <p className="app-section-label">Graduacao</p>
+                    <h2 className="text-xl font-bold">Graduacoes e regras por faixa</h2>
+                  </div>
+                </div>
+
+                <div className="mt-6 space-y-4">
+                  <FeedbackBlock success={rulesFeedback} error={rulesError} />
+                </div>
+
+                <div className="mt-6 app-list">
+                  {rules.map((entry, index) => (
+                    <div key={`${entry.belt}-${index}`} className="app-panel app-panel--soft p-4">
+                      <div className="grid gap-4 md:grid-cols-4">
+                        <label className="app-field">
+                          <span className="app-field__label">Faixa</span>
+                          <input
+                            value={entry.belt}
+                            onChange={(event) => setRules((previous) => previous.map((item, itemIndex) => itemIndex === index ? { ...item, belt: event.target.value } : item))}
+                            className="app-input"
+                          />
+                        </label>
+                        <label className="app-field">
+                          <span className="app-field__label">Min. presencas</span>
+                          <input
+                            type="number"
+                            min={0}
+                            value={entry.minAttendances}
+                            onChange={(event) => setRules((previous) => previous.map((item, itemIndex) => itemIndex === index ? { ...item, minAttendances: Number(event.target.value) } : item))}
+                            className="app-input"
+                          />
+                        </label>
+                        <label className="app-field">
+                          <span className="app-field__label">Novo grau a cada</span>
+                          <input
+                            type="number"
+                            min={1}
+                            value={entry.stripeEvery}
+                            onChange={(event) => setRules((previous) => previous.map((item, itemIndex) => itemIndex === index ? { ...item, stripeEvery: Number(event.target.value) } : item))}
+                            className="app-input"
+                          />
+                        </label>
+                        <label className="app-field">
+                          <span className="app-field__label">Max. graus</span>
+                          <input
+                            type="number"
+                            min={1}
+                            value={entry.maxStripes}
+                            onChange={(event) => setRules((previous) => previous.map((item, itemIndex) => itemIndex === index ? { ...item, maxStripes: Number(event.target.value) } : item))}
+                            className="app-input"
+                          />
+                        </label>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <button type="button" onClick={() => void handleSaveRules()} disabled={rulesBusy} className="app-button app-button--dark mt-6">
+                  <Save size={16} />
+                  {rulesBusy ? 'Salvando...' : 'Salvar regras'}
+                </button>
+              </section>
+            </>
+          ) : null}
         </>
       )}
     </div>

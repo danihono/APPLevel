@@ -7,7 +7,8 @@
   <title>LEVEL JJ</title>
   <link rel="icon" type="image/png" sizes="192x192" href="/logo3.png">
   <link rel="apple-touch-icon" sizes="180x180" href="/logo3.png">
-  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Sora:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
     body {
@@ -28,7 +29,8 @@
     }
   </style>
   <script>
-    tailwind.config = {
+    window.tailwind = window.tailwind || {};
+    window.tailwind.config = {
       darkMode: 'class',
       theme: {
         extend: {
@@ -42,17 +44,7 @@
       }
     }
   </script>
-<script type="importmap">
-{
-  "imports": {
-    "react/": "https://esm.sh/react@^19.2.4/",
-    "react": "https://esm.sh/react@^19.2.4",
-    "@google/genai": "https://esm.sh/@google/genai@^1.41.0",
-    "lucide-react": "https://esm.sh/lucide-react@^0.571.0",
-    "react-dom/": "https://esm.sh/react-dom@^19.2.4/"
-  }
-}
-</script>
+  <script src="https://cdn.tailwindcss.com" defer></script>
 <link rel="stylesheet" href="/index.css">
 </head>
 <body class="bg-white dark:bg-dark text-gray-900 dark:text-gray-100 transition-colors duration-300">

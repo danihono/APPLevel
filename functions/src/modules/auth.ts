@@ -34,10 +34,23 @@ type SignupAcademySummary = {
   timezone: string;
 };
 
+function normalizeScopedAcademyId(role: Role, academyId?: string | null): string {
+  if (role === 'superadmin') {
+    return '';
+  }
+
+  return academyId?.trim() ?? '';
+}
+
+async function assertAcademyExists(academyId: string): Promise<void> {
+  const academySnap = await db.collection(COLLECTIONS.academies).doc(academyId).get();
+  assertCondition(academySnap.exists, 'not-found', 'Unidade nao encontrada.');
+}
+
 async function setClaims(uid: string, role: Role, academyId: string): Promise<void> {
   await auth.setCustomUserClaims(uid, {
     role,
-    academyId,
+    academyId: normalizeScopedAcademyId(role, academyId),
   });
 }
 
@@ -411,13 +424,14 @@ export const createAcademy = onCall(callableOptions, async (request) => {
   if (ownerUserId) {
     const owner = await getUserDoc(ownerUserId);
     const nextRole: Role = owner.role === 'superadmin' ? owner.role : 'admin';
+    const nextAcademyId = normalizeScopedAcademyId(nextRole, academyRef.id);
 
     await db.collection(COLLECTIONS.users).doc(ownerUserId).update({
-      academyId: academyRef.id,
+      academyId: nextAcademyId,
       role: nextRole,
       updatedAt: now,
     });
-    await setClaims(ownerUserId, nextRole, academyRef.id);
+    await setClaims(ownerUserId, nextRole, nextAcademyId);
   }
 
   return {
@@ -434,7 +448,10 @@ export const createUserWithRole = onCall(callableOptions, async (request) => {
   const email = normalizeEmail(requiredString(request.data, 'email'));
   const password = optionalString(request.data, 'password');
   const requestedRole = requiredString(request.data, 'role') as Role;
-  const academyId = optionalString(request.data, 'academyId') ?? actor.academyId;
+  const academyId = normalizeScopedAcademyId(
+    requestedRole,
+    optionalString(request.data, 'academyId') ?? actor.academyId,
+  );
   const phone = optionalString(request.data, 'phone');
   const cpf = optionalString(request.data, 'cpf');
   const birthDate = optionalString(request.data, 'birthDate');
@@ -445,6 +462,14 @@ export const createUserWithRole = onCall(callableOptions, async (request) => {
 
   assertCondition(ROLE_ORDER.includes(requestedRole), 'invalid-argument', 'Role invalida.');
   assertCondition(requestedRole !== 'student', 'invalid-argument', 'Cadastros de aluno devem usar o fluxo de solicitacao.');
+  assertCondition(
+    requestedRole === 'superadmin' || academyId.length > 0,
+    'invalid-argument',
+    'Selecione uma unidade para este acesso.',
+  );
+  if (requestedRole !== 'superadmin') {
+    await assertAcademyExists(academyId);
+  }
   await ensureUniqueIdentity({
     email,
     cpf: cpf ? assertValidCpf(cpf) : `staff-${email}`,
@@ -627,6 +652,12 @@ export const assignUserToAcademy = onCall(callableOptions, async (request) => {
     'permission-denied',
     'Admin nao pode alterar o vinculo de um superadmin.',
   );
+  assertCondition(
+    targetUser.role !== 'superadmin',
+    'failed-precondition',
+    'Superadmin nao pode ser vinculado a uma unidade.',
+  );
+  await assertAcademyExists(academyId);
 
   await db.collection(COLLECTIONS.users).doc(targetUserId).update({
     academyId,
@@ -653,16 +684,31 @@ export const setUserRole = onCall(callableOptions, async (request) => {
     'Apenas superadmin pode promover outro superadmin.',
   );
   assertCondition(
+    actor.role === 'superadmin' || targetUser.role !== 'superadmin',
+    'permission-denied',
+    'Admin nao pode alterar o perfil de um superadmin.',
+  );
+  assertCondition(
     actor.role === 'superadmin' || targetUser.academyId === actor.academyId,
     'permission-denied',
     'Admin so pode alterar perfis da propria academia.',
   );
+  const academyId = normalizeScopedAcademyId(role, targetUser.academyId);
+  assertCondition(
+    role === 'superadmin' || academyId.length > 0,
+    'failed-precondition',
+    'Vincule este usuario a uma unidade antes de definir este perfil.',
+  );
+  if (role !== 'superadmin') {
+    await assertAcademyExists(academyId);
+  }
 
   await db.collection(COLLECTIONS.users).doc(targetUserId).update({
     role,
+    academyId,
     updatedAt: Timestamp.now(),
   });
-  await setClaims(targetUserId, role, targetUser.academyId);
+  await setClaims(targetUserId, role, academyId);
 
   return {
     userId: targetUserId,
@@ -793,15 +839,24 @@ export const validateSessionAccess = onCall(callableOptions, async (request) => 
   const tokenAcademyId = typeof request.auth?.token?.academyId === 'string'
     ? request.auth.token.academyId
     : '';
-  const claimsUpdated = tokenRole !== actor.role || tokenAcademyId !== actor.academyId;
+  const academyId = normalizeScopedAcademyId(actor.role, actor.academyId);
+  const needsUserNormalization = actor.academyId !== academyId;
+  const claimsUpdated = needsUserNormalization || tokenRole !== actor.role || tokenAcademyId !== academyId;
+
+  if (needsUserNormalization) {
+    await db.collection(COLLECTIONS.users).doc(actor.uid).update({
+      academyId,
+      updatedAt: Timestamp.now(),
+    });
+  }
 
   if (claimsUpdated) {
-    await setClaims(actor.uid, actor.role, actor.academyId);
+    await setClaims(actor.uid, actor.role, academyId);
   }
 
   return {
     uid: actor.uid,
-    academyId: actor.academyId,
+    academyId,
     role: actor.role,
     displayName: actor.user.displayName,
     belt: actor.user.belt,

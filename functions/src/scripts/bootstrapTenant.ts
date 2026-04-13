@@ -173,14 +173,14 @@ async function resolveAcademyForBootstrap(userId: string, args: BootstrapArgs): 
   return academyRef.id;
 }
 
-async function upsertUserDocument(userId: string, academyId: string, args: BootstrapArgs): Promise<void> {
+async function upsertUserDocument(userId: string, args: BootstrapArgs): Promise<void> {
   const userRef = db.collection(COLLECTIONS.users).doc(userId);
   const now = Timestamp.now();
   const existing = await userRef.get();
   const current = existing.data() as UserDoc | undefined;
 
   const userDoc: UserDoc = {
-    academyId,
+    academyId: '',
     firstName: args.firstName,
     lastName: args.lastName,
     displayName: `${args.firstName} ${args.lastName}`.trim(),
@@ -234,10 +234,10 @@ async function main(): Promise<void> {
   const userId = await upsertSuperadmin(args.superadminEmail, args.superadminPassword, displayName);
   const academyId = await resolveAcademyForBootstrap(userId, args);
 
-  await upsertUserDocument(userId, academyId, args);
+  await upsertUserDocument(userId, args);
   await auth.setCustomUserClaims(userId, {
     role: 'superadmin',
-    academyId,
+    academyId: '',
   });
 
   console.log(

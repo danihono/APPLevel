@@ -2,7 +2,6 @@ import React, { useEffect, useState } from 'react';
 import { Calendar as CalIcon, Sparkles, Trophy } from 'lucide-react';
 import BjjBelt from '../components/BjjBelt';
 import ProgressBar from '../components/ProgressBar';
-import { getTrainingAdvice } from '../services/geminiService';
 import type { Branch, User } from '../types';
 
 interface HomeViewProps {
@@ -27,9 +26,16 @@ const HomeView: React.FC<HomeViewProps> = ({
     let active = true;
 
     async function fetchAdvice() {
-      const tip = await getTrainingAdvice(user);
-      if (active) {
-        setAdvice(tip);
+      try {
+        const { getTrainingAdvice } = await import('../services/geminiService');
+        const tip = await getTrainingAdvice(user);
+        if (active) {
+          setAdvice(tip);
+        }
+      } catch {
+        if (active) {
+          setAdvice('Mantenha a constancia nos treinos. O segredo esta na repeticao!');
+        }
       }
     }
 

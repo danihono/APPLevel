@@ -1,21 +1,10 @@
-import React, { startTransition, useEffect, useState } from 'react';
+import React, { Suspense, lazy, startTransition, useEffect, useState } from 'react';
 import { CheckCircle, X } from 'lucide-react';
 import type { User as FirebaseUser } from 'firebase/auth';
 import Layout from './components/Layout';
-import CalendarView from './views/CalendarView';
-import CompetitionView from './views/CompetitionView';
-import GamificationView from './views/GamificationView';
-import GraduationView from './views/GraduationView';
 import HomeView from './views/HomeView';
-import LearningHubView from './views/LearningHubView';
 import LoginView from './views/LoginView';
-import ManagementView from './views/ManagementView';
-import NotificationsView from './views/NotificationsView';
-import ProfileView from './views/ProfileView';
 import StaffDashboardView from './views/StaffDashboardView';
-import StoreView from './views/StoreView';
-import SuperadminDashboardView from './views/SuperadminDashboardView';
-import StudentsView from './views/StudentsView';
 import { logout, signInWithEmail, subscribeToAuthState, updateSignedInEmail } from './services/firebase/auth';
 import { toBranch, toUiUser } from './services/firebase/adapters';
 import {
@@ -66,7 +55,20 @@ import type {
 import { UserRole } from './types';
 import { MOCK_PRODUCTS } from './constants';
 
+const CalendarView = lazy(() => import('./views/CalendarView'));
+const CompetitionView = lazy(() => import('./views/CompetitionView'));
+const GamificationView = lazy(() => import('./views/GamificationView'));
+const GraduationView = lazy(() => import('./views/GraduationView'));
+const LearningHubView = lazy(() => import('./views/LearningHubView'));
+const ManagementView = lazy(() => import('./views/ManagementView'));
+const NotificationsView = lazy(() => import('./views/NotificationsView'));
+const ProfileView = lazy(() => import('./views/ProfileView'));
+const StoreView = lazy(() => import('./views/StoreView'));
+const SuperadminDashboardView = lazy(() => import('./views/SuperadminDashboardView'));
+const StudentsView = lazy(() => import('./views/StudentsView'));
+
 const THEME_STORAGE_PREFIX = 'applevel-theme';
+const NETWORK_NAME = 'LEVEL';
 
 function getErrorMessage(error: unknown): string {
   const code = typeof error === 'object' && error && 'code' in error
@@ -160,6 +162,64 @@ function buildLoadingView(message: string) {
   );
 }
 
+function buildInlineLoadingView(message: string) {
+  return (
+    <div className="view-shell">
+      <section className="app-panel app-panel--hero app-panel-pad">
+        <p className="app-section-label">Sincronizando ambiente</p>
+        <h2 className="app-section-title">Quase pronto.</h2>
+        <p className="app-section-copy">
+          {message}
+        </p>
+      </section>
+    </div>
+  );
+}
+
+function buildFallbackAcademy(ownerUserId: string): FirestoreEntity<AcademyRecord> {
+  return {
+    id: '',
+    name: NETWORK_NAME,
+    slug: 'level',
+    ownerUserId,
+    status: 'active',
+    timezone: 'America/Sao_Paulo',
+    classCheckinWindowMinutes: 15,
+    masterBlackLimit: 1,
+  };
+}
+
+function buildMissingAcademyView(onLogout: () => Promise<void>) {
+  return (
+    <div className="app-auth-shell">
+      <div className="app-auth-grid">
+        <section className="app-panel app-panel--hero app-auth-side">
+          <div>
+            <p className="app-section-label">Acesso bloqueado</p>
+            <h1 className="app-section-title">Sua unidade nao esta mais disponivel.</h1>
+            <p className="app-section-copy">
+              Esta conta ainda existe, mas a unidade vinculada foi removida ou perdeu o contexto necessario para abrir o painel.
+            </p>
+          </div>
+        </section>
+
+        <section className="app-panel app-auth-card app-panel-pad text-center">
+          <div className="mx-auto flex items-center justify-center">
+            <img src="/logo3.png" alt="APPLevel" className="h-32 w-32 object-contain" />
+          </div>
+          <h2 className="mt-6 text-2xl font-bold">Revise o acesso desta conta</h2>
+          <p className="mt-3 app-note">
+            Saia e entre novamente depois que um superadmin da LEVEL corrigir a unidade vinculada ao seu cadastro.
+          </p>
+          <button type="button" onClick={() => void onLogout()} className="app-button app-button--gold mt-6 app-button--block">
+            Voltar ao login
+          </button>
+        </section>
+      </div>
+    </div>
+  );
+}
+
 function isSameMonth(value?: { toDate(): Date } | null) {
   if (!value) {
     return false;
@@ -204,6 +264,7 @@ const App: React.FC = () => {
   const [learningProgress, setLearningProgress] = useState<Array<FirestoreEntity<LearningProgressRecord>>>([]);
   const [profileLoading, setProfileLoading] = useState(false);
   const [academyLoading, setAcademyLoading] = useState(false);
+  const [superadminDirectoryLoading, setSuperadminDirectoryLoading] = useState(false);
   const [sessionValidated, setSessionValidated] = useState(false);
   const [sessionError, setSessionError] = useState('');
   const [sessionErrorSource, setSessionErrorSource] = useState('');
@@ -249,22 +310,10 @@ const App: React.FC = () => {
 
   useEffect(() => {
     const unsubscribe = subscribeToAuthState((nextUser) => {
-      const syncSession = async () => {
-        if (nextUser) {
-          try {
-            await nextUser.getIdToken(true);
-          } catch (error) {
-            reportSessionError('auth:getIdToken', error);
-          }
-        }
-
-        startTransition(() => {
-          setAuthUser(nextUser);
-          setAuthReady(true);
-        });
-      };
-
-      void syncSession();
+      startTransition(() => {
+        setAuthUser(nextUser);
+        setAuthReady(true);
+      });
     });
 
     return unsubscribe;
@@ -360,27 +409,30 @@ const App: React.FC = () => {
   }, [authUser]);
 
   useEffect(() => {
-    if (!authUser || !sessionValidated) {
+    if (!authUser || !sessionValidated || !academy) {
       return;
     }
 
     let cancelled = false;
-
-    void backendFunctions.rebuildUserDerivedState({}).catch((error) => {
-      if (!cancelled) {
-        reportSessionError('session:rebuildUserDerivedState', error);
-      }
-    });
+    const timeoutId = window.setTimeout(() => {
+      void backendFunctions.rebuildUserDerivedState({}).catch((error) => {
+        if (!cancelled) {
+          reportSessionError('session:rebuildUserDerivedState', error);
+        }
+      });
+    }, 1200);
 
     return () => {
       cancelled = true;
+      window.clearTimeout(timeoutId);
     };
-  }, [authUser, sessionValidated]);
+  }, [academy, authUser, sessionValidated]);
 
   useEffect(() => {
     if (!profile || !sessionValidated) {
       setAllAcademies([]);
       setAllUsers([]);
+      setSuperadminDirectoryLoading(false);
       return;
     }
 
@@ -388,11 +440,22 @@ const App: React.FC = () => {
       setSelectedAcademyId(profile.academyId);
       setAllAcademies([]);
       setAllUsers([]);
+      setSuperadminDirectoryLoading(false);
       return;
     }
 
+    setSuperadminDirectoryLoading(true);
     const unsubscribers = [
-      subscribeToAcademies(setAllAcademies, (error) => reportSessionError('data:subscribeToAcademies', error)),
+      subscribeToAcademies(
+        (records) => {
+          setAllAcademies(records);
+          setSuperadminDirectoryLoading(false);
+        },
+        (error) => {
+          setSuperadminDirectoryLoading(false);
+          reportSessionError('data:subscribeToAcademies', error);
+        },
+      ),
       subscribeToAllUsers(setAllUsers, (error) => reportSessionError('data:subscribeToAllUsers', error)),
     ];
 
@@ -402,16 +465,28 @@ const App: React.FC = () => {
   }, [profile, sessionValidated]);
 
   useEffect(() => {
-    if (!profile || profile.role !== 'superadmin' || !selectedAcademyId) {
+    if (!profile || profile.role !== 'superadmin' || superadminDirectoryLoading) {
       return;
     }
 
-    if (allAcademies.some((entry) => entry.id === selectedAcademyId)) {
+    if (selectedAcademyId && allAcademies.some((entry) => entry.id === selectedAcademyId)) {
       return;
     }
 
-    setSelectedAcademyId('');
-  }, [allAcademies, profile, selectedAcademyId]);
+    if (selectedAcademyId && !allAcademies.some((entry) => entry.id === selectedAcademyId)) {
+      setSelectedAcademyId('');
+    }
+  }, [allAcademies, profile, selectedAcademyId, superadminDirectoryLoading]);
+
+  useEffect(() => {
+    if (!profile || profile.role !== 'superadmin' || superadminDirectoryLoading) {
+      return;
+    }
+
+    if (allAcademies.length === 0) {
+      setActiveTab('management');
+    }
+  }, [allAcademies.length, profile, superadminDirectoryLoading]);
 
   useEffect(() => {
     if (!profile || !sessionValidated) {
@@ -484,15 +559,84 @@ const App: React.FC = () => {
       return;
     }
 
-    const scopedAcademyId = profile.role === 'superadmin'
-      ? (selectedAcademyId || profile.academyId)
-      : profile.academyId;
+    if (profile.role === 'superadmin') {
+      if (!selectedAcademyId) {
+        setAcademy(null);
+        setAcademyLoading(false);
+        setClasses([]);
+        setAcademyUsers([]);
+        setAttendances([]);
+        setRankings([]);
+        setMissions([]);
+        setGraduations([]);
+        setCompetitions([]);
+        setFights([]);
+        return;
+      }
+
+      if (!allAcademies.some((entry) => entry.id === selectedAcademyId)) {
+        setAcademy(null);
+        setAcademyLoading(false);
+        setClasses([]);
+        setAcademyUsers([]);
+        setAttendances([]);
+        setRankings([]);
+        setMissions([]);
+        setGraduations([]);
+        setCompetitions([]);
+        setFights([]);
+        return;
+      }
+
+      setAcademyLoading(true);
+
+      const unsubscribers = [
+        subscribeToAcademy(
+          selectedAcademyId,
+          (record) => {
+            setAcademy(record);
+            setAcademyLoading(false);
+          },
+          (error) => {
+            setAcademyLoading(false);
+            reportSessionError('data:subscribeToAcademy', error);
+          },
+        ),
+        subscribeToAcademyClasses(selectedAcademyId, setClasses, (error) => reportSessionError('data:subscribeToAcademyClasses', error)),
+        subscribeToRankings(selectedAcademyId, setRankings, (error) => reportSessionError('data:subscribeToRankings', error)),
+        subscribeToCompetitions(selectedAcademyId, setCompetitions, (error) => reportSessionError('data:subscribeToCompetitions', error)),
+        subscribeToAcademyUsers(selectedAcademyId, setAcademyUsers, (error) => reportSessionError('data:subscribeToAcademyUsers', error)),
+      ];
+
+      setAttendances([]);
+      setMissions([]);
+      setGraduations([]);
+      setFights([]);
+
+      return () => {
+        unsubscribers.forEach((unsubscribe) => unsubscribe());
+      };
+    }
+
+    if (!profile.academyId) {
+      setAcademy(null);
+      setAcademyLoading(false);
+      setClasses([]);
+      setAcademyUsers([]);
+      setAttendances([]);
+      setRankings([]);
+      setMissions([]);
+      setGraduations([]);
+      setCompetitions([]);
+      setFights([]);
+      return;
+    }
 
     setAcademyLoading(true);
 
     const unsubscribers = [
       subscribeToAcademy(
-        scopedAcademyId,
+        profile.academyId,
         (record) => {
           setAcademy(record);
           setAcademyLoading(false);
@@ -502,18 +646,18 @@ const App: React.FC = () => {
           reportSessionError('data:subscribeToAcademy', error);
         },
       ),
-      subscribeToAcademyClasses(scopedAcademyId, setClasses, (error) => reportSessionError('data:subscribeToAcademyClasses', error)),
+      subscribeToAcademyClasses(profile.academyId, setClasses, (error) => reportSessionError('data:subscribeToAcademyClasses', error)),
       subscribeToUserAttendances(profile.academyId, profile.id, setAttendances, (error) => reportSessionError('data:subscribeToUserAttendances', error)),
-      subscribeToRankings(scopedAcademyId, setRankings, (error) => reportSessionError('data:subscribeToRankings', error)),
+      subscribeToRankings(profile.academyId, setRankings, (error) => reportSessionError('data:subscribeToRankings', error)),
       subscribeToUserMissions(profile.academyId, profile.id, setMissions, (error) => reportSessionError('data:subscribeToUserMissions', error)),
       subscribeToUserGraduations(profile.academyId, profile.id, setGraduations, (error) => reportSessionError('data:subscribeToUserGraduations', error)),
-      subscribeToCompetitions(scopedAcademyId, setCompetitions, (error) => reportSessionError('data:subscribeToCompetitions', error)),
+      subscribeToCompetitions(profile.academyId, setCompetitions, (error) => reportSessionError('data:subscribeToCompetitions', error)),
       subscribeToUserFights(profile.academyId, profile.id, setFights, (error) => reportSessionError('data:subscribeToUserFights', error)),
     ];
 
     if (profile.role !== 'student') {
       unsubscribers.push(
-        subscribeToAcademyUsers(scopedAcademyId, setAcademyUsers, (error) => reportSessionError('data:subscribeToAcademyUsers', error)),
+        subscribeToAcademyUsers(profile.academyId, setAcademyUsers, (error) => reportSessionError('data:subscribeToAcademyUsers', error)),
       );
     } else {
       setAcademyUsers([]);
@@ -522,7 +666,16 @@ const App: React.FC = () => {
     return () => {
       unsubscribers.forEach((unsubscribe) => unsubscribe());
     };
-  }, [profile, selectedAcademyId, sessionValidated]);
+  }, [allAcademies, profile, selectedAcademyId, sessionValidated, superadminDirectoryLoading]);
+
+  useEffect(() => {
+    if (!profile || profile.role === 'superadmin' || !sessionValidated || academyLoading || academy) {
+      return;
+    }
+
+    setSessionError('A unidade vinculada a esta conta nao existe mais. Saia e entre novamente depois que a LEVEL corrigir o acesso.');
+    setSessionErrorSource('session:academyMissing');
+  }, [academy, academyLoading, profile, sessionValidated]);
 
   useEffect(() => {
     if (!profile || !sessionValidated || activeTab !== 'learning') {
@@ -744,7 +897,9 @@ const App: React.FC = () => {
     masterBlackLimit?: number;
   }) {
     try {
-      await backendFunctions.createAcademy(payload);
+      const createdAcademy = await backendFunctions.createAcademy(payload);
+      setSelectedAcademyId(createdAcademy.academyId);
+      return createdAcademy;
     } catch (error) {
       throw new Error(getErrorMessage(error));
     }
@@ -965,14 +1120,6 @@ const App: React.FC = () => {
     return buildLoadingView('Carregando perfil, academia e permissoes.');
   }
 
-  if (!sessionValidated) {
-    return buildLoadingView('Sincronizando permissoes da sua sessao.');
-  }
-
-  if (academyLoading || !academy) {
-    return buildLoadingView('Carregando perfil, academia e permissoes.');
-  }
-
   const currentUser = toUiUser({
     id: profile.id,
     user: profile,
@@ -984,10 +1131,59 @@ const App: React.FC = () => {
     currentUser.role === UserRole.PROFESSOR ||
     currentUser.role === UserRole.ADMIN ||
     currentUser.role === UserRole.SUPERADMIN;
-  const branch = toBranch(academy);
+  const isFirstAcademySetup = isSuperAdmin && !superadminDirectoryLoading && allAcademies.length === 0;
+  const hasFocusedAcademy = Boolean(selectedAcademyId) && allAcademies.some((entry) => entry.id === selectedAcademyId);
+  const bootstrapMessage = !sessionValidated
+    ? 'Sincronizando permissoes da sua sessao.'
+    : 'Carregando perfil, academia e permissoes.';
+  const hasRequiredAcademyContext = isSuperAdmin ? true : Boolean(academy);
+  const isBootstrapPending = !sessionValidated || superadminDirectoryLoading || (!isSuperAdmin && (academyLoading || !hasRequiredAcademyContext));
+  const mobileUnitLabel = isSuperAdmin
+    ? (
+      selectedAcademyId
+        ? (allAcademies.find((entry) => entry.id === selectedAcademyId)?.name ?? academy?.name ?? 'Academia em foco')
+        : (isFirstAcademySetup ? 'Sem academias' : 'Toda a rede')
+    )
+    : (academy?.name ?? 'Sincronizando unidade');
+  const isMissingRequiredAcademy = !isSuperAdmin && sessionValidated && !academyLoading && !academy;
+
+  if (isBootstrapPending) {
+    return (
+      <>
+        {sessionError ? (
+          <div className="fixed top-24 left-4 right-4 z-[70] mx-auto max-w-lg">
+            <div className="app-toast text-sm">
+              <div>{sessionError}</div>
+              {import.meta.env.DEV && sessionErrorSource ? (
+                <div className="mt-1 text-xs opacity-80">{sessionErrorSource}</div>
+              ) : null}
+            </div>
+          </div>
+        ) : null}
+
+        <Layout
+          activeTab={activeTab}
+          setActiveTab={setActiveTab}
+          userRole={currentUser.role}
+          mobileUnitLabel={mobileUnitLabel}
+          isDarkMode={isDarkMode}
+          onSetThemeMode={setThemeMode}
+        >
+          {buildInlineLoadingView(bootstrapMessage)}
+        </Layout>
+      </>
+    );
+  }
+
+  if (isMissingRequiredAcademy) {
+    return buildMissingAcademyView(handleLogout);
+  }
+
+  const resolvedAcademy = academy ?? buildFallbackAcademy(profile.id);
+  const branch = toBranch(resolvedAcademy);
   const attendanceThisMonth = attendances.filter((attendance) => isSameMonth(attendance.checkedInAt));
   const attendanceDays = [...new Set(attendanceThisMonth.map((attendance) => attendance.checkedInAt?.toDate().getDate()).filter(Boolean))] as number[];
-  const rankingEntry = isSuperAdmin && academy.id !== profile.academyId
+  const rankingEntry = isSuperAdmin && resolvedAcademy.id !== profile.academyId
     ? null
     : rankings.find((entry) => entry.userId === profile.id);
   const students = academyUsers
@@ -1011,15 +1207,30 @@ const App: React.FC = () => {
   const focusedLearningAcademy = selectedAcademyId
     ? (allAcademies.find((entry) => entry.id === selectedAcademyId) ?? null)
     : null;
-  const mobileUnitLabel = isSuperAdmin
-    ? (
-      selectedAcademyId
-        ? (allAcademies.find((entry) => entry.id === selectedAcademyId)?.name ?? academy.name)
-        : 'Toda a rede'
-    )
-    : academy.name;
 
   const renderContent = () => {
+    if (isFirstAcademySetup) {
+      return (
+        <ManagementView
+          userRole={currentUser.role}
+          academy={resolvedAcademy}
+          classes={classes}
+          academyUsers={academyUsers}
+          academies={allAcademies}
+          allUsers={allUsers}
+          selectedAcademyId={selectedAcademyId}
+          onSelectAcademy={setSelectedAcademyId}
+          focusSection={managementFocusSection}
+          onFocusSectionHandled={() => setManagementFocusSection(null)}
+          onUpdateAcademy={handleUpdateAcademy}
+          onCreateAcademy={handleCreateAcademy}
+          onCreateUser={handleCreateUser}
+          onSaveProgressionRules={handleSaveProgressionRules}
+          onUpdateStudentBeltGrade={handleUpdateStudentBeltGrade}
+        />
+      );
+    }
+
     switch (activeTab) {
       case 'home':
         return isSuperAdmin
@@ -1040,7 +1251,7 @@ const App: React.FC = () => {
           : isStaff ? (
             <StaffDashboardView
               user={currentUser}
-              academy={academy}
+              academy={resolvedAcademy}
               academyUsers={academyUsers}
               classes={classes}
               notifications={notifications}
@@ -1085,17 +1296,26 @@ const App: React.FC = () => {
           <GraduationView
             user={currentUser}
             profile={profile}
-            academy={academy}
+            academy={resolvedAcademy}
             graduations={graduations}
           />
         );
       case 'students':
-        return <StudentsView students={students} academyName={academy.name} />;
+        return (
+          <StudentsView
+            students={students}
+            academyName={hasFocusedAcademy ? (allAcademies.find((entry) => entry.id === selectedAcademyId)?.name ?? resolvedAcademy.name) : undefined}
+            academies={allAcademies.map((entry) => ({ id: entry.id, name: entry.name }))}
+            selectedAcademyId={selectedAcademyId}
+            onSelectAcademy={setSelectedAcademyId}
+            requireAcademySelection={isSuperAdmin}
+          />
+        );
       case 'management':
         return (
           <ManagementView
             userRole={currentUser.role}
-            academy={academy}
+            academy={resolvedAcademy}
             classes={classes}
             academyUsers={academyUsers}
             academies={allAcademies}
@@ -1114,7 +1334,7 @@ const App: React.FC = () => {
       case 'notifications':
         return (
           <NotificationsView
-            academy={academy}
+            academy={resolvedAcademy}
             userRole={currentUser.role}
             currentUserId={currentUser.id}
             academyUsers={academyUsers}
@@ -1137,7 +1357,7 @@ const App: React.FC = () => {
       case 'learning':
         return (
           <LearningHubView
-            academyName={academy.name}
+            academyName={resolvedAcademy.name}
             userName={currentUser.name}
             userRole={currentUser.role}
             selectedAcademyId={selectedAcademyId}
@@ -1183,7 +1403,7 @@ const App: React.FC = () => {
             profile={profile}
             totalClasses={profile.attendanceCount}
             rankingPosition={rankingEntry?.position ?? null}
-            academyName={academy.name}
+            academyName={isSuperAdmin ? NETWORK_NAME : resolvedAcademy.name}
             attendanceRate={attendanceRate}
             attendances={attendances}
             classNameById={classNameById}
@@ -1345,7 +1565,9 @@ const App: React.FC = () => {
         isDarkMode={isDarkMode}
         onSetThemeMode={setThemeMode}
       >
-        {renderContent()}
+        <Suspense fallback={buildInlineLoadingView('Carregando esta area do APPLevel.')}>
+          {renderContent()}
+        </Suspense>
       </Layout>
     </>
   );
