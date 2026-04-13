@@ -6,18 +6,18 @@
   --bg: #edf0f8;
   --bg-deep: #e2e8f3;
   --bg-contrast: #d4deed;
-  --surface: rgba(255, 255, 255, 0.52);
-  --surface-strong: rgba(255, 255, 255, 0.76);
-  --surface-solid: rgba(249, 250, 253, 0.96);
-  --surface-pressed: rgba(255, 255, 255, 0.9);
-  --toolbar-bg: rgba(255, 255, 255, 0.62);
-  --toolbar-plate: rgba(247, 248, 251, 0.92);
-  --border: rgba(255, 255, 255, 0.64);
-  --border-strong: rgba(17, 17, 24, 0.08);
-  --divider: rgba(17, 17, 24, 0.08);
-  --text-strong: #111116;
-  --text-muted: #5e6070;
-  --text-soft: #8b8fa0;
+  --surface: rgba(255, 255, 255, 0.7);
+  --surface-strong: rgba(255, 255, 255, 0.9);
+  --surface-solid: rgba(249, 250, 253, 0.98);
+  --surface-pressed: rgba(255, 255, 255, 0.94);
+  --toolbar-bg: rgba(255, 255, 255, 0.8);
+  --toolbar-plate: rgba(247, 248, 251, 0.96);
+  --border: rgba(255, 255, 255, 0.74);
+  --border-strong: rgba(17, 17, 24, 0.12);
+  --divider: rgba(17, 17, 24, 0.12);
+  --text-strong: #10131a;
+  --text-muted: #434c5f;
+  --text-soft: #606a7f;
   --shadow-panel: 0 28px 80px rgba(15, 18, 33, 0.12), 0 12px 30px rgba(15, 18, 33, 0.08);
   --shadow-soft: 0 16px 40px rgba(15, 18, 33, 0.08);
   --gold-dark: #533517;
@@ -112,6 +112,38 @@ body::after {
   animation: grain-shift 18s steps(6) infinite;
 }
 
+html:not(.dark) .text-gray-300 {
+  color: #7f899a;
+}
+
+html:not(.dark) .text-gray-400 {
+  color: #667084;
+}
+
+html:not(.dark) .text-gray-500 {
+  color: #4c5668;
+}
+
+html:not(.dark) .text-gray-600 {
+  color: #374151;
+}
+
+html:not(.dark) .bg-white\/5 {
+  background-color: rgba(85, 96, 118, 0.06);
+}
+
+html:not(.dark) .bg-white\/10 {
+  background-color: rgba(85, 96, 118, 0.1);
+}
+
+html:not(.dark) .border-white\/5 {
+  border-color: rgba(85, 96, 118, 0.1);
+}
+
+html:not(.dark) .border-white\/10 {
+  border-color: rgba(85, 96, 118, 0.14);
+}
+
 ::selection {
   background: rgba(232, 175, 72, 0.3);
   color: var(--text-strong);
@@ -123,6 +155,7 @@ h3,
 h4,
 h5,
 h6 {
+  color: var(--text-strong);
   font-family: var(--font-display);
   letter-spacing: -0.03em;
   margin: 0;
@@ -499,6 +532,10 @@ html.dark .app-mobile-header__eyebrow {
     linear-gradient(140deg, rgba(255, 255, 255, 0.28), transparent 36%),
     linear-gradient(340deg, rgba(232, 175, 72, 0.12), transparent 42%);
   pointer-events: none;
+  opacity: 0.68;
+}
+
+html.dark .app-panel::before {
   opacity: 0.95;
 }
 
@@ -509,7 +546,7 @@ html.dark .app-mobile-header__eyebrow {
 
 .app-panel--hero {
   background:
-    linear-gradient(135deg, rgba(254, 249, 232, 0.88), rgba(255, 255, 255, 0.64) 40%, rgba(220, 223, 234, 0.42) 100%);
+    linear-gradient(135deg, rgba(254, 249, 232, 0.92), rgba(255, 255, 255, 0.82) 40%, rgba(220, 223, 234, 0.56) 100%);
   border-color: rgba(232, 175, 72, 0.24);
 }
 
@@ -524,7 +561,7 @@ html.dark .app-panel--hero {
 
 .app-panel--tint {
   background:
-    linear-gradient(145deg, rgba(232, 175, 72, 0.15), rgba(255, 255, 255, 0.7) 42%, rgba(232, 175, 72, 0.08) 100%);
+    linear-gradient(145deg, rgba(232, 175, 72, 0.16), rgba(255, 255, 255, 0.82) 42%, rgba(232, 175, 72, 0.1) 100%);
   border-color: rgba(232, 175, 72, 0.22);
 }
 
@@ -920,7 +957,7 @@ html.dark .app-stat-card {
 }
 
 .app-stat-card__label {
-  color: var(--text-soft);
+  color: var(--text-muted);
   font-size: 0.68rem;
   font-weight: 800;
   letter-spacing: 0.24em;
@@ -981,9 +1018,9 @@ html.dark .app-stat-card {
 }
 
 .app-badge--muted {
-  background: rgba(127, 127, 147, 0.12);
-  border-color: rgba(127, 127, 147, 0.14);
-  color: var(--text-soft);
+  background: rgba(96, 106, 127, 0.12);
+  border-color: rgba(96, 106, 127, 0.2);
+  color: var(--text-muted);
 }
 
 .app-button {
@@ -1190,7 +1227,7 @@ html.dark .app-segment {
   border-radius: 1rem;
   border: 1px solid transparent;
   background: transparent;
-  color: var(--text-soft);
+  color: var(--text-muted);
   font-size: 0.9rem;
   font-weight: 800;
   transition: transform 240ms cubic-bezier(0.34, 1.2, 0.64, 1), color 220ms ease, background 220ms ease, border-color 220ms ease;
@@ -1335,7 +1372,8 @@ html.dark .app-textarea {
 
 .app-input::placeholder,
 .app-textarea::placeholder {
-  color: var(--text-soft);
+  color: var(--text-muted);
+  opacity: 0.88;
 }
 
 .app-input:focus,
@@ -1366,7 +1404,7 @@ html.dark .app-textarea {
   padding: 1.15rem;
   border-radius: 1.6rem;
   border: 1px solid var(--border);
-  background: linear-gradient(170deg, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0.08));
+  background: linear-gradient(170deg, rgba(255, 255, 255, 0.34), rgba(255, 255, 255, 0.16));
   box-shadow: var(--shadow-soft);
   transition: transform 220ms cubic-bezier(0.34, 1.2, 0.64, 1), border-color 220ms ease;
 }
@@ -1410,7 +1448,7 @@ html.dark .app-list-card {
   border: 1px dashed var(--border-strong);
   color: var(--text-muted);
   text-align: center;
-  background: rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.28);
 }
 
 html.dark .app-empty {
