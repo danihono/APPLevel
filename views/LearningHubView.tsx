@@ -271,7 +271,7 @@ const LearningHubView: React.FC<LearningHubViewProps> = (props) => {
   } = props;
 
   const isSuperAdmin = userRole === UserRole.SUPERADMIN;
-  const isProfessorRole = userRole === UserRole.PROFESSOR || userRole === UserRole.ADMIN;
+  const isProfessorRole = userRole === UserRole.PROFESSOR;
   const firstName = userName.split(' ')[0] ?? userName;
   const publishedTracks = useMemo(() => sortByOrder(tracks.filter((track) => track.status === 'published')), [tracks]);
   const publishedCourses = useMemo(() => sortByOrder(courses.filter((course) => course.status === 'published')), [courses]);

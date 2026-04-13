@@ -32,7 +32,7 @@ interface ProfileViewProps {
 function roleLabel(role: UserRecord['role']) {
   switch (role) {
     case 'admin':
-      return 'Head Coach';
+      return 'Professor';
     case 'professor':
       return 'Instrutor';
     case 'superadmin':

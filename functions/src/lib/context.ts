@@ -12,6 +12,10 @@ export interface RequestContext {
   user: UserDoc;
 }
 
+function normalizeRole(role: Role): Role {
+  return role === 'admin' ? 'professor' : role;
+}
+
 function hasRole(role: string): role is Role {
   return ROLE_ORDER.includes(role as Role);
 }
@@ -43,18 +47,22 @@ export async function getRequestContext(
 
   const user = await getUserDoc(uid);
   assertCondition(hasRole(user.role), 'failed-precondition', 'O perfil do usuario esta sem role valida.');
-  ensureMinimumRole(user.role, minimumRole);
+  const role = normalizeRole(user.role);
+  ensureMinimumRole(role, normalizeRole(minimumRole));
   assertCondition(
-    user.role === 'superadmin' || user.academyId.trim().length > 0,
+    role === 'superadmin' || user.academyId.trim().length > 0,
     'failed-precondition',
     'O usuario precisa estar vinculado a uma academia.',
   );
+  const normalizedUser = role === user.role
+    ? user
+    : { ...user, role };
 
   return {
     uid,
-    role: user.role,
+    role,
     academyId: user.academyId,
-    user,
+    user: normalizedUser,
   };
 }
 

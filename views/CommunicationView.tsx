@@ -14,7 +14,7 @@ interface CommunicationViewProps {
     title: string;
     body: string;
     academyId?: string;
-    targetRole?: 'student' | 'professor' | 'admin' | 'superadmin';
+    targetRole?: 'student' | 'professor' | 'superadmin';
     targetBelt?: string;
   }) => Promise<void>;
   onMarkRead: (notificationId: string) => Promise<void>;
@@ -39,7 +39,6 @@ const CommunicationView: React.FC<CommunicationViewProps> = ({
 }) => {
   const isStaff =
     userRole === UserRole.PROFESSOR ||
-    userRole === UserRole.ADMIN ||
     userRole === UserRole.SUPERADMIN;
 
   const [title, setTitle] = useState('');
@@ -66,7 +65,7 @@ const CommunicationView: React.FC<CommunicationViewProps> = ({
         title,
         body,
         academyId: userRole === UserRole.SUPERADMIN ? selectedAcademyId : undefined,
-        targetRole: targetRole ? (targetRole as 'student' | 'professor' | 'admin' | 'superadmin') : undefined,
+        targetRole: targetRole ? (targetRole as 'student' | 'professor' | 'superadmin') : undefined,
         targetBelt: targetBelt || undefined,
       });
       setTitle('');
@@ -163,7 +162,6 @@ const CommunicationView: React.FC<CommunicationViewProps> = ({
                 <option value="">Toda a academia</option>
                 <option value="student">Alunos</option>
                 <option value="professor">Professores</option>
-                <option value="admin">Admins</option>
                 {userRole === UserRole.SUPERADMIN ? <option value="superadmin">Fundadores</option> : null}
               </select>
             </label>

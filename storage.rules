@@ -23,7 +23,7 @@ service firebase.storage {
     }
 
     function isAdmin() {
-      return signedIn() && role() == 'admin';
+      return signedIn() && (role() == 'admin' || role() == 'professor');
     }
 
     function isProfessor() {
@@ -50,7 +50,7 @@ service firebase.storage {
     match /users/{userId}/{allPaths=**} {
       // Fotos de perfil sao semi-publicas dentro do app (visivel para colegas autenticados)
       allow read: if signedIn();
-      // Escrita restrita ao proprio usuario ou superadmin — professor/admin nao pode alterar arquivos de usuarios de outras academias
+      // Escrita restrita ao proprio usuario ou superadmin; a equipe da unidade nao altera arquivos de outras academias
       allow write: if isSelf(userId) || isSuperAdmin();
     }
   }

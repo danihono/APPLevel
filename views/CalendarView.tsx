@@ -140,7 +140,6 @@ const CalendarView: React.FC<CalendarViewProps> = ({
 }) => {
   const isStaff =
     userRole === UserRole.PROFESSOR ||
-    userRole === UserRole.ADMIN ||
     userRole === UserRole.SUPERADMIN;
 
   const today = useMemo(() => strip(new Date()), []);
@@ -347,7 +346,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
   const canManageSelected =
     isStaff &&
     selectedClass &&
-    (userRole === UserRole.ADMIN || userRole === UserRole.SUPERADMIN || selectedClass.professorId === currentUserId);
+    (userRole === UserRole.PROFESSOR || userRole === UserRole.SUPERADMIN || selectedClass.professorId === currentUserId);
   const pendingRequest = selectedClass
     ? attendanceRequests.find((r) => r.classId === selectedClass.id && r.status === 'pending')
     : null;

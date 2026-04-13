@@ -134,9 +134,9 @@ export const registerAttendance = onCall(callableOptions, async (request) => {
   const checkInMethod = targetUserId === actor.uid ? (qrToken ? 'qr' : 'manual') : 'manual';
 
   assertCondition(
-    targetUserId === actor.uid || actor.role === 'professor' || actor.role === 'admin' || actor.role === 'superadmin',
+    targetUserId === actor.uid || actor.role === 'professor' || actor.role === 'superadmin',
     'permission-denied',
-    'Somente professores e admins podem lancar presenca para terceiros.',
+    'Somente professores da unidade ou o superadmin podem lancar presenca para terceiros.',
   );
   assertCondition(
     actor.role !== 'student' || checkInMethod === 'qr',
@@ -254,9 +254,9 @@ export const submitAttendanceRequest = onCall(callableOptions, async (request) =
 export const approveAttendanceRequest = onCall(callableOptions, async (request) => {
   const actor = await getRequestContext(request, 'professor');
   assertCondition(
-    actor.role === 'professor' || actor.role === 'admin' || actor.role === 'superadmin',
+    actor.role === 'professor' || actor.role === 'superadmin',
     'permission-denied',
-    'Somente professor, admin ou superadmin podem aprovar solicitacoes de presenca.',
+    'Somente professor ou superadmin podem aprovar solicitacoes de presenca.',
   );
   const requestId = requiredString(request.data, 'requestId');
   const requestRef = db.collection(COLLECTIONS.attendanceRequests).doc(requestId);
@@ -270,12 +270,6 @@ export const approveAttendanceRequest = onCall(callableOptions, async (request) 
     'permission-denied',
     'Somente a equipe da mesma academia pode aprovar esta solicitacao.',
   );
-  assertCondition(
-    actor.role === 'superadmin' || actor.role === 'admin' || actor.uid === attendanceRequest.professorId,
-    'permission-denied',
-    'Somente o professor da aula, um admin da unidade ou o superadmin podem aprovar esta solicitacao.',
-  );
-
   const [classSnap, targetUser] = await Promise.all([
     db.collection(COLLECTIONS.classes).doc(attendanceRequest.classId).get(),
     getUserDoc(attendanceRequest.userId),
@@ -332,9 +326,9 @@ export const approveAttendanceRequest = onCall(callableOptions, async (request) 
 export const rejectAttendanceRequest = onCall(callableOptions, async (request) => {
   const actor = await getRequestContext(request, 'professor');
   assertCondition(
-    actor.role === 'professor' || actor.role === 'admin' || actor.role === 'superadmin',
+    actor.role === 'professor' || actor.role === 'superadmin',
     'permission-denied',
-    'Somente professor, admin ou superadmin podem rejeitar solicitacoes de presenca.',
+    'Somente professor ou superadmin podem rejeitar solicitacoes de presenca.',
   );
   const requestId = requiredString(request.data, 'requestId');
   const requestRef = db.collection(COLLECTIONS.attendanceRequests).doc(requestId);
@@ -348,12 +342,6 @@ export const rejectAttendanceRequest = onCall(callableOptions, async (request) =
     'permission-denied',
     'Somente a equipe da mesma academia pode rejeitar esta solicitacao.',
   );
-  assertCondition(
-    actor.role === 'superadmin' || actor.role === 'admin' || actor.uid === attendanceRequest.professorId,
-    'permission-denied',
-    'Somente o professor da aula, um admin da unidade ou o superadmin podem rejeitar esta solicitacao.',
-  );
-
   await requestRef.update({
     status: 'rejected',
     reviewedAt: Timestamp.now(),

@@ -155,7 +155,7 @@ export const markNotificationRead = onCall(callableOptions, async (request) => {
   assertCondition(notificationSnap.exists, 'not-found', 'Notificação não encontrada.');
   const notification = notificationSnap.data() as NotificationDoc;
   assertCondition(
-    notification.recipientUserId === actor.uid || actor.role === 'admin' || actor.role === 'superadmin',
+    notification.recipientUserId === actor.uid || actor.role === 'professor' || actor.role === 'superadmin',
     'permission-denied',
     'Você não pode marcar esta notificação.',
   );

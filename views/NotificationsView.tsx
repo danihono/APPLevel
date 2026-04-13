@@ -30,7 +30,7 @@ interface NotificationsViewProps {
     body: string;
     academyId?: string;
     channel?: NotificationChannel;
-    targetRole?: 'student' | 'professor' | 'admin' | 'superadmin';
+    targetRole?: 'student' | 'professor' | 'superadmin';
     targetBelt?: string;
   }) => Promise<void>;
   onMarkRead: (notificationId: string) => Promise<void>;
@@ -66,7 +66,7 @@ function formatStamp(value?: { toDate(): Date } | null) {
 function roleLabel(value: UserRecord['role']) {
   switch (value) {
     case 'admin':
-      return 'Head Coach';
+      return 'Professor';
     case 'professor':
       return 'Instrutor';
     case 'superadmin':
@@ -124,7 +124,6 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
   const [processingRequestId, setProcessingRequestId] = useState<string | null>(null);
   const canBroadcast =
     userRole === UserRole.PROFESSOR ||
-    userRole === UserRole.ADMIN ||
     userRole === UserRole.SUPERADMIN;
   const focusedAcademyName = isSuperAdmin
     ? (selectedAcademyId
@@ -218,7 +217,7 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
         body,
         academyId: isSuperAdmin ? (selectedAcademyId || undefined) : academy.id,
         channel,
-        targetRole: targetRole ? (targetRole as 'student' | 'professor' | 'admin' | 'superadmin') : undefined,
+        targetRole: targetRole ? (targetRole as 'student' | 'professor' | 'superadmin') : undefined,
         targetBelt: targetBelt || undefined,
       });
       setTitle('');
@@ -438,7 +437,6 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
                     <option value="">Toda a academia</option>
                     <option value="student">Alunos</option>
                     <option value="professor">Professores</option>
-                    <option value="admin">Admins</option>
                     {userRole === UserRole.SUPERADMIN ? <option value="superadmin">Superadmin</option> : null}
                   </select>
                 </label>
@@ -561,7 +559,7 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
                   </button>
                 </div>
               ) : (
-                <div className="mt-5 app-empty">Somente professor, admin ou superadmin podem agir sobre esta solicitacao.</div>
+                <div className="mt-5 app-empty">Somente professor ou superadmin podem agir sobre esta solicitacao.</div>
               )}
             </article>
           ))}

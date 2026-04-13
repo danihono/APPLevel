@@ -58,7 +58,6 @@ interface AcademyRow {
 const roleBreakdownConfig = [
   { role: 'student', label: 'Alunos' },
   { role: 'professor', label: 'Professores' },
-  { role: 'admin', label: 'Admins' },
   { role: 'superadmin', label: 'Superadmins' },
 ] as const;
 
@@ -74,7 +73,7 @@ const beltBreakdownConfig = [
 function isMasterBlack(user: FirestoreEntity<UserRecord>) {
   const belt = user.belt.trim().toLowerCase();
   const isBlack = belt === 'black' || belt === 'preta';
-  const isLeader = user.role === 'professor' || user.role === 'admin' || user.role === 'superadmin';
+  const isLeader = user.role === 'professor' || user.role === 'superadmin';
   return isBlack && isLeader;
 }
 

@@ -34,8 +34,13 @@ type SignupAcademySummary = {
   timezone: string;
 };
 
+function normalizeManagedRole(role: Role): Role {
+  return role === 'admin' ? 'professor' : role;
+}
+
 function normalizeScopedAcademyId(role: Role, academyId?: string | null): string {
-  if (role === 'superadmin') {
+  const normalizedRole = normalizeManagedRole(role);
+  if (normalizedRole === 'superadmin') {
     return '';
   }
 
@@ -48,9 +53,10 @@ async function assertAcademyExists(academyId: string): Promise<void> {
 }
 
 async function setClaims(uid: string, role: Role, academyId: string): Promise<void> {
+  const normalizedRole = normalizeManagedRole(role);
   await auth.setCustomUserClaims(uid, {
-    role,
-    academyId: normalizeScopedAcademyId(role, academyId),
+    role: normalizedRole,
+    academyId: normalizeScopedAcademyId(normalizedRole, academyId),
   });
 }
 
@@ -104,9 +110,9 @@ function assertProfessorOrSuperadmin(actorRole: Role): void {
 
 function assertRequestApproverRole(actorRole: Role): void {
   assertCondition(
-    actorRole === 'professor' || actorRole === 'admin' || actorRole === 'superadmin',
+    actorRole === 'professor' || actorRole === 'superadmin',
     'permission-denied',
-    'Somente professor, admin ou superadmin podem executar esta acao.',
+    'Somente professor ou superadmin podem executar esta acao.',
   );
 }
 
@@ -423,7 +429,7 @@ export const createAcademy = onCall(callableOptions, async (request) => {
 
   if (ownerUserId) {
     const owner = await getUserDoc(ownerUserId);
-    const nextRole: Role = owner.role === 'superadmin' ? owner.role : 'admin';
+    const nextRole: Role = owner.role === 'superadmin' ? owner.role : 'professor';
     const nextAcademyId = normalizeScopedAcademyId(nextRole, academyRef.id);
 
     await db.collection(COLLECTIONS.users).doc(ownerUserId).update({
@@ -462,6 +468,7 @@ export const createUserWithRole = onCall(callableOptions, async (request) => {
 
   assertCondition(ROLE_ORDER.includes(requestedRole), 'invalid-argument', 'Role invalida.');
   assertCondition(requestedRole !== 'student', 'invalid-argument', 'Cadastros de aluno devem usar o fluxo de solicitacao.');
+  assertCondition(requestedRole !== 'admin', 'invalid-argument', 'Use professor no lugar de admin. Este perfil deixou de existir.');
   assertCondition(
     requestedRole === 'superadmin' || academyId.length > 0,
     'invalid-argument',
@@ -637,7 +644,7 @@ export const rejectJoinRequest = onCall(callableOptions, async (request) => {
 });
 
 export const assignUserToAcademy = onCall(callableOptions, async (request) => {
-  const actor = await getRequestContext(request, 'admin');
+  const actor = await getRequestContext(request, 'professor');
   const targetUserId = requiredString(request.data, 'userId');
   const academyId = requiredString(request.data, 'academyId');
   const targetUser = await getUserDoc(targetUserId);
@@ -645,12 +652,12 @@ export const assignUserToAcademy = onCall(callableOptions, async (request) => {
   assertCondition(
     actor.role === 'superadmin' || academyId === actor.academyId,
     'permission-denied',
-    'Admin so pode vincular usuarios a propria academia.',
+    'Professor so pode vincular usuarios a propria unidade.',
   );
   assertCondition(
     actor.role === 'superadmin' || targetUser.role !== 'superadmin',
     'permission-denied',
-    'Admin nao pode alterar o vinculo de um superadmin.',
+    'Professor nao pode alterar o vinculo de um superadmin.',
   );
   assertCondition(
     targetUser.role !== 'superadmin',
@@ -672,12 +679,13 @@ export const assignUserToAcademy = onCall(callableOptions, async (request) => {
 });
 
 export const setUserRole = onCall(callableOptions, async (request) => {
-  const actor = await getRequestContext(request, 'admin');
+  const actor = await getRequestContext(request, 'professor');
   const targetUserId = requiredString(request.data, 'userId');
   const role = requiredString(request.data, 'role') as Role;
   const targetUser = await getUserDoc(targetUserId);
 
   assertCondition(ROLE_ORDER.includes(role), 'invalid-argument', 'Role invalida.');
+  assertCondition(role !== 'admin', 'invalid-argument', 'Use professor no lugar de admin. Este perfil deixou de existir.');
   assertCondition(
     actor.role === 'superadmin' || role !== 'superadmin',
     'permission-denied',
@@ -686,12 +694,12 @@ export const setUserRole = onCall(callableOptions, async (request) => {
   assertCondition(
     actor.role === 'superadmin' || targetUser.role !== 'superadmin',
     'permission-denied',
-    'Admin nao pode alterar o perfil de um superadmin.',
+    'Professor nao pode alterar o perfil de um superadmin.',
   );
   assertCondition(
     actor.role === 'superadmin' || targetUser.academyId === actor.academyId,
     'permission-denied',
-    'Admin so pode alterar perfis da propria academia.',
+    'Professor so pode alterar perfis da propria unidade.',
   );
   const academyId = normalizeScopedAcademyId(role, targetUser.academyId);
   assertCondition(
@@ -839,25 +847,27 @@ export const validateSessionAccess = onCall(callableOptions, async (request) => 
   const tokenAcademyId = typeof request.auth?.token?.academyId === 'string'
     ? request.auth.token.academyId
     : '';
-  const academyId = normalizeScopedAcademyId(actor.role, actor.academyId);
-  const needsUserNormalization = actor.academyId !== academyId;
-  const claimsUpdated = needsUserNormalization || tokenRole !== actor.role || tokenAcademyId !== academyId;
+  const role = normalizeManagedRole(actor.role);
+  const academyId = normalizeScopedAcademyId(role, actor.academyId);
+  const needsUserNormalization = actor.user.role !== role || actor.academyId !== academyId;
+  const claimsUpdated = needsUserNormalization || tokenRole !== role || tokenAcademyId !== academyId;
 
   if (needsUserNormalization) {
     await db.collection(COLLECTIONS.users).doc(actor.uid).update({
+      role,
       academyId,
       updatedAt: Timestamp.now(),
     });
   }
 
   if (claimsUpdated) {
-    await setClaims(actor.uid, actor.role, academyId);
+    await setClaims(actor.uid, role, academyId);
   }
 
   return {
     uid: actor.uid,
     academyId,
-    role: actor.role,
+    role,
     displayName: actor.user.displayName,
     belt: actor.user.belt,
     stripes: actor.user.stripes,

@@ -23,7 +23,7 @@ service cloud.firestore {
     }
 
     function isAdmin() {
-      return signedIn() && role() == 'admin';
+      return signedIn() && (role() == 'admin' || role() == 'professor');
     }
 
     function isProfessor() {
@@ -61,6 +61,7 @@ service cloud.firestore {
         || (
           isAdmin()
           && request.resource.data.role != 'superadmin'
+          && request.resource.data.role != 'admin'
           && sameAcademy(request.resource.data.academyId)
         );
 
@@ -176,7 +177,7 @@ service cloud.firestore {
       allow read: if isSuperAdmin()
         || (
           signedIn()
-          && (role() == 'professor' || role() == 'admin')
+          && isAdmin()
           && resource.data.status == 'published'
         );
       allow write: if false;
@@ -186,7 +187,7 @@ service cloud.firestore {
       allow read: if isSuperAdmin()
         || (
           signedIn()
-          && (role() == 'professor' || role() == 'admin')
+          && isAdmin()
           && resource.data.status == 'published'
         );
       allow write: if false;
@@ -196,7 +197,7 @@ service cloud.firestore {
       allow read: if isSuperAdmin()
         || (
           signedIn()
-          && (role() == 'professor' || role() == 'admin')
+          && isAdmin()
           && resource.data.status == 'published'
         );
       allow write: if false;
@@ -211,7 +212,7 @@ service cloud.firestore {
       allow read: if isSuperAdmin()
         || (
           signedIn()
-          && (role() == 'professor' || role() == 'admin')
+          && isAdmin()
           && resource.data.userId == request.auth.uid
         );
       allow write: if false;
@@ -221,7 +222,7 @@ service cloud.firestore {
       allow read: if isSuperAdmin()
         || (
           signedIn()
-          && (role() == 'professor' || role() == 'admin')
+          && isAdmin()
           && resource.data.userId == request.auth.uid
         );
       allow write: if false;

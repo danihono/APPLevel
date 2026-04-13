@@ -69,6 +69,10 @@ const StudentsView = lazy(() => import('./views/StudentsView'));
 
 const THEME_STORAGE_PREFIX = 'applevel-theme';
 const NETWORK_NAME = 'LEVEL';
+type SuperadminViewMode = 'superadmin' | 'professor';
+
+const SUPERADMIN_NETWORK_TABS = new Set(['home', 'notifications', 'students', 'management', 'learning', 'profile']);
+const SUPERADMIN_PROFESSOR_TABS = new Set(['home', 'calendar', 'management', 'notifications', 'learning', 'profile']);
 
 function getErrorMessage(error: unknown): string {
   const code = typeof error === 'object' && error && 'code' in error
@@ -220,6 +224,115 @@ function buildMissingAcademyView(onLogout: () => Promise<void>) {
   );
 }
 
+function buildSuperadminVisionChoiceView(params: {
+  academyCount: number;
+  onChooseNetwork: () => void;
+  onChooseProfessor: () => void;
+}) {
+  const canUseProfessorVision = params.academyCount > 0;
+
+  return (
+    <div className="app-auth-shell">
+      <div className="app-auth-grid">
+        <section className="app-panel app-panel--hero app-auth-side">
+          <div>
+            <p className="app-section-label">Superadmin LEVEL</p>
+            <h1 className="app-section-title">Escolha como voce quer entrar agora.</h1>
+            <p className="app-section-copy">
+              A conta continua sendo superadmin, mas voce pode operar no modo rede ou assumir a rotina de uma unidade como professor.
+            </p>
+          </div>
+
+          <div className="app-auth-bullets">
+            <div className="app-auth-bullet">
+              <div className="app-icon-shell">
+                <span className="app-orb__dot" />
+              </div>
+              <div>
+                <strong>Visao superadmin</strong>
+                <p className="app-note">Central consolidada, gestao da rede, comunicacao global e learning em nivel LEVEL.</p>
+              </div>
+            </div>
+            <div className="app-auth-bullet">
+              <div className="app-icon-shell">
+                <span className="app-orb__dot" />
+              </div>
+              <div>
+                <strong>Visao professor</strong>
+                <p className="app-note">Escolha uma unidade e opere o dia a dia dela com agenda, aulas, avisos e learning local.</p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section className="app-panel app-auth-card app-panel-pad">
+          <div className="space-y-4">
+            <button type="button" onClick={params.onChooseNetwork} className="app-button app-button--gold app-button--block">
+              Entrar na visao superadmin
+            </button>
+
+            <button
+              type="button"
+              onClick={params.onChooseProfessor}
+              disabled={!canUseProfessorVision}
+              className="app-button app-button--dark app-button--block"
+            >
+              Entrar na visao professor
+            </button>
+
+            <div className="app-note text-center">
+              {canUseProfessorVision
+                ? `${params.academyCount} unidade${params.academyCount === 1 ? '' : 's'} disponivel${params.academyCount === 1 ? '' : 'eis'} para operar.`
+                : 'Crie a primeira unidade na visao superadmin para liberar a visao professor.'}
+            </div>
+          </div>
+        </section>
+      </div>
+    </div>
+  );
+}
+
+function buildSuperadminUnitFocusView(params: {
+  academies: Array<FirestoreEntity<AcademyRecord>>;
+  onSelectAcademy: (academyId: string) => void;
+  onBackToNetwork: () => void;
+}) {
+  return (
+    <div className="view-shell">
+      <section className="app-panel app-panel--hero app-panel-pad">
+        <p className="app-section-label">Visao professor</p>
+        <h2 className="app-section-title">Escolha uma unidade para entrar.</h2>
+        <p className="app-section-copy">
+          O superadmin continua com acesso global, mas neste modo a operacao fica focada em uma unidade especifica.
+        </p>
+
+        <div className="mt-6 flex flex-wrap gap-3">
+          <button type="button" onClick={params.onBackToNetwork} className="app-button app-button--ghost">
+            Voltar para a visao superadmin
+          </button>
+        </div>
+      </section>
+
+      <section className="app-grid-2">
+        {params.academies.map((entry) => (
+          <button
+            key={entry.id}
+            type="button"
+            onClick={() => params.onSelectAcademy(entry.id)}
+            className="app-panel app-panel-pad text-left transition hover:-translate-y-0.5"
+          >
+            <p className="app-section-label">Unidade LEVEL</p>
+            <h3 className="mt-2 text-xl font-bold">{entry.name}</h3>
+            <p className="mt-2 text-sm text-[color:var(--text-muted)]">
+              Abrir agenda, equipe, comunicacao e learning desta unidade.
+            </p>
+          </button>
+        ))}
+      </section>
+    </div>
+  );
+}
+
 function isSameMonth(value?: { toDate(): Date } | null) {
   if (!value) {
     return false;
@@ -246,6 +359,7 @@ const App: React.FC = () => {
   const [allAcademies, setAllAcademies] = useState<Array<FirestoreEntity<AcademyRecord>>>([]);
   const [allUsers, setAllUsers] = useState<Array<FirestoreEntity<UserRecord>>>([]);
   const [selectedAcademyId, setSelectedAcademyId] = useState('');
+  const [superadminViewMode, setSuperadminViewMode] = useState<SuperadminViewMode | null>(null);
   const [classes, setClasses] = useState<Array<FirestoreEntity<ClassRecord>>>([]);
   const [academyUsers, setAcademyUsers] = useState<Array<FirestoreEntity<UserRecord>>>([]);
   const [attendances, setAttendances] = useState<Array<FirestoreEntity<AttendanceRecord>>>([]);
@@ -326,6 +440,7 @@ const App: React.FC = () => {
       setAllAcademies([]);
       setAllUsers([]);
       setSelectedAcademyId('');
+      setSuperadminViewMode(null);
       setClasses([]);
       setAcademyUsers([]);
       setAttendances([]);
@@ -487,6 +602,39 @@ const App: React.FC = () => {
       setActiveTab('management');
     }
   }, [allAcademies.length, profile, superadminDirectoryLoading]);
+
+  useEffect(() => {
+    if (!profile || profile.role !== 'superadmin') {
+      setSuperadminViewMode(null);
+    }
+  }, [profile]);
+
+  useEffect(() => {
+    if (!profile || profile.role !== 'superadmin' || !superadminViewMode) {
+      return;
+    }
+
+    if (superadminViewMode === 'superadmin' && !SUPERADMIN_NETWORK_TABS.has(activeTab)) {
+      setActiveTab('home');
+      return;
+    }
+
+    if (superadminViewMode === 'professor' && !SUPERADMIN_PROFESSOR_TABS.has(activeTab)) {
+      setActiveTab('home');
+    }
+  }, [activeTab, profile, superadminViewMode]);
+
+  useEffect(() => {
+    if (!profile || profile.role !== 'superadmin' || superadminDirectoryLoading || superadminViewMode !== 'professor') {
+      return;
+    }
+
+    if (allAcademies.length === 0) {
+      setSuperadminViewMode('superadmin');
+      setSelectedAcademyId('');
+      setActiveTab('management');
+    }
+  }, [allAcademies.length, profile, superadminDirectoryLoading, superadminViewMode]);
 
   useEffect(() => {
     if (!profile || !sessionValidated) {
@@ -687,7 +835,7 @@ const App: React.FC = () => {
       return;
     }
 
-    if (profile.role !== 'professor' && profile.role !== 'admin' && profile.role !== 'superadmin') {
+    if (profile.role !== 'professor' && profile.role !== 'superadmin') {
       setLearningTracks([]);
       setLearningCourses([]);
       setLearningLessons([]);
@@ -696,7 +844,7 @@ const App: React.FC = () => {
       return;
     }
 
-    const publishedOnly = profile.role === 'professor' || profile.role === 'admin';
+    const publishedOnly = profile.role === 'professor';
     const unsubscribers = [
       subscribeToLearningTracks(
         { publishedOnly },
@@ -782,6 +930,7 @@ const App: React.FC = () => {
   }>) {
     for (const payload of classPayloads) {
       await backendFunctions.upsertClassSchedule({
+        academyId: profile?.role === 'superadmin' ? (selectedAcademyId || undefined) : undefined,
         title: payload.title,
         description: payload.description,
         professorId: payload.professorId,
@@ -910,7 +1059,7 @@ const App: React.FC = () => {
     lastName: string;
     email: string;
     password: string;
-    role: 'professor' | 'admin' | 'superadmin';
+    role: 'professor' | 'superadmin';
     academyId?: string;
     cpf?: string;
     phone?: string;
@@ -955,7 +1104,7 @@ const App: React.FC = () => {
     body: string;
     academyId?: string;
     channel?: NotificationChannel;
-    targetRole?: 'student' | 'professor' | 'admin' | 'superadmin';
+    targetRole?: 'student' | 'professor' | 'superadmin';
     targetBelt?: string;
   }) {
     try {
@@ -1127,12 +1276,18 @@ const App: React.FC = () => {
     fights,
   });
   const isSuperAdmin = profile.role === 'superadmin';
+  const isSuperadminProfessorView = isSuperAdmin && superadminViewMode === 'professor';
+  const isSuperadminNetworkView = isSuperAdmin && superadminViewMode !== 'professor';
+  const viewUserRole = isSuperadminProfessorView ? UserRole.PROFESSOR : currentUser.role;
+  const actingUser = isSuperadminProfessorView
+    ? { ...currentUser, role: UserRole.PROFESSOR }
+    : currentUser;
   const isStaff =
-    currentUser.role === UserRole.PROFESSOR ||
-    currentUser.role === UserRole.ADMIN ||
-    currentUser.role === UserRole.SUPERADMIN;
+    viewUserRole === UserRole.PROFESSOR ||
+    viewUserRole === UserRole.SUPERADMIN;
   const isFirstAcademySetup = isSuperAdmin && !superadminDirectoryLoading && allAcademies.length === 0;
   const hasFocusedAcademy = Boolean(selectedAcademyId) && allAcademies.some((entry) => entry.id === selectedAcademyId);
+  const needsProfessorVisionUnit = isSuperadminProfessorView && !hasFocusedAcademy;
   const bootstrapMessage = !sessionValidated
     ? 'Sincronizando permissoes da sua sessao.'
     : 'Carregando perfil, academia e permissoes.';
@@ -1140,9 +1295,17 @@ const App: React.FC = () => {
   const isBootstrapPending = !sessionValidated || superadminDirectoryLoading || (!isSuperAdmin && (academyLoading || !hasRequiredAcademyContext));
   const mobileUnitLabel = isSuperAdmin
     ? (
-      selectedAcademyId
-        ? (allAcademies.find((entry) => entry.id === selectedAcademyId)?.name ?? academy?.name ?? 'Academia em foco')
-        : (isFirstAcademySetup ? 'Sem academias' : 'Toda a rede')
+      isSuperadminProfessorView
+        ? (
+          selectedAcademyId
+            ? (allAcademies.find((entry) => entry.id === selectedAcademyId)?.name ?? academy?.name ?? 'Unidade em foco')
+            : 'Escolha uma unidade'
+        )
+        : (
+          selectedAcademyId
+            ? (allAcademies.find((entry) => entry.id === selectedAcademyId)?.name ?? academy?.name ?? 'Academia em foco')
+            : (isFirstAcademySetup ? 'Sem academias' : 'Toda a rede')
+        )
     )
     : (academy?.name ?? 'Sincronizando unidade');
   const isMissingRequiredAcademy = !isSuperAdmin && sessionValidated && !academyLoading && !academy;
@@ -1179,6 +1342,24 @@ const App: React.FC = () => {
     return buildMissingAcademyView(handleLogout);
   }
 
+  if (isSuperAdmin && superadminViewMode === null) {
+    return buildSuperadminVisionChoiceView({
+      academyCount: allAcademies.length,
+      onChooseNetwork: () => {
+        setSuperadminViewMode('superadmin');
+        setActiveTab(allAcademies.length === 0 ? 'management' : 'home');
+      },
+      onChooseProfessor: () => {
+        if (allAcademies.length === 0) {
+          return;
+        }
+
+        setSuperadminViewMode('professor');
+        setActiveTab('home');
+      },
+    });
+  }
+
   const resolvedAcademy = academy ?? buildFallbackAcademy(profile.id);
   const branch = toBranch(resolvedAcademy);
   const attendanceThisMonth = attendances.filter((attendance) => isSameMonth(attendance.checkedInAt));
@@ -1201,18 +1382,34 @@ const App: React.FC = () => {
     : Math.round((attendedFinishedClassIds.size / finishedClassesThisMonth.length) * 100);
   const studentAttendanceRequests = attendanceRequests.filter((entry) => entry.userId === profile.id);
   const canActionRequests =
-    currentUser.role === UserRole.PROFESSOR ||
-    currentUser.role === UserRole.ADMIN ||
-    currentUser.role === UserRole.SUPERADMIN;
+    viewUserRole === UserRole.PROFESSOR ||
+    viewUserRole === UserRole.SUPERADMIN;
   const focusedLearningAcademy = selectedAcademyId
     ? (allAcademies.find((entry) => entry.id === selectedAcademyId) ?? null)
     : null;
+  const shouldRenderProfessorVisionUnitPicker =
+    needsProfessorVisionUnit
+    && activeTab !== 'profile';
 
   const renderContent = () => {
+    if (shouldRenderProfessorVisionUnitPicker) {
+      return buildSuperadminUnitFocusView({
+        academies: allAcademies,
+        onSelectAcademy: (academyId) => {
+          setSelectedAcademyId(academyId);
+          setActiveTab('home');
+        },
+        onBackToNetwork: () => {
+          setSuperadminViewMode('superadmin');
+          setActiveTab(allAcademies.length === 0 ? 'management' : 'home');
+        },
+      });
+    }
+
     if (isFirstAcademySetup) {
       return (
         <ManagementView
-          userRole={currentUser.role}
+          userRole={viewUserRole}
           academy={resolvedAcademy}
           classes={classes}
           academyUsers={academyUsers}
@@ -1233,7 +1430,7 @@ const App: React.FC = () => {
 
     switch (activeTab) {
       case 'home':
-        return isSuperAdmin
+        return isSuperadminNetworkView
           ? (
             <SuperadminDashboardView
               academies={allAcademies}
@@ -1250,7 +1447,7 @@ const App: React.FC = () => {
           )
           : isStaff ? (
             <StaffDashboardView
-              user={currentUser}
+              user={actingUser}
               academy={resolvedAcademy}
               academyUsers={academyUsers}
               classes={classes}
@@ -1266,12 +1463,12 @@ const App: React.FC = () => {
           );
       case 'calendar': {
         const professors = academyUsers
-          .filter((u) => u.role === 'professor' || u.role === 'admin' || u.role === 'superadmin')
+          .filter((u) => u.role === 'professor' || u.role === 'superadmin')
           .map((u) => ({ id: u.id, displayName: u.displayName }));
 
         return (
           <CalendarView
-            userRole={currentUser.role}
+            userRole={viewUserRole}
             currentUserId={currentUser.id}
             currentUserName={profile.displayName}
             professors={professors}
@@ -1314,7 +1511,7 @@ const App: React.FC = () => {
       case 'management':
         return (
           <ManagementView
-            userRole={currentUser.role}
+            userRole={viewUserRole}
             academy={resolvedAcademy}
             classes={classes}
             academyUsers={academyUsers}
@@ -1335,7 +1532,7 @@ const App: React.FC = () => {
         return (
           <NotificationsView
             academy={resolvedAcademy}
-            userRole={currentUser.role}
+            userRole={viewUserRole}
             currentUserId={currentUser.id}
             academyUsers={academyUsers}
             classes={classes}
@@ -1358,8 +1555,8 @@ const App: React.FC = () => {
         return (
           <LearningHubView
             academyName={resolvedAcademy.name}
-            userName={currentUser.name}
-            userRole={currentUser.role}
+            userName={actingUser.name}
+            userRole={viewUserRole}
             selectedAcademyId={selectedAcademyId}
             selectedAcademy={focusedLearningAcademy}
             academies={allAcademies}
@@ -1562,6 +1759,18 @@ const App: React.FC = () => {
         setActiveTab={setActiveTab}
         userRole={currentUser.role}
         mobileUnitLabel={mobileUnitLabel}
+        superadminViewMode={superadminViewMode}
+        onSetSuperadminViewMode={(nextMode) => {
+          if (nextMode === 'professor' && allAcademies.length === 0) {
+            return;
+          }
+
+          setSuperadminViewMode(nextMode);
+          setActiveTab(nextMode === 'professor' ? 'home' : (allAcademies.length === 0 ? 'management' : 'home'));
+        }}
+        superadminAcademies={allAcademies.map((entry) => ({ id: entry.id, name: entry.name }))}
+        selectedAcademyId={selectedAcademyId}
+        onSelectAcademy={setSelectedAcademyId}
         isDarkMode={isDarkMode}
         onSetThemeMode={setThemeMode}
       >

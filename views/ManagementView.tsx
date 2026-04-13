@@ -34,7 +34,7 @@ interface ManagementViewProps {
     lastName: string;
     email: string;
     password: string;
-    role: 'professor' | 'admin' | 'superadmin';
+    role: 'professor' | 'superadmin';
     academyId?: string;
     phone?: string;
     belt?: string;
@@ -63,7 +63,7 @@ const beltPresets = ['white', 'blue', 'purple', 'brown', 'black'];
 function isMasterBlack(user: FirestoreEntity<UserRecord>) {
   const belt = user.belt.trim().toLowerCase();
   const isBlack = belt === 'black' || belt === 'preta';
-  const isLeader = user.role === 'professor' || user.role === 'admin' || user.role === 'superadmin';
+  const isLeader = user.role === 'professor' || user.role === 'superadmin';
   return isBlack && isLeader;
 }
 
@@ -79,7 +79,7 @@ function FeedbackBlock({ success, error }: { success?: string; error?: string })
 function roleLabel(role: UserRecord['role']) {
   switch (role) {
     case 'admin':
-      return 'Head Coach';
+      return 'Professor';
     case 'professor':
       return 'Instrutor';
     case 'superadmin':
@@ -106,7 +106,7 @@ const ManagementView: React.FC<ManagementViewProps> = ({
   onSaveProgressionRules,
   onUpdateStudentBeltGrade,
 }) => {
-  const canManage = userRole === UserRole.ADMIN || userRole === UserRole.SUPERADMIN;
+  const canManage = userRole === UserRole.PROFESSOR || userRole === UserRole.SUPERADMIN;
   const isSuperAdmin = userRole === UserRole.SUPERADMIN;
   const focusedAcademy = useMemo(() => {
     if (!isSuperAdmin) {
@@ -162,7 +162,7 @@ const ManagementView: React.FC<ManagementViewProps> = ({
   const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [role, setRole] = useState<'professor' | 'admin' | 'superadmin'>('professor');
+  const [role, setRole] = useState<'professor' | 'superadmin'>('professor');
   const [userAcademyId, setUserAcademyId] = useState(selectedAcademyId || managedAcademy.id || '');
   const [phone, setPhone] = useState('');
   const [belt, setBelt] = useState('white');
@@ -573,7 +573,7 @@ const ManagementView: React.FC<ManagementViewProps> = ({
 
       {!canManage ? (
         <div className="app-empty">
-          Este perfil tem apenas visualizacao. As configuracoes da academia ficam disponiveis para admins e superadmins.
+          Este perfil tem apenas visualizacao. As configuracoes da academia ficam disponiveis para professores e superadmins.
         </div>
       ) : (
         <>
@@ -704,9 +704,8 @@ const ManagementView: React.FC<ManagementViewProps> = ({
               </label>
               <label className="app-field">
                 <span className="app-field__label">Perfil</span>
-                <select value={role} onChange={(event) => setRole(event.target.value as 'professor' | 'admin' | 'superadmin')} className="app-select">
+                <select value={role} onChange={(event) => setRole(event.target.value as 'professor' | 'superadmin')} className="app-select">
                   <option value="professor">Professor</option>
-                  <option value="admin">Admin</option>
                   {isSuperAdmin ? <option value="superadmin">Superadmin</option> : null}
                 </select>
               </label>
@@ -726,7 +725,7 @@ const ManagementView: React.FC<ManagementViewProps> = ({
                     ))}
                   </select>
                   <span className="app-field__hint">
-                    Admins, professores e alunos ficam vinculados a uma unica unidade existente. Para master black, use Professor ou Admin com faixa preta. Apenas superadmin acessa toda a rede.
+                    Professores e alunos ficam vinculados a uma unica unidade existente. Para master black, use Professor com faixa preta. Apenas superadmin acessa toda a rede.
                   </span>
                 </label>
               ) : null}

@@ -16,7 +16,7 @@ const callableOptions = { region: 'southamerica-east1', invoker: 'public' as con
 
 async function getClassOrThrow(classId: string): Promise<FirebaseFirestore.DocumentSnapshot<FirebaseFirestore.DocumentData>> {
   const classSnap = await db.collection(COLLECTIONS.classes).doc(classId).get();
-  assertCondition(classSnap.exists, 'not-found', 'Aula não encontrada.');
+  assertCondition(classSnap.exists, 'not-found', 'Aula nao encontrada.');
   return classSnap;
 }
 
@@ -24,11 +24,15 @@ function ensureClassManager(
   actor: Awaited<ReturnType<typeof getRequestContext>>,
   classData: ClassDoc,
 ): void {
-  assertCondition(classData.academyId === actor.academyId || actor.role === 'superadmin', 'permission-denied', 'Aula fora do escopo da academia.');
   assertCondition(
-    actor.role === 'admin' || actor.role === 'superadmin' || classData.professorId === actor.uid,
+    classData.academyId === actor.academyId || actor.role === 'superadmin',
     'permission-denied',
-    'Somente o professor responsável ou um admin pode gerenciar a aula.',
+    'Aula fora do escopo da academia.',
+  );
+  assertCondition(
+    actor.role === 'professor' || actor.role === 'superadmin' || classData.professorId === actor.uid,
+    'permission-denied',
+    'Somente professores da unidade ou o superadmin podem gerenciar a aula.',
   );
 }
 
@@ -62,16 +66,12 @@ export const upsertClassSchedule = onCall(callableOptions, async (request) => {
   const checkinWindowMinutes = optionalNumber(request.data, 'checkinWindowMinutes') ?? 15;
   const now = Timestamp.now();
 
-  assertCondition(scheduledStart && scheduledEnd, 'invalid-argument', 'scheduledStart e scheduledEnd são obrigatórios.');
+  assertCondition(scheduledStart && scheduledEnd, 'invalid-argument', 'scheduledStart e scheduledEnd sao obrigatorios.');
   assertCondition(
     actor.role === 'superadmin' || academyId === actor.academyId,
     'permission-denied',
-    'Você só pode criar aulas na própria academia.',
+    'Voce so pode criar aulas na propria unidade.',
   );
-
-  if (actor.role === 'professor') {
-    assertCondition(professorId === actor.uid, 'permission-denied', 'Professor só pode se atribuir às próprias aulas.');
-  }
 
   const classRef = classId ? db.collection(COLLECTIONS.classes).doc(classId) : db.collection(COLLECTIONS.classes).doc();
   const current = classId ? await classRef.get() : null;

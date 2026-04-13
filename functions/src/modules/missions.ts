@@ -23,7 +23,7 @@ const ALLOWED_METRICS: MissionMetric[] = [
 ];
 
 export const upsertMission = onCall(callableOptions, async (request) => {
-  const actor = await getRequestContext(request, 'admin');
+  const actor = await getRequestContext(request, 'professor');
   const missionId = optionalString(request.data, 'missionId');
   const academyId = optionalString(request.data, 'academyId') ?? actor.academyId;
   const name = requiredString(request.data, 'name');
@@ -44,7 +44,7 @@ export const upsertMission = onCall(callableOptions, async (request) => {
   assertCondition(
     actor.role === 'superadmin' || academyId === actor.academyId,
     'permission-denied',
-    'Admin só pode salvar missões da própria academia.',
+    'Professor so pode salvar missoes da propria academia.',
   );
 
   const missionRef = missionId ? db.collection(COLLECTIONS.missions).doc(missionId) : db.collection(COLLECTIONS.missions).doc();
@@ -74,7 +74,7 @@ export const syncUserMissionProgress = onCall(callableOptions, async (request) =
   const targetUserId = optionalString(request.data, 'userId') ?? actor.uid;
 
   assertCondition(
-    targetUserId === actor.uid || actor.role === 'professor' || actor.role === 'admin' || actor.role === 'superadmin',
+    targetUserId === actor.uid || actor.role === 'professor' || actor.role === 'superadmin',
     'permission-denied',
     'Você não pode sincronizar missões de outro usuário.',
   );

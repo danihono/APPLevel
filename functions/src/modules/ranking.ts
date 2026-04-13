@@ -13,7 +13,7 @@ export const recalculateUserRanking = onCall(callableOptions, async (request) =>
   const targetUserId = optionalString(request.data, 'userId') ?? actor.uid;
 
   assertCondition(
-    targetUserId === actor.uid || actor.role === 'professor' || actor.role === 'admin' || actor.role === 'superadmin',
+    targetUserId === actor.uid || actor.role === 'professor' || actor.role === 'superadmin',
     'permission-denied',
     'Você não pode recalcular o ranking de outro usuário.',
   );
@@ -31,13 +31,13 @@ export const recalculateUserRanking = onCall(callableOptions, async (request) =>
 });
 
 export const recalculateAcademyRankings = onCall(callableOptions, async (request) => {
-  const actor = await getRequestContext(request, 'admin');
+  const actor = await getRequestContext(request, 'professor');
   const academyId = optionalString(request.data, 'academyId') ?? actor.academyId;
 
   assertCondition(
     actor.role === 'superadmin' || academyId === actor.academyId,
     'permission-denied',
-    'Admin só pode recalcular o ranking da própria academia.',
+    'Professor so pode recalcular o ranking da propria academia.',
   );
 
   const totalProcessed = await syncAllUsersInAcademy(academyId);

@@ -32,11 +32,28 @@ import type {
 
 export type FirestoreEntity<T> = T & { id: string };
 
-function mapDoc<T>(snapshot: QueryDocumentSnapshot<DocumentData>): FirestoreEntity<T> {
+function normalizeUserRole<T extends { role: string }>(record: T): T {
+  if (record.role !== 'admin') {
+    return record;
+  }
+
   return {
+    ...record,
+    role: 'professor',
+  };
+}
+
+function mapDoc<T>(snapshot: QueryDocumentSnapshot<DocumentData>): FirestoreEntity<T> {
+  const baseRecord = {
     id: snapshot.id,
     ...(snapshot.data() as T),
   };
+
+  if ('role' in baseRecord && typeof (baseRecord as { role?: unknown }).role === 'string') {
+    return normalizeUserRole(baseRecord as FirestoreEntity<T & { role: string }>) as FirestoreEntity<T>;
+  }
+
+  return baseRecord;
 }
 
 function toMillis(value: { toMillis(): number } | null | undefined): number {
@@ -56,10 +73,12 @@ export function subscribeToUserProfile(
         return;
       }
 
-      listener({
+      const record = {
         id: snapshot.id,
         ...(snapshot.data() as UserRecord),
-      });
+      };
+
+      listener(normalizeUserRole(record));
     },
     onError,
   );

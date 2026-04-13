@@ -64,7 +64,7 @@ export function toUserRole(role: AppRole): UserRole {
     case 'professor':
       return UserRole.PROFESSOR;
     case 'admin':
-      return UserRole.ADMIN;
+      return UserRole.PROFESSOR;
     case 'superadmin':
       return UserRole.SUPERADMIN;
     default:

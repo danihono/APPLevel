@@ -31,13 +31,13 @@ function parseMilestones(data: unknown): ProgressionMilestone[] {
 }
 
 export const upsertAcademyProgressionRules = onCall(callableOptions, async (request) => {
-  const actor = await getRequestContext(request, 'admin');
+  const actor = await getRequestContext(request, 'professor');
   const academyId = optionalString(request.data, 'academyId') ?? actor.academyId;
 
   assertCondition(
     actor.role === 'superadmin' || academyId === actor.academyId,
     'permission-denied',
-    'Admin só pode alterar regras da própria academia.',
+    'Professor so pode alterar regras da propria academia.',
   );
 
   const academyRef = db.collection(COLLECTIONS.academies).doc(academyId);
@@ -67,7 +67,7 @@ export const evaluateUserProgression = onCall(callableOptions, async (request) =
   const targetUserId = optionalString(request.data, 'userId') ?? actor.uid;
 
   assertCondition(
-    targetUserId === actor.uid || actor.role === 'professor' || actor.role === 'admin' || actor.role === 'superadmin',
+    targetUserId === actor.uid || actor.role === 'professor' || actor.role === 'superadmin',
     'permission-denied',
     'Você não pode recalcular a progressão de outro usuário.',
   );
@@ -89,7 +89,7 @@ export const rebuildUserDerivedState = onCall(callableOptions, async (request) =
   const targetUserId = optionalString(request.data, 'userId') ?? actor.uid;
 
   assertCondition(
-    targetUserId === actor.uid || actor.role === 'professor' || actor.role === 'admin' || actor.role === 'superadmin',
+    targetUserId === actor.uid || actor.role === 'professor' || actor.role === 'superadmin',
     'permission-denied',
     'Você não pode reconstruir o estado derivado de outro usuário.',
   );

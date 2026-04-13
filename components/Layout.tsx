@@ -16,12 +16,19 @@ import {
 } from 'lucide-react';
 import { UserRole } from '../types';
 
+type SuperadminViewMode = 'superadmin' | 'professor';
+
 interface LayoutProps {
   children: React.ReactNode;
   activeTab: string;
   setActiveTab: (tab: string) => void;
   userRole?: UserRole;
   mobileUnitLabel: string;
+  superadminViewMode?: SuperadminViewMode | null;
+  onSetSuperadminViewMode?: (mode: SuperadminViewMode) => void;
+  superadminAcademies?: Array<{ id: string; name: string }>;
+  selectedAcademyId?: string;
+  onSelectAcademy?: (academyId: string) => void;
   isDarkMode?: boolean;
   onSetThemeMode?: (mode: 'light' | 'dark') => void;
 }
@@ -131,6 +138,11 @@ const Layout: React.FC<LayoutProps> = ({
   setActiveTab,
   userRole,
   mobileUnitLabel,
+  superadminViewMode,
+  onSetSuperadminViewMode,
+  superadminAcademies = [],
+  selectedAcademyId = '',
+  onSelectAcademy,
   isDarkMode,
   onSetThemeMode,
 }) => {
@@ -155,15 +167,18 @@ const Layout: React.FC<LayoutProps> = ({
     visible: false,
   });
 
-  const isStaff =
-    userRole === UserRole.PROFESSOR ||
-    userRole === UserRole.ADMIN ||
-    userRole === UserRole.SUPERADMIN;
   const isSuperAdmin = userRole === UserRole.SUPERADMIN;
+  const navigationRole = isSuperAdmin && superadminViewMode === 'professor'
+    ? UserRole.PROFESSOR
+    : userRole;
+  const isProfessorVision = isSuperAdmin && superadminViewMode === 'professor';
+  const isStaff =
+    navigationRole === UserRole.PROFESSOR ||
+    navigationRole === UserRole.SUPERADMIN;
   const sidebarCollapsed = isSuperAdmin && isSidebarCollapsed;
 
   const navItems = useMemo<NavItem[]>(() => (
-    userRole === UserRole.SUPERADMIN
+    navigationRole === UserRole.SUPERADMIN
       ? [
         { id: 'home', icon: Home, label: 'Central' },
         { id: 'notifications', icon: Bell, label: 'Comunicacao' },
@@ -172,7 +187,7 @@ const Layout: React.FC<LayoutProps> = ({
         { id: 'learning', icon: BookOpen, label: 'Learning' },
         { id: 'profile', icon: UserIcon, label: 'Perfil' },
       ]
-      : userRole === UserRole.PROFESSOR
+      : navigationRole === UserRole.PROFESSOR
         ? [
           { id: 'home', icon: Home, label: 'Inicio' },
           { id: 'calendar', icon: Calendar, label: 'Calendario' },
@@ -199,9 +214,9 @@ const Layout: React.FC<LayoutProps> = ({
         { id: 'notifications', icon: Bell, label: 'Avisos' },
         { id: 'profile', icon: UserIcon, label: 'Perfil' },
         ]
-  ), [isStaff, userRole]);
+  ), [isStaff, navigationRole]);
 
-  const currentPage = userRole === UserRole.SUPERADMIN
+  const currentPage = navigationRole === UserRole.SUPERADMIN
     ? (superadminPageMeta[activeTab] ?? superadminPageMeta.home)
     : (pageMeta[activeTab] ?? pageMeta.home);
   const isWideLayout = isSuperAdmin;
@@ -270,7 +285,10 @@ const Layout: React.FC<LayoutProps> = ({
           <img src="/logo3.png" alt="APPLevel" className="h-20 w-20 object-contain flex-shrink-0" />
           <div className="app-sidebar__brand-copy" aria-hidden={sidebarCollapsed}>
             <p className="app-kicker">Plataforma APPLevel</p>
-            <h2 className="app-sidebar__title">Superadmin</h2>
+            <h2 className="app-sidebar__title">{isProfessorVision ? 'Visao professor' : 'Superadmin'}</h2>
+            <p className="mt-1 text-xs text-[color:var(--text-soft)]">
+              {isProfessorVision ? 'Operacao por unidade' : 'Controle da rede'}
+            </p>
           </div>
         </div>
 
@@ -344,6 +362,46 @@ const Layout: React.FC<LayoutProps> = ({
               <div className={`app-pagebar ${isSuperAdmin ? 'app-topbar-panel--superadmin' : ''}`.trim()}>
                 <h1 className="app-pagebar__title">{currentPage.title}</h1>
               </div>
+
+              {isSuperAdmin && onSetSuperadminViewMode ? (
+                <div className="app-panel app-panel-pad" style={{ padding: '14px 16px' }}>
+                  <div className="flex flex-wrap items-end justify-between gap-4">
+                    <div className="app-segment">
+                      <button
+                        type="button"
+                        onClick={() => onSetSuperadminViewMode('superadmin')}
+                        className={`app-segment__button ${!isProfessorVision ? 'is-active' : ''}`}
+                      >
+                        Visao superadmin
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => onSetSuperadminViewMode('professor')}
+                        disabled={superadminAcademies.length === 0}
+                        className={`app-segment__button ${isProfessorVision ? 'is-active' : ''}`}
+                      >
+                        Visao professor
+                      </button>
+                    </div>
+
+                    {isProfessorVision && onSelectAcademy ? (
+                      <label className="app-field min-w-[16rem]">
+                        <span className="app-field__label">Unidade em foco</span>
+                        <select
+                          value={selectedAcademyId}
+                          onChange={(event) => onSelectAcademy(event.target.value)}
+                          className="app-select"
+                        >
+                          <option value="">Escolha uma unidade</option>
+                          {superadminAcademies.map((entry) => (
+                            <option key={entry.id} value={entry.id}>{entry.name}</option>
+                          ))}
+                        </select>
+                      </label>
+                    ) : null}
+                  </div>
+                </div>
+              ) : null}
             </header>
 
             <main className="app-main">{children}</main>
