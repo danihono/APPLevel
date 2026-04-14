@@ -583,8 +583,121 @@ html.dark .app-panel--tint {
   border-bottom: 1px solid var(--divider);
 }
 
+.app-pagebar--with-vision-switch {
+  padding-right: 8.5rem;
+}
+
 .app-topbar-panel__inner--superadmin {
   gap: 0.8rem 1rem;
+}
+
+.app-vision-corner {
+  position: absolute;
+  top: 0.2rem;
+  right: 0;
+  z-index: 4;
+  pointer-events: none;
+}
+
+.app-vision-switch {
+  pointer-events: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 0.22rem;
+  border-radius: 999px;
+  border: 1px solid rgba(212, 180, 104, 0.26);
+  background: rgba(252, 249, 242, 0.9);
+  box-shadow:
+    0 12px 26px rgba(15, 18, 33, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.75);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+html.dark .app-vision-switch {
+  background: rgba(16, 16, 22, 0.9);
+  border-color: rgba(232, 175, 72, 0.24);
+  box-shadow:
+    0 14px 30px rgba(0, 0, 0, 0.26),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.app-vision-switch__button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  min-width: 0;
+  height: 2rem;
+  padding: 0 0.7rem;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  transition:
+    background 180ms ease,
+    color 180ms ease,
+    transform 180ms ease,
+    box-shadow 180ms ease,
+    opacity 180ms ease;
+}
+
+.app-vision-switch__button svg {
+  flex: none;
+}
+
+.app-vision-switch__button:hover,
+.app-vision-switch__button:focus-visible {
+  color: var(--text-strong);
+}
+
+.app-vision-switch__button.is-active {
+  background: linear-gradient(135deg, rgba(232, 175, 72, 0.26), rgba(255, 255, 255, 0.84));
+  color: var(--text-strong);
+  box-shadow: 0 10px 18px rgba(17, 17, 24, 0.1);
+}
+
+html.dark .app-vision-switch__button.is-active {
+  background: linear-gradient(135deg, rgba(232, 175, 72, 0.22), rgba(255, 255, 255, 0.08));
+}
+
+.app-vision-switch__button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.app-vision-context {
+  width: 100%;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.app-vision-context__field {
+  width: min(100%, 16.5rem);
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.app-vision-context__label {
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  text-align: right;
+}
+
+.app-select--compact {
+  min-height: 2.65rem;
+  padding: 0.7rem 0.9rem;
+  border-radius: 1rem;
+  font-size: 0.9rem;
 }
 
 .app-sidebar {
@@ -2416,6 +2529,37 @@ html.dark .superadmin-belt-dot {
   .app-mobile-header {
     display: block;
     padding-top: calc(env(safe-area-inset-top) + 1rem);
+  }
+
+  .app-mobile-header--with-vision-switch {
+    padding-right: 6.9rem;
+  }
+
+  .app-vision-corner {
+    top: calc(env(safe-area-inset-top) + 0.95rem);
+    right: 1rem;
+  }
+
+  .app-vision-switch__button {
+    height: 1.88rem;
+    padding: 0 0.62rem;
+    font-size: 0.68rem;
+  }
+
+  .app-vision-switch__button span {
+    letter-spacing: 0.02em;
+  }
+
+  .app-vision-context {
+    justify-content: stretch;
+  }
+
+  .app-vision-context__field {
+    width: 100%;
+  }
+
+  .app-vision-context__label {
+    text-align: left;
   }
 
   .app-toolbar {

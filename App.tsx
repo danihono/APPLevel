@@ -588,7 +588,7 @@ const App: React.FC = () => {
   }, [authUser]);
 
   useEffect(() => {
-    if (!authUser || !sessionValidated || !academy) {
+    if (!authUser?.uid || !profile || !sessionValidated || !academy?.id || profile.role === 'superadmin') {
       return;
     }
 
@@ -605,7 +605,7 @@ const App: React.FC = () => {
       cancelled = true;
       window.clearTimeout(timeoutId);
     };
-  }, [academy, authUser, sessionValidated]);
+  }, [academy?.id, authUser?.uid, profile?.role, sessionValidated]);
 
   useEffect(() => {
     if (!profile || !sessionValidated) {

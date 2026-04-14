@@ -220,6 +220,9 @@ const Layout: React.FC<LayoutProps> = ({
     ? (superadminPageMeta[activeTab] ?? superadminPageMeta.home)
     : (pageMeta[activeTab] ?? pageMeta.home);
   const isWideLayout = isSuperAdmin;
+  const canToggleVision = isSuperAdmin && Boolean(onSetSuperadminViewMode);
+  const showProfessorAcademyPicker = canToggleVision && isProfessorVision && Boolean(onSelectAcademy);
+  const professorVisionDisabled = superadminAcademies.length === 0;
 
   useEffect(() => {
     const updateIndicator = () => {
@@ -340,7 +343,10 @@ const Layout: React.FC<LayoutProps> = ({
 
           <div className={isSuperAdmin ? 'app-content-shell' : ''}>
             <header className={`app-topbar ${isSuperAdmin ? 'app-topbar--superadmin' : ''}`.trim()}>
-              <div className="app-mobile-header" title={mobileUnitLabel}>
+              <div
+                className={`app-mobile-header ${canToggleVision ? 'app-mobile-header--with-vision-switch' : ''}`.trim()}
+                title={mobileUnitLabel}
+              >
                 <div className="app-mobile-header__row">
                   <div className="app-mobile-header__brand">
                     <img src="/logo3.png" alt="LEVEL" className="app-mobile-header__brand-mark" />
@@ -359,47 +365,55 @@ const Layout: React.FC<LayoutProps> = ({
                 </div>
               </div>
 
-              <div className={`app-pagebar ${isSuperAdmin ? 'app-topbar-panel--superadmin' : ''}`.trim()}>
+              <div
+                className={`app-pagebar ${isSuperAdmin ? 'app-topbar-panel--superadmin' : ''} ${canToggleVision ? 'app-pagebar--with-vision-switch' : ''}`.trim()}
+              >
                 <h1 className="app-pagebar__title">{currentPage.title}</h1>
               </div>
 
-              {isSuperAdmin && onSetSuperadminViewMode ? (
-                <div className="app-panel app-panel-pad" style={{ padding: '14px 16px' }}>
-                  <div className="flex flex-wrap items-end justify-between gap-4">
-                    <div className="app-segment">
-                      <button
-                        type="button"
-                        onClick={() => onSetSuperadminViewMode('superadmin')}
-                        className={`app-segment__button ${!isProfessorVision ? 'is-active' : ''}`}
-                      >
-                        Visao superadmin
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => onSetSuperadminViewMode('professor')}
-                        disabled={superadminAcademies.length === 0}
-                        className={`app-segment__button ${isProfessorVision ? 'is-active' : ''}`}
-                      >
-                        Visao professor
-                      </button>
-                    </div>
-
-                    {isProfessorVision && onSelectAcademy ? (
-                      <label className="app-field min-w-[16rem]">
-                        <span className="app-field__label">Unidade em foco</span>
-                        <select
-                          value={selectedAcademyId}
-                          onChange={(event) => onSelectAcademy(event.target.value)}
-                          className="app-select"
-                        >
-                          <option value="">Escolha uma unidade</option>
-                          {superadminAcademies.map((entry) => (
-                            <option key={entry.id} value={entry.id}>{entry.name}</option>
-                          ))}
-                        </select>
-                      </label>
-                    ) : null}
+              {canToggleVision ? (
+                <div className="app-vision-corner">
+                  <div className="app-vision-switch" role="group" aria-label="Trocar visao">
+                    <button
+                      type="button"
+                      onClick={() => onSetSuperadminViewMode?.('superadmin')}
+                      className={`app-vision-switch__button ${!isProfessorVision ? 'is-active' : ''}`}
+                      aria-pressed={!isProfessorVision}
+                      title="Visao da rede"
+                    >
+                      <Shield size={13} strokeWidth={2} />
+                      <span>Rede</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onSetSuperadminViewMode?.('professor')}
+                      disabled={professorVisionDisabled}
+                      className={`app-vision-switch__button ${isProfessorVision ? 'is-active' : ''}`}
+                      aria-pressed={isProfessorVision}
+                      title="Visao por unidade"
+                    >
+                      <Building2 size={13} strokeWidth={2} />
+                      <span>Unid.</span>
+                    </button>
                   </div>
+                </div>
+              ) : null}
+
+              {showProfessorAcademyPicker ? (
+                <div className="app-vision-context">
+                  <label className="app-vision-context__field">
+                    <span className="app-vision-context__label">Unidade em foco</span>
+                    <select
+                      value={selectedAcademyId}
+                      onChange={(event) => onSelectAcademy?.(event.target.value)}
+                      className="app-select app-select--compact"
+                    >
+                      <option value="">Escolha uma unidade</option>
+                      {superadminAcademies.map((entry) => (
+                        <option key={entry.id} value={entry.id}>{entry.name}</option>
+                      ))}
+                    </select>
+                  </label>
                 </div>
               ) : null}
             </header>
