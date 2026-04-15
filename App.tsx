@@ -1,4 +1,4 @@
-import React, { Suspense, lazy, startTransition, useEffect, useState } from 'react';
+import React, { Suspense, lazy, startTransition, useEffect, useRef, useState } from 'react';
 import { CheckCircle, X } from 'lucide-react';
 import type { User as FirebaseUser } from 'firebase/auth';
 import Layout from './components/Layout';
@@ -109,6 +109,33 @@ function getErrorMessage(error: unknown): string {
 
       return 'Nao foi possivel concluir esta operacao agora.';
   }
+}
+
+function shouldResetSession(error: unknown): boolean {
+  const code = typeof error === 'object' && error && 'code' in error
+    ? String((error as { code: unknown }).code)
+    : '';
+
+  if ([
+    'functions/not-found',
+    'not-found',
+    'functions/permission-denied',
+    'permission-denied',
+    'functions/unauthenticated',
+    'unauthenticated',
+  ].includes(code)) {
+    return true;
+  }
+
+  if (!(error instanceof Error)) {
+    return false;
+  }
+
+  const message = error.message.toLowerCase();
+  return message.includes('usuario nao encontrado')
+    || message.includes('usuário não encontrado')
+    || message.includes('cadastro nao foi encontrado')
+    || message.includes('cadastro não foi encontrado');
 }
 
 function readThemePreference(scope: string): boolean | null {
@@ -382,6 +409,8 @@ const App: React.FC = () => {
   const [sessionValidated, setSessionValidated] = useState(false);
   const [sessionError, setSessionError] = useState('');
   const [sessionErrorSource, setSessionErrorSource] = useState('');
+  const [loginScreenError, setLoginScreenError] = useState('');
+  const invalidSessionResetRef = useRef(false);
 
   const setThemeMode = (mode: 'light' | 'dark') => {
     setIsDarkMode(mode === 'dark');
@@ -396,6 +425,24 @@ const App: React.FC = () => {
     console.error(`[session:${source}]`, error);
     setSessionError(getErrorMessage(error));
     setSessionErrorSource(source);
+  };
+
+  const recoverInvalidSession = (source: string, error: unknown) => {
+    reportSessionError(source, error);
+    setLoginScreenError(getErrorMessage(error));
+
+    if (invalidSessionResetRef.current) {
+      return;
+    }
+
+    invalidSessionResetRef.current = true;
+    void logout().catch((logoutError) => {
+      console.error('[session:forcedLogout]', logoutError);
+      startTransition(() => {
+        setAuthUser(null);
+        setAuthReady(true);
+      });
+    });
   };
 
   useEffect(() => {
@@ -435,6 +482,7 @@ const App: React.FC = () => {
 
   useEffect(() => {
     if (!authUser) {
+      invalidSessionResetRef.current = false;
       setProfile(null);
       setAcademy(null);
       setAllAcademies([]);
@@ -462,6 +510,7 @@ const App: React.FC = () => {
       return;
     }
 
+    setLoginScreenError('');
     let active = true;
     setProfileLoading(true);
     clearSessionError();
@@ -475,6 +524,10 @@ const App: React.FC = () => {
 
         setProfile(record);
         setProfileLoading(false);
+
+        if (!record) {
+          recoverInvalidSession('profile:missing', new Error('Seu cadastro nao foi encontrado. Entre com outra conta.'));
+        }
       },
       (error) => {
         if (!active) {
@@ -482,6 +535,12 @@ const App: React.FC = () => {
         }
 
         setProfileLoading(false);
+
+        if (shouldResetSession(error)) {
+          recoverInvalidSession('profile:subscribeToUserProfile', error);
+          return;
+        }
+
         reportSessionError('profile:subscribeToUserProfile', error);
       },
     );
@@ -514,6 +573,11 @@ const App: React.FC = () => {
       })
       .catch((error) => {
         if (!cancelled) {
+          if (shouldResetSession(error)) {
+            recoverInvalidSession('session:validateSessionAccess', error);
+            return;
+          }
+
           reportSessionError('session:validateSessionAccess', error);
         }
       });
@@ -524,7 +588,7 @@ const App: React.FC = () => {
   }, [authUser]);
 
   useEffect(() => {
-    if (!authUser || !sessionValidated || !academy) {
+    if (!authUser?.uid || !profile || !sessionValidated || !academy?.id || profile.role === 'superadmin') {
       return;
     }
 
@@ -541,7 +605,7 @@ const App: React.FC = () => {
       cancelled = true;
       window.clearTimeout(timeoutId);
     };
-  }, [academy, authUser, sessionValidated]);
+  }, [academy?.id, authUser?.uid, profile?.role, sessionValidated]);
 
   useEffect(() => {
     if (!profile || !sessionValidated) {
@@ -903,6 +967,7 @@ const App: React.FC = () => {
 
   async function handleLogin(email: string, password: string) {
     try {
+      setLoginScreenError('');
       await signInWithEmail(email.trim(), password);
     } catch (error) {
       throw new Error(getErrorMessage(error));
@@ -911,10 +976,11 @@ const App: React.FC = () => {
 
   async function handleLogout() {
     try {
+      setLoginScreenError('');
       await logout();
       setActiveTab('home');
     } catch (error) {
-      reportSessionError('auth:signInWithEmail', error);
+      reportSessionError('auth:logout', error);
     }
   }
 
@@ -1286,7 +1352,7 @@ const App: React.FC = () => {
   }
 
   if (!authUser) {
-    return <LoginView onLogin={handleLogin} />;
+    return <LoginView onLogin={handleLogin} initialError={loginScreenError} />;
   }
 
   if (profileLoading || !profile) {

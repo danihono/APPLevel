@@ -10,9 +10,22 @@ import { backendFunctions, isRetryableSignupAcademyFetchError } from '../service
 
 interface LoginViewProps {
   onLogin: (email: string, password: string) => Promise<void>;
+  initialError?: string;
 }
 
+<<<<<<< HEAD
 const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
+=======
+const beltOptions = [
+  { value: 'white', label: 'Branca' },
+  { value: 'blue', label: 'Azul' },
+  { value: 'purple', label: 'Roxa' },
+  { value: 'brown', label: 'Marrom' },
+  { value: 'black', label: 'Preta' },
+];
+
+const LoginView: React.FC<LoginViewProps> = ({ onLogin, initialError = '' }) => {
+>>>>>>> 84474bc00eee20d91e0a9f95f7209f6c29f65049
   const [mode, setMode] = useState<'login' | 'signup' | 'success'>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -210,8 +223,8 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
               </p>
 
               <form className="mt-6 app-form-grid" onSubmit={handleSubmit}>
-                {error ? (
-                  <div className="app-alert app-alert--error">{error}</div>
+                {error || initialError ? (
+                  <div className="app-alert app-alert--error">{error || initialError}</div>
                 ) : null}
 
                 <label className="app-field">
