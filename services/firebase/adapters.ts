@@ -1,6 +1,11 @@
 import type { Timestamp } from 'firebase/firestore';
+import {
+  inferKidsCategoryFromBirthDate,
+  inferTrainingTypeFromBirthDate,
+  normalizeBeltId,
+} from '../../beltCatalog';
 import type { Branch, Product, User } from '../../types';
-import { BeltColor, UserRole } from '../../types';
+import { UserRole } from '../../types';
 import type {
   AcademyRecord,
   AppRole,
@@ -72,39 +77,8 @@ export function toUserRole(role: AppRole): UserRole {
   }
 }
 
-export function toBeltColor(belt?: string): BeltColor {
-  switch ((belt ?? '').trim().toLowerCase()) {
-    case 'blue':
-    case 'azul':
-      return BeltColor.AZUL;
-    case 'purple':
-    case 'roxa':
-      return BeltColor.ROXA;
-    case 'brown':
-    case 'marrom':
-      return BeltColor.MARROM;
-    case 'black':
-    case 'preta':
-      return BeltColor.PRETA;
-    case 'white':
-    case 'branca':
-    default:
-      return BeltColor.BRANCA;
-  }
-}
-
-function toTrainingType(birthDate?: string): 'Adulto' | 'Kids' {
-  if (!birthDate) {
-    return 'Adulto';
-  }
-
-  const birthday = new Date(birthDate);
-  if (Number.isNaN(birthday.valueOf())) {
-    return 'Adulto';
-  }
-
-  const age = new Date().getFullYear() - birthday.getFullYear();
-  return age < 16 ? 'Kids' : 'Adulto';
+export function toBeltColor(belt?: string) {
+  return normalizeBeltId(belt);
 }
 
 export function toBranch(academy: FirestoreEntity<AcademyRecord> | null): Branch {
@@ -138,12 +112,17 @@ export function toUiUser(params: {
   const { id, user, graduations, fights } = params;
   const latestGraduationAt = graduations[0]?.promotedAt ?? user.updatedAt ?? user.createdAt;
   const attendanceCount = user.attendanceCount ?? 0;
+  const trainingType = inferTrainingTypeFromBirthDate(user.birthDate);
   const stripeTarget = user.nextStripeAttendanceTarget && user.nextStripeAttendanceTarget > 0
     ? user.nextStripeAttendanceTarget
     : Math.max(attendanceCount, 1);
   const beltTarget = user.nextBeltAttendanceTarget && user.nextBeltAttendanceTarget > 0
     ? user.nextBeltAttendanceTarget
     : Math.max(attendanceCount, 1);
+  const relativeStripeTotal = user.classesToNextStripe ?? stripeTarget;
+  const relativeBeltTotal = user.totalClassesToNextBelt ?? beltTarget;
+  const relativeStripeProgress = user.currentStripeProgress ?? Math.min(attendanceCount, relativeStripeTotal);
+  const relativeBeltProgress = user.currentBeltProgress ?? Math.min(attendanceCount, relativeBeltTotal);
 
   return {
     id,
@@ -154,13 +133,14 @@ export function toUiUser(params: {
     avatar: user.photoPath && user.photoPath.startsWith('http') ? user.photoPath : undefined,
     belt: toBeltColor(user.belt),
     stripes: user.stripes,
-    classesToNextStripe: stripeTarget,
-    totalClassesToNextBelt: beltTarget,
-    currentStripeProgress: Math.min(attendanceCount, stripeTarget),
-    currentBeltProgress: Math.min(attendanceCount, beltTarget),
+    classesToNextStripe: relativeStripeTotal,
+    totalClassesToNextBelt: relativeBeltTotal,
+    currentStripeProgress: relativeStripeProgress,
+    currentBeltProgress: relativeBeltProgress,
     lastGraduation: buildSafeDate(latestGraduationAt).toISOString(),
     branchId: user.academyId,
-    type: toTrainingType(user.birthDate),
+    type: trainingType,
+    kidsCategory: user.kidsCategory ?? inferKidsCategoryFromBirthDate(user.birthDate),
     isCompetitor: user.isCompetitor ?? false,
     birthDate: user.birthDate,
     startDate: formatDate(user.createdAt) || undefined,

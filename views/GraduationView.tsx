@@ -1,5 +1,14 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Award, BellRing, BookOpen, Medal, TimerReset } from 'lucide-react';
+import {
+  beltLabel,
+  inferKidsCategoryFromBirthDate,
+  inferTrainingTypeFromBirthDate,
+  isKidsOnlyBelt,
+  kidsCategoryLabel,
+  normalizeBeltId,
+  normalizeProgressionRules,
+} from '../beltCatalog';
 import BjjBelt from '../components/BjjBelt';
 import ProgressBar from '../components/ProgressBar';
 import type { FirestoreEntity } from '../services/firebase/data';
@@ -13,39 +22,38 @@ interface GraduationViewProps {
   graduations: Array<FirestoreEntity<GraduationRecord>>;
 }
 
-function beltLabel(value: string) {
-  switch (value.trim().toLowerCase()) {
-    case 'white':
-    case 'branca':
-      return 'Branca';
-    case 'blue':
-    case 'azul':
-      return 'Azul';
-    case 'purple':
-    case 'roxa':
-      return 'Roxa';
-    case 'brown':
-    case 'marrom':
-      return 'Marrom';
-    case 'black':
-    case 'preta':
-      return 'Preta';
-    default:
-      return value;
-  }
-}
-
 const GraduationView: React.FC<GraduationViewProps> = ({
   user,
   profile,
   academy,
   graduations,
 }) => {
-  const rules = academy.progressionRules?.milestones ?? [];
-  const currentRule = rules.find((entry) => entry.belt === profile.belt.toLowerCase()) ?? rules[0];
-  const nextStripeRemaining = Math.max(user.classesToNextStripe - user.currentStripeProgress, 0);
-  const nextBeltRemaining = Math.max(user.totalClassesToNextBelt - user.currentBeltProgress, 0);
-  const examWindow = nextBeltRemaining <= 5 || nextStripeRemaining <= 2;
+  const normalizedRules = useMemo(
+    () => normalizeProgressionRules(academy.progressionRules),
+    [academy.progressionRules],
+  );
+
+  const birthDate = profile.birthDate ?? user.birthDate;
+  const inferredKidsCategory = profile.kidsCategory ?? user.kidsCategory ?? inferKidsCategoryFromBirthDate(birthDate);
+  const currentBeltId = normalizeBeltId(profile.belt);
+  const trainingType = isKidsOnlyBelt(currentBeltId)
+    || Boolean(profile.kidsCategory ?? user.kidsCategory)
+    || inferTrainingTypeFromBirthDate(birthDate) === 'Kids'
+    ? 'Kids'
+    : 'Adulto';
+  const activeRules = trainingType === 'Kids'
+    ? normalizedRules.kids[inferredKidsCategory ?? 'level_kids'].belts
+    : normalizedRules.adult.belts;
+  const currentRule = activeRules.find((entry) => normalizeBeltId(entry.belt) === currentBeltId) ?? activeRules[0];
+
+  const stripeProgress = Math.max(0, user.currentStripeProgress ?? 0);
+  const stripeTotal = Math.max(0, user.classesToNextStripe ?? 0);
+  const beltProgress = Math.max(0, user.currentBeltProgress ?? 0);
+  const beltTotal = Math.max(0, user.totalClassesToNextBelt ?? 0);
+  const nextStripeRemaining = stripeTotal > 0 ? Math.max(stripeTotal - stripeProgress, 0) : null;
+  const nextBeltRemaining = beltTotal > 0 ? Math.max(beltTotal - beltProgress, 0) : null;
+  const examWindow = (nextBeltRemaining !== null && nextBeltRemaining <= 5)
+    || (nextStripeRemaining !== null && nextStripeRemaining <= 2);
 
   return (
     <div className="space-y-6 animate-fadeIn pb-8">
@@ -59,13 +67,17 @@ const GraduationView: React.FC<GraduationViewProps> = ({
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <span className="app-badge app-badge--muted">Regra v{academy.progressionRules?.version ?? 1}</span>
+            <span className="app-badge app-badge--muted">Regra v{normalizedRules.version}</span>
+            <span className="app-badge app-badge--muted">Trilha {trainingType}</span>
+            {trainingType === 'Kids' ? (
+              <span className="app-badge app-badge--muted">{kidsCategoryLabel(inferredKidsCategory)}</span>
+            ) : null}
             {examWindow ? <span className="app-badge app-badge--gold">Janela de exame</span> : null}
           </div>
         </div>
 
         <div className="mt-5">
-          <BjjBelt color={user.belt} stripes={user.stripes} />
+          <BjjBelt color={normalizeBeltId(profile.belt)} stripes={profile.stripes} />
         </div>
       </section>
 
@@ -85,22 +97,30 @@ const GraduationView: React.FC<GraduationViewProps> = ({
             <div>
               <div className="flex items-center justify-between text-sm mb-2">
                 <span className="font-semibold">Proximo grau</span>
-                <span>{user.currentStripeProgress} / {user.classesToNextStripe} aulas</span>
+                <span>
+                  {stripeTotal > 0 ? `${stripeProgress} / ${stripeTotal} aulas` : 'Progressao manual'}
+                </span>
               </div>
-              <ProgressBar current={user.currentStripeProgress} total={user.classesToNextStripe} />
+              <ProgressBar current={stripeProgress} total={stripeTotal} />
               <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                Restam {nextStripeRemaining} aula(s) para atingir o proximo marco.
+                {nextStripeRemaining === null
+                  ? 'Essa faixa nao tem liberacao automatica de grau por aulas.'
+                  : `Restam ${nextStripeRemaining} aula(s) para atingir o proximo grau.`}
               </p>
             </div>
 
             <div>
               <div className="flex items-center justify-between text-sm mb-2">
                 <span className="font-semibold">Proxima faixa</span>
-                <span>{user.currentBeltProgress} / {user.totalClassesToNextBelt} aulas</span>
+                <span>
+                  {beltTotal > 0 ? `${beltProgress} / ${beltTotal} aulas` : 'Progressao manual'}
+                </span>
               </div>
-              <ProgressBar current={user.currentBeltProgress} total={user.totalClassesToNextBelt} color="bg-zinc-950 dark:bg-gold" />
+              <ProgressBar current={beltProgress} total={beltTotal} color="bg-zinc-950 dark:bg-gold" />
               <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                Restam {nextBeltRemaining} aula(s) para chegar no proximo ciclo de faixa.
+                {nextBeltRemaining === null
+                  ? 'A proxima faixa depende de avaliacao manual.'
+                  : `Restam ${nextBeltRemaining} aula(s) para a proxima faixa.`}
               </p>
             </div>
           </div>
@@ -124,7 +144,7 @@ const GraduationView: React.FC<GraduationViewProps> = ({
             </p>
             <p className="mt-3 text-sm">
               {examWindow
-                ? 'Seu perfil ja esta perto da proxima avaliacao. Vale alinhar expectativa com o professor responsavel.'
+                ? 'Seu perfil ja esta perto da proxima avaliacao. Vale alinhar a expectativa com o professor responsavel.'
                 : 'Continue registrando presencas e acompanhando os marcos para a proxima graduacao.'}
             </p>
           </div>
@@ -133,7 +153,9 @@ const GraduationView: React.FC<GraduationViewProps> = ({
             <div className="mt-5 rounded-2xl border border-gray-100 dark:border-white/5 bg-gray-50 dark:bg-white/5 p-4 text-sm">
               <p className="font-semibold">Regra atual da faixa {beltLabel(currentRule.belt)}</p>
               <p className="mt-2 text-gray-500 dark:text-gray-400">
-                Minimo {currentRule.minAttendances} presencas • novo grau a cada {currentRule.stripeEvery} aulas • maximo {currentRule.maxStripes} graus
+                {currentRule.stripeEvery > 0
+                  ? `Novo grau a cada ${currentRule.stripeEvery} aulas • maximo ${currentRule.maxStripes} graus`
+                  : 'Progressao manual para graus e faixas seguintes.'}
               </p>
             </div>
           ) : null}
@@ -161,7 +183,7 @@ const GraduationView: React.FC<GraduationViewProps> = ({
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <p className="font-bold">
-                    {beltLabel(entry.previousBelt)} {entry.previousStripes} → {beltLabel(entry.newBelt)} {entry.newStripes}
+                    {beltLabel(entry.previousBelt)} {entry.previousStripes}{' -> '}{beltLabel(entry.newBelt)} {entry.newStripes}
                   </p>
                   <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
                     {entry.attendanceCount} presencas • motivo: {entry.reason.replaceAll('_', ' ')}
@@ -189,25 +211,31 @@ const GraduationView: React.FC<GraduationViewProps> = ({
           </div>
           <div>
             <h2 className="text-xl font-bold">Regras por faixa</h2>
-            <p className="text-sm text-gray-500 dark:text-gray-400">Configuracao oficial da academia.</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              {trainingType === 'Kids'
+                ? `Configuracao oficial da academia para ${kidsCategoryLabel(inferredKidsCategory)}.`
+                : 'Configuracao oficial da academia para o programa adulto.'}
+            </p>
           </div>
         </div>
 
         <div className="mt-6 grid gap-3 md:grid-cols-2">
-          {rules.map((entry) => (
-            <div key={`${entry.belt}-${entry.minAttendances}`} className="rounded-2xl border border-gray-100 dark:border-white/5 bg-gray-50 dark:bg-white/5 p-4">
+          {activeRules.map((entry) => (
+            <div key={entry.belt} className="rounded-2xl border border-gray-100 dark:border-white/5 bg-gray-50 dark:bg-white/5 p-4">
               <div className="flex items-center justify-between gap-3">
                 <p className="font-bold">{beltLabel(entry.belt)}</p>
                 <TimerReset size={16} className="text-gold" />
               </div>
               <p className="mt-3 text-sm text-gray-500 dark:text-gray-400">
-                Minimo {entry.minAttendances} presencas
+                {entry.stripeEvery > 0 ? `Grau a cada ${entry.stripeEvery} aulas` : 'Progressao manual'}
               </p>
               <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                Grau a cada {entry.stripeEvery} aulas
+                {entry.maxStripes > 0 ? `Maximo ${entry.maxStripes} graus` : 'Sem regra automatica de graus'}
               </p>
               <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                Maximo {entry.maxStripes} graus
+                {entry.stripeEvery > 0 && entry.maxStripes > 0
+                  ? `Proxima faixa em ${entry.stripeEvery * entry.maxStripes} aulas`
+                  : 'Avaliacao definida manualmente'}
               </p>
             </div>
           ))}

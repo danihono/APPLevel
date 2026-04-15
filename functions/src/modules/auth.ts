@@ -22,6 +22,12 @@ import {
   requiredNumber,
   requiredString,
 } from '../lib/payload';
+import {
+  inferKidsCategoryFromBirthDate,
+  isAdultOnlyBelt,
+  isKidsOnlyBelt,
+  normalizeBeltId,
+} from '../services/progression';
 import { syncUserDerivedState } from '../services/userState';
 
 const CPF_LENGTH = 11;
@@ -248,10 +254,11 @@ function buildStudentUserDoc(joinRequest: JoinRequestDoc, now: Timestamp): UserD
     email: joinRequest.email,
     cpf: joinRequest.cpf,
     birthDate: joinRequest.birthDate,
+    kidsCategory: joinRequest.kidsCategory,
     isCompetitor: joinRequest.isCompetitor,
     role: 'student',
     status: 'active',
-    belt: joinRequest.requestedBelt,
+    belt: normalizeBeltId(joinRequest.requestedBelt),
     stripes: requestedGrade,
     grade: requestedGrade,
     attendanceCount: 0,
@@ -264,6 +271,10 @@ function buildStudentUserDoc(joinRequest: JoinRequestDoc, now: Timestamp): UserD
     beltPromotions: 0,
     nextStripeAttendanceTarget: null,
     nextBeltAttendanceTarget: null,
+    currentStripeProgress: 0,
+    classesToNextStripe: 0,
+    currentBeltProgress: 0,
+    totalClassesToNextBelt: 0,
     fcmTokens: [],
     createdAt: now,
     updatedAt: now,
@@ -321,8 +332,12 @@ export const submitStudentSignup = onCall(callableOptions, async (request) => {
   const cpf = assertValidCpf(requiredString(request.data, 'cpf'));
   const birthDate = requiredString(request.data, 'birthDate');
   const isCompetitor = optionalBoolean(request.data, 'isCompetitor', false);
-  const belt = requiredString(request.data, 'belt').toLowerCase();
+  const belt = normalizeBeltId(requiredString(request.data, 'belt'));
   const grade = Math.max(0, Math.floor(requiredNumber(request.data, 'grade')));
+  const kidsCategory = inferKidsCategoryFromBirthDate(birthDate);
+
+  assertCondition(!(kidsCategory && isAdultOnlyBelt(belt)), 'invalid-argument', 'Alunos kids nao podem iniciar com faixas adultas.');
+  assertCondition(!(!kidsCategory && isKidsOnlyBelt(belt)), 'invalid-argument', 'Alunos adultos nao podem iniciar com faixas kids.');
 
   const academySnap = await db.collection(COLLECTIONS.academies).doc(academyId).get();
   assertCondition(academySnap.exists, 'not-found', 'Unidade nao encontrada.');
@@ -356,6 +371,7 @@ export const submitStudentSignup = onCall(callableOptions, async (request) => {
       lastName,
       displayName,
       birthDate,
+      kidsCategory,
       isCompetitor,
       requestedBelt: belt,
       requestedGrade: grade,
@@ -756,6 +772,7 @@ export const updateOwnStudentProfile = onCall(callableOptions, async (request) =
     updatedAt: Timestamp.now(),
   });
   await auth.updateUser(actor.uid, { displayName });
+  await syncUserDerivedState(actor.uid, actor.user.academyId);
 
   return {
     userId: actor.uid,
@@ -793,10 +810,13 @@ export const updateStudentBeltGrade = onCall(callableOptions, async (request) =>
   const actor = await getRequestContext(request, 'professor');
   assertProfessorOrSuperadmin(actor.role);
 
+  const data = (request.data as Record<string, unknown> | null) ?? {};
   const targetUserId = requiredString(request.data, 'userId');
-  const belt = requiredString(request.data, 'belt').toLowerCase();
+  const belt = normalizeBeltId(requiredString(request.data, 'belt'));
   const grade = Math.max(0, Math.floor(requiredNumber(request.data, 'grade')));
   const stripes = Math.max(0, Math.floor(optionalNumber(request.data, 'stripes') ?? grade));
+  const kidsCategory = optionalString(request.data, 'kidsCategory');
+  const hasKidsCategoryField = Object.prototype.hasOwnProperty.call(data, 'kidsCategory');
   const targetUser = await getUserDoc(targetUserId);
 
   assertCondition(targetUser.role === 'student', 'invalid-argument', 'Somente alunos podem ter faixa ou grau alterados.');
@@ -811,6 +831,7 @@ export const updateStudentBeltGrade = onCall(callableOptions, async (request) =>
     belt,
     grade,
     stripes,
+    ...(hasKidsCategoryField ? { kidsCategory: kidsCategory ?? null } : {}),
     updatedAt: now,
   });
 
@@ -836,6 +857,7 @@ export const updateStudentBeltGrade = onCall(callableOptions, async (request) =>
     belt,
     grade,
     stripes,
+    kidsCategory: hasKidsCategoryField ? (kidsCategory ?? null) : targetUser.kidsCategory ?? null,
   };
 });
 

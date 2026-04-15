@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { beltLabel } from '../beltCatalog';
 import { Calendar as CalIcon, Sparkles, Trophy } from 'lucide-react';
 import BjjBelt from '../components/BjjBelt';
 import ProgressBar from '../components/ProgressBar';
@@ -64,7 +65,7 @@ const HomeView: React.FC<HomeViewProps> = ({
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <span className="app-badge app-badge--gold">Faixa {user.belt}</span>
+            <span className="app-badge app-badge--gold">Faixa {beltLabel(user.belt)}</span>
             <span className="app-badge app-badge--muted">{user.type}</span>
           </div>
         </div>
@@ -74,7 +75,7 @@ const HomeView: React.FC<HomeViewProps> = ({
         <div className="app-stat-card">
           <p className="app-stat-card__label">Categoria</p>
           <p className="app-stat-card__value">{user.type}</p>
-          <p className="app-stat-card__note">Faixa {user.belt}</p>
+          <p className="app-stat-card__note">Faixa {beltLabel(user.belt)}</p>
         </div>
         <div className="app-stat-card">
           <p className="app-stat-card__label">Treinos no mes</p>

@@ -38,10 +38,15 @@ export interface UserSyncResult {
   attendanceCount: number;
   belt: string;
   stripes: number;
+  kidsCategory?: string;
   missionPoints: number;
   rankingPoints: number;
   nextStripeAttendanceTarget: number | null;
   nextBeltAttendanceTarget: number | null;
+  currentStripeProgress: number;
+  classesToNextStripe: number;
+  currentBeltProgress: number;
+  totalClassesToNextBelt: number;
 }
 
 function toDateKey(timestamp: FirebaseFirestore.Timestamp): string {
@@ -321,7 +326,10 @@ export async function syncUserDerivedState(
   const user = await getUserDoc(userId);
   const metrics = await computeEngagementMetrics(userId, academyId);
   const rules = await loadAcademyRules(academyId);
-  const progression = resolveProgressionTargets(user.belt, user.stripes, rules);
+  const progression = resolveProgressionTargets(user.belt, user.stripes, metrics.attendanceCount, rules, {
+    birthDate: user.birthDate,
+    kidsCategory: user.kidsCategory,
+  });
   const missionPoints = await syncUserMissions(userId, user.role, academyId, metrics);
   const ranking = calculateRanking(metrics, missionPoints);
   const now = Timestamp.now();
@@ -338,6 +346,10 @@ export async function syncUserDerivedState(
     beltPromotions: metrics.beltPromotions,
     nextStripeAttendanceTarget: progression.nextStripeAttendanceTarget,
     nextBeltAttendanceTarget: progression.nextBeltAttendanceTarget,
+    currentStripeProgress: progression.currentStripeProgress,
+    classesToNextStripe: progression.classesToNextStripe,
+    currentBeltProgress: progression.currentBeltProgress,
+    totalClassesToNextBelt: progression.totalClassesToNextBelt,
     lastAttendanceAt: metrics.lastAttendanceAt,
     updatedAt: now,
   });
@@ -363,10 +375,15 @@ export async function syncUserDerivedState(
     attendanceCount: metrics.attendanceCount,
     belt: user.belt,
     stripes: user.stripes,
+    kidsCategory: user.kidsCategory,
     missionPoints,
     rankingPoints: ranking.score,
     nextStripeAttendanceTarget: progression.nextStripeAttendanceTarget,
     nextBeltAttendanceTarget: progression.nextBeltAttendanceTarget,
+    currentStripeProgress: progression.currentStripeProgress,
+    classesToNextStripe: progression.classesToNextStripe,
+    currentBeltProgress: progression.currentBeltProgress,
+    totalClassesToNextBelt: progression.totalClassesToNextBelt,
   };
 }
 

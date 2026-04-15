@@ -6,13 +6,28 @@ export enum UserRole {
   SUPERADMIN = 'superadmin'
 }
 
-export enum BeltColor {
-  BRANCA = 'Branca',
-  AZUL = 'Azul',
-  ROXA = 'Roxa',
-  MARROM = 'Marrom',
-  PRETA = 'Preta'
-}
+export const BeltColor = {
+  BRANCA: 'white',
+  AZUL: 'blue',
+  ROXA: 'purple',
+  MARROM: 'brown',
+  PRETA: 'black',
+  CINZA_BRANCA: 'gray-white',
+  CINZA: 'gray',
+  CINZA_PRETA: 'gray-black',
+  AMARELA_BRANCA: 'yellow-white',
+  AMARELA: 'yellow',
+  AMARELA_PRETA: 'yellow-black',
+  LARANJA_BRANCA: 'orange-white',
+  LARANJA: 'orange',
+  LARANJA_PRETA: 'orange-black',
+  VERDE_BRANCA: 'green-white',
+  VERDE: 'green',
+  VERDE_PRETA: 'green-black',
+} as const;
+
+export type BeltColor = typeof BeltColor[keyof typeof BeltColor];
+export type KidsCategory = 'level_kids' | 'level_infanto_juvenil' | 'level_juvenil';
 
 export interface User {
   id: string;
@@ -30,6 +45,7 @@ export interface User {
   lastGraduation: string;
   branchId: string;
   type: 'Adulto' | 'Kids';
+  kidsCategory?: KidsCategory;
   isCompetitor?: boolean;
   birthDate?: string;
   startDate?: string;

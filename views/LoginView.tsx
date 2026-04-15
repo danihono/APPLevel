@@ -1,18 +1,16 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { KeyRound, UserPlus } from 'lucide-react';
+import {
+  getBeltOptions,
+  inferKidsCategoryFromBirthDate,
+  inferTrainingTypeFromBirthDate,
+  kidsCategoryLabel,
+} from '../beltCatalog';
 import { backendFunctions, isRetryableSignupAcademyFetchError } from '../services/firebase/functions';
 
 interface LoginViewProps {
   onLogin: (email: string, password: string) => Promise<void>;
 }
-
-const beltOptions = [
-  { value: 'white', label: 'Branca' },
-  { value: 'blue', label: 'Azul' },
-  { value: 'purple', label: 'Roxa' },
-  { value: 'brown', label: 'Marrom' },
-  { value: 'black', label: 'Preta' },
-];
 
 const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
   const [mode, setMode] = useState<'login' | 'signup' | 'success'>('login');
@@ -36,6 +34,24 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
   const [belt, setBelt] = useState('white');
   const [grade, setGrade] = useState(0);
   const [isCompetitor, setIsCompetitor] = useState(false);
+
+  const trainingType = useMemo(() => inferTrainingTypeFromBirthDate(birthDate), [birthDate]);
+  const inferredKidsCategory = useMemo(() => inferKidsCategoryFromBirthDate(birthDate), [birthDate]);
+  const signupBeltOptions = useMemo(
+    () => getBeltOptions(trainingType, inferredKidsCategory),
+    [inferredKidsCategory, trainingType],
+  );
+
+  useEffect(() => {
+    if (!signupBeltOptions.length) {
+      return;
+    }
+
+    if (!signupBeltOptions.some((option) => option.value === belt)) {
+      setBelt(signupBeltOptions[0].value);
+      setGrade(0);
+    }
+  }, [belt, signupBeltOptions]);
 
   useEffect(() => {
     if (mode !== 'signup' || academyOptionsLoaded) {
@@ -281,6 +297,10 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
                 <label className="app-field">
                   <span className="app-field__label">Data de nascimento</span>
                   <input type="date" value={birthDate} onChange={(event) => setBirthDate(event.target.value)} className="app-input" required />
+                  <span className="app-field__hint">
+                    Trilha detectada: {trainingType}
+                    {trainingType === 'Kids' ? ` • ${kidsCategoryLabel(inferredKidsCategory)}` : ''}
+                  </span>
                 </label>
 
                 <label className="app-field">
@@ -341,7 +361,7 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
                 <label className="app-field">
                   <span className="app-field__label">Faixa</span>
                   <select value={belt} onChange={(event) => setBelt(event.target.value)} className="app-select" required>
-                    {beltOptions.map((option) => (
+                    {signupBeltOptions.map((option) => (
                       <option key={option.value} value={option.value}>{option.label}</option>
                     ))}
                   </select>

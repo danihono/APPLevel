@@ -1,31 +1,294 @@
-import { DEFAULT_PROGRESSION_RULES, ProgressionMilestone, ProgressionRules } from '../domain/models';
+import {
+  DEFAULT_PROGRESSION_RULES,
+  KidsCategory,
+  LegacyProgressionRules,
+  ProgressionBeltRule,
+  ProgressionMilestone,
+  ProgressionRuleSegment,
+  ProgressionRules,
+  ProgressionRulesV2,
+} from '../domain/models';
 
 export interface ProgressionSnapshot {
   belt: string;
   stripes: number;
+  track: 'adult' | 'kids';
+  kidsCategory?: KidsCategory;
   nextStripeAttendanceTarget: number | null;
   nextBeltAttendanceTarget: number | null;
+  currentStripeProgress: number;
+  classesToNextStripe: number;
+  currentBeltProgress: number;
+  totalClassesToNextBelt: number;
   ruleVersion: number;
 }
 
-export function normalizeProgressionRules(input?: Partial<ProgressionRules> | null): ProgressionRules {
-  if (!input?.milestones?.length) {
-    return DEFAULT_PROGRESSION_RULES;
+const ADULT_ONLY_BELTS = new Set(['blue', 'purple', 'brown', 'black']);
+const KIDS_ONLY_BELTS = new Set([
+  'gray-white',
+  'gray',
+  'gray-black',
+  'yellow-white',
+  'yellow',
+  'yellow-black',
+  'orange-white',
+  'orange',
+  'orange-black',
+  'green-white',
+  'green',
+  'green-black',
+]);
+const GRAY_FAMILY_BELTS = new Set(['white', 'gray-white', 'gray', 'gray-black']);
+const YELLOW_ORANGE_FAMILY_BELTS = new Set([
+  'yellow-white',
+  'yellow',
+  'yellow-black',
+  'orange-white',
+  'orange',
+  'orange-black',
+]);
+const GREEN_FAMILY_BELTS = new Set(['green-white', 'green', 'green-black']);
+
+const BELT_ALIASES: Record<string, string> = {
+  branca: 'white',
+  white: 'white',
+  azul: 'blue',
+  blue: 'blue',
+  roxa: 'purple',
+  purple: 'purple',
+  marrom: 'brown',
+  brown: 'brown',
+  preta: 'black',
+  black: 'black',
+  cinza: 'gray',
+  gray: 'gray',
+  'cinza/branca': 'gray-white',
+  'cinza branca': 'gray-white',
+  'gray/white': 'gray-white',
+  'gray white': 'gray-white',
+  'cinza/preta': 'gray-black',
+  'cinza preta': 'gray-black',
+  'gray/black': 'gray-black',
+  'gray black': 'gray-black',
+  amarela: 'yellow',
+  yellow: 'yellow',
+  'amarela/branca': 'yellow-white',
+  'amarela branca': 'yellow-white',
+  'yellow/white': 'yellow-white',
+  'yellow white': 'yellow-white',
+  'amarela/preta': 'yellow-black',
+  'amarela preta': 'yellow-black',
+  'yellow/black': 'yellow-black',
+  'yellow black': 'yellow-black',
+  laranja: 'orange',
+  orange: 'orange',
+  'laranja/branca': 'orange-white',
+  'laranja branca': 'orange-white',
+  'orange/white': 'orange-white',
+  'orange white': 'orange-white',
+  'laranja/preta': 'orange-black',
+  'laranja preta': 'orange-black',
+  'orange/black': 'orange-black',
+  'orange black': 'orange-black',
+  verde: 'green',
+  green: 'green',
+  'verde/branca': 'green-white',
+  'verde branca': 'green-white',
+  'green/white': 'green-white',
+  'green white': 'green-white',
+  'verde/preta': 'green-black',
+  'verde preta': 'green-black',
+  'green/black': 'green-black',
+  'green black': 'green-black',
+};
+
+const KIDS_CATEGORY_ORDER: KidsCategory[] = ['level_kids', 'level_infanto_juvenil', 'level_juvenil'];
+
+function normalizeLooseKey(value: string): string {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/_/g, ' ')
+    .replace(/\s+/g, ' ');
+}
+
+export function normalizeBeltId(value?: string | null): string {
+  if (!value) {
+    return 'white';
   }
 
-  const milestones = [...input.milestones]
-    .map((item) => ({
-      belt: item.belt.trim().toLowerCase(),
-      minAttendances: Math.max(0, Math.floor(item.minAttendances)),
-      stripeEvery: Math.max(1, Math.floor(item.stripeEvery)),
-      maxStripes: Math.max(0, Math.floor(item.maxStripes)),
-    }))
-    .sort((left, right) => left.minAttendances - right.minAttendances);
+  const loose = normalizeLooseKey(value);
+  const slashNormalized = loose.replace(/\s*\/\s*/g, '/');
+  return BELT_ALIASES[slashNormalized] ?? BELT_ALIASES[loose] ?? slashNormalized.replace(/\//g, '-').replace(/\s+/g, '-');
+}
+
+function normalizeKidsCategory(value?: string | null): KidsCategory | undefined {
+  if (!value) {
+    return undefined;
+  }
+
+  const normalized = value.trim().toLowerCase();
+  return KIDS_CATEGORY_ORDER.find((entry) => entry === normalized);
+}
+
+function calculateAge(birthDate?: string | null): number | null {
+  if (!birthDate) {
+    return null;
+  }
+
+  const birthday = new Date(birthDate);
+  if (Number.isNaN(birthday.valueOf())) {
+    return null;
+  }
+
+  const today = new Date();
+  let age = today.getFullYear() - birthday.getFullYear();
+  const monthDelta = today.getMonth() - birthday.getMonth();
+  if (monthDelta < 0 || (monthDelta === 0 && today.getDate() < birthday.getDate())) {
+    age -= 1;
+  }
+  return age;
+}
+
+export function inferKidsCategoryFromBirthDate(birthDate?: string | null): KidsCategory | undefined {
+  const age = calculateAge(birthDate);
+  if (age == null || age >= 16) {
+    return undefined;
+  }
+
+  if (age <= 7) {
+    return 'level_kids';
+  }
+
+  if (age <= 10) {
+    return 'level_infanto_juvenil';
+  }
+
+  return 'level_juvenil';
+}
+
+export function isAdultOnlyBelt(value?: string | null): boolean {
+  return ADULT_ONLY_BELTS.has(normalizeBeltId(value));
+}
+
+export function isKidsOnlyBelt(value?: string | null): boolean {
+  return KIDS_ONLY_BELTS.has(normalizeBeltId(value));
+}
+
+function categorySupportsBelt(category: KidsCategory, belt: string): boolean {
+  const defaults = (DEFAULT_PROGRESSION_RULES as ProgressionRulesV2).kids[category].belts;
+  return defaults.some((entry) => entry.belt === belt);
+}
+
+function deriveKidsCategoryFromBelt(belt: string): KidsCategory | undefined {
+  if (GREEN_FAMILY_BELTS.has(belt)) {
+    return 'level_juvenil';
+  }
+
+  if (YELLOW_ORANGE_FAMILY_BELTS.has(belt)) {
+    return 'level_infanto_juvenil';
+  }
+
+  if (GRAY_FAMILY_BELTS.has(belt)) {
+    return 'level_kids';
+  }
+
+  return undefined;
+}
+
+function sanitizeBeltRule(rule: ProgressionBeltRule): ProgressionBeltRule {
+  return {
+    belt: normalizeBeltId(rule.belt),
+    stripeEvery: Math.max(0, Math.floor(rule.stripeEvery)),
+    maxStripes: Math.max(0, Math.floor(rule.maxStripes)),
+  };
+}
+
+function sanitizeSegment(
+  input: ProgressionRuleSegment | undefined,
+  fallback: ProgressionRuleSegment,
+): ProgressionRuleSegment {
+  const fallbackRules = fallback.belts.map(sanitizeBeltRule);
+  const customByBelt = new Map<string, ProgressionBeltRule>();
+
+  for (const entry of input?.belts ?? []) {
+    const sanitized = sanitizeBeltRule(entry);
+    customByBelt.set(sanitized.belt, sanitized);
+  }
+
+  const belts = fallbackRules.map((fallbackRule) => customByBelt.get(fallbackRule.belt) ?? fallbackRule);
+  const knownBelts = new Set(belts.map((entry) => entry.belt));
+  const extras = [...customByBelt.values()].filter((entry) => !knownBelts.has(entry.belt));
 
   return {
-    version: typeof input.version === 'number' ? input.version : DEFAULT_PROGRESSION_RULES.version,
-    milestones,
+    belts: [...belts, ...extras],
   };
+}
+
+function convertLegacyRules(input: LegacyProgressionRules): ProgressionRulesV2 {
+  const legacyAdult = [...input.milestones]
+    .map((entry) => ({
+      belt: normalizeBeltId(entry.belt),
+      minAttendances: Math.max(0, Math.floor(entry.minAttendances)),
+      stripeEvery: Math.max(0, Math.floor(entry.stripeEvery)),
+      maxStripes: Math.max(0, Math.floor(entry.maxStripes)),
+    }))
+    .sort((left, right) => left.minAttendances - right.minAttendances)
+    .map(({ minAttendances: _minAttendances, ...entry }) => entry);
+
+  return {
+    version: typeof input.version === 'number' ? input.version : (DEFAULT_PROGRESSION_RULES as ProgressionRulesV2).version,
+    schema: 'v2',
+    adult: sanitizeSegment({ belts: legacyAdult }, (DEFAULT_PROGRESSION_RULES as ProgressionRulesV2).adult),
+    kids: {
+      level_kids: sanitizeSegment(undefined, (DEFAULT_PROGRESSION_RULES as ProgressionRulesV2).kids.level_kids),
+      level_infanto_juvenil: sanitizeSegment(undefined, (DEFAULT_PROGRESSION_RULES as ProgressionRulesV2).kids.level_infanto_juvenil),
+      level_juvenil: sanitizeSegment(undefined, (DEFAULT_PROGRESSION_RULES as ProgressionRulesV2).kids.level_juvenil),
+    },
+  };
+}
+
+export function normalizeProgressionRules(input?: Partial<ProgressionRules> | null): ProgressionRulesV2 {
+  const defaultRules = DEFAULT_PROGRESSION_RULES as ProgressionRulesV2;
+  if (!input) {
+    return defaultRules;
+  }
+
+  if ('schema' in input || 'adult' in input || 'kids' in input) {
+    const rules = input as Partial<ProgressionRulesV2>;
+    return {
+      version: typeof rules.version === 'number' ? rules.version : defaultRules.version,
+      schema: 'v2',
+      adult: sanitizeSegment(rules.adult, defaultRules.adult),
+      kids: {
+        level_kids: sanitizeSegment(rules.kids?.level_kids, defaultRules.kids.level_kids),
+        level_infanto_juvenil: sanitizeSegment(rules.kids?.level_infanto_juvenil, defaultRules.kids.level_infanto_juvenil),
+        level_juvenil: sanitizeSegment(rules.kids?.level_juvenil, defaultRules.kids.level_juvenil),
+      },
+    };
+  }
+
+  if ('milestones' in input && Array.isArray(input.milestones) && input.milestones.length > 0) {
+    return convertLegacyRules(input as LegacyProgressionRules);
+  }
+
+  return defaultRules;
+}
+
+function buildMilestones(segment: ProgressionRuleSegment): ProgressionMilestone[] {
+  let minAttendances = 0;
+
+  return segment.belts.map((entry) => {
+    const milestone: ProgressionMilestone = {
+      belt: normalizeBeltId(entry.belt),
+      minAttendances,
+      stripeEvery: Math.max(0, Math.floor(entry.stripeEvery)),
+      maxStripes: Math.max(0, Math.floor(entry.maxStripes)),
+    };
+
+    minAttendances += milestone.stripeEvery * milestone.maxStripes;
+    return milestone;
+  });
 }
 
 function getCurrentMilestone(totalAttendances: number, milestones: ProgressionMilestone[]): ProgressionMilestone {
@@ -42,51 +305,142 @@ function getCurrentMilestone(totalAttendances: number, milestones: ProgressionMi
   return current;
 }
 
-function getMilestoneByBelt(belt: string, milestones: ProgressionMilestone[]): ProgressionMilestone {
-  const normalizedBelt = belt.trim().toLowerCase();
-  return milestones.find((item) => item.belt === normalizedBelt) ?? milestones[0];
+function getMilestoneByBelt(belt: string, milestones: ProgressionMilestone[]): ProgressionMilestone | undefined {
+  return milestones.find((item) => item.belt === normalizeBeltId(belt));
+}
+
+function resolveKidsCategory(params: {
+  currentBelt: string;
+  birthDate?: string | null;
+  kidsCategory?: KidsCategory | null;
+}): KidsCategory {
+  const normalizedBelt = normalizeBeltId(params.currentBelt);
+  const requestedCategory = normalizeKidsCategory(params.kidsCategory);
+
+  if (requestedCategory && categorySupportsBelt(requestedCategory, normalizedBelt)) {
+    return requestedCategory;
+  }
+
+  const beltDrivenCategory = deriveKidsCategoryFromBelt(normalizedBelt);
+  if (beltDrivenCategory) {
+    return beltDrivenCategory;
+  }
+
+  return requestedCategory ?? inferKidsCategoryFromBirthDate(params.birthDate) ?? 'level_kids';
+}
+
+function resolveProgressionContext(
+  currentBelt: string,
+  rules: ProgressionRulesV2,
+  options?: { birthDate?: string | null; kidsCategory?: KidsCategory | null },
+): {
+  track: 'adult' | 'kids';
+  kidsCategory?: KidsCategory;
+  milestones: ProgressionMilestone[];
+} {
+  const normalizedBelt = normalizeBeltId(currentBelt);
+
+  if (isAdultOnlyBelt(normalizedBelt)) {
+    return {
+      track: 'adult',
+      milestones: buildMilestones(rules.adult),
+    };
+  }
+
+  if (isKidsOnlyBelt(normalizedBelt)) {
+    const kidsCategory = resolveKidsCategory({
+      currentBelt: normalizedBelt,
+      birthDate: options?.birthDate,
+      kidsCategory: options?.kidsCategory,
+    });
+    return {
+      track: 'kids',
+      kidsCategory,
+      milestones: buildMilestones(rules.kids[kidsCategory]),
+    };
+  }
+
+  const inferredKidsCategory = resolveKidsCategory({
+    currentBelt: normalizedBelt,
+    birthDate: options?.birthDate,
+    kidsCategory: options?.kidsCategory,
+  });
+
+  if (inferKidsCategoryFromBirthDate(options?.birthDate) || options?.kidsCategory) {
+    return {
+      track: 'kids',
+      kidsCategory: inferredKidsCategory,
+      milestones: buildMilestones(rules.kids[inferredKidsCategory]),
+    };
+  }
+
+  return {
+    track: 'adult',
+    milestones: buildMilestones(rules.adult),
+  };
 }
 
 export function resolveProgressionTargets(
   currentBelt: string,
   currentStripes: number,
+  totalAttendances: number,
   rules?: Partial<ProgressionRules> | null,
+  options?: { birthDate?: string | null; kidsCategory?: KidsCategory | null },
 ): ProgressionSnapshot {
   const normalizedRules = normalizeProgressionRules(rules);
-  const milestones = normalizedRules.milestones;
-  const currentMilestone = getMilestoneByBelt(currentBelt, milestones);
-  const currentIndex = milestones.findIndex((item) => item.belt === currentMilestone.belt);
-  const nextMilestone = milestones[currentIndex + 1];
+  const context = resolveProgressionContext(currentBelt, normalizedRules, options);
+  const currentMilestone = getMilestoneByBelt(currentBelt, context.milestones) ?? context.milestones[0];
+  const currentIndex = context.milestones.findIndex((item) => item.belt === currentMilestone.belt);
+  const nextMilestone = context.milestones[currentIndex + 1];
   const stripes = Math.min(
     currentMilestone.maxStripes,
     Math.max(0, Math.floor(currentStripes)),
   );
 
   const nextStripeAttendanceTarget =
-    stripes < currentMilestone.maxStripes
+    stripes < currentMilestone.maxStripes && currentMilestone.stripeEvery > 0
       ? currentMilestone.minAttendances + (stripes + 1) * currentMilestone.stripeEvery
       : null;
-
   const nextBeltAttendanceTarget = nextMilestone?.minAttendances ?? null;
+  const classesToNextStripe = nextStripeAttendanceTarget == null ? 0 : currentMilestone.stripeEvery;
+  const currentStripeFloor = currentMilestone.minAttendances + stripes * currentMilestone.stripeEvery;
+  const currentStripeProgress = classesToNextStripe === 0
+    ? 0
+    : Math.max(0, Math.min(totalAttendances - currentStripeFloor, classesToNextStripe));
+  const totalClassesToNextBelt = nextBeltAttendanceTarget == null
+    ? 0
+    : Math.max(0, nextBeltAttendanceTarget - currentMilestone.minAttendances);
+  const currentBeltProgress = totalClassesToNextBelt === 0
+    ? 0
+    : Math.max(0, Math.min(totalAttendances - currentMilestone.minAttendances, totalClassesToNextBelt));
 
   return {
     belt: currentMilestone.belt,
     stripes,
+    track: context.track,
+    kidsCategory: context.kidsCategory,
     nextStripeAttendanceTarget,
     nextBeltAttendanceTarget,
+    currentStripeProgress,
+    classesToNextStripe,
+    currentBeltProgress,
+    totalClassesToNextBelt,
     ruleVersion: normalizedRules.version,
   };
 }
 
-export function resolveProgression(totalAttendances: number, rules?: Partial<ProgressionRules> | null): ProgressionSnapshot {
+export function resolveProgression(
+  totalAttendances: number,
+  rules?: Partial<ProgressionRules> | null,
+  options?: { birthDate?: string | null; kidsCategory?: KidsCategory | null; currentBelt?: string | null },
+): ProgressionSnapshot {
   const normalizedRules = normalizeProgressionRules(rules);
-  const milestones = normalizedRules.milestones;
-  const currentMilestone = getCurrentMilestone(totalAttendances, milestones);
-  const withinCurrentBelt = Math.max(0, totalAttendances - currentMilestone.minAttendances);
-  const automaticStripes = Math.min(
-    currentMilestone.maxStripes,
-    Math.floor(withinCurrentBelt / currentMilestone.stripeEvery),
-  );
+  const currentBelt = normalizeBeltId(options?.currentBelt);
+  const context = resolveProgressionContext(currentBelt, normalizedRules, options);
+  const currentMilestone = getCurrentMilestone(totalAttendances, context.milestones);
+  const automaticStripes = currentMilestone.stripeEvery > 0
+    ? Math.min(currentMilestone.maxStripes, Math.floor(Math.max(0, totalAttendances - currentMilestone.minAttendances) / currentMilestone.stripeEvery))
+    : 0;
 
-  return resolveProgressionTargets(currentMilestone.belt, automaticStripes, normalizedRules);
+  return resolveProgressionTargets(currentMilestone.belt, automaticStripes, totalAttendances, normalizedRules, options);
 }

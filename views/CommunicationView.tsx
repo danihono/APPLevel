@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { ALL_BELTS, beltLabel } from '../beltCatalog';
 import { Bell, CheckCircle2, Megaphone, Send } from 'lucide-react';
 import { formatDateLabel } from '../services/firebase/adapters';
 import type { FirestoreEntity } from '../services/firebase/data';
@@ -22,11 +23,7 @@ interface CommunicationViewProps {
 
 const beltOptions = [
   { value: '', label: 'Todas as faixas' },
-  { value: 'white', label: 'Branca' },
-  { value: 'blue', label: 'Azul' },
-  { value: 'purple', label: 'Roxa' },
-  { value: 'brown', label: 'Marrom' },
-  { value: 'black', label: 'Preta' },
+  ...ALL_BELTS.map((belt) => ({ value: belt, label: beltLabel(belt) })),
 ];
 
 const CommunicationView: React.FC<CommunicationViewProps> = ({
@@ -240,7 +237,7 @@ const CommunicationView: React.FC<CommunicationViewProps> = ({
                 ) : null}
                 {notification.targetBelt ? (
                   <span className="rounded-full bg-gray-100 dark:bg-white/5 px-3 py-1 text-xs text-gray-500">
-                    Faixa: {notification.targetBelt}
+                    Faixa: {beltLabel(notification.targetBelt)}
                   </span>
                 ) : null}
                 {unread ? (

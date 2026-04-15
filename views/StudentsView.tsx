@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
+import { ALL_BELTS, beltLabel } from '../beltCatalog';
 import { ChevronRight, Search, UserPlus } from 'lucide-react';
 import AvatarWithBelt from '../components/AvatarWithBelt';
 import StudentDetailView from './StudentDetailView';
-import { BeltColor, type User } from '../types';
+import type { BeltColor, User } from '../types';
 
 interface StudentsViewProps {
   students: User[];
@@ -101,14 +102,14 @@ const StudentsView: React.FC<StudentsViewProps> = ({
               >
                 Todas as faixas
               </button>
-              {Object.values(BeltColor).map((belt) => (
+              {ALL_BELTS.map((belt) => (
                 <button
                   key={belt}
                   type="button"
                   onClick={() => setFilterBelt(belt)}
                   className={`app-chip ${filterBelt === belt ? 'is-active' : ''}`}
                 >
-                  {belt}
+                  {beltLabel(belt)}
                 </button>
               ))}
             </div>
@@ -145,7 +146,7 @@ const StudentsView: React.FC<StudentsViewProps> = ({
                       <h3 className="text-lg font-bold">{student.name}</h3>
                       <div className="mt-2 flex flex-wrap gap-2">
                         <span className="app-badge app-badge--muted">{student.type}</span>
-                        <span className="app-badge app-badge--gold">{student.belt}</span>
+                        <span className="app-badge app-badge--gold">{beltLabel(student.belt)}</span>
                       </div>
                     </div>
                   </div>

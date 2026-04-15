@@ -1,4 +1,6 @@
 import type { Timestamp } from 'firebase/firestore';
+import type { ProgressionRules } from '../../beltCatalog';
+import type { KidsCategory } from '../../types';
 
 export type AppRole = 'student' | 'professor' | 'admin' | 'superadmin';
 export type ClassStatus = 'scheduled' | 'active' | 'finished' | 'cancelled';
@@ -24,15 +26,7 @@ export interface AcademyRecord {
   timezone: string;
   classCheckinWindowMinutes: number;
   masterBlackLimit?: number;
-  progressionRules?: {
-    version: number;
-    milestones: Array<{
-      belt: string;
-      minAttendances: number;
-      stripeEvery: number;
-      maxStripes: number;
-    }>;
-  };
+  progressionRules?: ProgressionRules;
   createdAt?: Timestamp;
   updatedAt?: Timestamp;
 }
@@ -46,6 +40,7 @@ export interface UserRecord {
   cpf: string;
   phone?: string;
   birthDate?: string;
+  kidsCategory?: KidsCategory;
   isCompetitor?: boolean;
   role: AppRole;
   status: 'active' | 'invited' | 'suspended';
@@ -63,6 +58,10 @@ export interface UserRecord {
   beltPromotions: number;
   nextStripeAttendanceTarget?: number | null;
   nextBeltAttendanceTarget?: number | null;
+  currentStripeProgress?: number;
+  classesToNextStripe?: number;
+  currentBeltProgress?: number;
+  totalClassesToNextBelt?: number;
   lastAttendanceAt?: Timestamp;
   lastLoginAt?: Timestamp;
   fcmTokens?: string[];
@@ -201,6 +200,7 @@ export interface JoinRequestRecord {
   lastName: string;
   displayName: string;
   birthDate: string;
+  kidsCategory?: KidsCategory;
   isCompetitor: boolean;
   requestedBelt: string;
   requestedGrade: number;

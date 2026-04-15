@@ -1077,12 +1077,36 @@ const App: React.FC = () => {
 
   async function handleSaveProgressionRules(payload: {
     academyId?: string;
-    milestones: Array<{
-      belt: string;
-      minAttendances: number;
-      stripeEvery: number;
-      maxStripes: number;
-    }>;
+    adult: {
+      belts: Array<{
+        belt: string;
+        stripeEvery: number;
+        maxStripes: number;
+      }>;
+    };
+    kids: {
+      level_kids: {
+        belts: Array<{
+          belt: string;
+          stripeEvery: number;
+          maxStripes: number;
+        }>;
+      };
+      level_infanto_juvenil: {
+        belts: Array<{
+          belt: string;
+          stripeEvery: number;
+          maxStripes: number;
+        }>;
+      };
+      level_juvenil: {
+        belts: Array<{
+          belt: string;
+          stripeEvery: number;
+          maxStripes: number;
+        }>;
+      };
+    };
   }) {
     try {
       await backendFunctions.upsertAcademyProgressionRules(payload);
@@ -1091,7 +1115,7 @@ const App: React.FC = () => {
     }
   }
 
-  async function handleUpdateStudentBeltGrade(payload: { userId: string; belt: string; grade: number; stripes?: number }) {
+  async function handleUpdateStudentBeltGrade(payload: { userId: string; belt: string; grade: number; stripes?: number; kidsCategory?: string }) {
     try {
       await backendFunctions.updateStudentBeltGrade(payload);
     } catch (error) {

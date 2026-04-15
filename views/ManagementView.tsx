@@ -1,8 +1,21 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import {
+  ADULT_BELTS,
+  DEFAULT_PROGRESSION_RULES,
+  KIDS_CATEGORIES,
+  beltLabel,
+  getBeltOptions,
+  inferKidsCategoryFromBirthDate,
+  inferTrainingTypeFromBirthDate,
+  isKidsOnlyBelt,
+  kidsCategoryLabel,
+  normalizeProgressionRules,
+  type ProgressionRulesV2,
+} from '../beltCatalog';
 import { Building2, GraduationCap, Save, Settings2, ShieldCheck, UserPlus, Users } from 'lucide-react';
 import type { FirestoreEntity } from '../services/firebase/data';
 import type { AcademyRecord, ClassRecord, UserRecord } from '../services/firebase/models';
-import { UserRole } from '../types';
+import { UserRole, type KidsCategory } from '../types';
 
 interface ManagementViewProps {
   userRole?: UserRole;
@@ -43,22 +56,52 @@ interface ManagementViewProps {
   }) => Promise<void>;
   onSaveProgressionRules: (payload: {
     academyId?: string;
-    milestones: Array<{
-      belt: string;
-      minAttendances: number;
-      stripeEvery: number;
-      maxStripes: number;
-    }>;
+    adult: {
+      belts: Array<{
+        belt: string;
+        stripeEvery: number;
+        maxStripes: number;
+      }>;
+    };
+    kids: {
+      level_kids: {
+        belts: Array<{
+          belt: string;
+          stripeEvery: number;
+          maxStripes: number;
+        }>;
+      };
+      level_infanto_juvenil: {
+        belts: Array<{
+          belt: string;
+          stripeEvery: number;
+          maxStripes: number;
+        }>;
+      };
+      level_juvenil: {
+        belts: Array<{
+          belt: string;
+          stripeEvery: number;
+          maxStripes: number;
+        }>;
+      };
+    };
   }) => Promise<void>;
   onUpdateStudentBeltGrade: (payload: {
     userId: string;
     belt: string;
     grade: number;
     stripes?: number;
+    kidsCategory?: string;
   }) => Promise<void>;
 }
 
-const beltPresets = ['white', 'blue', 'purple', 'brown', 'black'];
+const staffBeltPresets = ADULT_BELTS;
+const kidsRuleNotes: Record<KidsCategory, string> = {
+  level_kids: 'Branca e cinza com 12 aulas por grau.',
+  level_infanto_juvenil: 'Branca/cinza com 15 aulas. Amarela/laranja com 20 aulas por grau.',
+  level_juvenil: 'Branca/cinza com 20 aulas. Amarela/laranja com 22. Verde com 25 aulas por grau.',
+};
 
 function isMasterBlack(user: FirestoreEntity<UserRecord>) {
   const belt = user.belt.trim().toLowerCase();
@@ -143,7 +186,7 @@ const ManagementView: React.FC<ManagementViewProps> = ({
   const [academyStatus, setAcademyStatus] = useState<'active' | 'inactive' | 'suspended'>(managedAcademy.status);
   const [checkinWindow, setCheckinWindow] = useState(managedAcademy.classCheckinWindowMinutes);
   const [masterBlackLimit, setMasterBlackLimit] = useState(managedAcademy.masterBlackLimit ?? 1);
-  const [rules, setRules] = useState(managedAcademy.progressionRules?.milestones ?? []);
+  const [rules, setRules] = useState<ProgressionRulesV2>(normalizeProgressionRules(managedAcademy.progressionRules));
 
   const [academyBusy, setAcademyBusy] = useState(false);
   const [academyFeedback, setAcademyFeedback] = useState('');
@@ -175,6 +218,7 @@ const ManagementView: React.FC<ManagementViewProps> = ({
   const [selectedStudentId, setSelectedStudentId] = useState('');
   const [studentBelt, setStudentBelt] = useState('white');
   const [studentGrade, setStudentGrade] = useState(0);
+  const [studentKidsCategory, setStudentKidsCategory] = useState<KidsCategory | ''>('');
   const [studentProgressBusy, setStudentProgressBusy] = useState(false);
   const [studentProgressFeedback, setStudentProgressFeedback] = useState('');
   const [studentProgressError, setStudentProgressError] = useState('');
@@ -185,12 +229,7 @@ const ManagementView: React.FC<ManagementViewProps> = ({
     setAcademyStatus(managedAcademy.status);
     setCheckinWindow(managedAcademy.classCheckinWindowMinutes);
     setMasterBlackLimit(managedAcademy.masterBlackLimit ?? 1);
-    setRules(managedAcademy.progressionRules?.milestones ?? beltPresets.map((entry) => ({
-      belt: entry,
-      minAttendances: 0,
-      stripeEvery: 20,
-      maxStripes: 4,
-    })));
+    setRules(normalizeProgressionRules(managedAcademy.progressionRules ?? DEFAULT_PROGRESSION_RULES));
   }, [managedAcademy]);
 
   useEffect(() => {
@@ -240,13 +279,80 @@ const ManagementView: React.FC<ManagementViewProps> = ({
       setSelectedStudentId('');
       setStudentBelt('white');
       setStudentGrade(0);
+      setStudentKidsCategory('');
       return;
     }
 
     setSelectedStudentId(selectedStudent.id);
     setStudentBelt(selectedStudent.belt);
     setStudentGrade(selectedStudent.grade ?? selectedStudent.stripes ?? 0);
+    setStudentKidsCategory(selectedStudent.kidsCategory ?? inferKidsCategoryFromBirthDate(selectedStudent.birthDate) ?? '');
   }, [selectedStudentId, students]);
+
+  const selectedStudent = students.find((entry) => entry.id === selectedStudentId) ?? students[0] ?? null;
+  const studentTrack = useMemo<'Adulto' | 'Kids'>(() => {
+    if (isKidsOnlyBelt(studentBelt)) {
+      return 'Kids';
+    }
+
+    if (studentKidsCategory) {
+      return 'Kids';
+    }
+
+    return inferTrainingTypeFromBirthDate(selectedStudent?.birthDate);
+  }, [selectedStudent?.birthDate, studentBelt, studentKidsCategory]);
+
+  const studentBeltOptions = useMemo(() => {
+    const baseOptions = getBeltOptions(studentTrack, studentKidsCategory || undefined);
+    if (baseOptions.some((entry) => entry.value === studentBelt)) {
+      return baseOptions;
+    }
+
+    return [...baseOptions, { value: studentBelt as never, label: beltLabel(studentBelt) }];
+  }, [studentBelt, studentKidsCategory, studentTrack]);
+  const inferredStudentKidsCategory = selectedStudent
+    ? inferKidsCategoryFromBirthDate(selectedStudent.birthDate)
+    : undefined;
+
+  useEffect(() => {
+    if (!studentBeltOptions.length) {
+      return;
+    }
+
+    if (!studentBeltOptions.some((entry) => entry.value === studentBelt)) {
+      setStudentBelt(studentBeltOptions[0].value);
+      setStudentGrade(0);
+    }
+  }, [studentBelt, studentBeltOptions]);
+
+  function updateAdultRule(index: number, field: 'stripeEvery' | 'maxStripes', value: number) {
+    setRules((previous) => ({
+      ...previous,
+      adult: {
+        belts: previous.adult.belts.map((entry, entryIndex) => (
+          entryIndex === index
+            ? { ...entry, [field]: value }
+            : entry
+        )),
+      },
+    }));
+  }
+
+  function updateKidsRule(category: KidsCategory, index: number, field: 'stripeEvery' | 'maxStripes', value: number) {
+    setRules((previous) => ({
+      ...previous,
+      kids: {
+        ...previous.kids,
+        [category]: {
+          belts: previous.kids[category].belts.map((entry, entryIndex) => (
+            entryIndex === index
+              ? { ...entry, [field]: value }
+              : entry
+          )),
+        },
+      },
+    }));
+  }
 
   async function handleSaveAcademy(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -354,7 +460,7 @@ const ManagementView: React.FC<ManagementViewProps> = ({
         ? selectedAcademyId
         : (academies[0]?.id ?? ''));
       setPhone('');
-      setBelt('white');
+      setBelt(staffBeltPresets[0]);
       setGrade(0);
       setStripes(0);
       setUserFeedback('Acesso criado com sucesso.');
@@ -379,12 +485,36 @@ const ManagementView: React.FC<ManagementViewProps> = ({
     try {
       await onSaveProgressionRules({
         academyId: isSuperAdmin ? managedAcademy.id : undefined,
-        milestones: rules.map((entry) => ({
-          belt: entry.belt,
-          minAttendances: Number(entry.minAttendances),
-          stripeEvery: Number(entry.stripeEvery),
-          maxStripes: Number(entry.maxStripes),
-        })),
+        adult: {
+          belts: rules.adult.belts.map((entry) => ({
+            belt: entry.belt,
+            stripeEvery: Number(entry.stripeEvery),
+            maxStripes: Number(entry.maxStripes),
+          })),
+        },
+        kids: {
+          level_kids: {
+            belts: rules.kids.level_kids.belts.map((entry) => ({
+              belt: entry.belt,
+              stripeEvery: Number(entry.stripeEvery),
+              maxStripes: Number(entry.maxStripes),
+            })),
+          },
+          level_infanto_juvenil: {
+            belts: rules.kids.level_infanto_juvenil.belts.map((entry) => ({
+              belt: entry.belt,
+              stripeEvery: Number(entry.stripeEvery),
+              maxStripes: Number(entry.maxStripes),
+            })),
+          },
+          level_juvenil: {
+            belts: rules.kids.level_juvenil.belts.map((entry) => ({
+              belt: entry.belt,
+              stripeEvery: Number(entry.stripeEvery),
+              maxStripes: Number(entry.maxStripes),
+            })),
+          },
+        },
       });
       setRulesFeedback('Regras de graduacao atualizadas com sucesso.');
     } catch (submitError) {
@@ -419,6 +549,7 @@ const ManagementView: React.FC<ManagementViewProps> = ({
         belt: studentBelt,
         grade: studentGrade,
         stripes: studentGrade,
+        kidsCategory: studentTrack === 'Kids' ? studentKidsCategory : '',
       });
       setStudentProgressFeedback('Graduacao do aluno atualizada com sucesso.');
     } catch (submitError) {
@@ -516,7 +647,7 @@ const ManagementView: React.FC<ManagementViewProps> = ({
                     </p>
                   </div>
                   <div className="flex flex-wrap gap-2">
-                    <span className="app-badge app-badge--gold">{entry.belt}</span>
+	                    <span className="app-badge app-badge--gold">{beltLabel(entry.belt)}</span>
                     <span className="app-badge app-badge--muted">{entry.status}</span>
                   </div>
                 </div>
@@ -547,7 +678,7 @@ const ManagementView: React.FC<ManagementViewProps> = ({
                   <div>
                     <p className="text-sm font-bold">{entry.displayName}</p>
                     <p className="mt-1 text-xs text-[color:var(--text-soft)]">
-                      {entry.attendanceCount} presencas • faixa {entry.belt}
+                      {entry.attendanceCount} presencas • faixa {beltLabel(entry.belt)}
                     </p>
                   </div>
                   <span className="app-badge app-badge--muted">{entry.status}</span>
@@ -735,9 +866,9 @@ const ManagementView: React.FC<ManagementViewProps> = ({
               </label>
               <label className="app-field">
                 <span className="app-field__label">Faixa</span>
-                <select value={belt} onChange={(event) => setBelt(event.target.value)} className="app-select">
-                  {beltPresets.map((entry) => <option key={entry} value={entry}>{entry}</option>)}
-                </select>
+	                <select value={belt} onChange={(event) => setBelt(event.target.value)} className="app-select">
+	                  {staffBeltPresets.map((entry) => <option key={entry} value={entry}>{beltLabel(entry)}</option>)}
+	                </select>
               </label>
               <label className="app-field">
                 <span className="app-field__label">Grau</span>
@@ -777,28 +908,67 @@ const ManagementView: React.FC<ManagementViewProps> = ({
                   <FeedbackBlock success={studentProgressFeedback} error={studentProgressError} />
                 </div>
 
-                <div className="mt-6 app-grid-2">
-                  <label className="app-field md:col-span-2">
-                    <span className="app-field__label">Aluno</span>
-                    <select value={selectedStudentId} onChange={(event) => setSelectedStudentId(event.target.value)} className="app-select" required>
-                      {students.map((entry) => (
-                        <option key={entry.id} value={entry.id}>{entry.displayName}</option>
-                      ))}
-                    </select>
-                  </label>
+	                <div className="mt-6 app-grid-2">
+	                  <label className="app-field md:col-span-2">
+	                    <span className="app-field__label">Aluno</span>
+	                    <select value={selectedStudentId} onChange={(event) => setSelectedStudentId(event.target.value)} className="app-select" required>
+	                      {students.map((entry) => (
+	                        <option key={entry.id} value={entry.id}>{entry.displayName}</option>
+	                      ))}
+	                    </select>
+	                  </label>
 
-                  <label className="app-field">
-                    <span className="app-field__label">Faixa</span>
-                    <select value={studentBelt} onChange={(event) => setStudentBelt(event.target.value)} className="app-select">
-                      {beltPresets.map((entry) => <option key={entry} value={entry}>{entry}</option>)}
-                    </select>
-                  </label>
+	                  {selectedStudent ? (
+	                    <div className="app-panel app-panel--soft p-4 md:col-span-2">
+	                      <div className="flex flex-wrap items-center justify-between gap-3">
+	                        <div>
+	                          <p className="text-sm font-bold">{selectedStudent.displayName}</p>
+	                          <p className="mt-1 text-xs text-[color:var(--text-soft)]">
+	                            Trilha {studentTrack} • Faixa atual {beltLabel(selectedStudent.belt)}
+	                          </p>
+	                        </div>
+	                        {studentTrack === 'Kids' ? (
+	                          <span className="app-badge app-badge--muted">
+	                            {studentKidsCategory
+	                              ? `Categoria: ${kidsCategoryLabel(studentKidsCategory)}`
+	                              : `Categoria sugerida: ${kidsCategoryLabel(inferredStudentKidsCategory)}`}
+	                          </span>
+	                        ) : null}
+	                      </div>
+	                    </div>
+	                  ) : null}
 
-                  <label className="app-field">
-                    <span className="app-field__label">Grau</span>
-                    <input type="number" min={0} value={studentGrade} onChange={(event) => setStudentGrade(Number(event.target.value))} className="app-input" />
-                  </label>
-                </div>
+	                  <label className="app-field">
+	                    <span className="app-field__label">Faixa</span>
+	                    <select value={studentBelt} onChange={(event) => setStudentBelt(event.target.value)} className="app-select">
+	                      {studentBeltOptions.map((entry) => <option key={entry.value} value={entry.value}>{entry.label}</option>)}
+	                    </select>
+	                  </label>
+
+	                  <label className="app-field">
+	                    <span className="app-field__label">Grau</span>
+	                    <input type="number" min={0} value={studentGrade} onChange={(event) => setStudentGrade(Number(event.target.value))} className="app-input" />
+	                  </label>
+
+	                  {studentTrack === 'Kids' ? (
+	                    <label className="app-field md:col-span-2">
+	                      <span className="app-field__label">Categoria kids</span>
+	                      <select
+	                        value={studentKidsCategory}
+	                        onChange={(event) => setStudentKidsCategory(event.target.value as KidsCategory | '')}
+	                        className="app-select"
+	                      >
+	                        <option value="">Inferir pela idade</option>
+	                        {KIDS_CATEGORIES.map((entry) => (
+	                          <option key={entry.value} value={entry.value}>{entry.label}</option>
+	                        ))}
+	                      </select>
+	                      <span className="app-field__hint">
+	                        Se ficar em branco, o sistema usa a faixa etaria do aluno para escolher a curva infantil.
+	                      </span>
+	                    </label>
+	                  ) : null}
+	                </div>
 
                 <button type="submit" disabled={studentProgressBusy || students.length === 0} className="app-button app-button--gold mt-6">
                   <Save size={16} />
@@ -825,52 +995,101 @@ const ManagementView: React.FC<ManagementViewProps> = ({
                   <FeedbackBlock success={rulesFeedback} error={rulesError} />
                 </div>
 
-                <div className="mt-6 app-list">
-                  {rules.map((entry, index) => (
-                    <div key={`${entry.belt}-${index}`} className="app-panel app-panel--soft p-4">
-                      <div className="grid gap-4 md:grid-cols-4">
-                        <label className="app-field">
-                          <span className="app-field__label">Faixa</span>
-                          <input
-                            value={entry.belt}
-                            onChange={(event) => setRules((previous) => previous.map((item, itemIndex) => itemIndex === index ? { ...item, belt: event.target.value } : item))}
-                            className="app-input"
-                          />
-                        </label>
-                        <label className="app-field">
-                          <span className="app-field__label">Min. presencas</span>
-                          <input
-                            type="number"
-                            min={0}
-                            value={entry.minAttendances}
-                            onChange={(event) => setRules((previous) => previous.map((item, itemIndex) => itemIndex === index ? { ...item, minAttendances: Number(event.target.value) } : item))}
-                            className="app-input"
-                          />
-                        </label>
-                        <label className="app-field">
-                          <span className="app-field__label">Novo grau a cada</span>
-                          <input
-                            type="number"
-                            min={1}
-                            value={entry.stripeEvery}
-                            onChange={(event) => setRules((previous) => previous.map((item, itemIndex) => itemIndex === index ? { ...item, stripeEvery: Number(event.target.value) } : item))}
-                            className="app-input"
-                          />
-                        </label>
-                        <label className="app-field">
-                          <span className="app-field__label">Max. graus</span>
-                          <input
-                            type="number"
-                            min={1}
-                            value={entry.maxStripes}
-                            onChange={(event) => setRules((previous) => previous.map((item, itemIndex) => itemIndex === index ? { ...item, maxStripes: Number(event.target.value) } : item))}
-                            className="app-input"
-                          />
-                        </label>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+	                <div className="mt-6 space-y-6">
+	                  <div>
+	                    <div className="mb-4">
+	                      <p className="app-section-label">Adulto</p>
+	                      <p className="text-sm text-[color:var(--text-muted)]">
+	                        Regras a partir de 16 anos. A faixa preta permanece com progressao manual.
+	                      </p>
+	                    </div>
+	                    <div className="app-list">
+	                      {rules.adult.belts.map((entry, index) => (
+	                        <div key={`adult-${entry.belt}-${index}`} className="app-panel app-panel--soft p-4">
+	                          <div className="flex flex-wrap items-center justify-between gap-3">
+	                            <div>
+	                              <p className="text-sm font-bold">{beltLabel(entry.belt)}</p>
+	                              <p className="mt-1 text-xs text-[color:var(--text-soft)]">
+	                                {entry.stripeEvery > 0
+	                                  ? `Proxima faixa em ${entry.stripeEvery * entry.maxStripes} aulas`
+	                                  : 'Progressao manual / IBJJF'}
+	                              </p>
+	                            </div>
+	                            <span className="app-badge app-badge--muted">{entry.maxStripes} graus</span>
+	                          </div>
+	                          <div className="mt-4 grid gap-4 md:grid-cols-2">
+	                            <label className="app-field">
+	                              <span className="app-field__label">Aulas por grau</span>
+	                              <input
+	                                type="number"
+	                                min={0}
+	                                value={entry.stripeEvery}
+	                                onChange={(event) => updateAdultRule(index, 'stripeEvery', Number(event.target.value))}
+	                                className="app-input"
+	                              />
+	                            </label>
+	                            <label className="app-field">
+	                              <span className="app-field__label">Graus por faixa</span>
+	                              <input
+	                                type="number"
+	                                min={0}
+	                                value={entry.maxStripes}
+	                                onChange={(event) => updateAdultRule(index, 'maxStripes', Number(event.target.value))}
+	                                className="app-input"
+	                              />
+	                            </label>
+	                          </div>
+	                        </div>
+	                      ))}
+	                    </div>
+	                  </div>
+
+	                  {KIDS_CATEGORIES.map((category) => (
+	                    <div key={category.value}>
+	                      <div className="mb-4">
+	                        <p className="app-section-label">{category.label}</p>
+	                        <p className="text-sm text-[color:var(--text-muted)]">{kidsRuleNotes[category.value]}</p>
+	                      </div>
+	                      <div className="app-list">
+	                        {rules.kids[category.value].belts.map((entry, index) => (
+	                          <div key={`${category.value}-${entry.belt}-${index}`} className="app-panel app-panel--soft p-4">
+	                            <div className="flex flex-wrap items-center justify-between gap-3">
+	                              <div>
+	                                <p className="text-sm font-bold">{beltLabel(entry.belt)}</p>
+	                                <p className="mt-1 text-xs text-[color:var(--text-soft)]">
+	                                  Proxima faixa em {entry.stripeEvery * entry.maxStripes} aulas
+	                                </p>
+	                              </div>
+	                              <span className="app-badge app-badge--muted">{entry.maxStripes} graus</span>
+	                            </div>
+	                            <div className="mt-4 grid gap-4 md:grid-cols-2">
+	                              <label className="app-field">
+	                                <span className="app-field__label">Aulas por grau</span>
+	                                <input
+	                                  type="number"
+	                                  min={0}
+	                                  value={entry.stripeEvery}
+	                                  onChange={(event) => updateKidsRule(category.value, index, 'stripeEvery', Number(event.target.value))}
+	                                  className="app-input"
+	                                />
+	                              </label>
+	                              <label className="app-field">
+	                                <span className="app-field__label">Graus por faixa</span>
+	                                <input
+	                                  type="number"
+	                                  min={0}
+	                                  value={entry.maxStripes}
+	                                  onChange={(event) => updateKidsRule(category.value, index, 'maxStripes', Number(event.target.value))}
+	                                  className="app-input"
+	                                />
+	                              </label>
+	                            </div>
+	                          </div>
+	                        ))}
+	                      </div>
+	                    </div>
+	                  ))}
+	                </div>
 
                 <button type="button" onClick={() => void handleSaveRules()} disabled={rulesBusy} className="app-button app-button--dark mt-6">
                   <Save size={16} />

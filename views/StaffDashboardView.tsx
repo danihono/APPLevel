@@ -1,4 +1,5 @@
 import React, { useMemo } from 'react';
+import { beltLabel } from '../beltCatalog';
 import { BellRing, CalendarDays, UserCog, Users } from 'lucide-react';
 import ClassSessionCard from '../components/ClassSessionCard';
 import type { FirestoreEntity } from '../services/firebase/data';
@@ -131,7 +132,7 @@ const StaffDashboardView: React.FC<StaffDashboardViewProps> = ({
                 <div>
                   <p className="text-sm font-bold">{entry.displayName}</p>
                   <p className="mt-1 text-xs text-[color:var(--text-soft)]">
-                    {entry.role} • faixa {entry.belt}
+                    {entry.role} • faixa {beltLabel(entry.belt)}
                   </p>
                 </div>
                 <span className="app-badge app-badge--muted">{entry.status}</span>
@@ -159,7 +160,7 @@ const StaffDashboardView: React.FC<StaffDashboardViewProps> = ({
             <div className="app-list-card">
               <p className="text-[11px] uppercase tracking-[0.18em] text-[color:var(--text-soft)]">Usuario logado</p>
               <p className="mt-2 text-lg font-bold">{user.name}</p>
-              <p className="mt-1 text-sm text-[color:var(--text-muted)]">Faixa {user.belt} • {user.stripes} graus</p>
+              <p className="mt-1 text-sm text-[color:var(--text-muted)]">Faixa {beltLabel(user.belt)} • {user.stripes} graus</p>
             </div>
             <div className="app-list-card">
               <p className="text-[11px] uppercase tracking-[0.18em] text-[color:var(--text-soft)]">Aulas do dia</p>

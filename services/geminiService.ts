@@ -1,4 +1,5 @@
 import { GoogleGenAI } from '@google/genai';
+import { beltLabel } from '../beltCatalog';
 import type { User } from '../types';
 
 const geminiApiKey = import.meta.env.VITE_GEMINI_API_KEY || '';
@@ -12,7 +13,7 @@ export async function getTrainingAdvice(user: User) {
   try {
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
-      contents: `O aluno ${user.name} é faixa ${user.belt} com ${user.stripes} graus. Ele já fez ${user.currentStripeProgress} aulas para o próximo grau e ${user.currentBeltProgress} aulas para a próxima faixa. Dê uma dica curta e motivacional de Jiu-Jitsu para o dia de hoje focada no nível dele.`,
+      contents: `O aluno ${user.name} é faixa ${beltLabel(user.belt)} com ${user.stripes} graus. Ele já fez ${user.currentStripeProgress} aulas para o próximo grau e ${user.currentBeltProgress} aulas para a próxima faixa. Dê uma dica curta e motivacional de Jiu-Jitsu para o dia de hoje focada no nível dele.`,
       config: {
         temperature: 0.7,
         maxOutputTokens: 150,

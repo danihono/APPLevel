@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { beltLabel } from '../beltCatalog';
 import { LogOut, Mail, Moon, Phone, Save, ShieldCheck, Sparkles, Sun, Upload, UserRound } from 'lucide-react';
 import type { FirestoreEntity } from '../services/firebase/data';
 import type { AttendanceRecord, GraduationRecord, UserRecord } from '../services/firebase/models';
@@ -150,7 +151,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({
             {academyName || 'Academia ativa'} • {roleLabel(profile.role)}
           </p>
           <div className="mt-3 flex flex-wrap items-center gap-2">
-            <span className="app-badge app-badge--gold">Faixa {user.belt}</span>
+            <span className="app-badge app-badge--gold">Faixa {beltLabel(user.belt)}</span>
             <span className="app-badge app-badge--muted">{user.stripes} graus</span>
             <span className="app-badge app-badge--muted">{user.type}</span>
             {profile.isCompetitor ? <span className="app-badge app-badge--muted">Competidor</span> : null}
@@ -401,7 +402,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({
             {graduations.slice(0, 5).map((graduation) => (
               <div key={graduation.id} className="app-list-card">
                 <p className="text-sm font-bold">
-                  {graduation.previousBelt} {graduation.previousStripes} → {graduation.newBelt} {graduation.newStripes}
+                  {beltLabel(graduation.previousBelt)} {graduation.previousStripes} → {beltLabel(graduation.newBelt)} {graduation.newStripes}
                 </p>
                 <p className="mt-1 text-xs text-[color:var(--text-soft)]">
                   {graduation.promotedAt?.toDate().toLocaleDateString('pt-BR')} • {graduation.reason.replaceAll('_', ' ')}

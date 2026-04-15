@@ -9,6 +9,7 @@ import type {
   MissionMetric,
   NotificationChannel,
 } from './models';
+import type { ProgressionRuleSegment } from '../../beltCatalog';
 import { firebaseFunctions } from './client';
 
 type SignupAcademyRecord = {
@@ -86,8 +87,8 @@ export const backendFunctions = {
   setUserRole: (payload: { userId: string; role: AppRole }) =>
     callFunction<{ userId: string; role: AppRole }>('setUserRole', payload),
 
-  updateStudentBeltGrade: (payload: { userId: string; belt: string; grade: number; stripes?: number }) =>
-    callFunction<{ userId: string; belt: string; grade: number; stripes: number }>('updateStudentBeltGrade', payload),
+  updateStudentBeltGrade: (payload: { userId: string; belt: string; grade: number; stripes?: number; kidsCategory?: string }) =>
+    callFunction<{ userId: string; belt: string; grade: number; stripes: number; kidsCategory?: string | null }>('updateStudentBeltGrade', payload),
 
   validateSessionAccess: () =>
     callFunction<{
@@ -177,13 +178,13 @@ export const backendFunctions = {
 
   upsertAcademyProgressionRules: (payload: {
     academyId?: string;
-    milestones: Array<{
-      belt: string;
-      minAttendances: number;
-      stripeEvery: number;
-      maxStripes: number;
-    }>;
-  }) => callFunction<{ academyId: string; rules: unknown }>('upsertAcademyProgressionRules', payload),
+    adult: ProgressionRuleSegment;
+    kids: {
+      level_kids: ProgressionRuleSegment;
+      level_infanto_juvenil: ProgressionRuleSegment;
+      level_juvenil: ProgressionRuleSegment;
+    };
+  }) => callFunction<{ academyId: string; rules: unknown; totalProcessed: number }>('upsertAcademyProgressionRules', payload),
 
   evaluateUserProgression: (payload: { userId?: string }) =>
     callFunction('evaluateUserProgression', payload),

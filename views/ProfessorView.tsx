@@ -1,6 +1,7 @@
 
 import React, { useState } from 'react';
 import { Camera, Users, CheckCircle2, XCircle, ChevronDown } from 'lucide-react';
+import { beltLabel } from '../beltCatalog';
 import { MOCK_CLASSES } from '../constants';
 
 const ProfessorView: React.FC = () => {
@@ -70,7 +71,7 @@ const ProfessorView: React.FC = () => {
                   <div className={`w-2 h-8 rounded-full ${std.belt === 'Preta' ? 'bg-black' : std.belt === 'Roxa' ? 'bg-purple-800' : 'bg-blue-600'}`}></div>
                   <div>
                     <h4 className="font-bold text-sm">{std.name}</h4>
-                    <p className="text-[10px] text-gray-400">Faixa {std.belt}</p>
+                    <p className="text-[10px] text-gray-400">Faixa {beltLabel(std.belt)}</p>
                   </div>
                 </div>
                 <div className="flex gap-2">

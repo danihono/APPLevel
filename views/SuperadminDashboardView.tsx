@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import { beltLabel, getBeltMeta } from '../beltCatalog';
 import {
   Activity,
   AlertTriangle,
@@ -67,6 +68,7 @@ const beltBreakdownConfig = [
   { key: 'roxa', label: 'Roxa', color: 'rgba(148, 92, 255, 0.9)' },
   { key: 'marrom', label: 'Marrom', color: 'rgba(172, 109, 72, 0.9)' },
   { key: 'preta', label: 'Preta', color: 'rgba(42, 44, 51, 0.95)' },
+  { key: 'kids', label: 'Kids', color: 'rgba(120, 199, 115, 0.92)' },
   { key: 'outras', label: 'Outras', color: 'rgba(196, 151, 70, 0.85)' },
 ] as const;
 
@@ -115,6 +117,11 @@ function percentOf(value: number, total: number) {
 
 function normalizeBelt(belt: string) {
   const normalized = belt.trim().toLowerCase();
+  const meta = getBeltMeta(normalized);
+
+  if (meta.track === 'kids' && normalized !== 'white' && normalized !== 'branca') {
+    return 'kids';
+  }
 
   switch (normalized) {
     case 'white':
@@ -701,7 +708,7 @@ const SuperadminDashboardView: React.FC<SuperadminDashboardViewProps> = ({
                         <div key={entry.userId} className="superadmin-ranking-row">
                           <div>
                             <strong>{entry.displayName}</strong>
-                            <p>Faixa {entry.belt}</p>
+                            <p>Faixa {beltLabel(entry.belt)}</p>
                           </div>
                           <div className="text-right">
                             <strong>#{entry.position}</strong>

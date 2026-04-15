@@ -1,25 +1,31 @@
 import { Timestamp } from 'firebase-admin/firestore';
 import { onCall } from 'firebase-functions/v2/https';
-import { COLLECTIONS, DEFAULT_PROGRESSION_RULES, ProgressionMilestone } from '../domain/models';
+import {
+  COLLECTIONS,
+  DEFAULT_PROGRESSION_RULES,
+  ProgressionBeltRule,
+  ProgressionMilestone,
+  ProgressionRulesV2,
+} from '../domain/models';
 import { getRequestContext, getUserDoc } from '../lib/context';
 import { assertCondition } from '../lib/errors';
 import { db } from '../lib/firebase';
 import { optionalString } from '../lib/payload';
 import { normalizeProgressionRules } from '../services/progression';
-import { syncUserDerivedState } from '../services/userState';
+import { syncAllUsersInAcademy, syncUserDerivedState } from '../services/userState';
 
 const callableOptions = { region: 'southamerica-east1', invoker: 'public' as const };
 
 function parseMilestones(data: unknown): ProgressionMilestone[] {
   const milestones = (data as Record<string, unknown> | null)?.milestones;
-  assertCondition(Array.isArray(milestones) && milestones.length > 0, 'invalid-argument', 'milestones é obrigatório.');
+  assertCondition(Array.isArray(milestones) && milestones.length > 0, 'invalid-argument', 'milestones e obrigatorio.');
 
   return milestones.map((item, index) => {
     const entry = item as Record<string, unknown>;
-    assertCondition(typeof entry.belt === 'string' && entry.belt.trim().length > 0, 'invalid-argument', `belt inválido na posição ${index}.`);
-    assertCondition(typeof entry.minAttendances === 'number', 'invalid-argument', `minAttendances inválido na posição ${index}.`);
-    assertCondition(typeof entry.stripeEvery === 'number', 'invalid-argument', `stripeEvery inválido na posição ${index}.`);
-    assertCondition(typeof entry.maxStripes === 'number', 'invalid-argument', `maxStripes inválido na posição ${index}.`);
+    assertCondition(typeof entry.belt === 'string' && entry.belt.trim().length > 0, 'invalid-argument', `belt invalido na posicao ${index}.`);
+    assertCondition(typeof entry.minAttendances === 'number', 'invalid-argument', `minAttendances invalido na posicao ${index}.`);
+    assertCondition(typeof entry.stripeEvery === 'number', 'invalid-argument', `stripeEvery invalido na posicao ${index}.`);
+    assertCondition(typeof entry.maxStripes === 'number', 'invalid-argument', `maxStripes invalido na posicao ${index}.`);
 
     return {
       belt: entry.belt.trim().toLowerCase(),
@@ -27,6 +33,54 @@ function parseMilestones(data: unknown): ProgressionMilestone[] {
       stripeEvery: entry.stripeEvery,
       maxStripes: entry.maxStripes,
     };
+  });
+}
+
+function parseBeltRules(segment: unknown, fieldName: string): ProgressionBeltRule[] {
+  const belts = (segment as Record<string, unknown> | null)?.belts;
+  assertCondition(Array.isArray(belts) && belts.length > 0, 'invalid-argument', `${fieldName}.belts e obrigatorio.`);
+
+  return belts.map((item, index) => {
+    const entry = item as Record<string, unknown>;
+    assertCondition(typeof entry.belt === 'string' && entry.belt.trim().length > 0, 'invalid-argument', `${fieldName}.belts[${index}].belt invalido.`);
+    assertCondition(typeof entry.stripeEvery === 'number', 'invalid-argument', `${fieldName}.belts[${index}].stripeEvery invalido.`);
+    assertCondition(typeof entry.maxStripes === 'number', 'invalid-argument', `${fieldName}.belts[${index}].maxStripes invalido.`);
+
+    return {
+      belt: entry.belt.trim().toLowerCase(),
+      stripeEvery: entry.stripeEvery,
+      maxStripes: entry.maxStripes,
+    };
+  });
+}
+
+function parseRulesPayload(data: unknown, version: number): ProgressionRulesV2 {
+  const payload = (data as Record<string, unknown> | null) ?? {};
+  if (Array.isArray(payload.milestones)) {
+    return normalizeProgressionRules({
+      version,
+      milestones: parseMilestones(data),
+    });
+  }
+
+  const kids = (payload.kids as Record<string, unknown> | null) ?? {};
+  return normalizeProgressionRules({
+    version,
+    schema: 'v2',
+    adult: {
+      belts: parseBeltRules(payload.adult, 'adult'),
+    },
+    kids: {
+      level_kids: {
+        belts: parseBeltRules(kids.level_kids, 'kids.level_kids'),
+      },
+      level_infanto_juvenil: {
+        belts: parseBeltRules(kids.level_infanto_juvenil, 'kids.level_infanto_juvenil'),
+      },
+      level_juvenil: {
+        belts: parseBeltRules(kids.level_juvenil, 'kids.level_juvenil'),
+      },
+    },
   });
 }
 
@@ -42,23 +96,22 @@ export const upsertAcademyProgressionRules = onCall(callableOptions, async (requ
 
   const academyRef = db.collection(COLLECTIONS.academies).doc(academyId);
   const academySnap = await academyRef.get();
-  assertCondition(academySnap.exists, 'not-found', 'Academia não encontrada.');
+  assertCondition(academySnap.exists, 'not-found', 'Academia nao encontrada.');
 
   const currentRules = (academySnap.get('progressionRules') as typeof DEFAULT_PROGRESSION_RULES | undefined) ?? DEFAULT_PROGRESSION_RULES;
-  const milestones = parseMilestones(request.data);
-  const normalized = normalizeProgressionRules({
-    version: (currentRules.version ?? 0) + 1,
-    milestones,
-  });
+  const normalized = parseRulesPayload(request.data, (currentRules.version ?? 0) + 1);
 
   await academyRef.update({
     progressionRules: normalized,
     updatedAt: Timestamp.now(),
   });
 
+  const totalProcessed = await syncAllUsersInAcademy(academyId);
+
   return {
     academyId,
     rules: normalized,
+    totalProcessed,
   };
 });
 
@@ -69,7 +122,7 @@ export const evaluateUserProgression = onCall(callableOptions, async (request) =
   assertCondition(
     targetUserId === actor.uid || actor.role === 'professor' || actor.role === 'superadmin',
     'permission-denied',
-    'Você não pode recalcular a progressão de outro usuário.',
+    'Voce nao pode recalcular a progressao de outro usuario.',
   );
 
   if (targetUserId !== actor.uid && actor.role !== 'superadmin') {
@@ -77,7 +130,7 @@ export const evaluateUserProgression = onCall(callableOptions, async (request) =
     assertCondition(
       targetUser.academyId === actor.academyId,
       'permission-denied',
-      'Você não pode operar dados de usuários de outra academia.',
+      'Voce nao pode operar dados de usuarios de outra academia.',
     );
   }
 
@@ -91,7 +144,7 @@ export const rebuildUserDerivedState = onCall(callableOptions, async (request) =
   assertCondition(
     targetUserId === actor.uid || actor.role === 'professor' || actor.role === 'superadmin',
     'permission-denied',
-    'Você não pode reconstruir o estado derivado de outro usuário.',
+    'Voce nao pode reconstruir o estado derivado de outro usuario.',
   );
 
   if (targetUserId !== actor.uid && actor.role !== 'superadmin') {
@@ -99,7 +152,7 @@ export const rebuildUserDerivedState = onCall(callableOptions, async (request) =
     assertCondition(
       targetUser.academyId === actor.academyId,
       'permission-denied',
-      'Você não pode operar dados de usuários de outra academia.',
+      'Voce nao pode operar dados de usuarios de outra academia.',
     );
   }
 

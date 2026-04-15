@@ -42,6 +42,7 @@ export type NotificationKind = 'notice' | 'join_request' | 'attendance_request' 
 export type JoinRequestStatus = 'pending' | 'approved' | 'rejected';
 export type AttendanceRequestStatus = 'pending' | 'approved' | 'rejected';
 export type LearningContentStatus = 'draft' | 'published';
+export type KidsCategory = 'level_kids' | 'level_infanto_juvenil' | 'level_juvenil';
 
 export interface ProgressionMilestone {
   belt: string;
@@ -50,10 +51,31 @@ export interface ProgressionMilestone {
   maxStripes: number;
 }
 
-export interface ProgressionRules {
+export interface ProgressionBeltRule {
+  belt: string;
+  stripeEvery: number;
+  maxStripes: number;
+}
+
+export interface ProgressionRuleSegment {
+  belts: ProgressionBeltRule[];
+}
+
+export type KidsProgressionSegments = Record<KidsCategory, ProgressionRuleSegment>;
+
+export interface LegacyProgressionRules {
   version: number;
   milestones: ProgressionMilestone[];
 }
+
+export interface ProgressionRulesV2 {
+  version: number;
+  schema: 'v2';
+  adult: ProgressionRuleSegment;
+  kids: KidsProgressionSegments;
+}
+
+export type ProgressionRules = LegacyProgressionRules | ProgressionRulesV2;
 
 export interface AcademyDoc {
   id: string;
@@ -78,6 +100,7 @@ export interface UserDoc {
   cpf: string;
   phone?: string;
   birthDate?: string;
+  kidsCategory?: KidsCategory;
   isCompetitor?: boolean;
   role: Role;
   status: UserStatus;
@@ -95,6 +118,10 @@ export interface UserDoc {
   beltPromotions: number;
   nextStripeAttendanceTarget?: number | null;
   nextBeltAttendanceTarget?: number | null;
+  currentStripeProgress?: number;
+  classesToNextStripe?: number;
+  currentBeltProgress?: number;
+  totalClassesToNextBelt?: number;
   lastAttendanceAt?: FirebaseFirestore.Timestamp;
   lastLoginAt?: FirebaseFirestore.Timestamp;
   fcmTokens?: string[];
@@ -367,6 +394,7 @@ export interface JoinRequestDoc {
   lastName: string;
   displayName: string;
   birthDate: string;
+  kidsCategory?: KidsCategory;
   isCompetitor: boolean;
   requestedBelt: string;
   requestedGrade: number;
@@ -379,14 +407,58 @@ export interface JoinRequestDoc {
 }
 
 export const DEFAULT_PROGRESSION_RULES: ProgressionRules = {
-  version: 1,
-  milestones: [
-    { belt: 'white', minAttendances: 0, stripeEvery: 20, maxStripes: 4 },
-    { belt: 'blue', minAttendances: 80, stripeEvery: 30, maxStripes: 4 },
-    { belt: 'purple', minAttendances: 200, stripeEvery: 35, maxStripes: 4 },
-    { belt: 'brown', minAttendances: 340, stripeEvery: 40, maxStripes: 4 },
-    { belt: 'black', minAttendances: 500, stripeEvery: 50, maxStripes: 6 },
-  ],
+  version: 2,
+  schema: 'v2',
+  adult: {
+    belts: [
+      { belt: 'white', stripeEvery: 30, maxStripes: 4 },
+      { belt: 'blue', stripeEvery: 65, maxStripes: 4 },
+      { belt: 'purple', stripeEvery: 75, maxStripes: 4 },
+      { belt: 'brown', stripeEvery: 85, maxStripes: 4 },
+      { belt: 'black', stripeEvery: 0, maxStripes: 0 },
+    ],
+  },
+  kids: {
+    level_kids: {
+      belts: [
+        { belt: 'white', stripeEvery: 12, maxStripes: 4 },
+        { belt: 'gray-white', stripeEvery: 12, maxStripes: 4 },
+        { belt: 'gray', stripeEvery: 12, maxStripes: 4 },
+        { belt: 'gray-black', stripeEvery: 12, maxStripes: 4 },
+      ],
+    },
+    level_infanto_juvenil: {
+      belts: [
+        { belt: 'white', stripeEvery: 15, maxStripes: 4 },
+        { belt: 'gray-white', stripeEvery: 15, maxStripes: 4 },
+        { belt: 'gray', stripeEvery: 15, maxStripes: 4 },
+        { belt: 'gray-black', stripeEvery: 15, maxStripes: 4 },
+        { belt: 'yellow-white', stripeEvery: 20, maxStripes: 4 },
+        { belt: 'yellow', stripeEvery: 20, maxStripes: 4 },
+        { belt: 'yellow-black', stripeEvery: 20, maxStripes: 4 },
+        { belt: 'orange-white', stripeEvery: 20, maxStripes: 4 },
+        { belt: 'orange', stripeEvery: 20, maxStripes: 4 },
+        { belt: 'orange-black', stripeEvery: 20, maxStripes: 4 },
+      ],
+    },
+    level_juvenil: {
+      belts: [
+        { belt: 'white', stripeEvery: 20, maxStripes: 4 },
+        { belt: 'gray-white', stripeEvery: 20, maxStripes: 4 },
+        { belt: 'gray', stripeEvery: 20, maxStripes: 4 },
+        { belt: 'gray-black', stripeEvery: 20, maxStripes: 4 },
+        { belt: 'yellow-white', stripeEvery: 22, maxStripes: 4 },
+        { belt: 'yellow', stripeEvery: 22, maxStripes: 4 },
+        { belt: 'yellow-black', stripeEvery: 22, maxStripes: 4 },
+        { belt: 'orange-white', stripeEvery: 22, maxStripes: 4 },
+        { belt: 'orange', stripeEvery: 22, maxStripes: 4 },
+        { belt: 'orange-black', stripeEvery: 22, maxStripes: 4 },
+        { belt: 'green-white', stripeEvery: 25, maxStripes: 4 },
+        { belt: 'green', stripeEvery: 25, maxStripes: 4 },
+        { belt: 'green-black', stripeEvery: 25, maxStripes: 4 },
+      ],
+    },
+  },
 };
 
 export const RANKING_WEIGHTS = {

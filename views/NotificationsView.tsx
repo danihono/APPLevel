@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import { ALL_BELTS, beltLabel } from '../beltCatalog';
 import { Bell, BellRing, CheckCircle2, ClipboardCheck, GraduationCap, Send, XCircle } from 'lucide-react';
 import type { FirestoreEntity } from '../services/firebase/data';
 import type {
@@ -42,11 +43,7 @@ interface NotificationsViewProps {
 
 const beltOptions = [
   { value: '', label: 'Todas as faixas' },
-  { value: 'white', label: 'Branca' },
-  { value: 'blue', label: 'Azul' },
-  { value: 'purple', label: 'Roxa' },
-  { value: 'brown', label: 'Marrom' },
-  { value: 'black', label: 'Preta' },
+  ...ALL_BELTS.map((belt) => ({ value: belt, label: beltLabel(belt) })),
 ];
 
 function formatStamp(value?: { toDate(): Date } | null) {
@@ -150,7 +147,7 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
         id: entry.id,
         kind: 'join_request' as const,
         title: entry.displayName,
-        body: `${entry.email} • faixa ${entry.requestedBelt} • grau ${entry.requestedGrade}`,
+        body: `${entry.email} • faixa ${beltLabel(entry.requestedBelt)} • grau ${entry.requestedGrade}`,
         meta: `${entry.academyName} • CPF ${entry.cpf}`,
         createdAt: entry.createdAt,
       }));
@@ -494,7 +491,7 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
                     <div className="mt-5 flex flex-wrap gap-3">
                       <span className="app-badge app-badge--muted">Canal: {notification.channel}</span>
                       {notification.targetRole ? <span className="app-badge app-badge--muted">Perfil: {notification.targetRole}</span> : null}
-                      {notification.targetBelt ? <span className="app-badge app-badge--muted">Faixa: {notification.targetBelt}</span> : null}
+                      {notification.targetBelt ? <span className="app-badge app-badge--muted">Faixa: {beltLabel(notification.targetBelt)}</span> : null}
                       {unread ? (
                         <button
                           type="button"
@@ -578,7 +575,7 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
                 <div>
                   <div className="flex flex-wrap items-center gap-3">
                     <h2 className="text-lg font-bold">{item?.name}</h2>
-                    <span className="app-badge app-badge--muted">Faixa {item?.belt}</span>
+                    <span className="app-badge app-badge--muted">Faixa {beltLabel(item?.belt)}</span>
                   </div>
                   <p className="mt-3 text-sm leading-7 text-[color:var(--text-muted)]">{item?.status}</p>
                 </div>
