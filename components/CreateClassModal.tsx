@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { ChevronLeft, ChevronRight, X } from 'lucide-react';
-
-const WEEK_HEADER = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
+import { buildMonthGrid, MONTH_WEEK_HEADER, stripDate, toDateKey } from '../calendarUtils';
 
 const DURATION_OPTIONS = [
   { label: '30 min', value: 30 },
@@ -26,29 +25,6 @@ const TIPO_DESCRIPTION: Record<string, string | undefined> = {
 };
 
 const monthFormatter = new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric' });
-
-function toDateKey(date: Date) {
-  return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
-}
-
-function stripTime(date: Date) {
-  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
-}
-
-// Returns cells for a month grid (Mon-first). Nulls = padding days.
-function buildMonthGrid(year: number, month: number): Array<Date | null> {
-  const firstDay = new Date(year, month, 1);
-  const lastDay = new Date(year, month + 1, 0);
-  // Mon=0 … Sun=6
-  const startPad = firstDay.getDay() === 0 ? 6 : firstDay.getDay() - 1;
-  const cells: Array<Date | null> = Array(startPad).fill(null);
-  for (let d = 1; d <= lastDay.getDate(); d++) {
-    cells.push(new Date(year, month, d));
-  }
-  // Pad to complete last row
-  while (cells.length % 7 !== 0) cells.push(null);
-  return cells;
-}
 
 function toHHMM(date: Date) {
   return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
@@ -92,17 +68,13 @@ const CreateClassModal: React.FC<CreateClassModalProps> = ({
   onClose,
   onSubmit,
 }) => {
-  const today = stripTime(new Date());
-  const initDay = stripTime(selectedDay);
+  const today = stripDate(new Date());
+  const initDay = stripDate(selectedDay);
 
   const [calYear, setCalYear] = useState(initDay.getFullYear());
   const [calMonth, setCalMonth] = useState(initDay.getMonth());
-  const [selectedKeys, setSelectedKeys] = useState<Set<string>>(
-    new Set([toDateKey(initDay)]),
-  );
-  const [selectedDates, setSelectedDates] = useState<Map<string, Date>>(
-    new Map([[toDateKey(initDay), initDay]]),
-  );
+  const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set([toDateKey(initDay)]));
+  const [selectedDates, setSelectedDates] = useState<Map<string, Date>>(new Map([[toDateKey(initDay), initDay]]));
 
   const [title, setTitle] = useState('Treino');
   const [tipo, setTipo] = useState('Adulto');
@@ -125,8 +97,9 @@ const CreateClassModal: React.FC<CreateClassModalProps> = ({
 
   function toggleDate(date: Date) {
     const key = toDateKey(date);
-    setSelectedKeys((prev) => {
-      const next = new Set(prev);
+
+    setSelectedKeys((current) => {
+      const next = new Set(current);
       if (next.has(key)) {
         next.delete(key);
       } else {
@@ -134,28 +107,29 @@ const CreateClassModal: React.FC<CreateClassModalProps> = ({
       }
       return next;
     });
-    setSelectedDates((prev) => {
-      const next = new Map(prev);
+
+    setSelectedDates((current) => {
+      const next = new Map(current);
       if (next.has(key)) {
         next.delete(key);
       } else {
-        next.set(key, stripTime(date));
+        next.set(key, stripDate(date));
       }
       return next;
     });
   }
 
   function handleProfessorChange(id: string) {
-    const prof = professors.find((p) => p.id === id);
+    const professor = professors.find((entry) => entry.id === id);
     setProfessorId(id);
-    setProfessorName(prof?.displayName ?? '');
+    setProfessorName(professor?.displayName ?? '');
   }
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  async function handleSubmit(event: React.FormEvent) {
+    event.preventDefault();
 
     if (selectedKeys.size === 0) {
-      setError('Selecione pelo menos um dia no calendário.');
+      setError('Selecione pelo menos um dia no calendario.');
       return;
     }
 
@@ -166,13 +140,12 @@ const CreateClassModal: React.FC<CreateClassModalProps> = ({
 
     const [hours, minutes] = time.split(':').map(Number);
     const description = TIPO_DESCRIPTION[tipo];
-
-    const sorted = Array.from(selectedDates.values()).sort((a, b) => a.getTime() - b.getTime());
-
-    const payloads: CreateClassPayload[] = sorted.map((classDate) => {
+    const sortedDates = Array.from(selectedDates.values()).sort((left, right) => left.getTime() - right.getTime());
+    const payloads: CreateClassPayload[] = sortedDates.map((classDate) => {
       const start = new Date(classDate);
       start.setHours(hours, minutes, 0, 0);
       const end = new Date(start.getTime() + duration * 60 * 1000);
+
       return {
         title: title.trim(),
         description,
@@ -190,8 +163,8 @@ const CreateClassModal: React.FC<CreateClassModalProps> = ({
     try {
       await onSubmit(payloads);
       onClose();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Erro ao criar aula.');
+    } catch (submitError) {
+      setError(submitError instanceof Error ? submitError.message : 'Erro ao criar aula.');
     } finally {
       setSubmitting(false);
     }
@@ -201,14 +174,11 @@ const CreateClassModal: React.FC<CreateClassModalProps> = ({
   const submitLabel = submitting ? 'Criando...' : count > 1 ? `Criar ${count} aulas` : 'Criar aula';
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 sm:items-center"
-      onClick={onClose}
-    >
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 sm:items-center" onClick={onClose}>
       <div
         className="app-panel app-panel-pad w-full max-w-lg overflow-y-auto rounded-b-none sm:rounded-[1.8rem]"
         style={{ maxHeight: '92vh' }}
-        onClick={(e) => e.stopPropagation()}
+        onClick={(event) => event.stopPropagation()}
       >
         <div className="flex items-center justify-between">
           <h2 className="text-xl font-bold">Criar aula</h2>
@@ -217,15 +187,14 @@ const CreateClassModal: React.FC<CreateClassModalProps> = ({
           </button>
         </div>
 
-        <form onSubmit={(e) => void handleSubmit(e)} className="mt-6 flex flex-col gap-5">
-          {/* Nome + Tipo */}
+        <form onSubmit={(event) => void handleSubmit(event)} className="mt-6 flex flex-col gap-5">
           <div className="app-form-grid">
             <label className="app-field">
               <span className="app-field__label">Nome da aula</span>
               <input
                 type="text"
                 value={title}
-                onChange={(e) => setTitle(e.target.value)}
+                onChange={(event) => setTitle(event.target.value)}
                 className="app-input"
                 placeholder="Ex: Treino, Fundamentos, Sparring"
                 required
@@ -234,28 +203,25 @@ const CreateClassModal: React.FC<CreateClassModalProps> = ({
 
             <label className="app-field">
               <span className="app-field__label">Tipo</span>
-              <select value={tipo} onChange={(e) => setTipo(e.target.value)} className="app-input">
-                {TYPE_OPTIONS.map((opt) => (
-                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+              <select value={tipo} onChange={(event) => setTipo(event.target.value)} className="app-input">
+                {TYPE_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
                 ))}
               </select>
             </label>
           </div>
 
-          {/* Calendário mensal */}
           <div>
-            <div className="flex items-center justify-between mb-3">
+            <div className="mb-3 flex items-center justify-between">
               <p className="app-field__label">
                 Dias
-                {count > 0 ? (
-                  <span className="ml-2 text-[color:var(--gold-mid)]">{count} selecionado{count > 1 ? 's' : ''}</span>
-                ) : null}
+                {count > 0 ? <span className="ml-2 text-[color:var(--gold-mid)]">{count} selecionado{count > 1 ? 's' : ''}</span> : null}
               </p>
               <div className="flex items-center gap-1">
                 <button type="button" onClick={() => shiftMonth(-1)} className="app-button app-button--ghost app-button--icon" style={{ width: 28, height: 28 }}>
                   <ChevronLeft size={14} />
                 </button>
-                <span className="text-xs font-semibold capitalize" style={{ minWidth: 110, textAlign: 'center' }}>
+                <span className="min-w-[110px] text-center text-xs font-semibold capitalize">
                   {monthFormatter.format(new Date(calYear, calMonth))}
                 </span>
                 <button type="button" onClick={() => shiftMonth(1)} className="app-button app-button--ghost app-button--icon" style={{ width: 28, height: 28 }}>
@@ -264,24 +230,24 @@ const CreateClassModal: React.FC<CreateClassModalProps> = ({
               </div>
             </div>
 
-            {/* Header dias */}
-            <div className="grid grid-cols-7 mb-1">
-              {WEEK_HEADER.map((d) => (
-                <div key={d} className="text-center text-[10px] font-bold uppercase tracking-[0.12em] text-[color:var(--text-soft)] py-1">
-                  {d}
+            <div className="mb-1 grid grid-cols-7">
+              {MONTH_WEEK_HEADER.map((day) => (
+                <div key={day} className="py-1 text-center text-[10px] font-bold uppercase tracking-[0.12em] text-[color:var(--text-soft)]">
+                  {day}
                 </div>
               ))}
             </div>
 
-            {/* Células */}
             <div className="grid grid-cols-7 gap-y-1">
-              {cells.map((cell, i) => {
+              {cells.map((cell, index) => {
                 if (!cell) {
-                  return <div key={`pad-${i}`} />;
+                  return <div key={`pad-${index}`} />;
                 }
+
                 const key = toDateKey(cell);
                 const isSelected = selectedKeys.has(key);
-                const isToday = toDateKey(cell) === toDateKey(today);
+                const isToday = key === toDateKey(today);
+
                 return (
                   <button
                     key={key}
@@ -293,7 +259,7 @@ const CreateClassModal: React.FC<CreateClassModalProps> = ({
                         ? 'bg-[color:var(--gold-mid)] text-white font-bold'
                         : isToday
                           ? 'border border-[color:var(--gold-mid)] text-[color:var(--gold-mid)]'
-                          : 'hover:bg-white/10 text-[color:var(--text-muted)]',
+                          : 'text-[color:var(--text-muted)] hover:bg-white/10',
                     ].join(' ')}
                   >
                     {cell.getDate()}
@@ -303,47 +269,38 @@ const CreateClassModal: React.FC<CreateClassModalProps> = ({
             </div>
           </div>
 
-          {/* Horário + Duração */}
           <div className="app-form-grid">
             <label className="app-field">
-              <span className="app-field__label">Horário</span>
-              <input
-                type="time"
-                value={time}
-                onChange={(e) => setTime(e.target.value)}
-                className="app-input"
-                required
-              />
+              <span className="app-field__label">Horario</span>
+              <input type="time" value={time} onChange={(event) => setTime(event.target.value)} className="app-input" required />
             </label>
 
             <label className="app-field">
-              <span className="app-field__label">Duração</span>
-              <select value={duration} onChange={(e) => setDuration(Number(e.target.value))} className="app-input">
-                {DURATION_OPTIONS.map((opt) => (
-                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+              <span className="app-field__label">Duracao</span>
+              <select value={duration} onChange={(event) => setDuration(Number(event.target.value))} className="app-input">
+                {DURATION_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
                 ))}
               </select>
             </label>
           </div>
 
-          {/* Professor */}
           <label className="app-field">
             <span className="app-field__label">Professor</span>
-            <select value={professorId} onChange={(e) => handleProfessorChange(e.target.value)} className="app-input">
-              {professors.map((p) => (
-                <option key={p.id} value={p.id}>{p.displayName}</option>
+            <select value={professorId} onChange={(event) => handleProfessorChange(event.target.value)} className="app-input">
+              {professors.map((professor) => (
+                <option key={professor.id} value={professor.id}>{professor.displayName}</option>
               ))}
             </select>
           </label>
 
-          {/* Tatame + Capacidade */}
           <div className="app-form-grid">
             <label className="app-field">
               <span className="app-field__label">Tatame</span>
               <input
                 type="text"
                 value={tatame}
-                onChange={(e) => setTatame(e.target.value)}
+                onChange={(event) => setTatame(event.target.value)}
                 className="app-input"
                 placeholder="Tatame Principal"
               />
@@ -354,7 +311,7 @@ const CreateClassModal: React.FC<CreateClassModalProps> = ({
               <input
                 type="number"
                 value={capacity}
-                onChange={(e) => setCapacity(Number(e.target.value))}
+                onChange={(event) => setCapacity(Number(event.target.value))}
                 className="app-input"
                 min={1}
                 max={500}

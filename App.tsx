@@ -325,37 +325,39 @@ function buildSuperadminUnitFocusView(params: {
   onBackToNetwork: () => void;
 }) {
   return (
-    <div className="view-shell">
-      <section className="app-panel app-panel--hero app-panel-pad">
-        <p className="app-section-label">Visao professor</p>
-        <h2 className="app-section-title">Escolha uma unidade para entrar.</h2>
-        <p className="app-section-copy">
-          O superadmin continua com acesso global, mas neste modo a operacao fica focada em uma unidade especifica.
-        </p>
+    <div className="app-auth-shell">
+      <div className="app-auth-grid">
+        <section className="app-panel app-panel--hero app-panel-pad">
+          <p className="app-section-label">Visao professor</p>
+          <h2 className="app-section-title">Escolha uma unidade para entrar.</h2>
+          <p className="app-section-copy">
+            O superadmin continua com acesso global, mas neste modo a operacao fica focada em uma unidade especifica.
+          </p>
 
-        <div className="mt-6 flex flex-wrap gap-3">
-          <button type="button" onClick={params.onBackToNetwork} className="app-button app-button--ghost">
-            Voltar para a visao superadmin
-          </button>
-        </div>
-      </section>
+          <div className="mt-6 flex flex-wrap gap-3">
+            <button type="button" onClick={params.onBackToNetwork} className="app-button app-button--ghost">
+              Voltar para a visao superadmin
+            </button>
+          </div>
+        </section>
 
-      <section className="app-grid-2">
-        {params.academies.map((entry) => (
-          <button
-            key={entry.id}
-            type="button"
-            onClick={() => params.onSelectAcademy(entry.id)}
-            className="app-panel app-panel-pad text-left transition hover:-translate-y-0.5"
-          >
-            <p className="app-section-label">Unidade LEVEL</p>
-            <h3 className="mt-2 text-xl font-bold">{entry.name}</h3>
-            <p className="mt-2 text-sm text-[color:var(--text-muted)]">
-              Abrir agenda, equipe, comunicacao e learning desta unidade.
-            </p>
-          </button>
-        ))}
-      </section>
+        <section className="app-grid-2">
+          {params.academies.map((entry) => (
+            <button
+              key={entry.id}
+              type="button"
+              onClick={() => params.onSelectAcademy(entry.id)}
+              className="app-panel app-panel-pad text-left transition hover:-translate-y-0.5"
+            >
+              <p className="app-section-label">Unidade LEVEL</p>
+              <h3 className="mt-2 text-xl font-bold">{entry.name}</h3>
+              <p className="mt-2 text-sm text-[color:var(--text-muted)]">
+                Abrir agenda, equipe, comunicacao e learning desta unidade.
+              </p>
+            </button>
+          ))}
+        </section>
+      </div>
     </div>
   );
 }
@@ -1444,8 +1446,23 @@ const App: React.FC = () => {
           return;
         }
 
+        setSelectedAcademyId('');
         setSuperadminViewMode('professor');
         setActiveTab('home');
+      },
+    });
+  }
+
+  if (needsProfessorVisionUnit) {
+    return buildSuperadminUnitFocusView({
+      academies: allAcademies,
+      onSelectAcademy: (academyId) => {
+        setSelectedAcademyId(academyId);
+        setActiveTab('home');
+      },
+      onBackToNetwork: () => {
+        setSuperadminViewMode('superadmin');
+        setActiveTab(allAcademies.length === 0 ? 'management' : 'home');
       },
     });
   }
@@ -1477,25 +1494,8 @@ const App: React.FC = () => {
   const focusedLearningAcademy = selectedAcademyId
     ? (allAcademies.find((entry) => entry.id === selectedAcademyId) ?? null)
     : null;
-  const shouldRenderProfessorVisionUnitPicker =
-    needsProfessorVisionUnit
-    && activeTab !== 'profile';
 
   const renderContent = () => {
-    if (shouldRenderProfessorVisionUnitPicker) {
-      return buildSuperadminUnitFocusView({
-        academies: allAcademies,
-        onSelectAcademy: (academyId) => {
-          setSelectedAcademyId(academyId);
-          setActiveTab('home');
-        },
-        onBackToNetwork: () => {
-          setSuperadminViewMode('superadmin');
-          setActiveTab(allAcademies.length === 0 ? 'management' : 'home');
-        },
-      });
-    }
-
     if (isFirstAcademySetup) {
       return (
         <ManagementView
@@ -1853,6 +1853,10 @@ const App: React.FC = () => {
         onSetSuperadminViewMode={(nextMode) => {
           if (nextMode === 'professor' && allAcademies.length === 0) {
             return;
+          }
+
+          if (nextMode === 'professor') {
+            setSelectedAcademyId('');
           }
 
           setSuperadminViewMode(nextMode);

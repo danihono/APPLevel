@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Camera, CheckCircle, ChevronLeft, ChevronRight, Play, Plus, QrCode, RefreshCw, ShieldCheck, X } from 'lucide-react';
+import { Camera, CheckCircle, ChevronLeft, ChevronRight, MapPin, Play, Plus, QrCode, RefreshCw, ShieldCheck, Users, X } from 'lucide-react';
 import QRCodeSVG from 'react-qr-code';
+import { buildMonthGrid, MONTH_WEEK_HEADER, sameCalendarDay, sameCalendarMonth, stripDate, toDateKey } from '../calendarUtils';
 import ClassSessionCard from '../components/ClassSessionCard';
 import CreateClassModal, { type CreateClassPayload } from '../components/CreateClassModal';
 import type { FirestoreEntity } from '../services/firebase/data';
@@ -34,93 +35,180 @@ interface CalendarViewProps {
   onSubmitAttendanceRequest: (classId: string) => Promise<void>;
 }
 
-// ─── Grid constants ──────────────────────────────────────────────────────────
-const START_HOUR = 6;
-const END_HOUR = 23;
-const HOUR_H = 64; // px per hour
-const GUTTER_W = 44; // px for time label column
-const HOURS = Array.from({ length: END_HOUR - START_HOUR }, (_, i) => START_HOUR + i);
+type CalendarSurface = 'calendar' | 'today';
+type StaffFilter = 'minhas' | 'todas';
 
-// Mon-first day labels (JS getDay: 0=Sun)
-const DAY_SHORT = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+const monthFormatter = new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric' });
+const longDayFormatter = new Intl.DateTimeFormat('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' });
 
-const monthFmt = new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric' });
-
-// ─── Date helpers ─────────────────────────────────────────────────────────────
-function strip(d: Date) {
-  return new Date(d.getFullYear(), d.getMonth(), d.getDate());
-}
-function startOfWeek(d: Date) {
-  const n = strip(d);
-  const diff = n.getDay() === 0 ? -6 : 1 - n.getDay();
-  n.setDate(n.getDate() + diff);
-  return n;
-}
-function addDays(d: Date, n: number) {
-  const r = new Date(d);
-  r.setDate(r.getDate() + n);
-  return r;
-}
-function sameDay(a?: Date | null, b?: Date | null) {
-  if (!a || !b) return false;
-  return a.getDate() === b.getDate() && a.getMonth() === b.getMonth() && a.getFullYear() === b.getFullYear();
+function capitalize(value: string) {
+  return value.charAt(0).toUpperCase() + value.slice(1);
 }
 
 function fmtCountdown(ms: number): string {
-  if (ms <= 0) return '00:00';
+  if (ms <= 0) {
+    return '00:00';
+  }
+
   const totalSec = Math.floor(ms / 1000);
-  const m = Math.floor(totalSec / 60);
-  const s = totalSec % 60;
-  return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+  const minutes = Math.floor(totalSec / 60);
+  const seconds = totalSec % 60;
+  return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
 }
 
-// ─── Class block helpers ──────────────────────────────────────────────────────
-function classTop(cls: FirestoreEntity<ClassRecord>): number | null {
-  const s = cls.scheduledStart?.toDate();
-  if (!s) return null;
-  const mins = s.getHours() * 60 + s.getMinutes() - START_HOUR * 60;
-  return (mins / 60) * HOUR_H;
+function sortClasses(left: FirestoreEntity<ClassRecord>, right: FirestoreEntity<ClassRecord>) {
+  const leftStart = left.scheduledStart?.toDate().getTime() ?? Number.MAX_SAFE_INTEGER;
+  const rightStart = right.scheduledStart?.toDate().getTime() ?? Number.MAX_SAFE_INTEGER;
+  if (leftStart !== rightStart) {
+    return leftStart - rightStart;
+  }
+  return left.title.localeCompare(right.title, 'pt-BR');
 }
-function classHeight(cls: FirestoreEntity<ClassRecord>): number {
-  const s = cls.scheduledStart?.toDate();
-  const e = cls.scheduledEnd?.toDate();
-  if (!s || !e) return HOUR_H;
-  const mins = (e.getTime() - s.getTime()) / 60000;
-  return Math.max((mins / 60) * HOUR_H, 28);
-}
+
 function statusColors(status: ClassRecord['status']) {
   switch (status) {
-    case 'active':    return { bg: 'rgba(74,222,128,0.13)',  border: 'rgba(74,222,128,0.5)',  accent: '#4ade80' };
-    case 'finished':  return { bg: 'rgba(255,255,255,0.04)', border: 'rgba(255,255,255,0.12)', accent: 'var(--text-soft)' };
-    case 'cancelled': return { bg: 'rgba(239,68,68,0.1)',    border: 'rgba(239,68,68,0.35)',   accent: '#ef4444' };
-    default:          return { bg: 'rgba(232,175,72,0.13)',  border: 'rgba(232,175,72,0.45)',  accent: 'var(--gold-mid)' };
+    case 'active':
+      return { bg: 'rgba(74,222,128,0.13)', border: 'rgba(74,222,128,0.5)', accent: '#4ade80' };
+    case 'finished':
+      return { bg: 'rgba(255,255,255,0.04)', border: 'rgba(255,255,255,0.12)', accent: 'var(--text-soft)' };
+    case 'cancelled':
+      return { bg: 'rgba(239,68,68,0.1)', border: 'rgba(239,68,68,0.35)', accent: '#ef4444' };
+    default:
+      return { bg: 'rgba(232,175,72,0.13)', border: 'rgba(232,175,72,0.45)', accent: 'var(--gold-mid)' };
   }
+}
+
+function statusLabel(status: ClassRecord['status']) {
+  switch (status) {
+    case 'active':
+      return 'Ativa';
+    case 'finished':
+      return 'Concluida';
+    case 'cancelled':
+      return 'Cancelada';
+    default:
+      return 'Agendada';
+  }
+}
+
+function statusBadgeClass(status: ClassRecord['status']) {
+  switch (status) {
+    case 'active':
+      return 'app-badge app-badge--success';
+    case 'finished':
+      return 'app-badge app-badge--muted';
+    case 'cancelled':
+      return 'app-badge app-badge--danger';
+    default:
+      return 'app-badge app-badge--gold';
+  }
+}
+
+function classTimeRange(lesson: FirestoreEntity<ClassRecord>) {
+  const end = lesson.scheduledEnd?.toDate();
+  return end
+    ? `${formatTimeLabel(lesson.scheduledStart)} - ${formatTimeLabel(lesson.scheduledEnd)}`
+    : formatTimeLabel(lesson.scheduledStart);
 }
 
 function methodLabel(method: AttendanceRecord['checkInMethod']) {
   switch (method) {
-    case 'qr':      return 'QR';
-    case 'request': return 'Solicitado';
-    case 'manual':  return 'Manual';
-    default:        return method;
-  }
-}
-function methodBadgeClass(method: AttendanceRecord['checkInMethod']) {
-  switch (method) {
-    case 'qr':      return 'app-badge app-badge--success';
-    case 'request': return 'app-badge app-badge--gold';
-    default:        return 'app-badge app-badge--muted';
-  }
-}
-function methodColor(method: AttendanceRecord['checkInMethod']) {
-  switch (method) {
-    case 'qr':      return '#4ade80';
-    case 'request': return 'var(--gold-mid)';
-    default:        return 'var(--text-soft)';
+    case 'qr':
+      return 'QR';
+    case 'request':
+      return 'Solicitado';
+    case 'manual':
+      return 'Manual';
+    default:
+      return method;
   }
 }
 
-// ─── Component ────────────────────────────────────────────────────────────────
+function methodBadgeClass(method: AttendanceRecord['checkInMethod']) {
+  switch (method) {
+    case 'qr':
+      return 'app-badge app-badge--success';
+    case 'request':
+      return 'app-badge app-badge--gold';
+    default:
+      return 'app-badge app-badge--muted';
+  }
+}
+
+function methodColor(method: AttendanceRecord['checkInMethod']) {
+  switch (method) {
+    case 'qr':
+      return '#4ade80';
+    case 'request':
+      return 'var(--gold-mid)';
+    default:
+      return 'var(--text-soft)';
+  }
+}
+
+interface ClassListItemProps {
+  lesson: FirestoreEntity<ClassRecord>;
+  onOpen: (classId: string) => void;
+}
+
+const ClassListItem: React.FC<ClassListItemProps> = ({ lesson, onOpen }) => {
+  const capacityLabel = lesson.capacity ? `${lesson.currentAttendanceCount}/${lesson.capacity}` : `${lesson.currentAttendanceCount}/--`;
+
+  return (
+    <button
+      type="button"
+      onClick={() => onOpen(lesson.id)}
+      className="app-list-card"
+      style={{
+        width: '100%',
+        padding: '1rem 1.05rem',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 12,
+        textAlign: 'left',
+      }}
+    >
+      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
+        <div style={{ display: 'flex', gap: 12, flex: 1, minWidth: 0 }}>
+          <div
+            style={{
+              minWidth: 96,
+              padding: '0.7rem 0.8rem',
+              borderRadius: 16,
+              border: '1px solid rgba(232,175,72,0.2)',
+              background: 'rgba(232,175,72,0.1)',
+            }}
+          >
+            <p style={{ fontSize: '0.68rem', fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--text-soft)' }}>
+              Horario
+            </p>
+            <p style={{ marginTop: 6, fontSize: '0.92rem', fontWeight: 800 }}>{classTimeRange(lesson)}</p>
+          </div>
+
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8 }}>
+              <p style={{ fontSize: '1rem', fontWeight: 700 }}>{lesson.title}</p>
+              <span className={statusBadgeClass(lesson.status)}>{statusLabel(lesson.status)}</span>
+            </div>
+
+            {lesson.description ? (
+              <p style={{ marginTop: 6, fontSize: '0.82rem', color: 'var(--text-muted)', lineHeight: 1.5 }}>
+                {lesson.description}
+              </p>
+            ) : null}
+          </div>
+        </div>
+      </div>
+
+      <div className="app-meta-row">
+        <span>{lesson.professorName || 'Equipe tecnica'}</span>
+        <span className="inline-flex items-center gap-2"><MapPin size={14} />{lesson.tatame || 'Tatame principal'}</span>
+        <span className="inline-flex items-center gap-2"><Users size={14} />Capacidade {capacityLabel}</span>
+      </div>
+    </button>
+  );
+};
+
 const CalendarView: React.FC<CalendarViewProps> = ({
   userRole,
   currentUserId,
@@ -138,18 +226,13 @@ const CalendarView: React.FC<CalendarViewProps> = ({
   onRegisterAttendance,
   onSubmitAttendanceRequest,
 }) => {
-  const isStaff =
-    userRole === UserRole.PROFESSOR ||
-    userRole === UserRole.SUPERADMIN;
+  const isStaff = userRole === UserRole.PROFESSOR || userRole === UserRole.SUPERADMIN;
+  const today = useMemo(() => stripDate(new Date()), []);
 
-  const today = useMemo(() => strip(new Date()), []);
-  const now = new Date();
-  const nowTop = (now.getHours() * 60 + now.getMinutes() - START_HOUR * 60) / 60 * HOUR_H;
-  const showNowLine = now.getHours() >= START_HOUR && now.getHours() < END_HOUR;
-
-  const [view, setView] = useState<'minhas' | 'todas'>(isStaff ? 'minhas' : 'todas');
-  const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date()));
-  const [selectedDay, setSelectedDay] = useState(() => strip(new Date()));
+  const [surfaceTab, setSurfaceTab] = useState<CalendarSurface>('calendar');
+  const [view, setView] = useState<StaffFilter>(isStaff ? 'minhas' : 'todas');
+  const [visibleMonth, setVisibleMonth] = useState(() => new Date(today.getFullYear(), today.getMonth(), 1));
+  const [selectedDay, setSelectedDay] = useState(() => today);
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
   const [sheetTab, setSheetTab] = useState<'detalhes' | 'historico'>('detalhes');
@@ -158,33 +241,19 @@ const CalendarView: React.FC<CalendarViewProps> = ({
   const [qrInputByClass, setQrInputByClass] = useState<Record<string, string>>({});
   const [messageByClass, setMessageByClass] = useState<Record<string, string>>({});
   const [busyByClass, setBusyByClass] = useState<Record<string, boolean>>({});
-
-  // Finish flow
   const [finishConfirmClassId, setFinishConfirmClassId] = useState<string | null>(null);
   const [finishQrData, setFinishQrData] = useState<QrSessionPayload | null>(null);
   const [finishBusy, setFinishBusy] = useState(false);
   const [finishCountdown, setFinishCountdown] = useState('');
-
-  // Camera scanner
   const [scannerOpen, setScannerOpen] = useState(false);
   const [scannerClassId, setScannerClassId] = useState<string | null>(null);
+
   const tokenInputRef = useRef<HTMLInputElement>(null);
 
-  const scrollRef = useRef<HTMLDivElement>(null);
-
-  // Reset sheet tab when different class selected
-  useEffect(() => { setSheetTab('detalhes'); }, [selectedClassId]);
-
-  // Auto-scroll to current time on mount
   useEffect(() => {
-    if (scrollRef.current) {
-      const offset = Math.max(0, (now.getHours() - START_HOUR - 1) * HOUR_H);
-      scrollRef.current.scrollTop = offset;
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    setSheetTab('detalhes');
+  }, [selectedClassId]);
 
-  // QR countdown tickers (active class QRs)
   useEffect(() => {
     const id = setInterval(() => {
       const next: Record<string, string> = {};
@@ -196,58 +265,74 @@ const CalendarView: React.FC<CalendarViewProps> = ({
     return () => clearInterval(id);
   }, [qrByClass]);
 
-  // Finish-flow QR countdown ticker
   useEffect(() => {
-    if (!finishQrData) { setFinishCountdown(''); return; }
+    if (!finishQrData) {
+      setFinishCountdown('');
+      return;
+    }
+
     const id = setInterval(() => {
       const remaining = new Date(finishQrData.expiresAt).getTime() - Date.now();
       if (remaining <= 0 && finishConfirmClassId) {
-        // Auto-refresh QR when it expires during finish flow
-        void onRefreshQr(finishConfirmClassId).then(fresh => setFinishQrData(fresh)).catch(() => {});
+        void onRefreshQr(finishConfirmClassId).then((fresh) => setFinishQrData(fresh)).catch(() => {});
       }
       setFinishCountdown(fmtCountdown(remaining));
     }, 1000);
+
     return () => clearInterval(id);
   }, [finishQrData, finishConfirmClassId, onRefreshQr]);
 
-  // Camera scanner lifecycle
   useEffect(() => {
-    if (!scannerOpen || !scannerClassId) return;
+    if (!scannerOpen || !scannerClassId) {
+      return;
+    }
+
     let stopped = false;
     let scanner: { stop: () => Promise<void> } | null = null;
 
     import('html5-qrcode').then(({ Html5Qrcode }) => {
-      if (stopped) return;
-      const s = new Html5Qrcode('qr-reader');
-      scanner = s;
+      if (stopped) {
+        return;
+      }
 
-      s.start(
+      const nextScanner = new Html5Qrcode('qr-reader');
+      scanner = nextScanner;
+
+      nextScanner.start(
         { facingMode: 'environment' },
         { fps: 10, qrbox: { width: 240, height: 240 } },
         (decoded) => {
-          let token: string = decoded.trim();
+          let token = decoded.trim();
           try {
             const url = new URL(decoded);
             const urlToken = url.searchParams.get('checkin');
-            if (urlToken) { token = urlToken; }
-            else {
+            if (urlToken) {
+              token = urlToken;
+            } else {
               const parsed = JSON.parse(decoded) as { token?: string };
-              if (parsed.token) token = parsed.token;
+              if (parsed.token) {
+                token = parsed.token;
+              }
             }
           } catch {
             try {
               const parsed = JSON.parse(decoded) as { token?: string };
-              if (parsed.token) token = parsed.token;
-            } catch { /* raw token */ }
+              if (parsed.token) {
+                token = parsed.token;
+              }
+            } catch {
+              // raw token
+            }
           }
+
           setScannerOpen(false);
           void runClassAction(scannerClassId, () => onRegisterAttendance(scannerClassId, token));
         },
         () => {},
-      ).catch((err: unknown) => {
-        setMessageByClass(p => ({
-          ...p,
-          [scannerClassId]: `Câmera: ${err instanceof Error ? err.message : 'Acesso negado'}`,
+      ).catch((error: unknown) => {
+        setMessageByClass((current) => ({
+          ...current,
+          [scannerClassId]: `Camera: ${error instanceof Error ? error.message : 'Acesso negado'}`,
         }));
         setScannerOpen(false);
       });
@@ -259,81 +344,153 @@ const CalendarView: React.FC<CalendarViewProps> = ({
       stopped = true;
       scanner?.stop().catch(() => {});
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [scannerOpen, scannerClassId]);
+  }, [scannerOpen, scannerClassId, onRegisterAttendance]);
 
-  const weekDays = useMemo(
-    () => Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)),
-    [weekStart],
-  );
-
-  const filteredClasses = useMemo(() =>
-    classes.filter((cls) => {
-      if (view === 'minhas' && isStaff) return cls.professorId === currentUserId;
-      return true;
-    }),
+  const filteredClasses = useMemo(
+    () =>
+      [...classes]
+        .filter((entry) => {
+          if (view === 'minhas' && isStaff) {
+            return entry.professorId === currentUserId;
+          }
+          return true;
+        })
+        .sort(sortClasses),
     [classes, currentUserId, isStaff, view],
   );
 
-  function classesForDay(day: Date) {
-    return filteredClasses.filter((cls) => {
-      const d = cls.scheduledStart?.toDate();
-      return d && sameDay(d, day);
+  const classesByDay = useMemo(() => {
+    const grouped = new Map<string, Array<FirestoreEntity<ClassRecord>>>();
+
+    filteredClasses.forEach((entry) => {
+      const start = entry.scheduledStart?.toDate();
+      if (!start) {
+        return;
+      }
+
+      const key = toDateKey(start);
+      const existing = grouped.get(key) ?? [];
+      existing.push(entry);
+      grouped.set(key, existing);
     });
-  }
 
-  function shiftWeek(dir: -1 | 1) {
-    const next = addDays(weekStart, dir * 7);
-    setWeekStart(next);
-    setSelectedDay(next);
-  }
+    return grouped;
+  }, [filteredClasses]);
 
-  function goToToday() {
-    setWeekStart(startOfWeek(today));
-    setSelectedDay(today);
-  }
+  useEffect(() => {
+    if (!selectedClassId) {
+      return;
+    }
+
+    if (!filteredClasses.some((entry) => entry.id === selectedClassId)) {
+      setSelectedClassId(null);
+    }
+  }, [filteredClasses, selectedClassId]);
+
+  const monthCells = useMemo(
+    () => buildMonthGrid(visibleMonth.getFullYear(), visibleMonth.getMonth()),
+    [visibleMonth],
+  );
+
+  const selectedDayClasses = useMemo(
+    () => classesByDay.get(toDateKey(selectedDay)) ?? [],
+    [classesByDay, selectedDay],
+  );
+
+  const todayClasses = useMemo(
+    () => classesByDay.get(toDateKey(today)) ?? [],
+    [classesByDay, today],
+  );
+
+  const visibleMonthClassCount = useMemo(
+    () => filteredClasses.filter((entry) => {
+      const start = entry.scheduledStart?.toDate();
+      return !!start && sameCalendarMonth(start, visibleMonth);
+    }).length,
+    [filteredClasses, visibleMonth],
+  );
+
+  const selectedDayLabel = useMemo(() => capitalize(longDayFormatter.format(selectedDay)), [selectedDay]);
+  const todayLabel = useMemo(() => capitalize(longDayFormatter.format(today)), [today]);
+
+  const selectedClass = selectedClassId ? classes.find((entry) => entry.id === selectedClassId) ?? null : null;
+  const canManageSelected = isStaff
+    && selectedClass
+    && (userRole === UserRole.PROFESSOR || userRole === UserRole.SUPERADMIN || selectedClass.professorId === currentUserId);
+  const pendingRequest = selectedClass
+    ? attendanceRequests.find((entry) => entry.classId === selectedClass.id && entry.status === 'pending')
+    : null;
+  const qrData = selectedClassId ? qrByClass[selectedClassId] : null;
+  const qrCountdown = selectedClassId ? qrCountdowns[selectedClassId] ?? '' : '';
+  const busy = selectedClassId ? !!busyByClass[selectedClassId] : false;
+  const message = selectedClassId ? messageByClass[selectedClassId] : '';
+  const myAttendances = useMemo(
+    () =>
+      [...attendances]
+        .filter((entry) => entry.userId === currentUserId)
+        .sort((left, right) => (right.checkedInAt?.toDate().getTime() ?? 0) - (left.checkedInAt?.toDate().getTime() ?? 0)),
+    [attendances, currentUserId],
+  );
+
+  const isMineView = isStaff && view === 'minhas';
+  const selectedDayEmptyMessage = isMineView
+    ? 'Voce nao tem aulas programadas nesta data.'
+    : 'Nenhuma aula programada para esta data.';
+  const todayEmptyMessage = isMineView
+    ? 'Voce nao tem aulas programadas para hoje.'
+    : 'Nenhuma aula programada para hoje.';
 
   async function runClassAction(classId: string, action: () => Promise<void | QrSessionPayload>) {
-    setBusyByClass((p) => ({ ...p, [classId]: true }));
-    setMessageByClass((p) => ({ ...p, [classId]: '' }));
+    setBusyByClass((current) => ({ ...current, [classId]: true }));
+    setMessageByClass((current) => ({ ...current, [classId]: '' }));
     try {
       const result = await action();
       if (result && 'qrToken' in result) {
-        setQrByClass((p) => ({ ...p, [classId]: result }));
-        setMessageByClass((p) => ({ ...p, [classId]: 'QR atualizado.' }));
+        setQrByClass((current) => ({ ...current, [classId]: result }));
+        setMessageByClass((current) => ({ ...current, [classId]: 'QR atualizado.' }));
       } else {
-        setMessageByClass((p) => ({ ...p, [classId]: 'Operacao concluida.' }));
+        setMessageByClass((current) => ({ ...current, [classId]: 'Operacao concluida.' }));
       }
     } catch (error) {
-      setMessageByClass((p) => ({
-        ...p,
+      setMessageByClass((current) => ({
+        ...current,
         [classId]: error instanceof Error ? error.message : 'Nao foi possivel concluir.',
       }));
     } finally {
-      setBusyByClass((p) => ({ ...p, [classId]: false }));
+      setBusyByClass((current) => ({ ...current, [classId]: false }));
     }
   }
 
   async function handleStartFinishFlow(classId: string) {
     setFinishBusy(true);
-    setMessageByClass(p => ({ ...p, [classId]: '' }));
+    setMessageByClass((current) => ({ ...current, [classId]: '' }));
     try {
       const freshQr = await onRefreshQr(classId);
       setFinishQrData(freshQr);
       setFinishConfirmClassId(classId);
-    } catch (e) {
-      setMessageByClass(p => ({ ...p, [classId]: e instanceof Error ? e.message : 'Erro ao gerar QR' }));
+    } catch (error) {
+      setMessageByClass((current) => ({
+        ...current,
+        [classId]: error instanceof Error ? error.message : 'Erro ao gerar QR',
+      }));
     } finally {
       setFinishBusy(false);
     }
   }
 
   async function handleConfirmFinish() {
-    if (!finishConfirmClassId) return;
+    if (!finishConfirmClassId) {
+      return;
+    }
+
     setFinishBusy(true);
     try {
       await onFinishClass(finishConfirmClassId);
-      setQrByClass(p => { const n = { ...p }; delete n[finishConfirmClassId]; return n; });
+      setQrByClass((current) => {
+        const next = { ...current };
+        delete next[finishConfirmClassId];
+        return next;
+      });
     } finally {
       setFinishBusy(false);
       setFinishConfirmClassId(null);
@@ -342,67 +499,54 @@ const CalendarView: React.FC<CalendarViewProps> = ({
     }
   }
 
-  const selectedClass = selectedClassId ? classes.find((c) => c.id === selectedClassId) ?? null : null;
-  const canManageSelected =
-    isStaff &&
-    selectedClass &&
-    (userRole === UserRole.PROFESSOR || userRole === UserRole.SUPERADMIN || selectedClass.professorId === currentUserId);
-  const pendingRequest = selectedClass
-    ? attendanceRequests.find((r) => r.classId === selectedClass.id && r.status === 'pending')
-    : null;
-  const qrData = selectedClassId ? qrByClass[selectedClassId] : null;
-  const qrCountdown = selectedClassId ? (qrCountdowns[selectedClassId] ?? '') : '';
-  const busy = selectedClassId ? !!busyByClass[selectedClassId] : false;
-  const message = selectedClassId ? messageByClass[selectedClassId] : '';
+  function openClassDetails(classId: string) {
+    setSelectedClassId(classId);
+  }
 
-  // Attendance history data
-  const myAttendances = useMemo(() =>
-    [...attendances]
-      .filter(a => a.userId === currentUserId)
-      .sort((a, b) => (b.checkedInAt?.toDate().getTime() ?? 0) - (a.checkedInAt?.toDate().getTime() ?? 0)),
-    [attendances, currentUserId],
-  );
+  function goToToday() {
+    setVisibleMonth(new Date(today.getFullYear(), today.getMonth(), 1));
+    setSelectedDay(today);
+  }
+
+  function shiftMonth(dir: -1 | 1) {
+    const nextMonth = new Date(visibleMonth.getFullYear(), visibleMonth.getMonth() + dir, 1);
+    const lastDay = new Date(nextMonth.getFullYear(), nextMonth.getMonth() + 1, 0).getDate();
+    setVisibleMonth(nextMonth);
+    setSelectedDay((current) => new Date(nextMonth.getFullYear(), nextMonth.getMonth(), Math.min(current.getDate(), lastDay)));
+  }
 
   return (
     <div className="view-shell">
-      {/* ── Top bar ──────────────────────────────────────────────────────────── */}
-      <div className="app-panel" style={{ padding: '14px 18px', marginBottom: 0 }}>
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          {/* Month + week navigation */}
-          <div className="flex items-center gap-1">
-            <button
-              type="button"
-              onClick={() => shiftWeek(-1)}
-              className="app-button app-button--ghost app-button--icon"
-              style={{ width: 32, height: 32 }}
-            >
-              <ChevronLeft size={15} />
-            </button>
-            <span
-              className="font-bold capitalize"
-              style={{ fontSize: '0.9rem', minWidth: 148, textAlign: 'center' }}
-            >
-              {monthFmt.format(weekStart)}
-            </span>
-            <button
-              type="button"
-              onClick={() => shiftWeek(1)}
-              className="app-button app-button--ghost app-button--icon"
-              style={{ width: 32, height: 32 }}
-            >
-              <ChevronRight size={15} />
-            </button>
-            <button
-              type="button"
-              onClick={goToToday}
-              className="app-button app-button--ghost"
-              style={{ fontSize: '0.72rem', padding: '3px 10px', height: 28 }}
-            >
-              Hoje
-            </button>
+      <section className="app-panel app-panel-pad">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <p className="app-section-label">Agenda</p>
+            <h1 className="app-section-title">Calendario de aulas</h1>
+            <p className="app-section-copy mt-4">
+              {surfaceTab === 'calendar'
+                ? 'Use o calendario mensal para localizar as aulas do dia e abrir a agenda logo abaixo.'
+                : 'Veja as aulas de hoje em lista, com leitura rapida e acesso direto aos detalhes.'}
+            </p>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="app-segment">
+              <button
+                type="button"
+                onClick={() => setSurfaceTab('calendar')}
+                className={`app-segment__button ${surfaceTab === 'calendar' ? 'is-active' : ''}`}
+              >
+                Calendario
+              </button>
+              <button
+                type="button"
+                onClick={() => setSurfaceTab('today')}
+                className={`app-segment__button ${surfaceTab === 'today' ? 'is-active' : ''}`}
+              >
+                Hoje
+              </button>
+            </div>
+
             {isStaff ? (
               <div className="app-segment">
                 <button
@@ -423,259 +567,252 @@ const CalendarView: React.FC<CalendarViewProps> = ({
             ) : null}
 
             {isStaff ? (
-              <button
-                type="button"
-                onClick={() => setCreateModalOpen(true)}
-                className="app-button app-button--dark"
-                style={{ fontSize: '0.78rem', padding: '6px 14px' }}
-              >
-                <Plus size={13} />
+              <button type="button" onClick={() => setCreateModalOpen(true)} className="app-button app-button--dark">
+                <Plus size={14} />
                 Criar aula
               </button>
             ) : null}
           </div>
         </div>
-      </div>
+      </section>
 
-      {/* ── Week grid ─────────────────────────────────────────────────────────── */}
-      <div
-        className="app-panel"
-        style={{
-          overflow: 'hidden',
-          display: 'flex',
-          flexDirection: 'column',
-          borderRadius: '0 0 1.5rem 1.5rem',
-        }}
-      >
-        {/* Day headers */}
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: `${GUTTER_W}px repeat(7, 1fr)`,
-            borderBottom: '1px solid rgba(255,255,255,0.07)',
-            flexShrink: 0,
-          }}
-        >
-          <div /> {/* empty corner */}
-          {weekDays.map((day) => {
-            const isToday = sameDay(day, today);
-            const isSel = sameDay(day, selectedDay);
-            return (
-              <button
-                key={day.toISOString()}
-                type="button"
-                onClick={() => setSelectedDay(day)}
-                style={{
-                  padding: '10px 4px',
-                  background: 'none',
-                  border: 'none',
-                  borderLeft: '1px solid rgba(255,255,255,0.05)',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  gap: 4,
-                }}
-              >
-                <span style={{
-                  fontSize: '0.6rem',
-                  fontWeight: 700,
-                  letterSpacing: '0.1em',
-                  textTransform: 'uppercase',
-                  color: 'var(--text-soft)',
-                }}>
-                  {DAY_SHORT[day.getDay()]}
-                </span>
-                <span style={{
-                  width: 26,
-                  height: 26,
-                  borderRadius: '50%',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: '0.78rem',
-                  fontWeight: isToday || isSel ? 700 : 500,
-                  background: isToday
-                    ? 'var(--gold-mid)'
-                    : isSel
-                      ? 'rgba(232,175,72,0.18)'
-                      : 'transparent',
-                  color: isToday
-                    ? '#000'
-                    : isSel
-                      ? 'var(--gold-mid)'
-                      : 'var(--text-muted)',
-                }}>
-                  {day.getDate()}
-                </span>
-              </button>
-            );
-          })}
-        </div>
+      {surfaceTab === 'calendar' ? (
+        <>
+          <section className="app-panel app-panel-pad">
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div>
+                <p className="app-section-label">Mes em foco</p>
+                <h2 className="text-2xl font-bold capitalize">{capitalize(monthFormatter.format(visibleMonth))}</h2>
+                <p className="mt-3 text-sm text-[color:var(--text-muted)]">
+                  Toque em um dia para listar as aulas abaixo. O filtro atual vale para o calendario inteiro.
+                </p>
+              </div>
 
-        {/* Scrollable time body */}
-        <div
-          ref={scrollRef}
-          style={{
-            overflowY: 'auto',
-            overflowX: 'auto',
-            maxHeight: 'calc(100svh - 280px)',
-            minHeight: 320,
-          }}
-        >
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: `${GUTTER_W}px repeat(7, 1fr)`,
-              minWidth: 420,
-              position: 'relative',
-            }}
-          >
-            {/* Time label column */}
-            <div>
-              {HOURS.map((h) => (
-                <div
-                  key={h}
-                  style={{
-                    height: HOUR_H,
-                    display: 'flex',
-                    alignItems: 'flex-start',
-                    justifyContent: 'flex-end',
-                    paddingRight: 8,
-                    paddingTop: 3,
-                    fontSize: '0.6rem',
-                    color: 'var(--text-soft)',
-                    fontVariantNumeric: 'tabular-nums',
-                    userSelect: 'none',
-                  }}
-                >
-                  {h}:00
-                </div>
-              ))}
+              <div className="flex flex-wrap items-center gap-2">
+                <button type="button" onClick={() => shiftMonth(-1)} className="app-button app-button--ghost app-button--icon">
+                  <ChevronLeft size={16} />
+                </button>
+                <button type="button" onClick={() => shiftMonth(1)} className="app-button app-button--ghost app-button--icon">
+                  <ChevronRight size={16} />
+                </button>
+                <button type="button" onClick={goToToday} className="app-button app-button--ghost">
+                  Hoje
+                </button>
+                <span className={visibleMonthClassCount > 0 ? 'app-badge app-badge--gold' : 'app-badge app-badge--muted'}>
+                  {visibleMonthClassCount} {visibleMonthClassCount === 1 ? 'aula no mes' : 'aulas no mes'}
+                </span>
+              </div>
             </div>
 
-            {/* Day columns */}
-            {weekDays.map((day) => {
-              const dayClasses = classesForDay(day);
-              const isToday = sameDay(day, today);
-              return (
-                <div
-                  key={day.toISOString()}
-                  style={{
-                    position: 'relative',
-                    height: HOURS.length * HOUR_H,
-                    borderLeft: '1px solid rgba(255,255,255,0.05)',
-                    background: isToday ? 'rgba(232,175,72,0.02)' : 'transparent',
-                  }}
-                >
-                  {/* Hour grid lines */}
-                  {HOURS.map((_, i) => (
-                    <div
-                      key={i}
-                      style={{
-                        position: 'absolute',
-                        top: i * HOUR_H,
-                        left: 0,
-                        right: 0,
-                        borderTop: i === 0 ? 'none' : '1px solid rgba(255,255,255,0.05)',
-                        pointerEvents: 'none',
-                      }}
-                    />
-                  ))}
+            <div className="mt-6">
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, minmax(0, 1fr))', gap: 8 }}>
+                {MONTH_WEEK_HEADER.map((day) => (
+                  <div
+                    key={day}
+                    style={{
+                      padding: '0.45rem 0.35rem',
+                      textAlign: 'center',
+                      fontSize: '0.7rem',
+                      fontWeight: 800,
+                      letterSpacing: '0.16em',
+                      textTransform: 'uppercase',
+                      color: 'var(--text-soft)',
+                    }}
+                  >
+                    {day}
+                  </div>
+                ))}
 
-                  {/* Current time line */}
-                  {isToday && showNowLine ? (
+                {monthCells.map((cell, index) => {
+                  if (!cell) {
+                    return <div key={`pad-${index}`} style={{ minHeight: 116 }} />;
+                  }
+
+                  const key = toDateKey(cell);
+                  const dayClasses = classesByDay.get(key) ?? [];
+                  const previewClasses = dayClasses.slice(0, 2);
+                  const remainingCount = dayClasses.length - previewClasses.length;
+                  const isToday = sameCalendarDay(cell, today);
+                  const isSelected = sameCalendarDay(cell, selectedDay);
+
+                  return (
                     <div
+                      key={key}
                       style={{
-                        position: 'absolute',
-                        top: nowTop,
-                        left: -1,
-                        right: 0,
-                        height: 2,
-                        background: '#ef4444',
-                        zIndex: 10,
-                        pointerEvents: 'none',
+                        position: 'relative',
+                        minHeight: 116,
+                        padding: 12,
+                        borderRadius: 20,
+                        border: isSelected ? '1px solid rgba(232,175,72,0.45)' : '1px solid var(--border)',
+                        background: isSelected
+                          ? 'linear-gradient(180deg, rgba(232,175,72,0.2), rgba(255,255,255,0.14))'
+                          : isToday
+                            ? 'linear-gradient(180deg, rgba(232,175,72,0.14), rgba(255,255,255,0.08))'
+                            : 'linear-gradient(170deg, rgba(255,255,255,0.3), rgba(255,255,255,0.08))',
+                        boxShadow: isSelected ? '0 18px 34px rgba(17,17,24,0.08)' : 'var(--shadow-soft)',
+                        overflow: 'hidden',
                       }}
                     >
-                      <div style={{
-                        position: 'absolute',
-                        left: -3,
-                        top: -3,
-                        width: 8,
-                        height: 8,
-                        borderRadius: '50%',
-                        background: '#ef4444',
-                      }} />
-                    </div>
-                  ) : null}
-
-                  {/* Class blocks */}
-                  {dayClasses.map((cls) => {
-                    const top = classTop(cls);
-                    if (top === null) return null;
-                    const height = classHeight(cls);
-                    const colors = statusColors(cls.status);
-                    const isSelected = cls.id === selectedClassId;
-
-                    return (
                       <button
-                        key={cls.id}
                         type="button"
-                        onClick={() => setSelectedClassId(isSelected ? null : cls.id)}
+                        onClick={() => setSelectedDay(stripDate(cell))}
+                        aria-label={`Selecionar ${formatDateLabel(cell)}`}
                         style={{
                           position: 'absolute',
-                          top: top + 1,
-                          left: 3,
-                          right: 3,
-                          height: height - 2,
-                          background: isSelected
-                            ? colors.bg.replace(/[\d.]+\)$/, '0.26)')
-                            : colors.bg,
-                          border: `1.5px solid ${isSelected ? colors.accent : colors.border}`,
-                          borderRadius: 8,
-                          padding: '3px 6px',
-                          textAlign: 'left',
+                          inset: 0,
+                          border: 'none',
+                          background: 'transparent',
                           cursor: 'pointer',
-                          overflow: 'hidden',
-                          zIndex: isSelected ? 5 : 2,
-                          transition: 'border-color 0.12s, background 0.12s',
-                          display: 'flex',
-                          flexDirection: 'column',
-                          gap: 1,
                         }}
-                      >
-                        <span style={{
-                          fontSize: '0.62rem',
-                          fontWeight: 700,
-                          color: colors.accent,
-                          whiteSpace: 'nowrap',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          lineHeight: 1.3,
-                        }}>
-                          {cls.title}
+                      />
+
+                      <div style={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
+                        <span
+                          style={{
+                            width: 32,
+                            height: 32,
+                            borderRadius: '999px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            background: isSelected
+                              ? 'var(--gold-mid)'
+                              : isToday
+                                ? 'rgba(232,175,72,0.16)'
+                                : 'rgba(255,255,255,0.18)',
+                            color: isSelected ? '#16120a' : isToday ? 'var(--gold-mid)' : 'var(--text-strong)',
+                            fontSize: '0.85rem',
+                            fontWeight: 800,
+                            fontVariantNumeric: 'tabular-nums',
+                          }}
+                        >
+                          {cell.getDate()}
                         </span>
-                        {height > 32 ? (
-                          <span style={{
-                            fontSize: '0.57rem',
-                            color: 'var(--text-soft)',
-                            whiteSpace: 'nowrap',
-                            lineHeight: 1.2,
-                          }}>
-                            {formatTimeLabel(cls.scheduledStart)}
+
+                        {dayClasses.length > 0 ? (
+                          <span className="app-badge app-badge--gold" style={{ minHeight: '1.7rem', padding: '0.2rem 0.55rem', fontSize: '0.62rem' }}>
+                            {dayClasses.length} {dayClasses.length === 1 ? 'aula' : 'aulas'}
                           </span>
                         ) : null}
-                      </button>
-                    );
-                  })}
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      </div>
+                      </div>
 
-      {/* ── Selected class bottom sheet ──────────────────────────────────────── */}
+                      <div style={{ position: 'relative', zIndex: 2, marginTop: 12, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                        {previewClasses.map((lesson) => {
+                          const colors = statusColors(lesson.status);
+                          return (
+                            <button
+                              key={lesson.id}
+                              type="button"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                setSelectedDay(stripDate(cell));
+                                openClassDetails(lesson.id);
+                              }}
+                              style={{
+                                width: '100%',
+                                padding: '0.5rem 0.6rem',
+                                borderRadius: 14,
+                                border: `1px solid ${colors.border}`,
+                                background: colors.bg,
+                                textAlign: 'left',
+                                cursor: 'pointer',
+                              }}
+                            >
+                              <p style={{ fontSize: '0.68rem', fontWeight: 800, color: colors.accent }}>
+                                {formatTimeLabel(lesson.scheduledStart)}
+                              </p>
+                              <p
+                                style={{
+                                  marginTop: 4,
+                                  fontSize: '0.78rem',
+                                  fontWeight: 700,
+                                  color: 'var(--text-strong)',
+                                  whiteSpace: 'nowrap',
+                                  overflow: 'hidden',
+                                  textOverflow: 'ellipsis',
+                                }}
+                              >
+                                {lesson.title}
+                              </p>
+                            </button>
+                          );
+                        })}
+
+                        {dayClasses.length === 0 ? (
+                          <span style={{ marginTop: 'auto', fontSize: '0.78rem', color: 'var(--text-soft)' }}>
+                            Sem aulas
+                          </span>
+                        ) : null}
+
+                        {remainingCount > 0 ? (
+                          <span style={{ fontSize: '0.74rem', fontWeight: 800, color: 'var(--gold-mid)' }}>
+                            +{remainingCount} {remainingCount === 1 ? 'aula' : 'aulas'}
+                          </span>
+                        ) : null}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </section>
+
+          <section className="app-panel app-panel-pad">
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div>
+                <p className="app-section-label">{sameCalendarDay(selectedDay, today) ? 'Agenda de hoje' : 'Dia selecionado'}</p>
+                <h2 className="text-2xl font-bold" style={{ textTransform: 'capitalize' }}>{selectedDayLabel}</h2>
+                <p className="app-section-copy mt-4">
+                  {selectedDayClasses.length > 0
+                    ? 'Selecione uma aula para abrir detalhes, presenca e QR.'
+                    : selectedDayEmptyMessage}
+                </p>
+              </div>
+
+              <span className={selectedDayClasses.length > 0 ? 'app-badge app-badge--gold' : 'app-badge app-badge--muted'}>
+                {selectedDayClasses.length} {selectedDayClasses.length === 1 ? 'aula' : 'aulas'}
+              </span>
+            </div>
+
+            <div className="mt-6 app-list">
+              {selectedDayClasses.length > 0 ? (
+                selectedDayClasses.map((lesson) => (
+                  <ClassListItem key={lesson.id} lesson={lesson} onOpen={openClassDetails} />
+                ))
+              ) : (
+                <div className="app-empty">{selectedDayEmptyMessage}</div>
+              )}
+            </div>
+          </section>
+        </>
+      ) : (
+        <section className="app-panel app-panel-pad">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <p className="app-section-label">Aulas de hoje</p>
+              <h2 className="text-2xl font-bold" style={{ textTransform: 'capitalize' }}>{todayLabel}</h2>
+              <p className="app-section-copy mt-4">
+                Visualizacao em lista para acompanhar rapidamente as aulas do dia sem usar o formato de calendario.
+              </p>
+            </div>
+
+            <span className={todayClasses.length > 0 ? 'app-badge app-badge--gold' : 'app-badge app-badge--muted'}>
+              {todayClasses.length} {todayClasses.length === 1 ? 'aula hoje' : 'aulas hoje'}
+            </span>
+          </div>
+
+          <div className="mt-6 app-list">
+            {todayClasses.length > 0 ? (
+              todayClasses.map((lesson) => (
+                <ClassListItem key={lesson.id} lesson={lesson} onOpen={openClassDetails} />
+              ))
+            ) : (
+              <div className="app-empty">{todayEmptyMessage}</div>
+            )}
+          </div>
+        </section>
+      )}
+
       {selectedClass ? (
         <div
           style={{
@@ -701,13 +838,11 @@ const CalendarView: React.FC<CalendarViewProps> = ({
               background: 'var(--surface)',
               backdropFilter: 'blur(20px)',
             }}
-            onClick={(e) => e.stopPropagation()}
+            onClick={(event) => event.stopPropagation()}
           >
-            {/* ── Scrollable area: class info + tab content ──────────────── */}
             <div style={{ overflowY: 'auto', flex: 1 }}>
               <ClassSessionCard lesson={selectedClass} showDate />
 
-              {/* Tab switcher */}
               <div style={{ padding: '4px 20px 12px' }}>
                 <div className="app-segment">
                   <button
@@ -722,14 +857,13 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                     onClick={() => setSheetTab('historico')}
                     className={`app-segment__button ${sheetTab === 'historico' ? 'is-active' : ''}`}
                   >
-                    Histórico ({myAttendances.length})
+                    Historico ({myAttendances.length})
                   </button>
                 </div>
               </div>
 
               {sheetTab === 'detalhes' ? (
                 <div style={{ padding: '0 20px 16px', display: 'flex', flexDirection: 'column', gap: 12 }}>
-                  {/* QR panel (professor, active class) */}
                   {qrData && canManageSelected ? (
                     <div className="app-panel app-panel--tint p-4">
                       <div className="flex items-center justify-between">
@@ -748,33 +882,35 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                           <RefreshCw size={13} />
                         </button>
                       </div>
-                      <div style={{
-                        background: '#fff',
-                        padding: 12,
-                        borderRadius: 14,
-                        marginTop: 12,
-                        display: 'flex',
-                        justifyContent: 'center',
-                      }}>
-                        <QRCodeSVG value={`${window.location.origin}?checkin=${encodeURIComponent(qrData.qrToken)}&classId=${encodeURIComponent(qrData.classId)}`} size={200} level="M" />
+                      <div
+                        style={{
+                          background: '#fff',
+                          padding: 12,
+                          borderRadius: 14,
+                          marginTop: 12,
+                          display: 'flex',
+                          justifyContent: 'center',
+                        }}
+                      >
+                        <QRCodeSVG
+                          value={`${window.location.origin}?checkin=${encodeURIComponent(qrData.qrToken)}&classId=${encodeURIComponent(qrData.classId)}`}
+                          size={200}
+                          level="M"
+                        />
                       </div>
-                      <p className="mt-2 text-xs text-[color:var(--text-soft)] text-center">
-                        {qrCountdown && qrCountdown !== '00:00'
-                          ? `Expira em ${qrCountdown}`
-                          : 'QR expirado — gere um novo'}
+                      <p className="mt-2 text-center text-xs text-[color:var(--text-soft)]">
+                        {qrCountdown && qrCountdown !== '00:00' ? `Expira em ${qrCountdown}` : 'QR expirado - gere um novo'}
                       </p>
                     </div>
                   ) : null}
 
-                  {/* Attendance % badge (student) */}
                   {!isStaff && attendanceRate !== undefined ? (
                     <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                      <span className="app-badge app-badge--gold">{attendanceRate}% frequência</span>
-                      <span style={{ fontSize: '0.75rem', color: 'var(--text-soft)' }}>no mês atual</span>
+                      <span className="app-badge app-badge--gold">{attendanceRate}% frequencia</span>
+                      <span style={{ fontSize: '0.75rem', color: 'var(--text-soft)' }}>no mes atual</span>
                     </div>
                   ) : null}
 
-                  {/* Student check-in form */}
                   {!canManageSelected ? (
                     <div className="app-form-grid">
                       <label className="app-field">
@@ -784,14 +920,10 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                             ref={tokenInputRef}
                             type="text"
                             value={qrInputByClass[selectedClass.id] || ''}
-                            onChange={(e) =>
-                              setQrInputByClass((p) => ({ ...p, [selectedClass.id]: e.target.value }))
+                            onChange={(event) =>
+                              setQrInputByClass((current) => ({ ...current, [selectedClass.id]: event.target.value }))
                             }
-                            placeholder={
-                              selectedClass.status === 'active'
-                                ? 'Cole aqui o token do QR'
-                                : 'A aula precisa estar ativa'
-                            }
+                            placeholder={selectedClass.status === 'active' ? 'Cole aqui o token do QR' : 'A aula precisa estar ativa'}
                             disabled={selectedClass.status !== 'active' || busy}
                             className="app-input"
                             style={{ flex: 1 }}
@@ -804,7 +936,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                             }}
                             disabled={selectedClass.status !== 'active' || busy}
                             className="app-button app-button--ghost app-button--icon"
-                            title="Escanear QR com câmera"
+                            title="Escanear QR com camera"
                             style={{ width: 42, height: 42, flexShrink: 0 }}
                           >
                             <Camera size={16} />
@@ -815,17 +947,16 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                   ) : null}
                 </div>
               ) : (
-                /* ── Histórico tab ────────────────────────────────────────── */
                 <div style={{ padding: '0 20px 16px', display: 'flex', flexDirection: 'column', gap: 12 }}>
                   {!isStaff ? (
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
                       <div className="app-stat-card" style={{ padding: '12px 14px' }}>
-                        <p className="app-stat-card__label">Frequência</p>
+                        <p className="app-stat-card__label">Frequencia</p>
                         <p className="app-stat-card__value" style={{ fontSize: '1.4rem' }}>{attendanceRate ?? 0}%</p>
-                        <p className="app-stat-card__note">no mês atual</p>
+                        <p className="app-stat-card__note">no mes atual</p>
                       </div>
                       <div className="app-stat-card" style={{ padding: '12px 14px' }}>
-                        <p className="app-stat-card__label">Presenças</p>
+                        <p className="app-stat-card__label">Presencas</p>
                         <p className="app-stat-card__value" style={{ fontSize: '1.4rem' }}>{myAttendances.length}</p>
                         <p className="app-stat-card__note">confirmadas</p>
                       </div>
@@ -833,27 +964,27 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                   ) : null}
 
                   <p style={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--text-soft)' }}>
-                    Últimas presenças
+                    Ultimas presencas
                   </p>
 
                   {myAttendances.length === 0 ? (
                     <div style={{ textAlign: 'center', padding: '20px 0', color: 'var(--text-soft)', fontSize: '0.85rem' }}>
-                      Nenhuma presença registrada ainda
+                      Nenhuma presenca registrada ainda
                     </div>
                   ) : (
-                    myAttendances.slice(0, 30).map((att) => (
-                      <div key={att.id} className="app-list-card" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                        <CheckCircle size={16} style={{ color: methodColor(att.checkInMethod), flexShrink: 0 }} />
+                    myAttendances.slice(0, 30).map((attendance) => (
+                      <div key={attendance.id} className="app-list-card" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                        <CheckCircle size={16} style={{ color: methodColor(attendance.checkInMethod), flexShrink: 0 }} />
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <p style={{ fontSize: '0.82rem', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                            {classNameById?.get(att.classId) ?? 'Aula'}
+                            {classNameById?.get(attendance.classId) ?? 'Aula'}
                           </p>
                           <p style={{ fontSize: '0.72rem', color: 'var(--text-soft)', marginTop: 2 }}>
-                            {att.checkedInAt ? `${formatDateLabel(att.checkedInAt)} • ${formatTimeLabel(att.checkedInAt)}` : '—'}
+                            {attendance.checkedInAt ? `${formatDateLabel(attendance.checkedInAt)} - ${formatTimeLabel(attendance.checkedInAt)}` : '-'}
                           </p>
                         </div>
-                        <span className={methodBadgeClass(att.checkInMethod)} style={{ flexShrink: 0, fontSize: '0.65rem' }}>
-                          {methodLabel(att.checkInMethod)}
+                        <span className={methodBadgeClass(attendance.checkInMethod)} style={{ flexShrink: 0, fontSize: '0.65rem' }}>
+                          {methodLabel(attendance.checkInMethod)}
                         </span>
                       </div>
                     ))
@@ -862,27 +993,22 @@ const CalendarView: React.FC<CalendarViewProps> = ({
               )}
             </div>
 
-            {/* ── Sticky action footer (always visible) ──────────────────── */}
-            <div style={{
-              flexShrink: 0,
-              borderTop: '1px solid rgba(255,255,255,0.08)',
-              padding: '12px 20px',
-              paddingBottom: 'calc(env(safe-area-inset-bottom, 8px) + 12px)',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 10,
-            }}>
-              {message ? (
-                <div className="app-list-card text-sm text-[color:var(--text-muted)]">{message}</div>
-              ) : null}
+            <div
+              style={{
+                flexShrink: 0,
+                borderTop: '1px solid rgba(255,255,255,0.08)',
+                padding: '12px 20px',
+                paddingBottom: 'calc(env(safe-area-inset-bottom, 8px) + 12px)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 10,
+              }}
+            >
+              {message ? <div className="app-list-card text-sm text-[color:var(--text-muted)]">{message}</div> : null}
 
               {canManageSelected ? (
                 <div className="flex flex-wrap gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setSelectedClassId(null)}
-                    className="app-button app-button--ghost app-button--small"
-                  >
+                  <button type="button" onClick={() => setSelectedClassId(null)} className="app-button app-button--ghost app-button--small">
                     <X size={14} />
                     Fechar
                   </button>
@@ -920,36 +1046,26 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                   <button
                     type="button"
                     onClick={() =>
-                      void runClassAction(selectedClass.id, () =>
-                        onRegisterAttendance(selectedClass.id, qrInputByClass[selectedClass.id]),
-                      )
+                      void runClassAction(selectedClass.id, () => onRegisterAttendance(selectedClass.id, qrInputByClass[selectedClass.id]))
                     }
                     disabled={selectedClass.status !== 'active' || busy}
                     className="app-button app-button--gold app-button--block"
                   >
                     <ShieldCheck size={14} />
-                    {busy ? 'Registrando...' : 'Registrar presença'}
+                    {busy ? 'Registrando...' : 'Registrar presenca'}
                   </button>
                   <div className="flex gap-3">
                     <button
                       type="button"
-                      onClick={() =>
-                        void runClassAction(selectedClass.id, () =>
-                          onSubmitAttendanceRequest(selectedClass.id),
-                        )
-                      }
+                      onClick={() => void runClassAction(selectedClass.id, () => onSubmitAttendanceRequest(selectedClass.id))}
                       disabled={selectedClass.status !== 'active' || busy || !!pendingRequest}
                       className="app-button app-button--ghost"
                       style={{ flex: 1 }}
                     >
                       <CheckCircle size={14} />
-                      {pendingRequest ? 'Solicitação pendente' : 'Solicitar presença'}
+                      {pendingRequest ? 'Solicitacao pendente' : 'Solicitar presenca'}
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => setSelectedClassId(null)}
-                      className="app-button app-button--ghost app-button--small"
-                    >
+                    <button type="button" onClick={() => setSelectedClassId(null)} className="app-button app-button--ghost app-button--small">
                       <X size={14} />
                       Fechar
                     </button>
@@ -961,7 +1077,6 @@ const CalendarView: React.FC<CalendarViewProps> = ({
         </div>
       ) : null}
 
-      {/* ── Finalizar — QR confirmation modal ───────────────────────────────── */}
       {finishConfirmClassId && finishQrData ? (
         <div
           style={{
@@ -993,29 +1108,29 @@ const CalendarView: React.FC<CalendarViewProps> = ({
               <span style={{ fontWeight: 700, fontSize: '1rem' }}>Encerrar aula?</span>
             </div>
             <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', textAlign: 'center', lineHeight: 1.5 }}>
-              Mostre este QR para quem ainda não confirmou presença
+              Mostre este QR para quem ainda nao confirmou presenca
             </p>
             <div style={{ background: '#fff', padding: 14, borderRadius: 16 }}>
-              <QRCodeSVG value={`${window.location.origin}?checkin=${encodeURIComponent(finishQrData.qrToken)}&classId=${encodeURIComponent(finishQrData.classId)}`} size={220} level="M" />
+              <QRCodeSVG
+                value={`${window.location.origin}?checkin=${encodeURIComponent(finishQrData.qrToken)}&classId=${encodeURIComponent(finishQrData.classId)}`}
+                size={220}
+                level="M"
+              />
             </div>
             <p style={{ fontSize: '0.78rem', color: 'var(--text-soft)' }}>
-              {finishCountdown && finishCountdown !== '00:00'
-                ? `Expira em ${finishCountdown}`
-                : 'Renovando QR...'}
+              {finishCountdown && finishCountdown !== '00:00' ? `Expira em ${finishCountdown}` : 'Renovando QR...'}
             </p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10, width: '100%' }}>
-              <button
-                type="button"
-                onClick={() => void handleConfirmFinish()}
-                disabled={finishBusy}
-                className="app-button app-button--gold app-button--block"
-              >
+              <button type="button" onClick={() => void handleConfirmFinish()} disabled={finishBusy} className="app-button app-button--gold app-button--block">
                 <CheckCircle size={14} />
                 {finishBusy ? 'Encerrando...' : 'Confirmar encerramento'}
               </button>
               <button
                 type="button"
-                onClick={() => { setFinishConfirmClassId(null); setFinishQrData(null); }}
+                onClick={() => {
+                  setFinishConfirmClassId(null);
+                  setFinishQrData(null);
+                }}
                 disabled={finishBusy}
                 className="app-button app-button--ghost app-button--block"
               >
@@ -1026,7 +1141,6 @@ const CalendarView: React.FC<CalendarViewProps> = ({
         </div>
       ) : null}
 
-      {/* ── Camera scanner overlay ───────────────────────────────────────────── */}
       {scannerOpen ? (
         <div
           style={{
@@ -1038,7 +1152,6 @@ const CalendarView: React.FC<CalendarViewProps> = ({
             flexDirection: 'column',
           }}
         >
-          {/* Top bar */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '16px 20px', flexShrink: 0 }}>
             <button
               type="button"
@@ -1048,39 +1161,35 @@ const CalendarView: React.FC<CalendarViewProps> = ({
             >
               <X size={18} />
             </button>
-            <span style={{ color: '#fff', fontWeight: 600, fontSize: '0.9rem' }}>
-              Aponte para o QR da aula
-            </span>
+            <span style={{ color: '#fff', fontWeight: 600, fontSize: '0.9rem' }}>Aponte para o QR da aula</span>
           </div>
 
-          {/* Camera area */}
           <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
             <div id="qr-reader" style={{ width: '100%', height: '100%' }} />
 
-            {/* Scanning frame overlay */}
-            <div style={{
-              position: 'absolute',
-              inset: 0,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              pointerEvents: 'none',
-            }}>
+            <div
+              style={{
+                position: 'absolute',
+                inset: 0,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                pointerEvents: 'none',
+              }}
+            >
               <div style={{ position: 'relative', width: 240, height: 240 }}>
-                {/* Corner brackets */}
                 {[
                   { top: 0, left: 0, borderTop: '3px solid var(--gold-mid)', borderLeft: '3px solid var(--gold-mid)', borderRadius: '6px 0 0 0' },
                   { top: 0, right: 0, borderTop: '3px solid var(--gold-mid)', borderRight: '3px solid var(--gold-mid)', borderRadius: '0 6px 0 0' },
                   { bottom: 0, left: 0, borderBottom: '3px solid var(--gold-mid)', borderLeft: '3px solid var(--gold-mid)', borderRadius: '0 0 0 6px' },
                   { bottom: 0, right: 0, borderBottom: '3px solid var(--gold-mid)', borderRight: '3px solid var(--gold-mid)', borderRadius: '0 0 6px 0' },
-                ].map((style, i) => (
-                  <div key={i} style={{ position: 'absolute', width: 28, height: 28, ...style }} />
+                ].map((style, index) => (
+                  <div key={index} style={{ position: 'absolute', width: 28, height: 28, ...style }} />
                 ))}
               </div>
             </div>
           </div>
 
-          {/* Footer */}
           <div style={{ padding: '16px 20px', flexShrink: 0, textAlign: 'center' }}>
             <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: '0.8rem', marginBottom: 12 }}>
               Posicione o QR code dentro do quadro
@@ -1100,13 +1209,12 @@ const CalendarView: React.FC<CalendarViewProps> = ({
         </div>
       ) : null}
 
-      {/* ── Create class modal ───────────────────────────────────────────────── */}
       {createModalOpen ? (
         <CreateClassModal
           professors={professors}
           currentUserId={currentUserId}
           currentUserName={currentUserName}
-          selectedDay={selectedDay}
+          selectedDay={surfaceTab === 'today' ? today : selectedDay}
           onClose={() => setCreateModalOpen(false)}
           onSubmit={onCreateClass}
         />
