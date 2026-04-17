@@ -70,6 +70,7 @@ const StudentsView = lazy(() => import('./views/StudentsView'));
 const THEME_STORAGE_PREFIX = 'applevel-theme';
 const NETWORK_NAME = 'LEVEL';
 type SuperadminViewMode = 'superadmin' | 'professor';
+type AcademyContextStatus = 'idle' | 'ready' | 'missing' | 'error';
 
 const SUPERADMIN_NETWORK_TABS = new Set(['home', 'notifications', 'students', 'management', 'learning', 'profile']);
 const SUPERADMIN_PROFESSOR_TABS = new Set(['home', 'calendar', 'management', 'notifications', 'learning', 'profile']);
@@ -220,16 +221,22 @@ function buildFallbackAcademy(ownerUserId: string): FirestoreEntity<AcademyRecor
   };
 }
 
-function buildMissingAcademyView(onLogout: () => Promise<void>) {
+function buildAcademyAccessIssueView(params: {
+  eyebrow: string;
+  title: string;
+  description: string;
+  note: string;
+  onLogout: () => Promise<void>;
+}) {
   return (
     <div className="app-auth-shell">
       <div className="app-auth-grid">
         <section className="app-panel app-panel--hero app-auth-side">
           <div>
-            <p className="app-section-label">Acesso bloqueado</p>
-            <h1 className="app-section-title">Sua unidade nao esta mais disponivel.</h1>
+            <p className="app-section-label">{params.eyebrow}</p>
+            <h1 className="app-section-title">{params.title}</h1>
             <p className="app-section-copy">
-              Esta conta ainda existe, mas a unidade vinculada foi removida ou perdeu o contexto necessario para abrir o painel.
+              {params.description}
             </p>
           </div>
         </section>
@@ -240,15 +247,35 @@ function buildMissingAcademyView(onLogout: () => Promise<void>) {
           </div>
           <h2 className="mt-6 text-2xl font-bold">Revise o acesso desta conta</h2>
           <p className="mt-3 app-note">
-            Saia e entre novamente depois que um superadmin da LEVEL corrigir a unidade vinculada ao seu cadastro.
+            {params.note}
           </p>
-          <button type="button" onClick={() => void onLogout()} className="app-button app-button--gold mt-6 app-button--block">
+          <button type="button" onClick={() => void params.onLogout()} className="app-button app-button--gold mt-6 app-button--block">
             Voltar ao login
           </button>
         </section>
       </div>
     </div>
   );
+}
+
+function buildMissingAcademyView(onLogout: () => Promise<void>) {
+  return buildAcademyAccessIssueView({
+    eyebrow: 'Acesso bloqueado',
+    title: 'Sua unidade nao esta mais disponivel.',
+    description: 'Esta conta ainda existe, mas a unidade vinculada foi removida ou perdeu o contexto necessario para abrir o painel.',
+    note: 'Saia e entre novamente depois que um superadmin da LEVEL corrigir a unidade vinculada ao seu cadastro.',
+    onLogout,
+  });
+}
+
+function buildAcademyLoadErrorView(message: string, onLogout: () => Promise<void>) {
+  return buildAcademyAccessIssueView({
+    eyebrow: 'Falha ao validar unidade',
+    title: 'Nao foi possivel confirmar a sua unidade.',
+    description: message,
+    note: 'Saia e entre novamente. Se continuar igual, um superadmin precisa revisar o academyId e as permissoes desta conta.',
+    onLogout,
+  });
 }
 
 function buildSuperadminVisionChoiceView(params: {
@@ -407,12 +434,15 @@ const App: React.FC = () => {
   const [learningProgress, setLearningProgress] = useState<Array<FirestoreEntity<LearningProgressRecord>>>([]);
   const [profileLoading, setProfileLoading] = useState(false);
   const [academyLoading, setAcademyLoading] = useState(false);
+  const [academyStatus, setAcademyStatus] = useState<AcademyContextStatus>('idle');
   const [superadminDirectoryLoading, setSuperadminDirectoryLoading] = useState(false);
   const [sessionValidated, setSessionValidated] = useState(false);
   const [sessionError, setSessionError] = useState('');
   const [sessionErrorSource, setSessionErrorSource] = useState('');
   const [loginScreenError, setLoginScreenError] = useState('');
   const invalidSessionResetRef = useRef(false);
+  const academyAccessRetryRef = useRef(false);
+  const [academyAccessRetryNonce, setAcademyAccessRetryNonce] = useState(0);
 
   const setThemeMode = (mode: 'light' | 'dark') => {
     setIsDarkMode(mode === 'dark');
@@ -485,8 +515,12 @@ const App: React.FC = () => {
   useEffect(() => {
     if (!authUser) {
       invalidSessionResetRef.current = false;
+      academyAccessRetryRef.current = false;
       setProfile(null);
       setAcademy(null);
+      setAcademyLoading(false);
+      setAcademyStatus('idle');
+      setAcademyAccessRetryNonce(0);
       setAllAcademies([]);
       setAllUsers([]);
       setSelectedAcademyId('');
@@ -761,7 +795,10 @@ const App: React.FC = () => {
 
   useEffect(() => {
     if (!profile || !sessionValidated) {
+      academyAccessRetryRef.current = false;
       setAcademy(null);
+      setAcademyLoading(false);
+      setAcademyStatus('idle');
       setClasses([]);
       setAcademyUsers([]);
       setAttendances([]);
@@ -775,8 +812,10 @@ const App: React.FC = () => {
 
     if (profile.role === 'superadmin') {
       if (!selectedAcademyId) {
+        academyAccessRetryRef.current = false;
         setAcademy(null);
         setAcademyLoading(false);
+        setAcademyStatus('idle');
         setClasses([]);
         setAcademyUsers([]);
         setAttendances([]);
@@ -789,8 +828,10 @@ const App: React.FC = () => {
       }
 
       if (!allAcademies.some((entry) => entry.id === selectedAcademyId)) {
+        academyAccessRetryRef.current = false;
         setAcademy(null);
         setAcademyLoading(false);
+        setAcademyStatus('idle');
         setClasses([]);
         setAcademyUsers([]);
         setAttendances([]);
@@ -803,15 +844,27 @@ const App: React.FC = () => {
       }
 
       setAcademyLoading(true);
+      setAcademyStatus('idle');
 
       const unsubscribers = [
         subscribeToAcademy(
           selectedAcademyId,
           (record) => {
+            if (!record) {
+              setAcademy(null);
+              setAcademyStatus('missing');
+              setAcademyLoading(false);
+              return;
+            }
+
+            academyAccessRetryRef.current = false;
             setAcademy(record);
+            setAcademyStatus('ready');
             setAcademyLoading(false);
           },
           (error) => {
+            setAcademy(null);
+            setAcademyStatus('error');
             setAcademyLoading(false);
             reportSessionError('data:subscribeToAcademy', error);
           },
@@ -833,8 +886,10 @@ const App: React.FC = () => {
     }
 
     if (!profile.academyId) {
+      academyAccessRetryRef.current = false;
       setAcademy(null);
       setAcademyLoading(false);
+      setAcademyStatus('missing');
       setClasses([]);
       setAcademyUsers([]);
       setAttendances([]);
@@ -847,17 +902,55 @@ const App: React.FC = () => {
     }
 
     setAcademyLoading(true);
+    setAcademyStatus('idle');
+
+    const retryAcademyAccess = (source: string, error: unknown) => {
+      if (!authUser || academyAccessRetryRef.current || !shouldResetSession(error)) {
+        setAcademy(null);
+        setAcademyStatus('error');
+        setAcademyLoading(false);
+        reportSessionError(source, error);
+        return;
+      }
+
+      academyAccessRetryRef.current = true;
+      clearSessionError();
+      setAcademy(null);
+      setAcademyStatus('idle');
+      setAcademyLoading(true);
+
+      void backendFunctions
+        .validateSessionAccess()
+        .then(async () => {
+          await authUser.getIdToken(true);
+          setAcademyAccessRetryNonce((current) => current + 1);
+        })
+        .catch((retryError) => {
+          setAcademy(null);
+          setAcademyStatus('error');
+          setAcademyLoading(false);
+          reportSessionError(`${source}:retry`, retryError);
+        });
+    };
 
     const unsubscribers = [
       subscribeToAcademy(
         profile.academyId,
         (record) => {
+          if (!record) {
+            setAcademy(null);
+            setAcademyStatus('missing');
+            setAcademyLoading(false);
+            return;
+          }
+
+          academyAccessRetryRef.current = false;
           setAcademy(record);
+          setAcademyStatus('ready');
           setAcademyLoading(false);
         },
         (error) => {
-          setAcademyLoading(false);
-          reportSessionError('data:subscribeToAcademy', error);
+          retryAcademyAccess('data:subscribeToAcademy', error);
         },
       ),
       subscribeToAcademyClasses(profile.academyId, setClasses, (error) => reportSessionError('data:subscribeToAcademyClasses', error)),
@@ -880,16 +973,7 @@ const App: React.FC = () => {
     return () => {
       unsubscribers.forEach((unsubscribe) => unsubscribe());
     };
-  }, [allAcademies, profile, selectedAcademyId, sessionValidated, superadminDirectoryLoading]);
-
-  useEffect(() => {
-    if (!profile || profile.role === 'superadmin' || !sessionValidated || academyLoading || academy) {
-      return;
-    }
-
-    setSessionError('A unidade vinculada a esta conta nao existe mais. Saia e entre novamente depois que a LEVEL corrigir o acesso.');
-    setSessionErrorSource('session:academyMissing');
-  }, [academy, academyLoading, profile, sessionValidated]);
+  }, [allAcademies, authUser, profile, selectedAcademyId, sessionValidated, superadminDirectoryLoading, academyAccessRetryNonce]);
 
   useEffect(() => {
     if (!profile || !sessionValidated || activeTab !== 'learning') {
@@ -1383,8 +1467,7 @@ const App: React.FC = () => {
   const bootstrapMessage = !sessionValidated
     ? 'Sincronizando permissoes da sua sessao.'
     : 'Carregando perfil, academia e permissoes.';
-  const hasRequiredAcademyContext = isSuperAdmin ? true : Boolean(academy);
-  const isBootstrapPending = !sessionValidated || superadminDirectoryLoading || (!isSuperAdmin && (academyLoading || !hasRequiredAcademyContext));
+  const isBootstrapPending = !sessionValidated || superadminDirectoryLoading || (!isSuperAdmin && (academyLoading || academyStatus === 'idle'));
   const mobileUnitLabel = isSuperAdmin
     ? (
       isSuperadminProfessorView
@@ -1400,7 +1483,8 @@ const App: React.FC = () => {
         )
     )
     : (academy?.name ?? 'Sincronizando unidade');
-  const isMissingRequiredAcademy = !isSuperAdmin && sessionValidated && !academyLoading && !academy;
+  const isMissingRequiredAcademy = !isSuperAdmin && sessionValidated && !academyLoading && academyStatus === 'missing';
+  const hasAcademyAccessError = !isSuperAdmin && sessionValidated && !academyLoading && academyStatus === 'error';
 
   if (isBootstrapPending) {
     return (
@@ -1432,6 +1516,13 @@ const App: React.FC = () => {
 
   if (isMissingRequiredAcademy) {
     return buildMissingAcademyView(handleLogout);
+  }
+
+  if (hasAcademyAccessError) {
+    return buildAcademyLoadErrorView(
+      sessionError || 'Sua sessao nao conseguiu confirmar a unidade vinculada a esta conta.',
+      handleLogout,
+    );
   }
 
   if (isSuperAdmin && superadminViewMode === null) {
