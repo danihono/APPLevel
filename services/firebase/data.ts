@@ -24,9 +24,7 @@ import type {
   LearningQuizRecord,
   LearningTrackRecord,
   NotificationRecord,
-  RankingRecord,
   StoreItemRecord,
-  UserMissionRecord,
   UserRecord,
 } from './models';
 
@@ -213,53 +211,6 @@ export function subscribeToAttendanceRequests(
       const records = snapshot.docs
         .map((item) => mapDoc<AttendanceRequestRecord>(item))
         .sort((left, right) => toMillis(right.updatedAt ?? right.requestedAt) - toMillis(left.updatedAt ?? left.requestedAt));
-      listener(records);
-    },
-    onError,
-  );
-}
-
-export function subscribeToRankings(
-  academyId: string,
-  listener: (records: Array<FirestoreEntity<RankingRecord>>) => void,
-  onError?: (error: Error) => void,
-) {
-  return onSnapshot(
-    query(
-      collection(firebaseDb, 'rankings'),
-      where('academyId', '==', academyId),
-      orderBy('score', 'desc'),
-      orderBy('competitionPoints', 'desc'),
-    ),
-    (snapshot) => {
-      listener(snapshot.docs.map((item) => mapDoc<RankingRecord>(item)));
-    },
-    onError,
-  );
-}
-
-export function subscribeToUserMissions(
-  academyId: string,
-  userId: string,
-  listener: (records: Array<FirestoreEntity<UserMissionRecord>>) => void,
-  onError?: (error: Error) => void,
-) {
-  return onSnapshot(
-    query(
-      collection(firebaseDb, 'user_missions'),
-      where('academyId', '==', academyId),
-      where('userId', '==', userId),
-    ),
-    (snapshot) => {
-      const records = snapshot.docs
-        .map((item) => mapDoc<UserMissionRecord>(item))
-        .sort((left, right) => {
-          if (left.status !== right.status) {
-            return left.status === 'in_progress' ? -1 : 1;
-          }
-
-          return right.rewardPoints - left.rewardPoints;
-        });
       listener(records);
     },
     onError,

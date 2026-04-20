@@ -6,7 +6,6 @@ import type {
   CreateUserPayload,
   JoinRequestStatus,
   LearningContentStatus,
-  MissionMetric,
   NotificationChannel,
 } from './models';
 import type { ProgressionRuleSegment } from '../../beltCatalog';
@@ -191,27 +190,6 @@ export const backendFunctions = {
 
   rebuildUserDerivedState: (payload: { userId?: string }) =>
     callFunction('rebuildUserDerivedState', payload),
-
-  recalculateUserRanking: (payload: { userId?: string }) =>
-    callFunction('recalculateUserRanking', payload),
-
-  recalculateAcademyRankings: (payload: { academyId?: string }) =>
-    callFunction<{ academyId: string; totalProcessed: number }>('recalculateAcademyRankings', payload),
-
-  upsertMission: (payload: {
-    missionId?: string;
-    academyId?: string;
-    name: string;
-    description?: string;
-    metric: MissionMetric;
-    targetValue: number;
-    rewardPoints: number;
-    active?: boolean;
-    targetRole?: AppRole;
-  }) => callFunction<{ missionId: string; academyId: string }>('upsertMission', payload),
-
-  syncUserMissionProgress: (payload: { userId?: string }) =>
-    callFunction('syncUserMissionProgress', payload),
 
   registerDeviceToken: (payload: { token: string }) =>
     callFunction<{ registered: boolean }>('registerDeviceToken', payload),

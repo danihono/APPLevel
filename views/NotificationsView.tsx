@@ -451,8 +451,8 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
                 <label className="app-field">
                   <span className="app-field__label">Faixa alvo</span>
                   <select value={targetBelt} onChange={(event) => setTargetBelt(event.target.value)} className="app-select">
-                    {beltOptions.map((option) => (
-                      <option key={option.label} value={option.value}>{option.label}</option>
+                    {beltOptions.map((option, index) => (
+                      <option key={option.value || `belt-option-${index}`} value={option.value}>{option.label}</option>
                     ))}
                   </select>
                 </label>

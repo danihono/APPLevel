@@ -12,7 +12,6 @@ import {
   Trophy,
   User as UserIcon,
   Users,
-  Zap,
 } from 'lucide-react';
 import { UserRole } from '../types';
 
@@ -23,6 +22,7 @@ interface LayoutProps {
   activeTab: string;
   setActiveTab: (tab: string) => void;
   userRole?: UserRole;
+  unreadNotificationsCount?: number;
   mobileUnitLabel: string;
   superadminViewMode?: SuperadminViewMode | null;
   onSetSuperadminViewMode?: (mode: SuperadminViewMode) => void;
@@ -56,11 +56,6 @@ const pageMeta: Record<string, { kicker: string; title: string; description: str
     kicker: 'Fight mode',
     title: 'Competicao',
     description: 'Competicao ficou mais editorial, com areas claras para calendario, resultados e video.',
-  },
-  gamification: {
-    kicker: 'Momentum',
-    title: 'Gamificacao',
-    description: 'Tudo agora conversa com a linguagem dourada da navegacao e dos controles interativos.',
   },
   graduation: {
     kicker: 'Graduacao',
@@ -137,6 +132,7 @@ const Layout: React.FC<LayoutProps> = ({
   activeTab,
   setActiveTab,
   userRole,
+  unreadNotificationsCount = 0,
   mobileUnitLabel,
   superadminViewMode,
   onSetSuperadminViewMode,
@@ -209,7 +205,6 @@ const Layout: React.FC<LayoutProps> = ({
         { id: 'home', icon: Home, label: 'Inicio' },
         { id: 'calendar', icon: Calendar, label: 'Aulas' },
         { id: 'graduation', icon: Award, label: 'Graduacao' },
-        { id: 'gamification', icon: Zap, label: 'Ranking' },
         { id: 'competition', icon: Trophy, label: 'Compete' },
         { id: 'notifications', icon: Bell, label: 'Avisos' },
         { id: 'profile', icon: UserIcon, label: 'Perfil' },
@@ -311,6 +306,7 @@ const Layout: React.FC<LayoutProps> = ({
         {navItems.map((item) => {
           const Icon = item.icon;
           const isActive = activeTab === item.id;
+          const showNotificationBadge = item.id === 'notifications' && unreadNotificationsCount > 0;
 
           return (
             <button
@@ -324,6 +320,7 @@ const Layout: React.FC<LayoutProps> = ({
             >
               <span className="app-sidebar__icon">
                 <Icon size={19} strokeWidth={1.85} />
+                {showNotificationBadge ? <span className="app-notification-dot" aria-hidden="true" /> : null}
               </span>
               <span className="app-sidebar__label" aria-hidden={sidebarCollapsed}>{item.label}</span>
             </button>
@@ -446,6 +443,7 @@ const Layout: React.FC<LayoutProps> = ({
             {navItems.map((item, index) => {
               const Icon = item.icon;
               const isActive = activeTab === item.id;
+              const showNotificationBadge = item.id === 'notifications' && unreadNotificationsCount > 0;
 
               return (
                 <Fragment key={item.id}>
@@ -460,7 +458,10 @@ const Layout: React.FC<LayoutProps> = ({
                     aria-current={isActive ? 'page' : undefined}
                     title={item.label}
                   >
-                    <Icon size={24} strokeWidth={1.85} />
+                    <span className="app-nav-button__icon">
+                      <Icon size={24} strokeWidth={1.85} />
+                      {showNotificationBadge ? <span className="app-notification-dot" aria-hidden="true" /> : null}
+                    </span>
                   </button>
 
                   {index !== navItems.length - 1 ? <span className="app-nav-divider" aria-hidden="true" /> : null}

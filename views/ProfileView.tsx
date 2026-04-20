@@ -9,7 +9,6 @@ interface ProfileViewProps {
   user: User;
   profile: FirestoreEntity<UserRecord>;
   totalClasses: number;
-  rankingPosition?: number | null;
   academyName?: string;
   attendanceRate: number;
   attendances: Array<FirestoreEntity<AttendanceRecord>>;
@@ -47,7 +46,6 @@ const ProfileView: React.FC<ProfileViewProps> = ({
   user,
   profile,
   totalClasses,
-  rankingPosition,
   academyName,
   attendanceRate,
   attendances,
@@ -175,11 +173,6 @@ const ProfileView: React.FC<ProfileViewProps> = ({
           <p className="app-stat-card__label">Proximo grau</p>
           <p className="app-stat-card__value">{nextStripeRemaining}</p>
           <p className="app-stat-card__note">Aulas restantes</p>
-        </article>
-        <article className="app-panel app-panel-pad">
-          <p className="app-stat-card__label">Ranking</p>
-          <p className="app-stat-card__value">{rankingPosition ? `#${rankingPosition}` : '--'}</p>
-          <p className="app-stat-card__note">Posicao atual na academia</p>
         </article>
       </section>
 

@@ -209,6 +209,187 @@ const ClassListItem: React.FC<ClassListItemProps> = ({ lesson, onOpen }) => {
   );
 };
 
+interface MonthGridProps {
+  monthCells: Array<Date | null>;
+  classesByDay: Map<string, Array<FirestoreEntity<ClassRecord>>>;
+  selectedDay: Date;
+  today: Date;
+  onSelectDay: (day: Date) => void;
+  onOpenClass: (classId: string, day: Date) => void;
+}
+
+const DesktopMonthGrid: React.FC<MonthGridProps> = ({
+  monthCells,
+  classesByDay,
+  selectedDay,
+  today,
+  onSelectDay,
+  onOpenClass,
+}) => (
+  <div className="app-calendar-month-grid">
+    {MONTH_WEEK_HEADER.map((day) => (
+      <div key={day} className="app-calendar-month-header">
+        {day}
+      </div>
+    ))}
+
+    {monthCells.map((cell, index) => {
+      if (!cell) {
+        return <div key={`pad-${index}`} className="app-calendar-month-pad" aria-hidden="true" />;
+      }
+
+      const key = toDateKey(cell);
+      const dayClasses = classesByDay.get(key) ?? [];
+      const previewClasses = dayClasses.slice(0, 2);
+      const remainingCount = dayClasses.length - previewClasses.length;
+      const isToday = sameCalendarDay(cell, today);
+      const isSelected = sameCalendarDay(cell, selectedDay);
+
+      return (
+        <div
+          key={key}
+          className={`app-calendar-month-day ${isToday ? 'is-today' : ''} ${isSelected ? 'is-selected' : ''}`.trim()}
+        >
+          <button
+            type="button"
+            onClick={() => onSelectDay(stripDate(cell))}
+            aria-label={`Selecionar ${formatDateLabel(cell)}`}
+            aria-pressed={isSelected}
+            className="app-calendar-month-day__select"
+          />
+
+          <div className="app-calendar-month-day__top">
+            <span className="app-calendar-month-day__number">
+              {cell.getDate()}
+            </span>
+
+            {dayClasses.length > 0 ? (
+              <span className="app-calendar-month-day__count">
+                {dayClasses.length} {dayClasses.length === 1 ? 'aula' : 'aulas'}
+              </span>
+            ) : null}
+          </div>
+
+          <div className="app-calendar-month-day__content">
+            {previewClasses.map((lesson) => {
+              const colors = statusColors(lesson.status);
+              return (
+                <button
+                  key={lesson.id}
+                  type="button"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onOpenClass(lesson.id, cell);
+                  }}
+                  className="app-calendar-month-day__preview"
+                  style={{
+                    borderColor: colors.border,
+                    background: colors.bg,
+                  }}
+                >
+                  <p className="app-calendar-month-day__preview-time" style={{ color: colors.accent }}>
+                    {formatTimeLabel(lesson.scheduledStart)}
+                  </p>
+                  <p className="app-calendar-month-day__preview-title">
+                    {lesson.title}
+                  </p>
+                </button>
+              );
+            })}
+
+            {dayClasses.length === 0 ? (
+              <span className="app-calendar-month-day__empty">
+                Sem aulas
+              </span>
+            ) : null}
+
+            {remainingCount > 0 ? (
+              <span className="app-calendar-month-day__more">
+                +{remainingCount} {remainingCount === 1 ? 'aula' : 'aulas'}
+              </span>
+            ) : null}
+          </div>
+        </div>
+      );
+    })}
+  </div>
+);
+
+const CompactMonthGrid: React.FC<Omit<MonthGridProps, 'onOpenClass'>> = ({
+  monthCells,
+  classesByDay,
+  selectedDay,
+  today,
+  onSelectDay,
+}) => (
+  <div className="app-calendar-month-grid app-calendar-month-grid--compact">
+    {MONTH_WEEK_HEADER.map((day) => (
+      <div key={day} className="app-calendar-month-header app-calendar-month-header--compact">
+        {day}
+      </div>
+    ))}
+
+    {monthCells.map((cell, index) => {
+      if (!cell) {
+        return <div key={`pad-${index}`} className="app-calendar-month-pad app-calendar-month-pad--compact" aria-hidden="true" />;
+      }
+
+      const key = toDateKey(cell);
+      const dayClasses = classesByDay.get(key) ?? [];
+      const visibleDots = dayClasses.slice(0, 3);
+      const remainingCount = dayClasses.length - visibleDots.length;
+      const isToday = sameCalendarDay(cell, today);
+      const isSelected = sameCalendarDay(cell, selectedDay);
+
+      return (
+        <div
+          key={key}
+          className={`app-calendar-month-day app-calendar-month-day--compact ${isToday ? 'is-today' : ''} ${isSelected ? 'is-selected' : ''}`.trim()}
+        >
+          <button
+            type="button"
+            onClick={() => onSelectDay(stripDate(cell))}
+            aria-label={`Selecionar ${formatDateLabel(cell)}`}
+            aria-pressed={isSelected}
+            className="app-calendar-month-day__select"
+          />
+
+          <div className="app-calendar-month-day__top app-calendar-month-day__top--compact">
+            <span className="app-calendar-month-day__number app-calendar-month-day__number--compact">
+              {cell.getDate()}
+            </span>
+
+            {dayClasses.length > 0 ? (
+              <span className="app-calendar-month-day__count app-calendar-month-day__count--compact">
+                {dayClasses.length}
+              </span>
+            ) : null}
+          </div>
+
+          <div className="app-calendar-month-day__dots" aria-hidden="true">
+            {visibleDots.map((lesson) => {
+              const colors = statusColors(lesson.status);
+              return (
+                <span
+                  key={lesson.id}
+                  className="app-calendar-month-day__dot"
+                  style={{ backgroundColor: colors.accent }}
+                />
+              );
+            })}
+
+            {remainingCount > 0 ? (
+              <span className="app-calendar-month-day__more-inline">
+                +{remainingCount}
+              </span>
+            ) : null}
+          </div>
+        </div>
+      );
+    })}
+  </div>
+);
+
 const CalendarView: React.FC<CalendarViewProps> = ({
   userRole,
   currentUserId,
@@ -228,6 +409,9 @@ const CalendarView: React.FC<CalendarViewProps> = ({
 }) => {
   const isStaff = userRole === UserRole.PROFESSOR || userRole === UserRole.SUPERADMIN;
   const today = useMemo(() => stripDate(new Date()), []);
+  const [isCompactMonthGrid, setIsCompactMonthGrid] = useState(
+    () => (typeof window !== 'undefined' ? window.matchMedia('(max-width: 719px)').matches : false),
+  );
 
   const [surfaceTab, setSurfaceTab] = useState<CalendarSurface>('calendar');
   const [view, setView] = useState<StaffFilter>(isStaff ? 'minhas' : 'todas');
@@ -253,6 +437,24 @@ const CalendarView: React.FC<CalendarViewProps> = ({
   useEffect(() => {
     setSheetTab('detalhes');
   }, [selectedClassId]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return undefined;
+    }
+
+    const mediaQuery = window.matchMedia('(max-width: 719px)');
+    const syncCompactLayout = () => setIsCompactMonthGrid(mediaQuery.matches);
+    syncCompactLayout();
+
+    if (typeof mediaQuery.addEventListener === 'function') {
+      mediaQuery.addEventListener('change', syncCompactLayout);
+      return () => mediaQuery.removeEventListener('change', syncCompactLayout);
+    }
+
+    mediaQuery.addListener(syncCompactLayout);
+    return () => mediaQuery.removeListener(syncCompactLayout);
+  }, []);
 
   useEffect(() => {
     const id = setInterval(() => {
@@ -503,6 +705,15 @@ const CalendarView: React.FC<CalendarViewProps> = ({
     setSelectedClassId(classId);
   }
 
+  function selectCalendarDay(day: Date) {
+    setSelectedDay(stripDate(day));
+  }
+
+  function openClassDetailsFromGrid(classId: string, day: Date) {
+    selectCalendarDay(day);
+    openClassDetails(classId);
+  }
+
   function goToToday() {
     setVisibleMonth(new Date(today.getFullYear(), today.getMonth(), 1));
     setSelectedDay(today);
@@ -605,155 +816,24 @@ const CalendarView: React.FC<CalendarViewProps> = ({
             </div>
 
             <div className="mt-6">
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, minmax(0, 1fr))', gap: 8 }}>
-                {MONTH_WEEK_HEADER.map((day) => (
-                  <div
-                    key={day}
-                    style={{
-                      padding: '0.45rem 0.35rem',
-                      textAlign: 'center',
-                      fontSize: '0.7rem',
-                      fontWeight: 800,
-                      letterSpacing: '0.16em',
-                      textTransform: 'uppercase',
-                      color: 'var(--text-soft)',
-                    }}
-                  >
-                    {day}
-                  </div>
-                ))}
-
-                {monthCells.map((cell, index) => {
-                  if (!cell) {
-                    return <div key={`pad-${index}`} style={{ minHeight: 116 }} />;
-                  }
-
-                  const key = toDateKey(cell);
-                  const dayClasses = classesByDay.get(key) ?? [];
-                  const previewClasses = dayClasses.slice(0, 2);
-                  const remainingCount = dayClasses.length - previewClasses.length;
-                  const isToday = sameCalendarDay(cell, today);
-                  const isSelected = sameCalendarDay(cell, selectedDay);
-
-                  return (
-                    <div
-                      key={key}
-                      style={{
-                        position: 'relative',
-                        minHeight: 116,
-                        padding: 12,
-                        borderRadius: 20,
-                        border: isSelected ? '1px solid rgba(232,175,72,0.45)' : '1px solid var(--border)',
-                        background: isSelected
-                          ? 'linear-gradient(180deg, rgba(232,175,72,0.2), rgba(255,255,255,0.14))'
-                          : isToday
-                            ? 'linear-gradient(180deg, rgba(232,175,72,0.14), rgba(255,255,255,0.08))'
-                            : 'linear-gradient(170deg, rgba(255,255,255,0.3), rgba(255,255,255,0.08))',
-                        boxShadow: isSelected ? '0 18px 34px rgba(17,17,24,0.08)' : 'var(--shadow-soft)',
-                        overflow: 'hidden',
-                      }}
-                    >
-                      <button
-                        type="button"
-                        onClick={() => setSelectedDay(stripDate(cell))}
-                        aria-label={`Selecionar ${formatDateLabel(cell)}`}
-                        style={{
-                          position: 'absolute',
-                          inset: 0,
-                          border: 'none',
-                          background: 'transparent',
-                          cursor: 'pointer',
-                        }}
-                      />
-
-                      <div style={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
-                        <span
-                          style={{
-                            width: 32,
-                            height: 32,
-                            borderRadius: '999px',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            background: isSelected
-                              ? 'var(--gold-mid)'
-                              : isToday
-                                ? 'rgba(232,175,72,0.16)'
-                                : 'rgba(255,255,255,0.18)',
-                            color: isSelected ? '#16120a' : isToday ? 'var(--gold-mid)' : 'var(--text-strong)',
-                            fontSize: '0.85rem',
-                            fontWeight: 800,
-                            fontVariantNumeric: 'tabular-nums',
-                          }}
-                        >
-                          {cell.getDate()}
-                        </span>
-
-                        {dayClasses.length > 0 ? (
-                          <span className="app-badge app-badge--gold" style={{ minHeight: '1.7rem', padding: '0.2rem 0.55rem', fontSize: '0.62rem' }}>
-                            {dayClasses.length} {dayClasses.length === 1 ? 'aula' : 'aulas'}
-                          </span>
-                        ) : null}
-                      </div>
-
-                      <div style={{ position: 'relative', zIndex: 2, marginTop: 12, display: 'flex', flexDirection: 'column', gap: 6 }}>
-                        {previewClasses.map((lesson) => {
-                          const colors = statusColors(lesson.status);
-                          return (
-                            <button
-                              key={lesson.id}
-                              type="button"
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                setSelectedDay(stripDate(cell));
-                                openClassDetails(lesson.id);
-                              }}
-                              style={{
-                                width: '100%',
-                                padding: '0.5rem 0.6rem',
-                                borderRadius: 14,
-                                border: `1px solid ${colors.border}`,
-                                background: colors.bg,
-                                textAlign: 'left',
-                                cursor: 'pointer',
-                              }}
-                            >
-                              <p style={{ fontSize: '0.68rem', fontWeight: 800, color: colors.accent }}>
-                                {formatTimeLabel(lesson.scheduledStart)}
-                              </p>
-                              <p
-                                style={{
-                                  marginTop: 4,
-                                  fontSize: '0.78rem',
-                                  fontWeight: 700,
-                                  color: 'var(--text-strong)',
-                                  whiteSpace: 'nowrap',
-                                  overflow: 'hidden',
-                                  textOverflow: 'ellipsis',
-                                }}
-                              >
-                                {lesson.title}
-                              </p>
-                            </button>
-                          );
-                        })}
-
-                        {dayClasses.length === 0 ? (
-                          <span style={{ marginTop: 'auto', fontSize: '0.78rem', color: 'var(--text-soft)' }}>
-                            Sem aulas
-                          </span>
-                        ) : null}
-
-                        {remainingCount > 0 ? (
-                          <span style={{ fontSize: '0.74rem', fontWeight: 800, color: 'var(--gold-mid)' }}>
-                            +{remainingCount} {remainingCount === 1 ? 'aula' : 'aulas'}
-                          </span>
-                        ) : null}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
+              {isCompactMonthGrid ? (
+                <CompactMonthGrid
+                  monthCells={monthCells}
+                  classesByDay={classesByDay}
+                  selectedDay={selectedDay}
+                  today={today}
+                  onSelectDay={selectCalendarDay}
+                />
+              ) : (
+                <DesktopMonthGrid
+                  monthCells={monthCells}
+                  classesByDay={classesByDay}
+                  selectedDay={selectedDay}
+                  today={today}
+                  onSelectDay={selectCalendarDay}
+                  onOpenClass={openClassDetailsFromGrid}
+                />
+              )}
             </div>
           </section>
 

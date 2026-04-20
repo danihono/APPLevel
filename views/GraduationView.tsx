@@ -220,8 +220,8 @@ const GraduationView: React.FC<GraduationViewProps> = ({
         </div>
 
         <div className="mt-6 grid gap-3 md:grid-cols-2">
-          {activeRules.map((entry) => (
-            <div key={entry.belt} className="rounded-2xl border border-gray-100 dark:border-white/5 bg-gray-50 dark:bg-white/5 p-4">
+          {activeRules.map((entry, index) => (
+            <div key={`${entry.belt}-${index}`} className="rounded-2xl border border-gray-100 dark:border-white/5 bg-gray-50 dark:bg-white/5 p-4">
               <div className="flex items-center justify-between gap-3">
                 <p className="font-bold">{beltLabel(entry.belt)}</p>
                 <TimerReset size={16} className="text-gold" />

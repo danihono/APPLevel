@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { beltLabel, getBeltMeta } from '../beltCatalog';
+import { getBeltMeta } from '../beltCatalog';
 import {
   Activity,
   AlertTriangle,
@@ -8,7 +8,6 @@ import {
   Clock3,
   Filter,
   ShieldCheck,
-  Trophy,
   Users,
 } from 'lucide-react';
 import type { FirestoreEntity } from '../services/firebase/data';
@@ -16,7 +15,6 @@ import type {
   AcademyRecord,
   ClassRecord,
   CompetitionRecord,
-  RankingRecord,
   UserRecord,
 } from '../services/firebase/models';
 
@@ -26,7 +24,6 @@ interface SuperadminDashboardViewProps {
   academy: FirestoreEntity<AcademyRecord> | null;
   academyUsers: Array<FirestoreEntity<UserRecord>>;
   classes: Array<FirestoreEntity<ClassRecord>>;
-  rankings: Array<FirestoreEntity<RankingRecord>>;
   competitions: Array<FirestoreEntity<CompetitionRecord>>;
   selectedAcademyId: string;
   onEnterAcademy: (academyId: string) => void;
@@ -50,7 +47,6 @@ interface AcademyRow {
   masterBlackCount: number;
   masterBlackLimit: number;
   averageAttendance: number;
-  totalRankingPoints: number;
   lastActivityAt: Date | null;
   lastActivityLabel: string;
   attentionReasons: string[];
@@ -191,7 +187,6 @@ const SuperadminDashboardView: React.FC<SuperadminDashboardViewProps> = ({
   academy,
   academyUsers,
   classes,
-  rankings,
   competitions,
   selectedAcademyId,
   onEnterAcademy,
@@ -223,7 +218,6 @@ const SuperadminDashboardView: React.FC<SuperadminDashboardViewProps> = ({
     const averageAttendance = activeStudents.length > 0
       ? Math.round(activeStudents.reduce((sum, entry) => sum + (entry.attendanceCount ?? 0), 0) / activeStudents.length)
       : 0;
-    const totalRankingPoints = academyScopedUsers.reduce((sum, entry) => sum + (entry.rankingPoints ?? 0), 0);
     const lastActivityAt = getLatestDate([
       academyEntry.updatedAt?.toDate(),
       academyEntry.createdAt?.toDate(),
@@ -270,7 +264,6 @@ const SuperadminDashboardView: React.FC<SuperadminDashboardViewProps> = ({
       masterBlackCount,
       masterBlackLimit,
       averageAttendance,
-      totalRankingPoints,
       lastActivityAt,
       lastActivityLabel: getActivityLabel(lastActivityAt),
       attentionReasons,
@@ -342,7 +335,7 @@ const SuperadminDashboardView: React.FC<SuperadminDashboardViewProps> = ({
 
   const topAcademies = useMemo(
     () => [...filteredRows]
-      .sort((left, right) => right.activeStudents - left.activeStudents || right.totalRankingPoints - left.totalRankingPoints)
+      .sort((left, right) => right.activeStudents - left.activeStudents || right.averageAttendance - left.averageAttendance)
       .slice(0, 5),
     [filteredRows],
   );
@@ -391,9 +384,6 @@ const SuperadminDashboardView: React.FC<SuperadminDashboardViewProps> = ({
   const focusScheduledClasses = classes.filter((item) => item.status === 'scheduled').length;
   const focusOpenCompetitions = competitions.filter((item) => item.status === 'published').length;
   const focusFinishedCompetitions = competitions.filter((item) => item.status === 'finished').length;
-  const focusTopRankings = [...rankings]
-    .sort((left, right) => left.position - right.position || right.score - left.score)
-    .slice(0, 3);
   const activeStudentBase = filteredActiveUsers.filter((user) => user.role === 'student').length;
   const overviewKpis = [
     {
@@ -428,7 +418,6 @@ const SuperadminDashboardView: React.FC<SuperadminDashboardViewProps> = ({
   const focusOperationalRows = focusAcademyRow
     ? [
       { label: 'Presenca media', value: formatNumber(focusAcademyRow.averageAttendance) },
-      { label: 'Ranking acumulado', value: formatNumber(focusAcademyRow.totalRankingPoints) },
       { label: 'Aulas agendadas', value: formatNumber(focusScheduledClasses) },
       { label: 'Competicoes concluidas', value: formatNumber(focusFinishedCompetitions) },
       { label: 'Ultima atividade', value: focusAcademyRow.lastActivityLabel },
@@ -486,8 +475,8 @@ const SuperadminDashboardView: React.FC<SuperadminDashboardViewProps> = ({
         </div>
 
         <div className="superadmin-kpi-grid">
-          {overviewKpis.map((kpi) => (
-            <article key={kpi.label} className="superadmin-kpi-tile">
+          {overviewKpis.map((kpi, index) => (
+            <article key={`${kpi.label}-${index}`} className="superadmin-kpi-tile">
               <p className="superadmin-kpi-tile__label">{kpi.label}</p>
               <p className="superadmin-kpi-tile__value">{kpi.value}</p>
               <p className="superadmin-kpi-tile__note">{kpi.note}</p>
@@ -654,7 +643,6 @@ const SuperadminDashboardView: React.FC<SuperadminDashboardViewProps> = ({
               <div className="superadmin-chip-row superadmin-focus-panel__chips">
                 <span className="app-badge app-badge--muted">{focusAcademyRow.timezone}</span>
                 <span className="app-badge app-badge--gold">{focusAcademyRow.lastActivityLabel}</span>
-                <span className="app-badge app-badge--muted">{formatNumber(rankings.length)} atletas no ranking</span>
                 {focusAcademyRow.attentionReasons.length > 0 ? (
                   <span className="app-badge app-badge--danger">
                     {formatNumber(focusAcademyRow.attentionReasons.length)} sinais ativos
@@ -665,8 +653,8 @@ const SuperadminDashboardView: React.FC<SuperadminDashboardViewProps> = ({
               </div>
 
               <div className="superadmin-focus-stats">
-                {focusStats.map((metric) => (
-                  <div key={metric.label} className="superadmin-mini-stat">
+                {focusStats.map((metric, index) => (
+                  <div key={`${metric.label}-${index}`} className="superadmin-mini-stat">
                     <span>{metric.label}</span>
                     <strong>{metric.value}</strong>
                   </div>
@@ -684,49 +672,20 @@ const SuperadminDashboardView: React.FC<SuperadminDashboardViewProps> = ({
                   </div>
 
                   <div className="superadmin-detail-list">
-                    {focusOperationalRows.map((row) => (
-                      <div key={row.label} className="superadmin-detail-row">
+                    {focusOperationalRows.map((row, index) => (
+                      <div key={`${row.label}-${index}`} className="superadmin-detail-row">
                         <span>{row.label}</span>
                         <strong>{row.value}</strong>
                       </div>
                     ))}
                   </div>
                 </div>
-
-                <div className="superadmin-subsection">
-                  <div className="superadmin-subsection__header">
-                    <div className="flex items-center gap-2">
-                      <Trophy size={16} />
-                      <strong>Top ranking</strong>
-                    </div>
-                    <span>{formatNumber(rankings.length)} atletas</span>
-                  </div>
-
-                  {focusTopRankings.length > 0 ? (
-                    <div className="superadmin-ranking-list">
-                      {focusTopRankings.map((entry) => (
-                        <div key={entry.userId} className="superadmin-ranking-row">
-                          <div>
-                            <strong>{entry.displayName}</strong>
-                            <p>Faixa {beltLabel(entry.belt)}</p>
-                          </div>
-                          <div className="text-right">
-                            <strong>#{entry.position}</strong>
-                            <p>{formatNumber(entry.score)} pts</p>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="app-empty">Ainda nao existe ranking calculado para esta academia.</div>
-                  )}
-                </div>
               </div>
             </>
           ) : (
             <div className="app-empty superadmin-focus-empty">
               <strong>Rede inteira em leitura consolidada.</strong>
-              <span>Escolha uma academia no mapa abaixo para destrinchar alunos, aulas e ranking.</span>
+              <span>Escolha uma academia no mapa abaixo para destrinchar alunos, aulas e operacao.</span>
             </div>
           )}
         </article>
@@ -937,10 +896,6 @@ const SuperadminDashboardView: React.FC<SuperadminDashboardViewProps> = ({
                     <div className="superadmin-card-footnote">
                       <Clock3 size={15} />
                       <span>{academyRow.lastActivityLabel}</span>
-                    </div>
-                    <div className="superadmin-card-footnote">
-                      <Trophy size={15} />
-                      <span>{formatNumber(academyRow.totalRankingPoints)} pts no ranking</span>
                     </div>
                   </div>
 

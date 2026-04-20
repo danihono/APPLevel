@@ -23,11 +23,9 @@ import {
   subscribeToLearningQuizzes,
   subscribeToLearningTracks,
   subscribeToNotifications,
-  subscribeToRankings,
   subscribeToUserAttendances,
   subscribeToUserFights,
   subscribeToUserGraduations,
-  subscribeToUserMissions,
   subscribeToUserProfile,
 } from './services/firebase/data';
 import { backendFunctions } from './services/firebase/functions';
@@ -48,8 +46,6 @@ import type {
   LearningTrackRecord,
   NotificationChannel,
   NotificationRecord,
-  RankingRecord,
-  UserMissionRecord,
   UserRecord,
 } from './services/firebase/models';
 import { UserRole } from './types';
@@ -57,7 +53,6 @@ import { MOCK_PRODUCTS } from './constants';
 
 const CalendarView = lazy(() => import('./views/CalendarView'));
 const CompetitionView = lazy(() => import('./views/CompetitionView'));
-const GamificationView = lazy(() => import('./views/GamificationView'));
 const GraduationView = lazy(() => import('./views/GraduationView'));
 const LearningHubView = lazy(() => import('./views/LearningHubView'));
 const ManagementView = lazy(() => import('./views/ManagementView'));
@@ -421,12 +416,11 @@ const App: React.FC = () => {
   const [attendances, setAttendances] = useState<Array<FirestoreEntity<AttendanceRecord>>>([]);
   const [attendanceRequests, setAttendanceRequests] = useState<Array<FirestoreEntity<AttendanceRequestRecord>>>([]);
   const [joinRequests, setJoinRequests] = useState<Array<FirestoreEntity<JoinRequestRecord>>>([]);
-  const [rankings, setRankings] = useState<Array<FirestoreEntity<RankingRecord>>>([]);
-  const [missions, setMissions] = useState<Array<FirestoreEntity<UserMissionRecord>>>([]);
   const [graduations, setGraduations] = useState<Array<FirestoreEntity<GraduationRecord>>>([]);
   const [competitions, setCompetitions] = useState<Array<FirestoreEntity<CompetitionRecord>>>([]);
   const [fights, setFights] = useState<Array<FirestoreEntity<FightRecord>>>([]);
   const [notifications, setNotifications] = useState<Array<FirestoreEntity<NotificationRecord>>>([]);
+  const unreadNotificationsCount = notifications.filter((entry) => entry.status !== 'read').length;
   const [learningTracks, setLearningTracks] = useState<Array<FirestoreEntity<LearningTrackRecord>>>([]);
   const [learningCourses, setLearningCourses] = useState<Array<FirestoreEntity<LearningCourseRecord>>>([]);
   const [learningLessons, setLearningLessons] = useState<Array<FirestoreEntity<LearningLessonRecord>>>([]);
@@ -530,8 +524,6 @@ const App: React.FC = () => {
       setAttendances([]);
       setAttendanceRequests([]);
       setJoinRequests([]);
-      setRankings([]);
-      setMissions([]);
       setGraduations([]);
       setCompetitions([]);
       setFights([]);
@@ -802,8 +794,6 @@ const App: React.FC = () => {
       setClasses([]);
       setAcademyUsers([]);
       setAttendances([]);
-      setRankings([]);
-      setMissions([]);
       setGraduations([]);
       setCompetitions([]);
       setFights([]);
@@ -819,8 +809,6 @@ const App: React.FC = () => {
         setClasses([]);
         setAcademyUsers([]);
         setAttendances([]);
-        setRankings([]);
-        setMissions([]);
         setGraduations([]);
         setCompetitions([]);
         setFights([]);
@@ -835,8 +823,6 @@ const App: React.FC = () => {
         setClasses([]);
         setAcademyUsers([]);
         setAttendances([]);
-        setRankings([]);
-        setMissions([]);
         setGraduations([]);
         setCompetitions([]);
         setFights([]);
@@ -870,13 +856,11 @@ const App: React.FC = () => {
           },
         ),
         subscribeToAcademyClasses(selectedAcademyId, setClasses, (error) => reportSessionError('data:subscribeToAcademyClasses', error)),
-        subscribeToRankings(selectedAcademyId, setRankings, (error) => reportSessionError('data:subscribeToRankings', error)),
         subscribeToCompetitions(selectedAcademyId, setCompetitions, (error) => reportSessionError('data:subscribeToCompetitions', error)),
         subscribeToAcademyUsers(selectedAcademyId, setAcademyUsers, (error) => reportSessionError('data:subscribeToAcademyUsers', error)),
       ];
 
       setAttendances([]);
-      setMissions([]);
       setGraduations([]);
       setFights([]);
 
@@ -893,8 +877,6 @@ const App: React.FC = () => {
       setClasses([]);
       setAcademyUsers([]);
       setAttendances([]);
-      setRankings([]);
-      setMissions([]);
       setGraduations([]);
       setCompetitions([]);
       setFights([]);
@@ -955,8 +937,6 @@ const App: React.FC = () => {
       ),
       subscribeToAcademyClasses(profile.academyId, setClasses, (error) => reportSessionError('data:subscribeToAcademyClasses', error)),
       subscribeToUserAttendances(profile.academyId, profile.id, setAttendances, (error) => reportSessionError('data:subscribeToUserAttendances', error)),
-      subscribeToRankings(profile.academyId, setRankings, (error) => reportSessionError('data:subscribeToRankings', error)),
-      subscribeToUserMissions(profile.academyId, profile.id, setMissions, (error) => reportSessionError('data:subscribeToUserMissions', error)),
       subscribeToUserGraduations(profile.academyId, profile.id, setGraduations, (error) => reportSessionError('data:subscribeToUserGraduations', error)),
       subscribeToCompetitions(profile.academyId, setCompetitions, (error) => reportSessionError('data:subscribeToCompetitions', error)),
       subscribeToUserFights(profile.academyId, profile.id, setFights, (error) => reportSessionError('data:subscribeToUserFights', error)),
@@ -1504,6 +1484,7 @@ const App: React.FC = () => {
           activeTab={activeTab}
           setActiveTab={setActiveTab}
           userRole={currentUser.role}
+          unreadNotificationsCount={unreadNotificationsCount}
           mobileUnitLabel={mobileUnitLabel}
           isDarkMode={isDarkMode}
           onSetThemeMode={setThemeMode}
@@ -1562,9 +1543,6 @@ const App: React.FC = () => {
   const branch = toBranch(resolvedAcademy);
   const attendanceThisMonth = attendances.filter((attendance) => isSameMonth(attendance.checkedInAt));
   const attendanceDays = [...new Set(attendanceThisMonth.map((attendance) => attendance.checkedInAt?.toDate().getDate()).filter(Boolean))] as number[];
-  const rankingEntry = isSuperAdmin && resolvedAcademy.id !== profile.academyId
-    ? null
-    : rankings.find((entry) => entry.userId === profile.id);
   const students = academyUsers
     .filter((user) => user.role === 'student')
     .map((user) => toUiUser({ id: user.id, user, graduations: [], fights: [] }));
@@ -1585,7 +1563,6 @@ const App: React.FC = () => {
   const focusedLearningAcademy = selectedAcademyId
     ? (allAcademies.find((entry) => entry.id === selectedAcademyId) ?? null)
     : null;
-
   const renderContent = () => {
     if (isFirstAcademySetup) {
       return (
@@ -1619,7 +1596,6 @@ const App: React.FC = () => {
               academy={academy}
               academyUsers={academyUsers}
               classes={classes}
-              rankings={rankings}
               competitions={competitions}
               selectedAcademyId={selectedAcademyId}
               onEnterAcademy={setSelectedAcademyId}
@@ -1758,15 +1734,6 @@ const App: React.FC = () => {
             onSubmitQuiz={handleSubmitLessonQuiz}
           />
         );
-      case 'gamification':
-        return (
-          <GamificationView
-            missions={missions}
-            rankings={rankings}
-            currentUserId={profile.id}
-            currentPoints={(profile.missionPoints ?? 0) + (profile.rankingPoints ?? 0)}
-          />
-        );
       case 'store':
         return (
           <StoreView
@@ -1780,7 +1747,6 @@ const App: React.FC = () => {
             user={currentUser}
             profile={profile}
             totalClasses={profile.attendanceCount}
-            rankingPosition={rankingEntry?.position ?? null}
             academyName={isSuperAdmin ? NETWORK_NAME : resolvedAcademy.name}
             attendanceRate={attendanceRate}
             attendances={attendances}
@@ -1939,6 +1905,7 @@ const App: React.FC = () => {
         activeTab={activeTab}
         setActiveTab={setActiveTab}
         userRole={currentUser.role}
+        unreadNotificationsCount={unreadNotificationsCount}
         mobileUnitLabel={mobileUnitLabel}
         superadminViewMode={superadminViewMode}
         onSetSuperadminViewMode={(nextMode) => {
