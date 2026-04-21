@@ -1,6 +1,7 @@
 import {
   collection,
   doc,
+  getDoc,
   onSnapshot,
   orderBy,
   query,
@@ -14,6 +15,7 @@ import type {
   AttendanceRecord,
   AttendanceRequestRecord,
   ClassRecord,
+  ClassRsvpRecord,
   CompetitionRecord,
   FightRecord,
   GraduationRecord,
@@ -435,6 +437,31 @@ export function subscribeToLearningQuizzes(
     },
     onError,
   );
+}
+
+export function subscribeToClassRsvps(
+  classId: string,
+  academyId: string,
+  listener: (records: Array<FirestoreEntity<ClassRsvpRecord>>) => void,
+  onError?: (error: Error) => void,
+) {
+  return onSnapshot(
+    query(
+      collection(firebaseDb, 'class_rsvps'),
+      where('classId', '==', classId),
+      where('academyId', '==', academyId),
+      orderBy('createdAt', 'asc'),
+    ),
+    (snapshot) => {
+      listener(snapshot.docs.map((item) => mapDoc<ClassRsvpRecord>(item)));
+    },
+    onError,
+  );
+}
+
+export async function getMyClassRsvp(classId: string, userId: string): Promise<boolean> {
+  const rsvpSnap = await getDoc(doc(firebaseDb, 'class_rsvps', `${classId}_${userId}`));
+  return rsvpSnap.exists();
 }
 
 export function subscribeToLearningProgress(

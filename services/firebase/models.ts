@@ -83,9 +83,20 @@ export interface ClassRecord {
   endedAt?: Timestamp | null;
   capacity?: number;
   currentAttendanceCount: number;
+  rsvpCount?: number;
   checkinWindowMinutes: number;
   activeQrExpiresAt?: Timestamp | null;
   activeQrVersion?: number | null;
+  createdAt?: Timestamp;
+  updatedAt?: Timestamp;
+}
+
+export interface ClassRsvpRecord {
+  academyId: string;
+  classId: string;
+  userId: string;
+  userDisplayName: string;
+  scheduledStart?: Timestamp;
   createdAt?: Timestamp;
   updatedAt?: Timestamp;
 }

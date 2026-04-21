@@ -57,7 +57,7 @@ const GraduationView: React.FC<GraduationViewProps> = ({
     || (nextStripeRemaining !== null && nextStripeRemaining <= 2);
 
   return (
-    <div className="space-y-6 animate-fadeIn pb-8">
+    <div className="view-shell">
       <section className="app-panel app-panel-pad">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
@@ -83,14 +83,14 @@ const GraduationView: React.FC<GraduationViewProps> = ({
       </section>
 
       <section className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
-        <div className="rounded-[28px] border border-gray-100 dark:border-white/5 bg-white dark:bg-dark-card p-6 shadow-sm">
+        <div className="app-panel app-panel-pad">
           <div className="flex items-center gap-3">
-            <div className="rounded-2xl bg-gold/10 p-3 text-gold">
+            <div className="app-icon-shell">
               <Medal size={20} />
             </div>
             <div>
-              <h2 className="text-xl font-bold">Requisitos para o proximo passo</h2>
-              <p className="text-sm text-gray-500 dark:text-gray-400">Calculado pelas regras atuais da academia.</p>
+              <p className="app-section-label">Requisitos</p>
+              <h2 className="text-xl font-bold">Proximo passo</h2>
             </div>
           </div>
 
@@ -98,12 +98,12 @@ const GraduationView: React.FC<GraduationViewProps> = ({
             <div>
               <div className="flex items-center justify-between text-sm mb-2">
                 <span className="font-semibold">Proximo grau</span>
-                <span>
+                <span className="text-[color:var(--text-muted)]">
                   {stripeTotal > 0 ? `${stripeProgress} / ${stripeTotal} aulas` : 'Progressao manual'}
                 </span>
               </div>
               <ProgressBar current={stripeProgress} total={stripeTotal} />
-              <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+              <p className="mt-2 text-xs text-[color:var(--text-muted)]">
                 {nextStripeRemaining === null
                   ? 'Essa faixa nao tem liberacao automatica de grau por aulas.'
                   : `Restam ${nextStripeRemaining} aula(s) para atingir o proximo grau.`}
@@ -113,12 +113,12 @@ const GraduationView: React.FC<GraduationViewProps> = ({
             <div>
               <div className="flex items-center justify-between text-sm mb-2">
                 <span className="font-semibold">Proxima faixa</span>
-                <span>
+                <span className="text-[color:var(--text-muted)]">
                   {beltTotal > 0 ? `${beltProgress} / ${beltTotal} aulas` : 'Progressao manual'}
                 </span>
               </div>
-              <ProgressBar current={beltProgress} total={beltTotal} color="bg-zinc-950 dark:bg-gold" />
-              <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+              <ProgressBar current={beltProgress} total={beltTotal} />
+              <p className="mt-2 text-xs text-[color:var(--text-muted)]">
                 {nextBeltRemaining === null
                   ? 'A proxima faixa depende de avaliacao manual.'
                   : `Restam ${nextBeltRemaining} aula(s) para a proxima faixa.`}
@@ -127,21 +127,26 @@ const GraduationView: React.FC<GraduationViewProps> = ({
           </div>
         </div>
 
-        <div className="rounded-[28px] border border-gray-100 dark:border-white/5 bg-white dark:bg-dark-card p-6 shadow-sm">
+        <div className="app-panel app-panel-pad">
           <div className="flex items-center gap-3">
-            <div className="rounded-2xl bg-gold/10 p-3 text-gold">
+            <div className="app-icon-shell">
               <BellRing size={20} />
             </div>
             <div>
-              <h2 className="text-xl font-bold">Aviso de exame</h2>
-              <p className="text-sm text-gray-500 dark:text-gray-400">Sinalizacao automatica pelo progresso.</p>
+              <p className="app-section-label">Aviso</p>
+              <h2 className="text-xl font-bold">Status de exame</h2>
             </div>
           </div>
 
-          <div className={`mt-6 rounded-3xl p-5 ${examWindow ? 'bg-gold text-black' : 'bg-gray-50 dark:bg-white/5'}`}>
+          <div
+            className="mt-6 rounded-3xl p-5"
+            style={examWindow
+              ? { background: 'var(--gold-mid)', color: '#000' }
+              : { background: 'var(--bg-deep)' }}
+          >
             <p className="text-xs uppercase tracking-[0.3em] opacity-70">Status</p>
             <p className="mt-3 text-2xl font-black">
-              {examWindow ? 'Proximo de avaliacao' : 'Acompanhamento em andamento'}
+              {examWindow ? 'Proximo de avaliacao' : 'Em acompanhamento'}
             </p>
             <p className="mt-3 text-sm">
               {examWindow
@@ -151,9 +156,9 @@ const GraduationView: React.FC<GraduationViewProps> = ({
           </div>
 
           {currentRule ? (
-            <div className="mt-5 rounded-2xl border border-gray-100 dark:border-white/5 bg-gray-50 dark:bg-white/5 p-4 text-sm">
-              <p className="font-semibold">Regra atual da faixa {beltLabel(currentRule.belt)}</p>
-              <p className="mt-2 text-gray-500 dark:text-gray-400">
+            <div className="mt-5 app-list-card">
+              <p className="text-sm font-semibold">Regra atual — Faixa {beltLabel(currentRule.belt)}</p>
+              <p className="mt-2 text-xs text-[color:var(--text-muted)]">
                 {currentRule.stripeEvery > 0
                   ? `Novo grau a cada ${currentRule.stripeEvery} aulas • maximo ${currentRule.maxStripes} graus`
                   : 'Progressao manual para graus e faixas seguintes.'}
@@ -163,56 +168,55 @@ const GraduationView: React.FC<GraduationViewProps> = ({
         </div>
       </section>
 
-      <section className="rounded-[28px] border border-gray-100 dark:border-white/5 bg-white dark:bg-dark-card p-6 shadow-sm">
+      <section className="app-panel app-panel-pad">
         <div className="flex items-center gap-3">
-          <div className="rounded-2xl bg-gold/10 p-3 text-gold">
+          <div className="app-icon-shell">
             <Award size={20} />
           </div>
           <div>
+            <p className="app-section-label">Conquistas</p>
             <h2 className="text-xl font-bold">Historico de graduacoes</h2>
-            <p className="text-sm text-gray-500 dark:text-gray-400">Faixas, graus e motivo de promocao.</p>
           </div>
         </div>
 
-        <div className="mt-6 space-y-3">
+        <div className="mt-6 app-list">
           {[...graduations].sort((a, b) => {
             const aMs = a.promotedAt?.toMillis() ?? 0;
             const bMs = b.promotedAt?.toMillis() ?? 0;
             return bMs - aMs;
           }).map((entry) => (
-            <div key={entry.id} className="rounded-2xl border border-gray-100 dark:border-white/5 bg-gray-50 dark:bg-white/5 p-4">
+            <div key={entry.id} className="app-list-card">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
-                  <p className="font-bold">
-                    {beltLabel(entry.previousBelt)} {entry.previousStripes}{' -> '}{beltLabel(entry.newBelt)} {entry.newStripes}
+                  <p className="text-sm font-bold">
+                    {beltLabel(entry.previousBelt)} {entry.previousStripes}{' → '}{beltLabel(entry.newBelt)} {entry.newStripes}
                   </p>
-                  <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                    {entry.attendanceCount} presencas • motivo: {entry.reason.replaceAll('_', ' ')}
+                  <p className="mt-1 text-xs text-[color:var(--text-muted)]">
+                    {entry.attendanceCount} presencas • {entry.reason.replaceAll('_', ' ')}
                   </p>
                 </div>
-                <div className="text-sm font-semibold text-gold">
+                <span className="app-badge app-badge--gold">
                   {entry.promotedAt ? entry.promotedAt.toDate().toLocaleDateString('pt-BR') : 'Sem data'}
-                </div>
+                </span>
               </div>
             </div>
           ))}
 
           {graduations.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-gray-200 dark:border-white/10 p-5 text-sm text-gray-500 dark:text-gray-400">
-              Ainda nao ha graduacoes registradas para este perfil.
-            </div>
+            <div className="app-empty">Ainda nao ha graduacoes registradas para este perfil.</div>
           ) : null}
         </div>
       </section>
 
-      <section className="rounded-[28px] border border-gray-100 dark:border-white/5 bg-white dark:bg-dark-card p-6 shadow-sm">
+      <section className="app-panel app-panel-pad">
         <div className="flex items-center gap-3">
-          <div className="rounded-2xl bg-gold/10 p-3 text-gold">
+          <div className="app-icon-shell">
             <BookOpen size={20} />
           </div>
           <div>
+            <p className="app-section-label">Referencia</p>
             <h2 className="text-xl font-bold">Regras por faixa</h2>
-            <p className="text-sm text-gray-500 dark:text-gray-400">
+            <p className="mt-1 text-sm text-[color:var(--text-muted)]">
               {trainingType === 'Kids'
                 ? `Configuracao oficial da academia para ${kidsCategoryLabel(inferredKidsCategory)}.`
                 : 'Configuracao oficial da academia para o programa adulto.'}
@@ -222,18 +226,18 @@ const GraduationView: React.FC<GraduationViewProps> = ({
 
         <div className="mt-6 grid gap-3 md:grid-cols-2">
           {activeRules.map((entry, index) => (
-            <div key={`${entry.belt}-${index}`} className="rounded-2xl border border-gray-100 dark:border-white/5 bg-gray-50 dark:bg-white/5 p-4">
+            <div key={`${entry.belt}-${index}`} className="app-list-card">
               <div className="flex items-center justify-between gap-3">
-                <p className="font-bold">{beltLabel(entry.belt)}</p>
-                <TimerReset size={16} className="text-gold" />
+                <p className="text-sm font-bold">{beltLabel(entry.belt)}</p>
+                <TimerReset size={16} style={{ color: 'var(--gold-mid)' }} />
               </div>
-              <p className="mt-3 text-sm text-gray-500 dark:text-gray-400">
+              <p className="mt-2 text-xs text-[color:var(--text-muted)]">
                 {entry.stripeEvery > 0 ? `Grau a cada ${entry.stripeEvery} aulas` : 'Progressao manual'}
               </p>
-              <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+              <p className="mt-1 text-xs text-[color:var(--text-muted)]">
                 {entry.maxStripes > 0 ? `Maximo ${entry.maxStripes} graus` : 'Sem regra automatica de graus'}
               </p>
-              <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+              <p className="mt-1 text-xs text-[color:var(--text-muted)]">
                 {entry.stripeEvery > 0 && entry.maxStripes > 0
                   ? `Proxima faixa em ${getClassesToNextBelt(entry)} aulas`
                   : 'Avaliacao definida manualmente'}

@@ -2,6 +2,7 @@ export const COLLECTIONS = {
   academies: 'academies',
   attendances: 'attendances',
   attendanceRequests: 'attendance_requests',
+  classRsvps: 'class_rsvps',
   classes: 'classes',
   competitions: 'competitions',
   fights: 'fights',
@@ -144,10 +145,21 @@ export interface ClassDoc {
   endedAt?: FirebaseFirestore.Timestamp;
   capacity?: number;
   currentAttendanceCount: number;
+  rsvpCount?: number;
   checkinWindowMinutes: number;
   activeQrHash?: string;
   activeQrExpiresAt?: FirebaseFirestore.Timestamp;
   activeQrVersion?: number;
+  createdAt: FirebaseFirestore.Timestamp;
+  updatedAt: FirebaseFirestore.Timestamp;
+}
+
+export interface ClassRsvpDoc {
+  academyId: string;
+  classId: string;
+  userId: string;
+  userDisplayName: string;
+  scheduledStart: FirebaseFirestore.Timestamp;
   createdAt: FirebaseFirestore.Timestamp;
   updatedAt: FirebaseFirestore.Timestamp;
 }

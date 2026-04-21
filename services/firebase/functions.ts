@@ -309,4 +309,7 @@ export const backendFunctions = {
     passed: boolean;
     unlockedLessonId?: string;
   }>('submitLessonQuiz', payload),
+
+  toggleClassRsvp: (payload: { classId: string }) =>
+    callFunction<{ rsvped: boolean; rsvpCount: number }>('toggleClassRsvp', payload),
 };

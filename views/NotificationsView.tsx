@@ -507,6 +507,54 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
 
       {!isStudent && activeTab === 'notifications' ? (
         <>
+          <section className="app-list">
+            {notifications.map((notification) => {
+              const unread = notification.status !== 'read';
+
+              return (
+                <article key={notification.id} className="app-panel app-panel-pad">
+                  <div className="flex flex-wrap items-start justify-between gap-4">
+                    <div>
+                      <div className="flex flex-wrap items-center gap-3">
+                        <h2 className="text-lg font-bold">{notification.title}</h2>
+                        <span className="app-badge app-badge--muted">{notificationType(notification)}</span>
+                        {unread ? <span className="app-badge app-badge--gold">Novo</span> : null}
+                      </div>
+                      <p className="mt-3 text-sm leading-7 text-[color:var(--text-muted)]">{notification.body}</p>
+                    </div>
+
+                    <div className="text-right text-xs text-[color:var(--text-soft)]">
+                      <p>{formatStamp(notification.createdAt)}</p>
+                      <p className="mt-1 capitalize">{notification.status}</p>
+                    </div>
+                  </div>
+
+                  {(notification.targetRole || notification.targetBelt || unread) ? (
+                    <div className="mt-5 flex flex-wrap gap-3">
+                      <span className="app-badge app-badge--muted">Canal: {notification.channel}</span>
+                      {notification.targetRole ? <span className="app-badge app-badge--muted">Perfil: {notification.targetRole}</span> : null}
+                      {notification.targetBelt ? <span className="app-badge app-badge--muted">Faixa: {beltLabel(notification.targetBelt)}</span> : null}
+                      {unread ? (
+                        <button
+                          type="button"
+                          onClick={() => void handleMarkRead(notification.id)}
+                          className="app-button app-button--ghost app-button--small"
+                        >
+                          <CheckCircle2 size={15} />
+                          Marcar como lida
+                        </button>
+                      ) : null}
+                    </div>
+                  ) : null}
+                </article>
+              );
+            })}
+
+            {notifications.length === 0 ? (
+              <div className="app-empty">Nenhuma notificacao encontrada para o contexto atual.</div>
+            ) : null}
+          </section>
+
           {canBroadcast ? (
             <form onSubmit={handleSubmit} className="app-panel app-panel-pad">
               <div className="flex items-center gap-3">
@@ -583,54 +631,6 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
               </button>
             </form>
           ) : null}
-
-          <section className="app-list">
-            {notifications.map((notification) => {
-              const unread = notification.status !== 'read';
-
-              return (
-                <article key={notification.id} className="app-panel app-panel-pad">
-                  <div className="flex flex-wrap items-start justify-between gap-4">
-                    <div>
-                      <div className="flex flex-wrap items-center gap-3">
-                        <h2 className="text-lg font-bold">{notification.title}</h2>
-                        <span className="app-badge app-badge--muted">{notificationType(notification)}</span>
-                        {unread ? <span className="app-badge app-badge--gold">Novo</span> : null}
-                      </div>
-                      <p className="mt-3 text-sm leading-7 text-[color:var(--text-muted)]">{notification.body}</p>
-                    </div>
-
-                    <div className="text-right text-xs text-[color:var(--text-soft)]">
-                      <p>{formatStamp(notification.createdAt)}</p>
-                      <p className="mt-1 capitalize">{notification.status}</p>
-                    </div>
-                  </div>
-
-                  {(notification.targetRole || notification.targetBelt || unread) ? (
-                    <div className="mt-5 flex flex-wrap gap-3">
-                      <span className="app-badge app-badge--muted">Canal: {notification.channel}</span>
-                      {notification.targetRole ? <span className="app-badge app-badge--muted">Perfil: {notification.targetRole}</span> : null}
-                      {notification.targetBelt ? <span className="app-badge app-badge--muted">Faixa: {beltLabel(notification.targetBelt)}</span> : null}
-                      {unread ? (
-                        <button
-                          type="button"
-                          onClick={() => void handleMarkRead(notification.id)}
-                          className="app-button app-button--ghost app-button--small"
-                        >
-                          <CheckCircle2 size={15} />
-                          Marcar como lida
-                        </button>
-                      ) : null}
-                    </div>
-                  ) : null}
-                </article>
-              );
-            })}
-
-            {notifications.length === 0 ? (
-              <div className="app-empty">Nenhuma notificacao encontrada para o contexto atual.</div>
-            ) : null}
-          </section>
         </>
       ) : null}
 

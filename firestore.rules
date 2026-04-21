@@ -84,6 +84,20 @@ service cloud.firestore {
       allow delete: if isAcademyStaff(resource.data.academyId);
     }
 
+    match /class_rsvps/{rsvpId} {
+      allow read: if isAcademyStaff(resource.data.academyId)
+        || isSelf(resource.data.userId);
+
+      allow create: if signedIn()
+        && isStudent()
+        && isSelf(request.resource.data.userId)
+        && sameAcademy(request.resource.data.academyId);
+
+      allow delete: if signedIn()
+        && isSelf(resource.data.userId)
+        && sameAcademy(resource.data.academyId);
+    }
+
     match /attendances/{attendanceId} {
       allow read: if sameAcademy(resource.data.academyId)
         && (isAcademyStaff(resource.data.academyId) || isSelf(resource.data.userId));

@@ -60,8 +60,9 @@ const HomeView: React.FC<HomeViewProps> = ({
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
             <p className="text-sm font-bold">{branch.name}</p>
-            <p className="mt-2 text-sm text-[color:var(--text-muted)]">
-              Ola, {user.name.split(' ')[0]}. {branch.location}
+            <p className="mt-1 text-sm text-[color:var(--text-muted)]">{branch.location}</p>
+            <p className="mt-3 text-sm text-[color:var(--text-muted)]">
+              Ola, <strong>{user.name.split(' ')[0]}</strong> — {monthlyAttendanceCount} treinos este mes
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -71,37 +72,21 @@ const HomeView: React.FC<HomeViewProps> = ({
         </div>
       </section>
 
-      <section className="app-stat-grid">
-        <div className="app-stat-card">
-          <p className="app-stat-card__label">Categoria</p>
-          <p className="app-stat-card__value">{user.type}</p>
-          <p className="app-stat-card__note">Faixa {beltLabel(user.belt)}</p>
-        </div>
-        <div className="app-stat-card">
-          <p className="app-stat-card__label">Treinos no mes</p>
-          <p className="app-stat-card__value">{monthlyAttendanceCount}</p>
-          <p className="app-stat-card__note">{attendanceDays.length} dias diferentes</p>
-        </div>
-      </section>
-
       <section className="app-panel app-panel-pad">
         <div className="flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-3">
-              <div className="app-icon-shell">
-                <Trophy size={18} />
-              </div>
-              <div>
-                <p className="app-section-label">Minha jornada</p>
-                <h2 className="text-2xl font-bold">Progresso de faixa e grau</h2>
-              </div>
+          <div className="flex items-center gap-3">
+            <div className="app-icon-shell">
+              <Trophy size={18} />
             </div>
-            <p className="app-section-copy mt-4">
-              Ultima graduacao em {new Date(user.lastGraduation).toLocaleDateString('pt-BR')}.
-            </p>
+            <div>
+              <p className="app-section-label">Minha jornada</p>
+              <h2 className="text-2xl font-bold">Progresso de faixa e grau</h2>
+            </div>
           </div>
-          <span className="app-badge app-badge--gold">{user.type}</span>
         </div>
+        <p className="app-section-copy mt-4">
+          Ultima graduacao em {new Date(user.lastGraduation).toLocaleDateString('pt-BR')}.
+        </p>
 
         <div className="mt-6">
           <BjjBelt color={user.belt} stripes={user.stripes} />

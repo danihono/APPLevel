@@ -14,7 +14,7 @@ import {
 } from '../domain/models';
 import { findSingleByFields, getRequestContext, getUserDoc } from '../lib/context';
 import { assertCondition } from '../lib/errors';
-import { auth, db } from '../lib/firebase';
+import { auth, db, messaging } from '../lib/firebase';
 import {
   optionalBoolean,
   optionalNumber,
@@ -196,9 +196,24 @@ async function createNotifications(params: {
   }
 
   const now = Timestamp.now();
-  const batch = db.batch();
+  const recipientIds = [...new Set(params.recipients)];
 
-  for (const recipientUserId of new Set(params.recipients)) {
+  const userSnaps = await Promise.all(
+    recipientIds.map((uid) => db.collection(COLLECTIONS.users).doc(uid).get()),
+  );
+
+  const recipientTokens = new Map<string, string[]>();
+  const allTokens: string[] = [];
+  for (let i = 0; i < recipientIds.length; i++) {
+    const uid = recipientIds[i];
+    const tokens = (userSnaps[i].data() as UserDoc | undefined)?.fcmTokens ?? [];
+    recipientTokens.set(uid, tokens);
+    allTokens.push(...tokens);
+  }
+
+  const batch = db.batch();
+  for (const recipientUserId of recipientIds) {
+    const tokens = recipientTokens.get(recipientUserId) ?? [];
     const notificationRef = db.collection(COLLECTIONS.notifications).doc();
     const notification: NotificationDoc = {
       academyId: params.academyId,
@@ -206,7 +221,7 @@ async function createNotifications(params: {
       body: params.body,
       channel: params.channel,
       kind: params.kind,
-      status: 'stored',
+      status: tokens.length > 0 ? 'queued' : 'stored',
       createdBy: params.createdBy,
       createdAt: now,
       updatedAt: now,
@@ -214,15 +229,34 @@ async function createNotifications(params: {
       actionRef: params.actionRef,
       data: params.data,
     };
-
     batch.set(notificationRef, notification);
   }
-
   await batch.commit();
+
+  if (allTokens.length > 0) {
+    try {
+      const chunks: string[][] = [];
+      for (let i = 0; i < allTokens.length; i += 500) {
+        chunks.push(allTokens.slice(i, i + 500));
+      }
+      for (const tokenChunk of chunks) {
+        await messaging.sendEachForMulticast({
+          tokens: tokenChunk,
+          notification: { title: params.title, body: params.body },
+          data: params.data,
+        });
+      }
+    } catch {
+      // Push delivery failure is non-fatal; notifications are persisted in Firestore
+    }
+  }
 }
 
 async function listApproversForAcademy(academyId: string): Promise<string[]> {
-  const academyUsers = await db.collection(COLLECTIONS.users).where('academyId', '==', academyId).get();
+  const [academyUsers, superadmins] = await Promise.all([
+    db.collection(COLLECTIONS.users).where('academyId', '==', academyId).get(),
+    db.collection(COLLECTIONS.users).where('role', '==', 'superadmin').get(),
+  ]);
 
   const recipients = new Set<string>();
 
@@ -231,6 +265,10 @@ async function listApproversForAcademy(academyId: string): Promise<string[]> {
     if (user.role === 'professor' || user.role === 'admin') {
       recipients.add(doc.id);
     }
+  }
+
+  for (const doc of superadmins.docs) {
+    recipients.add(doc.id);
   }
 
   return [...recipients];
@@ -374,6 +412,7 @@ export const submitStudentSignup = onCall(callableOptions, async (request) => {
   const displayName = `${firstName} ${lastName}`.trim();
   const now = Timestamp.now();
   let createdAuthUid = '';
+  let createdJoinRequestId = '';
 
   try {
     const createdUser = await auth.createUser({
@@ -385,6 +424,7 @@ export const submitStudentSignup = onCall(callableOptions, async (request) => {
     createdAuthUid = createdUser.uid;
 
     const joinRequestRef = db.collection(COLLECTIONS.joinRequests).doc();
+    createdJoinRequestId = joinRequestRef.id;
     const joinRequest: JoinRequestDoc = {
       academyId,
       academyName: academy.name,
@@ -432,6 +472,13 @@ export const submitStudentSignup = onCall(callableOptions, async (request) => {
     if (createdAuthUid) {
       try {
         await auth.deleteUser(createdAuthUid);
+      } catch {
+        // Keep the original error surface for the caller.
+      }
+    }
+    if (createdJoinRequestId) {
+      try {
+        await db.collection(COLLECTIONS.joinRequests).doc(createdJoinRequestId).delete();
       } catch {
         // Keep the original error surface for the caller.
       }

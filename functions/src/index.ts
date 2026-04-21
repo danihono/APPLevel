@@ -58,6 +58,7 @@ import {
   registerDeviceToken,
   sendSegmentedNotification,
 } from './modules/notifications';
+import { toggleClassRsvp } from './modules/rsvp';
 
 setGlobalOptions({
   region: 'southamerica-east1',
@@ -99,6 +100,7 @@ export {
   submitStudentSignup,
   submitLessonQuiz,
   syncUserMissionProgress,
+  toggleClassRsvp,
   updateOwnStudentProfile,
   updateStudentBeltGrade,
   upsertAcademyProgressionRules,

@@ -134,6 +134,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({
 
   return (
     <div className="view-shell">
+      {/* Header */}
       <section className="app-panel app-panel-pad">
         <div className="flex flex-wrap items-center gap-4">
           <AvatarWithBelt
@@ -147,7 +148,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({
           <div className="min-w-0 flex-1">
             <h2 className="text-2xl font-bold">{user.name}</h2>
             <p className="mt-2 text-sm text-[color:var(--text-muted)]">
-            {academyName || 'Academia ativa'} • {roleLabel(profile.role)}
+              {academyName || 'Academia ativa'} • {roleLabel(profile.role)}
             </p>
             <div className="mt-3 flex flex-wrap items-center gap-2">
               <span className="app-badge app-badge--gold">Faixa {beltLabel(user.belt)}</span>
@@ -159,6 +160,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({
         </div>
       </section>
 
+      {/* Stats */}
       <section className="app-stat-grid">
         <article className="app-panel app-panel-pad">
           <p className="app-stat-card__label">Total de aulas</p>
@@ -177,6 +179,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({
         </article>
       </section>
 
+      {/* Dados pessoais + Conta e e-mail */}
       <section className="app-grid-2">
         <article className="app-panel app-panel-pad">
           <div className="flex items-center gap-3">
@@ -262,31 +265,22 @@ const ProfileView: React.FC<ProfileViewProps> = ({
         <article className="app-panel app-panel-pad">
           <div className="flex items-center gap-3">
             <div className="app-icon-shell">
-              <Sparkles size={18} />
+              <ShieldCheck size={18} />
             </div>
             <div>
-              <p className="app-section-label">Conta e acesso</p>
-              <h2 className="text-xl font-bold">Resumo da conta</h2>
+              <p className="app-section-label">Acesso</p>
+              <h2 className="text-xl font-bold">Conta e e-mail</h2>
             </div>
           </div>
 
           <div className="mt-6 app-list">
             <div className="app-list-card">
-              <div className="flex items-center gap-2">
-                <ShieldCheck size={16} className="text-[color:var(--gold-mid)]" />
-                <div>
-                  <p className="text-sm font-bold">Permissoes</p>
-                  <p className="mt-1 text-xs text-[color:var(--text-soft)]">Perfil atual: {roleLabel(profile.role)}</p>
-                </div>
-              </div>
+              <p className="text-sm font-bold">Permissoes</p>
+              <p className="mt-1 text-xs text-[color:var(--text-soft)]">Perfil atual: {roleLabel(profile.role)}</p>
             </div>
             <div className="app-list-card">
               <p className="text-sm font-bold">Academia</p>
               <p className="mt-1 text-xs text-[color:var(--text-soft)]">{academyName || 'Sem academia vinculada'}</p>
-            </div>
-            <div className="app-list-card">
-              <p className="text-sm font-bold">E-mail da conta</p>
-              <p className="mt-1 text-xs text-[color:var(--text-soft)]">{user.email}</p>
             </div>
             <div className="app-list-card">
               <p className="text-sm font-bold">Faixa e grau</p>
@@ -294,43 +288,10 @@ const ProfileView: React.FC<ProfileViewProps> = ({
             </div>
           </div>
 
-          <div className="mt-6 app-list-card">
-            <div className="flex items-center gap-3">
-              <div className="app-icon-shell">
-                {isDarkMode ? <Moon size={18} /> : <Sun size={18} />}
-              </div>
-              <div>
-                <p className="text-sm font-bold">Aparencia</p>
-                <p className="mt-1 text-xs text-[color:var(--text-soft)]">
-                  Tema atual: {currentThemeLabel}. O padrao da plataforma agora e claro.
-                </p>
-              </div>
-            </div>
-
-            <div className="profile-theme-picker">
-              <button
-                type="button"
-                onClick={() => onSetThemeMode('light')}
-                className={`app-button app-button--small app-button--block ${!isDarkMode ? 'app-button--gold' : 'app-button--ghost'} profile-theme-choice`}
-                aria-pressed={!isDarkMode}
-              >
-                <Sun size={16} />
-                Claro
-              </button>
-              <button
-                type="button"
-                onClick={() => onSetThemeMode('dark')}
-                className={`app-button app-button--small app-button--block ${isDarkMode ? 'app-button--gold' : 'app-button--ghost'} profile-theme-choice`}
-                aria-pressed={isDarkMode}
-              >
-                <Moon size={16} />
-                Escuro
-              </button>
-            </div>
-          </div>
-
           {canEditProfile ? (
             <form onSubmit={handleEmailSubmit} className="mt-6 app-form-grid">
+              <p className="app-section-label md:col-span-2">Alterar e-mail</p>
+
               {emailFeedback ? <div className="app-alert app-alert--success md:col-span-2">{emailFeedback}</div> : null}
               {emailError ? <div className="app-alert app-alert--error md:col-span-2">{emailError}</div> : null}
 
@@ -353,6 +314,44 @@ const ProfileView: React.FC<ProfileViewProps> = ({
         </article>
       </section>
 
+      {/* Aparência — card full-width, isolado */}
+      <section className="app-panel app-panel-pad">
+        <div className="flex items-center gap-3">
+          <div className="app-icon-shell">
+            {isDarkMode ? <Moon size={18} /> : <Sun size={18} />}
+          </div>
+          <div>
+            <p className="app-section-label">Interface</p>
+            <h2 className="text-xl font-bold">Aparencia</h2>
+            <p className="mt-1 text-sm text-[color:var(--text-muted)]">
+              Tema atual: {currentThemeLabel}.
+            </p>
+          </div>
+        </div>
+
+        <div className="profile-theme-picker mt-5">
+          <button
+            type="button"
+            onClick={() => onSetThemeMode('light')}
+            className={`app-button app-button--small app-button--block ${!isDarkMode ? 'app-button--gold' : 'app-button--ghost'} profile-theme-choice`}
+            aria-pressed={!isDarkMode}
+          >
+            <Sun size={16} />
+            Claro
+          </button>
+          <button
+            type="button"
+            onClick={() => onSetThemeMode('dark')}
+            className={`app-button app-button--small app-button--block ${isDarkMode ? 'app-button--gold' : 'app-button--ghost'} profile-theme-choice`}
+            aria-pressed={isDarkMode}
+          >
+            <Moon size={16} />
+            Escuro
+          </button>
+        </div>
+      </section>
+
+      {/* Histórico */}
       <section className="app-grid-2">
         <article className="app-panel app-panel-pad">
           <div className="flex items-center gap-3">
@@ -411,10 +410,13 @@ const ProfileView: React.FC<ProfileViewProps> = ({
         </article>
       </section>
 
-      <button type="button" onClick={() => void onLogout()} className="app-button app-button--danger app-button--block">
-        <LogOut size={16} />
-        Sair da conta
-      </button>
+      {/* Zona de perigo — separada visualmente */}
+      <div style={{ borderTop: '1px solid var(--divider)', paddingTop: '2rem' }}>
+        <button type="button" onClick={() => void onLogout()} className="app-button app-button--danger app-button--block">
+          <LogOut size={16} />
+          Sair da conta
+        </button>
+      </div>
     </div>
   );
 };

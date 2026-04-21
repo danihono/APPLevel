@@ -820,7 +820,8 @@ const App: React.FC = () => {
       ),
     ];
 
-    if (profile.role === 'professor') {
+    const isProfessorContext = profile.role === 'professor' || (profile.role === 'superadmin' && superadminViewMode === 'professor');
+    if (isProfessorContext) {
       unsubscribers.unshift(
         subscribeToJoinRequests(scopedAcademyId, setJoinRequests, (error) => reportSessionError('data:subscribeToJoinRequests', error)),
       );
@@ -831,7 +832,7 @@ const App: React.FC = () => {
     return () => {
       unsubscribers.forEach((unsubscribe) => unsubscribe());
     };
-  }, [profile, selectedAcademyId, sessionValidated]);
+  }, [profile, selectedAcademyId, sessionValidated, superadminViewMode]);
 
   useEffect(() => {
     if (!profile || !sessionValidated) {

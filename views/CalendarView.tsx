@@ -4,9 +4,9 @@ import QRCodeSVG from 'react-qr-code';
 import { buildMonthGrid, MONTH_WEEK_HEADER, sameCalendarDay, sameCalendarMonth, stripDate, toDateKey } from '../calendarUtils';
 import ClassSessionCard from '../components/ClassSessionCard';
 import CreateClassModal, { type CreateClassPayload } from '../components/CreateClassModal';
-import type { FirestoreEntity } from '../services/firebase/data';
-import type { CreateClassScheduleBatchResult } from '../services/firebase/functions';
-import type { AttendanceRecord, AttendanceRequestRecord, ClassRecord } from '../services/firebase/models';
+import { subscribeToClassRsvps, getMyClassRsvp, type FirestoreEntity } from '../services/firebase/data';
+import { backendFunctions, type CreateClassScheduleBatchResult } from '../services/firebase/functions';
+import type { AttendanceRecord, AttendanceRequestRecord, ClassRecord, ClassRsvpRecord } from '../services/firebase/models';
 import { formatDateLabel, formatTimeLabel } from '../services/firebase/adapters';
 import { UserRole } from '../types';
 
@@ -432,12 +432,42 @@ const CalendarView: React.FC<CalendarViewProps> = ({
   const [finishCountdown, setFinishCountdown] = useState('');
   const [scannerOpen, setScannerOpen] = useState(false);
   const [scannerClassId, setScannerClassId] = useState<string | null>(null);
+  const [myRsvpByClass, setMyRsvpByClass] = useState<Record<string, boolean>>({});
+  const [rsvpListByClass, setRsvpListByClass] = useState<Record<string, Array<FirestoreEntity<ClassRsvpRecord>>>>({});
+  const [rsvpBusyByClass, setRsvpBusyByClass] = useState<Record<string, boolean>>({});
 
   const tokenInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     setSheetTab('detalhes');
   }, [selectedClassId]);
+
+  useEffect(() => {
+    if (!selectedClassId) {
+      return undefined;
+    }
+
+    const classEntry = classes.find((entry) => entry.id === selectedClassId);
+    if (!classEntry || classEntry.status !== 'scheduled') {
+      return undefined;
+    }
+
+    if (!isStaff) {
+      void getMyClassRsvp(selectedClassId, currentUserId).then((rsvped) => {
+        setMyRsvpByClass((current) => ({ ...current, [selectedClassId]: rsvped }));
+      });
+      return undefined;
+    }
+
+    const unsubscribe = subscribeToClassRsvps(
+      selectedClassId,
+      classEntry.academyId,
+      (records) => {
+        setRsvpListByClass((current) => ({ ...current, [selectedClassId]: records }));
+      },
+    );
+    return unsubscribe;
+  }, [selectedClassId, classes, isStaff, currentUserId]);
 
   useEffect(() => {
     if (typeof window === 'undefined') {
@@ -681,6 +711,22 @@ const CalendarView: React.FC<CalendarViewProps> = ({
     }
   }
 
+  async function handleToggleRsvp(classId: string) {
+    setRsvpBusyByClass((current) => ({ ...current, [classId]: true }));
+    setMessageByClass((current) => ({ ...current, [classId]: '' }));
+    try {
+      const result = await backendFunctions.toggleClassRsvp({ classId });
+      setMyRsvpByClass((current) => ({ ...current, [classId]: result.rsvped }));
+    } catch (error) {
+      setMessageByClass((current) => ({
+        ...current,
+        [classId]: error instanceof Error ? error.message : 'Erro ao confirmar presenca.',
+      }));
+    } finally {
+      setRsvpBusyByClass((current) => ({ ...current, [classId]: false }));
+    }
+  }
+
   async function handleConfirmFinish() {
     if (!finishConfirmClassId) {
       return;
@@ -760,25 +806,6 @@ const CalendarView: React.FC<CalendarViewProps> = ({
             </div>
 
             {isStaff ? (
-              <div className="app-segment">
-                <button
-                  type="button"
-                  onClick={() => setView('minhas')}
-                  className={`app-segment__button ${view === 'minhas' ? 'is-active' : ''}`}
-                >
-                  Minhas
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setView('todas')}
-                  className={`app-segment__button ${view === 'todas' ? 'is-active' : ''}`}
-                >
-                  Todas
-                </button>
-              </div>
-            ) : null}
-
-            {isStaff ? (
               <button type="button" onClick={() => setCreateModalOpen(true)} className="app-button app-button--dark">
                 <Plus size={14} />
                 Criar aula
@@ -850,9 +877,29 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                 </p>
               </div>
 
-              <span className={selectedDayClasses.length > 0 ? 'app-badge app-badge--gold' : 'app-badge app-badge--muted'}>
-                {selectedDayClasses.length} {selectedDayClasses.length === 1 ? 'aula' : 'aulas'}
-              </span>
+              <div className="flex flex-wrap items-center gap-2">
+                <span className={selectedDayClasses.length > 0 ? 'app-badge app-badge--gold' : 'app-badge app-badge--muted'}>
+                  {selectedDayClasses.length} {selectedDayClasses.length === 1 ? 'aula' : 'aulas'}
+                </span>
+                {isStaff ? (
+                  <div className="app-segment">
+                    <button
+                      type="button"
+                      onClick={() => setView('minhas')}
+                      className={`app-segment__button ${view === 'minhas' ? 'is-active' : ''}`}
+                    >
+                      Minhas
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setView('todas')}
+                      className={`app-segment__button ${view === 'todas' ? 'is-active' : ''}`}
+                    >
+                      Todas
+                    </button>
+                  </div>
+                ) : null}
+              </div>
             </div>
 
             <div className="mt-6 app-list">
@@ -877,9 +924,29 @@ const CalendarView: React.FC<CalendarViewProps> = ({
               </p>
             </div>
 
-            <span className={todayClasses.length > 0 ? 'app-badge app-badge--gold' : 'app-badge app-badge--muted'}>
-              {todayClasses.length} {todayClasses.length === 1 ? 'aula hoje' : 'aulas hoje'}
-            </span>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className={todayClasses.length > 0 ? 'app-badge app-badge--gold' : 'app-badge app-badge--muted'}>
+                {todayClasses.length} {todayClasses.length === 1 ? 'aula hoje' : 'aulas hoje'}
+              </span>
+              {isStaff ? (
+                <div className="app-segment">
+                  <button
+                    type="button"
+                    onClick={() => setView('minhas')}
+                    className={`app-segment__button ${view === 'minhas' ? 'is-active' : ''}`}
+                  >
+                    Minhas
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setView('todas')}
+                    className={`app-segment__button ${view === 'todas' ? 'is-active' : ''}`}
+                  >
+                    Todas
+                  </button>
+                </div>
+              ) : null}
+            </div>
           </div>
 
           <div className="mt-6 app-list">
@@ -924,125 +991,222 @@ const CalendarView: React.FC<CalendarViewProps> = ({
             <div style={{ overflowY: 'auto', flex: 1 }}>
               <ClassSessionCard lesson={selectedClass} showDate />
 
-              <div style={{ padding: '4px 20px 12px' }}>
-                <div className="app-segment">
-                  <button
-                    type="button"
-                    onClick={() => setSheetTab('detalhes')}
-                    className={`app-segment__button ${sheetTab === 'detalhes' ? 'is-active' : ''}`}
-                  >
-                    Detalhes
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setSheetTab('historico')}
-                    className={`app-segment__button ${sheetTab === 'historico' ? 'is-active' : ''}`}
-                  >
-                    Historico ({myAttendances.length})
-                  </button>
-                </div>
-              </div>
+              {/* Aluno: ação principal visível imediatamente, sem scroll */}
+              {!canManageSelected ? (
+                <div style={{ padding: '12px 20px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  {message ? <div className="app-list-card text-sm text-[color:var(--text-muted)]">{message}</div> : null}
 
-              {sheetTab === 'detalhes' ? (
-                <div style={{ padding: '0 20px 16px', display: 'flex', flexDirection: 'column', gap: 12 }}>
-                  {qrData && canManageSelected ? (
-                    <div className="app-panel app-panel--tint p-4">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2 text-sm font-bold text-[color:var(--gold-mid)]">
-                          <QrCode size={16} />
-                          QR da aula
+                  {selectedClass.status === 'scheduled' ? (
+                    <>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8 }}>
+                        <span className="app-badge app-badge--muted">
+                          {selectedClass.rsvpCount ?? 0} {(selectedClass.rsvpCount ?? 0) === 1 ? 'confirmado' : 'confirmados'}
+                        </span>
+                        {selectedClass.capacity && (selectedClass.rsvpCount ?? 0) >= selectedClass.capacity ? (
+                          <span className="app-badge app-badge--gold">Capacidade maxima</span>
+                        ) : null}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => void handleToggleRsvp(selectedClass.id)}
+                        disabled={rsvpBusyByClass[selectedClass.id]}
+                        className={`app-button app-button--block ${myRsvpByClass[selectedClass.id] ? 'app-button--ghost' : 'app-button--gold'}`}
+                      >
+                        <CheckCircle size={14} />
+                        {rsvpBusyByClass[selectedClass.id] ? 'Aguarde...' : myRsvpByClass[selectedClass.id] ? 'Cancelar confirmacao' : 'Confirmar presenca'}
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      {attendanceRate !== undefined ? (
+                        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                          <span className="app-badge app-badge--gold">{attendanceRate}% frequencia</span>
+                          <span style={{ fontSize: '0.75rem', color: 'var(--text-soft)' }}>no mes atual</span>
                         </div>
+                      ) : null}
+                      <div style={{ display: 'flex', gap: 8 }}>
+                        <input
+                          ref={tokenInputRef}
+                          type="text"
+                          value={qrInputByClass[selectedClass.id] || ''}
+                          onChange={(event) =>
+                            setQrInputByClass((current) => ({ ...current, [selectedClass.id]: event.target.value }))
+                          }
+                          placeholder={selectedClass.status === 'active' ? 'Cole aqui o token do QR' : 'A aula precisa estar ativa'}
+                          disabled={selectedClass.status !== 'active' || busy}
+                          className="app-input"
+                          style={{ flex: 1 }}
+                        />
                         <button
                           type="button"
-                          onClick={() => void runClassAction(selectedClass.id, () => onRefreshQr(selectedClass.id))}
-                          disabled={busy}
+                          onClick={() => {
+                            setScannerClassId(selectedClass.id);
+                            setScannerOpen(true);
+                          }}
+                          disabled={selectedClass.status !== 'active' || busy}
                           className="app-button app-button--ghost app-button--icon"
-                          title="Gerar novo QR"
-                          style={{ width: 30, height: 30 }}
+                          title="Escanear QR com camera"
+                          style={{ width: 42, height: 42, flexShrink: 0 }}
                         >
-                          <RefreshCw size={13} />
+                          <Camera size={16} />
                         </button>
                       </div>
-                      <div
-                        style={{
-                          background: '#fff',
-                          padding: 12,
-                          borderRadius: 14,
-                          marginTop: 12,
-                          display: 'flex',
-                          justifyContent: 'center',
-                        }}
+                      <button
+                        type="button"
+                        onClick={() =>
+                          void runClassAction(selectedClass.id, () => onRegisterAttendance(selectedClass.id, qrInputByClass[selectedClass.id]))
+                        }
+                        disabled={selectedClass.status !== 'active' || busy}
+                        className="app-button app-button--gold app-button--block"
                       >
-                        <QRCodeSVG
-                          value={`${window.location.origin}?checkin=${encodeURIComponent(qrData.qrToken)}&classId=${encodeURIComponent(qrData.classId)}`}
-                          size={200}
-                          level="M"
-                        />
-                      </div>
-                      <p className="mt-2 text-center text-xs text-[color:var(--text-soft)]">
-                        {qrCountdown && qrCountdown !== '00:00' ? `Expira em ${qrCountdown}` : 'QR expirado - gere um novo'}
-                      </p>
-                    </div>
-                  ) : null}
-
-                  {!isStaff && attendanceRate !== undefined ? (
-                    <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                      <span className="app-badge app-badge--gold">{attendanceRate}% frequencia</span>
-                      <span style={{ fontSize: '0.75rem', color: 'var(--text-soft)' }}>no mes atual</span>
-                    </div>
-                  ) : null}
-
-                  {!canManageSelected ? (
-                    <div className="app-form-grid">
-                      <label className="app-field">
-                        <span className="app-field__label">Token do QR</span>
-                        <div style={{ display: 'flex', gap: 8 }}>
-                          <input
-                            ref={tokenInputRef}
-                            type="text"
-                            value={qrInputByClass[selectedClass.id] || ''}
-                            onChange={(event) =>
-                              setQrInputByClass((current) => ({ ...current, [selectedClass.id]: event.target.value }))
-                            }
-                            placeholder={selectedClass.status === 'active' ? 'Cole aqui o token do QR' : 'A aula precisa estar ativa'}
-                            disabled={selectedClass.status !== 'active' || busy}
-                            className="app-input"
-                            style={{ flex: 1 }}
-                          />
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setScannerClassId(selectedClass.id);
-                              setScannerOpen(true);
-                            }}
-                            disabled={selectedClass.status !== 'active' || busy}
-                            className="app-button app-button--ghost app-button--icon"
-                            title="Escanear QR com camera"
-                            style={{ width: 42, height: 42, flexShrink: 0 }}
-                          >
-                            <Camera size={16} />
-                          </button>
-                        </div>
-                      </label>
-                    </div>
-                  ) : null}
+                        <ShieldCheck size={14} />
+                        {busy ? 'Registrando...' : 'Registrar presenca'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void runClassAction(selectedClass.id, () => onSubmitAttendanceRequest(selectedClass.id))}
+                        disabled={selectedClass.status !== 'active' || busy || !!pendingRequest}
+                        className="app-button app-button--ghost app-button--block"
+                      >
+                        <CheckCircle size={14} />
+                        {pendingRequest ? 'Solicitacao pendente' : 'Solicitar presenca'}
+                      </button>
+                    </>
+                  )}
                 </div>
-              ) : (
-                <div style={{ padding: '0 20px 16px', display: 'flex', flexDirection: 'column', gap: 12 }}>
-                  {!isStaff ? (
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                      <div className="app-stat-card" style={{ padding: '12px 14px' }}>
-                        <p className="app-stat-card__label">Frequencia</p>
-                        <p className="app-stat-card__value" style={{ fontSize: '1.4rem' }}>{attendanceRate ?? 0}%</p>
-                        <p className="app-stat-card__note">no mes atual</p>
-                      </div>
-                      <div className="app-stat-card" style={{ padding: '12px 14px' }}>
-                        <p className="app-stat-card__label">Presencas</p>
-                        <p className="app-stat-card__value" style={{ fontSize: '1.4rem' }}>{myAttendances.length}</p>
-                        <p className="app-stat-card__note">confirmadas</p>
-                      </div>
+              ) : null}
+
+              {/* Staff: tabs Detalhes / Histórico */}
+              {canManageSelected ? (
+                <>
+                  <div style={{ padding: '4px 20px 12px' }}>
+                    <div className="app-segment">
+                      <button
+                        type="button"
+                        onClick={() => setSheetTab('detalhes')}
+                        className={`app-segment__button ${sheetTab === 'detalhes' ? 'is-active' : ''}`}
+                      >
+                        Detalhes
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setSheetTab('historico')}
+                        className={`app-segment__button ${sheetTab === 'historico' ? 'is-active' : ''}`}
+                      >
+                        Historico ({myAttendances.length})
+                      </button>
                     </div>
-                  ) : null}
+                  </div>
+
+                  {sheetTab === 'detalhes' ? (
+                    <div style={{ padding: '0 20px 16px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+                      {qrData ? (
+                        <div className="app-panel app-panel--tint p-4">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2 text-sm font-bold text-[color:var(--gold-mid)]">
+                              <QrCode size={16} />
+                              QR da aula
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => void runClassAction(selectedClass.id, () => onRefreshQr(selectedClass.id))}
+                              disabled={busy}
+                              className="app-button app-button--ghost app-button--icon"
+                              title="Gerar novo QR"
+                              style={{ width: 30, height: 30 }}
+                            >
+                              <RefreshCw size={13} />
+                            </button>
+                          </div>
+                          <div
+                            style={{
+                              background: '#fff',
+                              padding: 12,
+                              borderRadius: 14,
+                              marginTop: 12,
+                              display: 'flex',
+                              justifyContent: 'center',
+                            }}
+                          >
+                            <QRCodeSVG
+                              value={`${window.location.origin}?checkin=${encodeURIComponent(qrData.qrToken)}&classId=${encodeURIComponent(qrData.classId)}`}
+                              size={200}
+                              level="M"
+                            />
+                          </div>
+                          <p className="mt-2 text-center text-xs text-[color:var(--text-soft)]">
+                            {qrCountdown && qrCountdown !== '00:00' ? `Expira em ${qrCountdown}` : 'QR expirado - gere um novo'}
+                          </p>
+                        </div>
+                      ) : null}
+
+                      {selectedClass.status === 'scheduled' ? (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <Users size={14} style={{ color: 'var(--gold-mid)' }} />
+                            <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-soft)' }}>
+                              {selectedClass.rsvpCount ?? 0} {(selectedClass.rsvpCount ?? 0) === 1 ? 'confirmado' : 'confirmados'}
+                            </span>
+                          </div>
+                          {(rsvpListByClass[selectedClass.id] ?? []).length === 0 ? (
+                            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', padding: '4px 0' }}>
+                              Nenhum aluno confirmou presenca ainda.
+                            </div>
+                          ) : (
+                            (rsvpListByClass[selectedClass.id] ?? []).map((rsvp) => (
+                              <div key={rsvp.id} className="app-list-card" style={{ fontSize: '0.82rem', padding: '8px 12px' }}>
+                                {rsvp.userDisplayName}
+                              </div>
+                            ))
+                          )}
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : (
+                    <div style={{ padding: '0 20px 16px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+                      <p style={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--text-soft)' }}>
+                        Ultimas presencas
+                      </p>
+                      {myAttendances.length === 0 ? (
+                        <div style={{ textAlign: 'center', padding: '20px 0', color: 'var(--text-soft)', fontSize: '0.85rem' }}>
+                          Nenhuma presenca registrada ainda
+                        </div>
+                      ) : (
+                        myAttendances.slice(0, 30).map((attendance) => (
+                          <div key={attendance.id} className="app-list-card" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                            <CheckCircle size={16} style={{ color: methodColor(attendance.checkInMethod), flexShrink: 0 }} />
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <p style={{ fontSize: '0.82rem', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                {classNameById?.get(attendance.classId) ?? 'Aula'}
+                              </p>
+                              <p style={{ fontSize: '0.72rem', color: 'var(--text-soft)', marginTop: 2 }}>
+                                {attendance.checkedInAt ? `${formatDateLabel(attendance.checkedInAt)} - ${formatTimeLabel(attendance.checkedInAt)}` : '-'}
+                              </p>
+                            </div>
+                            <span className={methodBadgeClass(attendance.checkInMethod)} style={{ flexShrink: 0, fontSize: '0.65rem' }}>
+                              {methodLabel(attendance.checkInMethod)}
+                            </span>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  )}
+                </>
+              ) : (
+                /* Aluno: histórico abaixo da ação principal */
+                <div style={{ padding: '0 20px 16px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                    <div className="app-stat-card" style={{ padding: '12px 14px' }}>
+                      <p className="app-stat-card__label">Frequencia</p>
+                      <p className="app-stat-card__value" style={{ fontSize: '1.4rem' }}>{attendanceRate ?? 0}%</p>
+                      <p className="app-stat-card__note">no mes atual</p>
+                    </div>
+                    <div className="app-stat-card" style={{ padding: '12px 14px' }}>
+                      <p className="app-stat-card__label">Presencas</p>
+                      <p className="app-stat-card__value" style={{ fontSize: '1.4rem' }}>{myAttendances.length}</p>
+                      <p className="app-stat-card__note">confirmadas</p>
+                    </div>
+                  </div>
 
                   <p style={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--text-soft)' }}>
                     Ultimas presencas
@@ -1085,73 +1249,49 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                 gap: 10,
               }}
             >
-              {message ? <div className="app-list-card text-sm text-[color:var(--text-muted)]">{message}</div> : null}
-
               {canManageSelected ? (
-                <div className="flex flex-wrap gap-3">
-                  <button type="button" onClick={() => setSelectedClassId(null)} className="app-button app-button--ghost app-button--small">
-                    <X size={14} />
-                    Fechar
-                  </button>
-
-                  {selectedClass.status === 'scheduled' ? (
-                    <button
-                      type="button"
-                      onClick={() => void runClassAction(selectedClass.id, () => onStartClass(selectedClass.id))}
-                      disabled={busy}
-                      className="app-button app-button--gold app-button--small"
-                    >
-                      <Play size={14} />
-                      {busy ? 'Iniciando...' : 'Iniciar aula'}
-                    </button>
-                  ) : null}
-
-                  {selectedClass.status === 'active' ? (
-                    <button
-                      type="button"
-                      onClick={() => void handleStartFinishFlow(selectedClass.id)}
-                      disabled={busy || finishBusy}
-                      className="app-button app-button--danger app-button--small"
-                    >
-                      <CheckCircle size={14} />
-                      {busy || finishBusy ? 'Aguarde...' : 'Finalizar aula'}
-                    </button>
-                  ) : null}
-
-                  {selectedClass.status === 'finished' ? (
-                    <span className="text-sm text-[color:var(--text-soft)]">Aula encerrada.</span>
-                  ) : null}
-                </div>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      void runClassAction(selectedClass.id, () => onRegisterAttendance(selectedClass.id, qrInputByClass[selectedClass.id]))
-                    }
-                    disabled={selectedClass.status !== 'active' || busy}
-                    className="app-button app-button--gold app-button--block"
-                  >
-                    <ShieldCheck size={14} />
-                    {busy ? 'Registrando...' : 'Registrar presenca'}
-                  </button>
-                  <div className="flex gap-3">
-                    <button
-                      type="button"
-                      onClick={() => void runClassAction(selectedClass.id, () => onSubmitAttendanceRequest(selectedClass.id))}
-                      disabled={selectedClass.status !== 'active' || busy || !!pendingRequest}
-                      className="app-button app-button--ghost"
-                      style={{ flex: 1 }}
-                    >
-                      <CheckCircle size={14} />
-                      {pendingRequest ? 'Solicitacao pendente' : 'Solicitar presenca'}
-                    </button>
+                <>
+                  {message ? <div className="app-list-card text-sm text-[color:var(--text-muted)]">{message}</div> : null}
+                  <div className="flex flex-wrap gap-3">
                     <button type="button" onClick={() => setSelectedClassId(null)} className="app-button app-button--ghost app-button--small">
                       <X size={14} />
                       Fechar
                     </button>
+
+                    {selectedClass.status === 'scheduled' ? (
+                      <button
+                        type="button"
+                        onClick={() => void runClassAction(selectedClass.id, () => onStartClass(selectedClass.id))}
+                        disabled={busy}
+                        className="app-button app-button--gold app-button--small"
+                      >
+                        <Play size={14} />
+                        {busy ? 'Iniciando...' : 'Iniciar aula'}
+                      </button>
+                    ) : null}
+
+                    {selectedClass.status === 'active' ? (
+                      <button
+                        type="button"
+                        onClick={() => void handleStartFinishFlow(selectedClass.id)}
+                        disabled={busy || finishBusy}
+                        className="app-button app-button--danger app-button--small"
+                      >
+                        <CheckCircle size={14} />
+                        {busy || finishBusy ? 'Aguarde...' : 'Finalizar aula'}
+                      </button>
+                    ) : null}
+
+                    {selectedClass.status === 'finished' ? (
+                      <span className="text-sm text-[color:var(--text-soft)]">Aula encerrada.</span>
+                    ) : null}
                   </div>
-                </div>
+                </>
+              ) : (
+                <button type="button" onClick={() => setSelectedClassId(null)} className="app-button app-button--ghost app-button--block">
+                  <X size={14} />
+                  Fechar
+                </button>
               )}
             </div>
           </div>
