@@ -1769,6 +1769,142 @@ html.dark .app-list-card {
   border-color: rgba(232, 175, 72, 0.24);
 }
 
+.create-class-modal {
+  display: flex;
+  flex-direction: column;
+}
+
+.create-class-modal__body {
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+  flex-direction: column;
+  gap: 1.25rem;
+  overflow-y: auto;
+  padding-right: 0.15rem;
+}
+
+.create-class-modal__weekday-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.7rem;
+}
+
+.create-class-modal__weekday {
+  display: flex;
+  width: 100%;
+  min-height: 4.35rem;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 0.55rem;
+  padding: 0.8rem 0.85rem;
+  border-radius: 1.35rem;
+  border: 1px solid rgba(96, 106, 127, 0.18);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.52), rgba(255, 255, 255, 0.2));
+  box-shadow: var(--shadow-soft);
+  text-align: left;
+  transition:
+    transform 220ms cubic-bezier(0.34, 1.2, 0.64, 1),
+    border-color 220ms ease,
+    background 220ms ease,
+    box-shadow 220ms ease;
+}
+
+html.dark .create-class-modal__weekday {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.02));
+}
+
+.create-class-modal__weekday:hover,
+.create-class-modal__weekday:focus-visible {
+  transform: translateY(-2px);
+  border-color: rgba(232, 175, 72, 0.26);
+}
+
+.create-class-modal__weekday.is-selected {
+  border-color: rgba(232, 175, 72, 0.56);
+  background: linear-gradient(180deg, rgba(44, 33, 18, 0.96), rgba(88, 63, 28, 0.9));
+  box-shadow:
+    0 18px 34px rgba(232, 175, 72, 0.18),
+    inset 0 1px 0 rgba(255, 244, 194, 0.18);
+}
+
+html.dark .create-class-modal__weekday.is-selected {
+  background: linear-gradient(180deg, rgba(54, 38, 17, 0.96), rgba(24, 18, 12, 0.96));
+}
+
+.create-class-modal__weekday-top {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.45rem;
+}
+
+.create-class-modal__weekday-label {
+  font-size: 0.94rem;
+  font-weight: 800;
+  color: var(--text-strong);
+}
+
+.create-class-modal__weekday.is-selected .create-class-modal__weekday-label {
+  color: #fdf3cf;
+}
+
+.create-class-modal__weekday-check {
+  display: inline-flex;
+  height: 1.45rem;
+  width: 1.45rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  border: 1px solid rgba(232, 175, 72, 0.18);
+  background: rgba(255, 255, 255, 0.18);
+  color: transparent;
+  flex-shrink: 0;
+}
+
+.create-class-modal__weekday.is-selected .create-class-modal__weekday-check {
+  border-color: rgba(232, 175, 72, 0.42);
+  background: rgba(232, 175, 72, 0.18);
+  color: var(--gold-mid);
+}
+
+.create-class-modal__weekday-note {
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-soft);
+}
+
+.create-class-modal__weekday.is-selected .create-class-modal__weekday-note {
+  color: var(--gold-mid);
+}
+
+.create-class-modal__footer {
+  flex-shrink: 0;
+  margin-top: 1rem;
+  padding-top: 1rem;
+  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 0.2rem);
+  border-top: 1px solid rgba(96, 106, 127, 0.12);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0), rgba(255, 255, 255, 0.7) 22%, rgba(255, 255, 255, 0.95));
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
+
+html.dark .create-class-modal__footer {
+  border-top-color: rgba(255, 255, 255, 0.08);
+  background:
+    linear-gradient(180deg, rgba(10, 10, 16, 0), rgba(10, 10, 16, 0.82) 22%, rgba(10, 10, 16, 0.95));
+}
+
+@media (min-width: 640px) {
+  .create-class-modal__weekday-grid {
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+  }
+}
+
 .profile-theme-picker {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

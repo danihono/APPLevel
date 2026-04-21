@@ -6,6 +6,7 @@ export interface ProgressionBeltRule {
   belt: string;
   stripeEvery: number;
   maxStripes: number;
+  beltPromotionOffset?: number;
 }
 
 export interface ProgressionRuleSegment {
@@ -374,10 +375,10 @@ export const DEFAULT_PROGRESSION_RULES: ProgressionRulesV2 = {
   schema: 'v2',
   adult: {
     belts: [
-      { belt: BeltColor.BRANCA, stripeEvery: 30, maxStripes: 4 },
-      { belt: BeltColor.AZUL, stripeEvery: 65, maxStripes: 4 },
-      { belt: BeltColor.ROXA, stripeEvery: 75, maxStripes: 4 },
-      { belt: BeltColor.MARROM, stripeEvery: 85, maxStripes: 4 },
+      { belt: BeltColor.BRANCA, stripeEvery: 30, maxStripes: 4, beltPromotionOffset: 1 },
+      { belt: BeltColor.AZUL, stripeEvery: 65, maxStripes: 4, beltPromotionOffset: 1 },
+      { belt: BeltColor.ROXA, stripeEvery: 75, maxStripes: 4, beltPromotionOffset: 1 },
+      { belt: BeltColor.MARROM, stripeEvery: 85, maxStripes: 4, beltPromotionOffset: 1 },
       { belt: BeltColor.PRETA, stripeEvery: 0, maxStripes: 0 },
     ],
   },
@@ -426,21 +427,46 @@ export const DEFAULT_PROGRESSION_RULES: ProgressionRulesV2 = {
 
 export const ALL_BELTS = BELT_METADATA.map((entry) => entry.id);
 
-function sanitizeBeltRule(entry: ProgressionBeltRule): ProgressionBeltRule {
+export function getClassesToNextBelt(rule: Pick<ProgressionBeltRule, 'stripeEvery' | 'maxStripes' | 'beltPromotionOffset'>): number {
+  const stripeEvery = Math.max(0, Math.floor(rule.stripeEvery));
+  const maxStripes = Math.max(0, Math.floor(rule.maxStripes));
+  const beltPromotionOffset = Math.max(0, Math.floor(rule.beltPromotionOffset ?? 0));
+  return stripeEvery * (maxStripes + beltPromotionOffset);
+}
+
+function sanitizeBeltRule(entry: Partial<ProgressionBeltRule> | undefined, fallback?: ProgressionBeltRule): ProgressionBeltRule {
+  const stripeEvery = typeof entry?.stripeEvery === 'number'
+    ? Math.max(0, Math.floor(entry.stripeEvery))
+    : Math.max(0, Math.floor(fallback?.stripeEvery ?? 0));
+  const maxStripes = typeof entry?.maxStripes === 'number'
+    ? Math.max(0, Math.floor(entry.maxStripes))
+    : Math.max(0, Math.floor(fallback?.maxStripes ?? 0));
+
   return {
-    belt: normalizeBeltId(entry.belt),
-    stripeEvery: Math.max(0, Math.floor(entry.stripeEvery)),
-    maxStripes: Math.max(0, Math.floor(entry.maxStripes)),
+    belt: normalizeBeltId(entry?.belt ?? fallback?.belt),
+    stripeEvery,
+    maxStripes,
+    beltPromotionOffset: typeof entry?.beltPromotionOffset === 'number'
+      ? Math.max(0, Math.floor(entry.beltPromotionOffset))
+      : Math.max(0, Math.floor(fallback?.beltPromotionOffset ?? 0)),
   };
 }
 
 function sanitizeSegment(input: ProgressionRuleSegment | undefined, fallback: ProgressionRuleSegment): ProgressionRuleSegment {
-  const customByBelt = new Map((input?.belts ?? []).map((entry) => {
-    const sanitized = sanitizeBeltRule(entry);
-    return [sanitized.belt, sanitized] as const;
-  }));
-  const belts = fallback.belts.map((fallbackRule) => customByBelt.get(fallbackRule.belt) ?? fallbackRule);
-  return { belts };
+  const fallbackRules = fallback.belts.map((entry) => sanitizeBeltRule(entry));
+  const customByBelt = new Map<string, ProgressionBeltRule>();
+
+  for (const entry of input?.belts ?? []) {
+    customByBelt.set(normalizeBeltId(entry.belt), entry);
+  }
+
+  const belts = fallbackRules.map((fallbackRule) => sanitizeBeltRule(customByBelt.get(fallbackRule.belt), fallbackRule));
+  const knownBelts = new Set(belts.map((entry) => entry.belt));
+  const extras = [...customByBelt.entries()]
+    .filter(([belt]) => !knownBelts.has(belt))
+    .map(([, entry]) => sanitizeBeltRule(entry));
+
+  return { belts: [...belts, ...extras] };
 }
 
 function normalizeLooseKey(value: string): string {
@@ -480,16 +506,34 @@ export function normalizeProgressionRules(input?: ProgressionRules | null): Prog
     };
   }
 
-  const legacy = input.milestones ?? [];
+  const legacy = [...(input.milestones ?? [])]
+    .map((entry) => ({
+      belt: entry.belt,
+      minAttendances: Math.max(0, Math.floor(entry.minAttendances)),
+      stripeEvery: Math.max(0, Math.floor(entry.stripeEvery)),
+      maxStripes: Math.max(0, Math.floor(entry.maxStripes)),
+    }))
+    .sort((left, right) => left.minAttendances - right.minAttendances);
+
   return {
     version: typeof input.version === 'number' ? input.version : DEFAULT_PROGRESSION_RULES.version,
     schema: 'v2',
     adult: sanitizeSegment({
-      belts: legacy.map((entry) => ({
-        belt: entry.belt,
-        stripeEvery: entry.stripeEvery,
-        maxStripes: entry.maxStripes,
-      })),
+      belts: legacy.map((entry, index) => {
+        const nextEntry = legacy[index + 1];
+        const totalClassesToNextBelt = nextEntry == null
+          ? entry.stripeEvery * entry.maxStripes
+          : Math.max(0, nextEntry.minAttendances - entry.minAttendances);
+
+        return {
+          belt: entry.belt,
+          stripeEvery: entry.stripeEvery,
+          maxStripes: entry.maxStripes,
+          beltPromotionOffset: entry.stripeEvery > 0
+            ? Math.max(0, Math.floor(totalClassesToNextBelt / entry.stripeEvery) - entry.maxStripes)
+            : 0,
+        };
+      }),
     }, DEFAULT_PROGRESSION_RULES.adult),
     kids: DEFAULT_PROGRESSION_RULES.kids,
   };

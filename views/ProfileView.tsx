@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { beltLabel } from '../beltCatalog';
 import { LogOut, Mail, Moon, Phone, Save, ShieldCheck, Sparkles, Sun, Upload, UserRound } from 'lucide-react';
+import AvatarWithBelt from '../components/AvatarWithBelt';
 import type { FirestoreEntity } from '../services/firebase/data';
 import type { AttendanceRecord, GraduationRecord, UserRecord } from '../services/firebase/models';
 import type { User } from '../types';
@@ -135,26 +136,26 @@ const ProfileView: React.FC<ProfileViewProps> = ({
     <div className="view-shell">
       <section className="app-panel app-panel-pad">
         <div className="flex flex-wrap items-center gap-4">
-          <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-[1.4rem] border border-[rgba(232,175,72,0.28)] bg-white/10 shadow-[0_16px_36px_rgba(17,17,24,0.14)]">
-            {user.avatar ? (
-              <img src={user.avatar} alt={user.name} className="h-full w-full object-cover" />
-            ) : (
-              <span className="text-2xl font-bold">{user.name.charAt(0)}</span>
-            )}
-          </div>
+          <AvatarWithBelt
+            avatar={user.avatar}
+            name={user.name}
+            belt={user.belt}
+            stripes={user.stripes}
+            size="md"
+          />
 
-        <div className="min-w-0 flex-1">
-          <h2 className="text-2xl font-bold">{user.name}</h2>
-          <p className="mt-2 text-sm text-[color:var(--text-muted)]">
+          <div className="min-w-0 flex-1">
+            <h2 className="text-2xl font-bold">{user.name}</h2>
+            <p className="mt-2 text-sm text-[color:var(--text-muted)]">
             {academyName || 'Academia ativa'} • {roleLabel(profile.role)}
-          </p>
-          <div className="mt-3 flex flex-wrap items-center gap-2">
-            <span className="app-badge app-badge--gold">Faixa {beltLabel(user.belt)}</span>
-            <span className="app-badge app-badge--muted">{user.stripes} graus</span>
-            <span className="app-badge app-badge--muted">{user.type}</span>
-            {profile.isCompetitor ? <span className="app-badge app-badge--muted">Competidor</span> : null}
+            </p>
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <span className="app-badge app-badge--gold">Faixa {beltLabel(user.belt)}</span>
+              <span className="app-badge app-badge--muted">{user.stripes} graus</span>
+              <span className="app-badge app-badge--muted">{user.type}</span>
+              {profile.isCompetitor ? <span className="app-badge app-badge--muted">Competidor</span> : null}
+            </div>
           </div>
-        </div>
         </div>
       </section>
 

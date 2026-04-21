@@ -4,6 +4,7 @@ import {
   DEFAULT_PROGRESSION_RULES,
   KIDS_CATEGORIES,
   beltLabel,
+  getClassesToNextBelt,
   getBeltOptions,
   inferKidsCategoryFromBirthDate,
   inferTrainingTypeFromBirthDate,
@@ -61,6 +62,7 @@ interface ManagementViewProps {
         belt: string;
         stripeEvery: number;
         maxStripes: number;
+        beltPromotionOffset?: number;
       }>;
     };
     kids: {
@@ -69,6 +71,7 @@ interface ManagementViewProps {
           belt: string;
           stripeEvery: number;
           maxStripes: number;
+          beltPromotionOffset?: number;
         }>;
       };
       level_infanto_juvenil: {
@@ -76,6 +79,7 @@ interface ManagementViewProps {
           belt: string;
           stripeEvery: number;
           maxStripes: number;
+          beltPromotionOffset?: number;
         }>;
       };
       level_juvenil: {
@@ -83,6 +87,7 @@ interface ManagementViewProps {
           belt: string;
           stripeEvery: number;
           maxStripes: number;
+          beltPromotionOffset?: number;
         }>;
       };
     };
@@ -490,6 +495,7 @@ const ManagementView: React.FC<ManagementViewProps> = ({
             belt: entry.belt,
             stripeEvery: Number(entry.stripeEvery),
             maxStripes: Number(entry.maxStripes),
+            beltPromotionOffset: Number(entry.beltPromotionOffset ?? 0),
           })),
         },
         kids: {
@@ -498,6 +504,7 @@ const ManagementView: React.FC<ManagementViewProps> = ({
               belt: entry.belt,
               stripeEvery: Number(entry.stripeEvery),
               maxStripes: Number(entry.maxStripes),
+              beltPromotionOffset: Number(entry.beltPromotionOffset ?? 0),
             })),
           },
           level_infanto_juvenil: {
@@ -505,6 +512,7 @@ const ManagementView: React.FC<ManagementViewProps> = ({
               belt: entry.belt,
               stripeEvery: Number(entry.stripeEvery),
               maxStripes: Number(entry.maxStripes),
+              beltPromotionOffset: Number(entry.beltPromotionOffset ?? 0),
             })),
           },
           level_juvenil: {
@@ -512,6 +520,7 @@ const ManagementView: React.FC<ManagementViewProps> = ({
               belt: entry.belt,
               stripeEvery: Number(entry.stripeEvery),
               maxStripes: Number(entry.maxStripes),
+              beltPromotionOffset: Number(entry.beltPromotionOffset ?? 0),
             })),
           },
         },
@@ -1011,7 +1020,7 @@ const ManagementView: React.FC<ManagementViewProps> = ({
 	                              <p className="text-sm font-bold">{beltLabel(entry.belt)}</p>
 	                              <p className="mt-1 text-xs text-[color:var(--text-soft)]">
 	                                {entry.stripeEvery > 0
-	                                  ? `Proxima faixa em ${entry.stripeEvery * entry.maxStripes} aulas`
+	                                  ? `Proxima faixa em ${getClassesToNextBelt(entry)} aulas`
 	                                  : 'Progressao manual / IBJJF'}
 	                              </p>
 	                            </div>
@@ -1057,7 +1066,7 @@ const ManagementView: React.FC<ManagementViewProps> = ({
 	                              <div>
 	                                <p className="text-sm font-bold">{beltLabel(entry.belt)}</p>
 	                                <p className="mt-1 text-xs text-[color:var(--text-soft)]">
-	                                  Proxima faixa em {entry.stripeEvery * entry.maxStripes} aulas
+	                                  Proxima faixa em {getClassesToNextBelt(entry)} aulas
 	                                </p>
 	                              </div>
 	                              <span className="app-badge app-badge--muted">{entry.maxStripes} graus</span>

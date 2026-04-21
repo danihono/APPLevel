@@ -341,6 +341,7 @@ export function subscribeToNotifications(
     (snapshot) => {
       const records = snapshot.docs
         .map((item) => mapDoc<NotificationRecord>(item))
+        .filter((item) => item.kind !== 'join_request' || item.recipientUserId === params.userId)
         .sort((left, right) => toMillis(right.createdAt) - toMillis(left.createdAt));
       listener(records);
     },

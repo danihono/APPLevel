@@ -15,6 +15,7 @@ import {
   validateSessionAccess,
 } from './modules/auth';
 import {
+  createClassScheduleBatch,
   generateClassQrCode,
   finishClassSession,
   startClassSession,
@@ -69,6 +70,7 @@ export {
   assignUserToAcademy,
   callableProxy,
   createAcademy,
+  createClassScheduleBatch,
   createUserWithRole,
   createUserWithRole as createUser,
   evaluateUserProgression,

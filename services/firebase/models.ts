@@ -204,6 +204,8 @@ export interface JoinRequestRecord {
   isCompetitor: boolean;
   requestedBelt: string;
   requestedGrade: number;
+  approvedBelt?: string;
+  approvedGrade?: number;
   status: JoinRequestStatus;
   createdAt?: Timestamp;
   updatedAt?: Timestamp;

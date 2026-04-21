@@ -5,6 +5,7 @@ import { buildMonthGrid, MONTH_WEEK_HEADER, sameCalendarDay, sameCalendarMonth, 
 import ClassSessionCard from '../components/ClassSessionCard';
 import CreateClassModal, { type CreateClassPayload } from '../components/CreateClassModal';
 import type { FirestoreEntity } from '../services/firebase/data';
+import type { CreateClassScheduleBatchResult } from '../services/firebase/functions';
 import type { AttendanceRecord, AttendanceRequestRecord, ClassRecord } from '../services/firebase/models';
 import { formatDateLabel, formatTimeLabel } from '../services/firebase/adapters';
 import { UserRole } from '../types';
@@ -27,7 +28,7 @@ interface CalendarViewProps {
   attendances?: Array<FirestoreEntity<AttendanceRecord>>;
   attendanceRate?: number;
   classNameById?: Map<string, string>;
-  onCreateClass: (classes: CreateClassPayload[]) => Promise<void>;
+  onCreateClass: (classes: CreateClassPayload[]) => Promise<CreateClassScheduleBatchResult>;
   onStartClass: (classId: string) => Promise<QrSessionPayload>;
   onFinishClass: (classId: string) => Promise<void>;
   onRefreshQr: (classId: string) => Promise<QrSessionPayload>;

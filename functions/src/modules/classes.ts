@@ -4,15 +4,24 @@ import { ClassDoc, COLLECTIONS } from '../domain/models';
 import { getRequestContext } from '../lib/context';
 import { assertCondition } from '../lib/errors';
 import { db } from '../lib/firebase';
+import { optionalNumber, optionalString, optionalTimestamp, requiredString } from '../lib/payload';
 import { buildQrPayload, generateQrToken, hashQrToken } from '../lib/security';
-import {
-  optionalNumber,
-  optionalString,
-  optionalTimestamp,
-  requiredString,
-} from '../lib/payload';
 
 const callableOptions = { region: 'southamerica-east1', invoker: 'public' as const };
+const MAX_BATCH_OCCURRENCES = 200;
+
+interface BatchOccurrence {
+  scheduledStart: Timestamp;
+  scheduledEnd: Timestamp;
+}
+
+interface ExistingClassWindow {
+  professorId: string;
+  tatame: string;
+  status: ClassDoc['status'];
+  scheduledStart: Timestamp;
+  scheduledEnd: Timestamp;
+}
 
 async function getClassOrThrow(classId: string): Promise<FirebaseFirestore.DocumentSnapshot<FirebaseFirestore.DocumentData>> {
   const classSnap = await db.collection(COLLECTIONS.classes).doc(classId).get();
@@ -51,6 +60,69 @@ function buildQrResponse(classId: string, academyId: string, token: string, expi
   };
 }
 
+function normalizeTatame(value: string): string {
+  return value.trim().toLowerCase();
+}
+
+function overlaps(leftStart: Timestamp, leftEnd: Timestamp, rightStart: Timestamp, rightEnd: Timestamp): boolean {
+  return leftStart.toMillis() < rightEnd.toMillis() && leftEnd.toMillis() > rightStart.toMillis();
+}
+
+function parseOccurrences(data: unknown): BatchOccurrence[] {
+  const rawOccurrences = data && typeof data === 'object'
+    ? (data as { occurrences?: unknown }).occurrences
+    : undefined;
+  const occurrenceList = Array.isArray(rawOccurrences) ? rawOccurrences : null;
+
+  assertCondition(!!occurrenceList, 'invalid-argument', 'O campo "occurrences" precisa ser uma lista.');
+  assertCondition(occurrenceList.length > 0, 'invalid-argument', 'Informe pelo menos uma ocorrencia.');
+  assertCondition(
+    occurrenceList.length <= MAX_BATCH_OCCURRENCES,
+    'invalid-argument',
+    `O lote suporta no maximo ${MAX_BATCH_OCCURRENCES} ocorrencias por envio.`,
+  );
+
+  return occurrenceList.map((entry, index) => {
+    const scheduledStart = optionalTimestamp(entry, 'scheduledStart');
+    const scheduledEnd = optionalTimestamp(entry, 'scheduledEnd');
+
+    assertCondition(
+      scheduledStart && scheduledEnd,
+      'invalid-argument',
+      `A ocorrencia ${index + 1} precisa informar scheduledStart e scheduledEnd.`,
+    );
+    assertCondition(
+      scheduledEnd.toMillis() > scheduledStart.toMillis(),
+      'invalid-argument',
+      `A ocorrencia ${index + 1} precisa terminar depois do inicio.`,
+    );
+
+    return {
+      scheduledStart,
+      scheduledEnd,
+    };
+  });
+}
+
+function resolveConflictReason(
+  professorId: string,
+  tatameKey: string,
+  existingClass: ExistingClassWindow,
+): string {
+  const professorConflict = existingClass.professorId === professorId;
+  const tatameConflict = normalizeTatame(existingClass.tatame) === tatameKey;
+
+  if (professorConflict && tatameConflict) {
+    return 'Conflito de horario com professor e tatame.';
+  }
+
+  if (professorConflict) {
+    return 'Conflito de horario para o professor.';
+  }
+
+  return 'Conflito de horario para o tatame.';
+}
+
 export const upsertClassSchedule = onCall(callableOptions, async (request) => {
   const actor = await getRequestContext(request, 'professor');
   const classId = optionalString(request.data, 'classId');
@@ -66,6 +138,7 @@ export const upsertClassSchedule = onCall(callableOptions, async (request) => {
   const checkinWindowMinutes = optionalNumber(request.data, 'checkinWindowMinutes') ?? 15;
   const now = Timestamp.now();
 
+  assertCondition(!!academyId, 'invalid-argument', 'academyId e obrigatorio para criar a aula.');
   assertCondition(scheduledStart && scheduledEnd, 'invalid-argument', 'scheduledStart e scheduledEnd sao obrigatorios.');
   assertCondition(
     actor.role === 'superadmin' || academyId === actor.academyId,
@@ -106,6 +179,115 @@ export const upsertClassSchedule = onCall(callableOptions, async (request) => {
     classId: classRef.id,
     academyId,
     status: payload.status,
+  };
+});
+
+export const createClassScheduleBatch = onCall(callableOptions, async (request) => {
+  const actor = await getRequestContext(request, 'professor');
+  const academyId = optionalString(request.data, 'academyId') ?? actor.academyId;
+  const title = requiredString(request.data, 'title');
+  const tatame = requiredString(request.data, 'tatame');
+  const description = optionalString(request.data, 'description');
+  const capacity = optionalNumber(request.data, 'capacity');
+  const professorId = optionalString(request.data, 'professorId') ?? actor.uid;
+  const professorName = optionalString(request.data, 'professorName') ?? actor.user.displayName;
+  const checkinWindowMinutes = optionalNumber(request.data, 'checkinWindowMinutes') ?? 15;
+  const occurrences = parseOccurrences(request.data).sort((left, right) =>
+    left.scheduledStart.toMillis() - right.scheduledStart.toMillis()
+    || left.scheduledEnd.toMillis() - right.scheduledEnd.toMillis(),
+  );
+
+  assertCondition(!!academyId, 'invalid-argument', 'academyId e obrigatorio para criar aulas em lote.');
+  assertCondition(
+    actor.role === 'superadmin' || academyId === actor.academyId,
+    'permission-denied',
+    'Voce so pode criar aulas na propria unidade.',
+  );
+
+  const firstStart = occurrences[0].scheduledStart;
+  const lastEnd = occurrences[occurrences.length - 1].scheduledEnd;
+  const tatameKey = normalizeTatame(tatame);
+
+  const existingSnapshot = await db.collection(COLLECTIONS.classes)
+    .where('academyId', '==', academyId)
+    .where('scheduledStart', '<=', lastEnd)
+    .orderBy('scheduledStart', 'asc')
+    .get();
+
+  const existingClasses = existingSnapshot.docs
+    .map((doc) => doc.data() as ClassDoc)
+    .filter((entry) =>
+      entry.status !== 'cancelled'
+      && entry.scheduledEnd.toMillis() > firstStart.toMillis(),
+    );
+
+  const now = Timestamp.now();
+  const batch = db.batch();
+  const acceptedOccurrences: BatchOccurrence[] = [];
+  const skipped: Array<{ scheduledStart: string; reason: string }> = [];
+
+  for (const occurrence of occurrences) {
+    const conflictWithExisting = existingClasses.find((entry) =>
+      overlaps(occurrence.scheduledStart, occurrence.scheduledEnd, entry.scheduledStart, entry.scheduledEnd)
+      && (entry.professorId === professorId || normalizeTatame(entry.tatame) === tatameKey),
+    );
+
+    if (conflictWithExisting) {
+      skipped.push({
+        scheduledStart: occurrence.scheduledStart.toDate().toISOString(),
+        reason: resolveConflictReason(professorId, tatameKey, conflictWithExisting),
+      });
+      continue;
+    }
+
+    const conflictWithAccepted = acceptedOccurrences.find((entry) =>
+      overlaps(occurrence.scheduledStart, occurrence.scheduledEnd, entry.scheduledStart, entry.scheduledEnd),
+    );
+
+    if (conflictWithAccepted) {
+      skipped.push({
+        scheduledStart: occurrence.scheduledStart.toDate().toISOString(),
+        reason: 'Conflito de horario com professor e tatame.',
+      });
+      continue;
+    }
+
+    const classRef = db.collection(COLLECTIONS.classes).doc();
+    const payload: ClassDoc = {
+      academyId,
+      title,
+      description,
+      professorId,
+      professorName,
+      tatame,
+      status: 'scheduled',
+      scheduledStart: occurrence.scheduledStart,
+      scheduledEnd: occurrence.scheduledEnd,
+      startedAt: undefined,
+      endedAt: undefined,
+      capacity,
+      currentAttendanceCount: 0,
+      checkinWindowMinutes,
+      activeQrHash: undefined,
+      activeQrExpiresAt: undefined,
+      activeQrVersion: undefined,
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    batch.set(classRef, payload);
+    acceptedOccurrences.push(occurrence);
+  }
+
+  if (acceptedOccurrences.length > 0) {
+    await batch.commit();
+  }
+
+  return {
+    requestedCount: occurrences.length,
+    createdCount: acceptedOccurrences.length,
+    skippedCount: skipped.length,
+    skipped,
   };
 });
 

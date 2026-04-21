@@ -1,5 +1,13 @@
-import React, { useMemo, useState } from 'react';
-import { ALL_BELTS, beltLabel } from '../beltCatalog';
+import React, { useEffect, useMemo, useState } from 'react';
+import {
+  ALL_BELTS,
+  beltLabel,
+  getBeltOptions,
+  inferKidsCategoryFromBirthDate,
+  inferTrainingTypeFromBirthDate,
+  isKidsOnlyBelt,
+  kidsCategoryLabel,
+} from '../beltCatalog';
 import { Bell, BellRing, CheckCircle2, ClipboardCheck, GraduationCap, Send, XCircle } from 'lucide-react';
 import type { FirestoreEntity } from '../services/firebase/data';
 import type {
@@ -11,7 +19,7 @@ import type {
   NotificationRecord,
   UserRecord,
 } from '../services/firebase/models';
-import { UserRole } from '../types';
+import { UserRole, type KidsCategory } from '../types';
 
 interface NotificationsViewProps {
   academy: FirestoreEntity<AcademyRecord>;
@@ -35,11 +43,40 @@ interface NotificationsViewProps {
     targetBelt?: string;
   }) => Promise<void>;
   onMarkRead: (notificationId: string) => Promise<void>;
-  onApproveJoinRequest: (requestId: string) => Promise<void>;
+  onApproveJoinRequest: (payload: { requestId: string; belt?: string; grade?: number }) => Promise<void>;
   onRejectJoinRequest: (requestId: string) => Promise<void>;
   onApproveAttendanceRequest: (requestId: string) => Promise<void>;
   onRejectAttendanceRequest: (requestId: string) => Promise<void>;
 }
+
+type JoinRequestDraft = {
+  belt: string;
+  grade: number;
+};
+
+type JoinRequestItem = {
+  id: string;
+  kind: 'join_request';
+  title: string;
+  body: string;
+  meta: string;
+  createdAt?: JoinRequestRecord['createdAt'];
+  request: FirestoreEntity<JoinRequestRecord>;
+  trainingType: 'Adulto' | 'Kids';
+  inferredKidsCategory?: KidsCategory;
+  beltOptions: Array<{ value: string; label: string }>;
+};
+
+type AttendanceRequestItem = {
+  id: string;
+  kind: 'attendance_request';
+  title: string;
+  body: string;
+  meta: string;
+  createdAt?: AttendanceRequestRecord['requestedAt'];
+};
+
+type RequestItem = JoinRequestItem | AttendanceRequestItem;
 
 const beltOptions = [
   { value: '', label: 'Todas as faixas' },
@@ -58,6 +95,24 @@ function formatStamp(value?: { toDate(): Date } | null) {
     hour: '2-digit',
     minute: '2-digit',
   });
+}
+
+function formatDateOnly(value?: string | null) {
+  if (!value) {
+    return 'Nao informado';
+  }
+
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (match) {
+    return `${match[3]}/${match[2]}/${match[1]}`;
+  }
+
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return value;
+  }
+
+  return parsed.toLocaleDateString('pt-BR');
 }
 
 function roleLabel(value: UserRecord['role']) {
@@ -84,6 +139,13 @@ function notificationType(notification: FirestoreEntity<NotificationRecord>) {
     default:
       return notification.channel === 'team' ? 'Equipe' : 'Comunicado';
   }
+}
+
+function normalizeJoinRequestDraft(request: FirestoreEntity<JoinRequestRecord>): JoinRequestDraft {
+  return {
+    belt: request.requestedBelt,
+    grade: Math.max(0, Math.floor(request.requestedGrade ?? 0)),
+  };
 }
 
 const NotificationsView: React.FC<NotificationsViewProps> = ({
@@ -119,6 +181,8 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
   const [error, setError] = useState('');
   const [feedback, setFeedback] = useState('');
   const [processingRequestId, setProcessingRequestId] = useState<string | null>(null);
+  const [joinRequestDrafts, setJoinRequestDrafts] = useState<Record<string, JoinRequestDraft>>({});
+
   const canBroadcast =
     userRole === UserRole.PROFESSOR ||
     userRole === UserRole.SUPERADMIN;
@@ -140,17 +204,53 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
     [notifications, studentChannelTab],
   );
 
-  const requestItems = useMemo(() => {
+  useEffect(() => {
+    setJoinRequestDrafts((current) => {
+      const next: Record<string, JoinRequestDraft> = {};
+
+      for (const request of joinRequests) {
+        if (request.status !== 'pending') {
+          continue;
+        }
+
+        next[request.id] = current[request.id] ?? normalizeJoinRequestDraft(request);
+      }
+
+      return next;
+    });
+  }, [joinRequests]);
+
+  const requestItems = useMemo<RequestItem[]>(() => {
     const pendingJoinRequests = joinRequests
       .filter((entry) => entry.status === 'pending')
-      .map((entry) => ({
-        id: entry.id,
-        kind: 'join_request' as const,
-        title: entry.displayName,
-        body: `${entry.email} • faixa ${beltLabel(entry.requestedBelt)} • grau ${entry.requestedGrade}`,
-        meta: `${entry.academyName} • CPF ${entry.cpf}`,
-        createdAt: entry.createdAt,
-      }));
+      .map((entry) => {
+        const inferredKidsCategory = entry.kidsCategory ?? inferKidsCategoryFromBirthDate(entry.birthDate);
+        const trainingType =
+          isKidsOnlyBelt(entry.requestedBelt) || inferredKidsCategory
+            ? 'Kids'
+            : inferTrainingTypeFromBirthDate(entry.birthDate);
+        const allowedBelts = getBeltOptions(trainingType, inferredKidsCategory);
+        const requestBeltOption = {
+          value: entry.requestedBelt,
+          label: beltLabel(entry.requestedBelt),
+        };
+        const availableBelts = allowedBelts.some((option) => option.value === entry.requestedBelt)
+          ? allowedBelts
+          : [...allowedBelts, requestBeltOption];
+
+        return {
+          id: entry.id,
+          kind: 'join_request' as const,
+          title: entry.displayName,
+          body: `${entry.email} | faixa ${beltLabel(entry.requestedBelt)} | grau ${entry.requestedGrade}`,
+          meta: `${entry.academyName} | CPF ${entry.cpf}`,
+          createdAt: entry.createdAt,
+          request: entry,
+          trainingType,
+          inferredKidsCategory,
+          beltOptions: availableBelts,
+        };
+      });
 
     const pendingAttendanceRequests = attendanceRequests
       .filter((entry) => entry.status === 'pending')
@@ -159,7 +259,7 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
         id: entry.id,
         kind: 'attendance_request' as const,
         title: entry.userDisplayName,
-        body: `${entry.classTitle} • professor ${entry.professorName || 'responsavel da aula'}`,
+        body: `${entry.classTitle} | professor ${entry.professorName || 'responsavel da aula'}`,
         meta: `Solicitada em ${formatStamp(entry.requestedAt)}`,
         createdAt: entry.requestedAt,
       }));
@@ -202,6 +302,17 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
       .filter(Boolean)
   ), [academyUsers]);
 
+  function getJoinRequestDraft(request: FirestoreEntity<JoinRequestRecord>): JoinRequestDraft {
+    return joinRequestDrafts[request.id] ?? normalizeJoinRequestDraft(request);
+  }
+
+  function setJoinRequestDraft(requestId: string, nextDraft: JoinRequestDraft) {
+    setJoinRequestDrafts((current) => ({
+      ...current,
+      [requestId]: nextDraft,
+    }));
+  }
+
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setBusy(true);
@@ -238,12 +349,18 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
     }
   }
 
-  async function handleApprove(item: { id: string; kind: string }) {
+  async function handleApprove(item: RequestItem) {
     setProcessingRequestId(item.id);
     setError('');
+
     try {
       if (item.kind === 'join_request') {
-        await onApproveJoinRequest(item.id);
+        const draft = getJoinRequestDraft(item.request);
+        await onApproveJoinRequest({
+          requestId: item.id,
+          belt: draft.belt,
+          grade: draft.grade,
+        });
       } else {
         await onApproveAttendanceRequest(item.id);
       }
@@ -254,13 +371,15 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
     }
   }
 
-  async function handleReject(item: { id: string; kind: string }) {
+  async function handleReject(item: RequestItem) {
     const label = item.kind === 'join_request' ? 'solicitacao de cadastro' : 'solicitacao de presenca';
     if (!window.confirm(`Tem certeza que deseja rejeitar esta ${label}? Esta acao nao pode ser desfeita.`)) {
       return;
     }
+
     setProcessingRequestId(item.id);
     setError('');
+
     try {
       if (item.kind === 'join_request') {
         await onRejectJoinRequest(item.id);
@@ -518,48 +637,186 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
       {!isStudent && activeTab === 'requests' ? (
         <section className="app-list">
           {error ? <div className="app-alert app-alert--error mb-4">{error}</div> : null}
-          {requestItems.map((item) => (
-            <article key={`${item.kind}-${item.id}`} className="app-panel app-panel-pad">
-              <div className="flex flex-wrap items-start justify-between gap-4">
-                <div>
-                  <div className="flex flex-wrap items-center gap-3">
-                    <h2 className="text-lg font-bold">{item.title}</h2>
-                    <span className="app-badge app-badge--gold">{item.kind === 'join_request' ? 'Pedido de acesso' : 'Solicitacao de presenca'}</span>
-                  </div>
-                  <p className="mt-3 text-sm leading-7 text-[color:var(--text-muted)]">{item.body}</p>
-                  <p className="mt-2 text-xs text-[color:var(--text-soft)]">{item.meta}</p>
-                </div>
-                <div className="text-right text-xs text-[color:var(--text-soft)]">
-                  {formatStamp(item.createdAt)}
-                </div>
-              </div>
 
-              {canActionRequests ? (
-                <div className="mt-5 flex flex-wrap gap-3">
-                  <button
-                    type="button"
-                    disabled={processingRequestId === item.id}
-                    onClick={() => void handleApprove(item)}
-                    className="app-button app-button--gold app-button--small"
-                  >
-                    <CheckCircle2 size={15} />
-                    {processingRequestId === item.id ? 'Processando...' : 'Aprovar'}
-                  </button>
-                  <button
-                    type="button"
-                    disabled={processingRequestId === item.id}
-                    onClick={() => void handleReject(item)}
-                    className="app-button app-button--danger app-button--small"
-                  >
-                    <XCircle size={15} />
-                    Rejeitar
-                  </button>
+          {requestItems.map((item) => {
+            const isProcessing = processingRequestId === item.id;
+
+            if (item.kind === 'join_request') {
+              const draft = getJoinRequestDraft(item.request);
+
+              return (
+                <article key={`${item.kind}-${item.id}`} className="app-panel app-panel-pad">
+                  <div className="flex flex-wrap items-start justify-between gap-4">
+                    <div>
+                      <div className="flex flex-wrap items-center gap-3">
+                        <h2 className="text-lg font-bold">{item.title}</h2>
+                        <span className="app-badge app-badge--gold">Pedido de acesso</span>
+                        <span className="app-badge app-badge--muted">Trilha {item.trainingType}</span>
+                        {item.inferredKidsCategory ? (
+                          <span className="app-badge app-badge--muted">{kidsCategoryLabel(item.inferredKidsCategory)}</span>
+                        ) : null}
+                      </div>
+                      <p className="mt-3 text-sm leading-7 text-[color:var(--text-muted)]">{item.body}</p>
+                      <p className="mt-2 text-xs text-[color:var(--text-soft)]">{item.meta}</p>
+                    </div>
+                    <div className="text-right text-xs text-[color:var(--text-soft)]">
+                      {formatStamp(item.createdAt)}
+                    </div>
+                  </div>
+
+                  <div className="mt-5 app-grid-2">
+                    <div className="app-list-card">
+                      <p className="text-[11px] uppercase tracking-[0.16em] text-[color:var(--text-soft)]">Nome completo</p>
+                      <p className="mt-1 text-sm font-bold">{item.request.firstName} {item.request.lastName}</p>
+                    </div>
+                    <div className="app-list-card">
+                      <p className="text-[11px] uppercase tracking-[0.16em] text-[color:var(--text-soft)]">E-mail</p>
+                      <p className="mt-1 text-sm font-bold">{item.request.email}</p>
+                    </div>
+                    <div className="app-list-card">
+                      <p className="text-[11px] uppercase tracking-[0.16em] text-[color:var(--text-soft)]">CPF</p>
+                      <p className="mt-1 text-sm font-bold">{item.request.cpf}</p>
+                    </div>
+                    <div className="app-list-card">
+                      <p className="text-[11px] uppercase tracking-[0.16em] text-[color:var(--text-soft)]">Nascimento</p>
+                      <p className="mt-1 text-sm font-bold">{formatDateOnly(item.request.birthDate)}</p>
+                    </div>
+                    <div className="app-list-card">
+                      <p className="text-[11px] uppercase tracking-[0.16em] text-[color:var(--text-soft)]">Faixa solicitada</p>
+                      <p className="mt-1 text-sm font-bold">{beltLabel(item.request.requestedBelt)}</p>
+                    </div>
+                    <div className="app-list-card">
+                      <p className="text-[11px] uppercase tracking-[0.16em] text-[color:var(--text-soft)]">Grau solicitado</p>
+                      <p className="mt-1 text-sm font-bold">{item.request.requestedGrade}</p>
+                    </div>
+                    <div className="app-list-card">
+                      <p className="text-[11px] uppercase tracking-[0.16em] text-[color:var(--text-soft)]">Competidor</p>
+                      <p className="mt-1 text-sm font-bold">{item.request.isCompetitor ? 'Sim' : 'Nao'}</p>
+                    </div>
+                    <div className="app-list-card">
+                      <p className="text-[11px] uppercase tracking-[0.16em] text-[color:var(--text-soft)]">Responsavel pela aprovacao</p>
+                      <p className="mt-1 text-sm font-bold">Professores da unidade</p>
+                    </div>
+                  </div>
+
+                  {canActionRequests ? (
+                    <>
+                      <div className="mt-5 app-panel app-panel--soft p-4">
+                        <div className="flex flex-wrap items-center justify-between gap-3">
+                          <div>
+                            <p className="app-section-label">Graduacao de entrada</p>
+                            <p className="mt-2 text-sm text-[color:var(--text-muted)]">
+                              Ajuste faixa e grau antes de aprovar. O aluno sera criado com essa graduacao.
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="mt-4 app-grid-2">
+                          <label className="app-field">
+                            <span className="app-field__label">Faixa</span>
+                            <select
+                              value={draft.belt}
+                              onChange={(event) => setJoinRequestDraft(item.id, {
+                                ...draft,
+                                belt: event.target.value,
+                              })}
+                              className="app-select"
+                              disabled={isProcessing}
+                            >
+                              {item.beltOptions.map((option) => (
+                                <option key={option.value} value={option.value}>{option.label}</option>
+                              ))}
+                            </select>
+                          </label>
+
+                          <label className="app-field">
+                            <span className="app-field__label">Grau</span>
+                            <input
+                              type="number"
+                              min={0}
+                              value={draft.grade}
+                              onChange={(event) => setJoinRequestDraft(item.id, {
+                                ...draft,
+                                grade: Math.max(0, Math.floor(Number(event.target.value) || 0)),
+                              })}
+                              className="app-input"
+                              disabled={isProcessing}
+                            />
+                          </label>
+                        </div>
+                      </div>
+
+                      <div className="mt-5 flex flex-wrap gap-3">
+                        <button
+                          type="button"
+                          disabled={isProcessing}
+                          onClick={() => void handleApprove(item)}
+                          className="app-button app-button--gold app-button--small"
+                        >
+                          <CheckCircle2 size={15} />
+                          {isProcessing ? 'Processando...' : 'Aprovar aluno'}
+                        </button>
+                        <button
+                          type="button"
+                          disabled={isProcessing}
+                          onClick={() => void handleReject(item)}
+                          className="app-button app-button--danger app-button--small"
+                        >
+                          <XCircle size={15} />
+                          Rejeitar
+                        </button>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="mt-5 app-empty">Somente professores da unidade podem agir sobre esta solicitacao.</div>
+                  )}
+                </article>
+              );
+            }
+
+            return (
+              <article key={`${item.kind}-${item.id}`} className="app-panel app-panel-pad">
+                <div className="flex flex-wrap items-start justify-between gap-4">
+                  <div>
+                    <div className="flex flex-wrap items-center gap-3">
+                      <h2 className="text-lg font-bold">{item.title}</h2>
+                      <span className="app-badge app-badge--gold">Solicitacao de presenca</span>
+                    </div>
+                    <p className="mt-3 text-sm leading-7 text-[color:var(--text-muted)]">{item.body}</p>
+                    <p className="mt-2 text-xs text-[color:var(--text-soft)]">{item.meta}</p>
+                  </div>
+                  <div className="text-right text-xs text-[color:var(--text-soft)]">
+                    {formatStamp(item.createdAt)}
+                  </div>
                 </div>
-              ) : (
-                <div className="mt-5 app-empty">Somente professor ou superadmin podem agir sobre esta solicitacao.</div>
-              )}
-            </article>
-          ))}
+
+                {canActionRequests ? (
+                  <div className="mt-5 flex flex-wrap gap-3">
+                    <button
+                      type="button"
+                      disabled={isProcessing}
+                      onClick={() => void handleApprove(item)}
+                      className="app-button app-button--gold app-button--small"
+                    >
+                      <CheckCircle2 size={15} />
+                      {isProcessing ? 'Processando...' : 'Aprovar'}
+                    </button>
+                    <button
+                      type="button"
+                      disabled={isProcessing}
+                      onClick={() => void handleReject(item)}
+                      className="app-button app-button--danger app-button--small"
+                    >
+                      <XCircle size={15} />
+                      Rejeitar
+                    </button>
+                  </div>
+                ) : (
+                  <div className="mt-5 app-empty">Somente professor ou superadmin podem agir sobre esta solicitacao.</div>
+                )}
+              </article>
+            );
+          })}
 
           {requestItems.length === 0 ? (
             <div className="app-empty">Sem solicitacoes pendentes no momento.</div>

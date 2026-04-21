@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { Award, BellRing, BookOpen, Medal, TimerReset } from 'lucide-react';
 import {
   beltLabel,
+  getClassesToNextBelt,
   inferKidsCategoryFromBirthDate,
   inferTrainingTypeFromBirthDate,
   isKidsOnlyBelt,
@@ -234,7 +235,7 @@ const GraduationView: React.FC<GraduationViewProps> = ({
               </p>
               <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
                 {entry.stripeEvery > 0 && entry.maxStripes > 0
-                  ? `Proxima faixa em ${entry.stripeEvery * entry.maxStripes} aulas`
+                  ? `Proxima faixa em ${getClassesToNextBelt(entry)} aulas`
                   : 'Avaliacao definida manualmente'}
               </p>
             </div>

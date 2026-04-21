@@ -1,6 +1,7 @@
 import React, { Suspense, lazy, startTransition, useEffect, useRef, useState } from 'react';
 import { CheckCircle, X } from 'lucide-react';
 import type { User as FirebaseUser } from 'firebase/auth';
+import type { CreateClassPayload } from './components/CreateClassModal';
 import Layout from './components/Layout';
 import HomeView from './views/HomeView';
 import LoginView from './views/LoginView';
@@ -28,9 +29,10 @@ import {
   subscribeToUserGraduations,
   subscribeToUserProfile,
 } from './services/firebase/data';
-import { backendFunctions } from './services/firebase/functions';
+import { backendFunctions, type CreateClassScheduleBatchResult } from './services/firebase/functions';
 import { updateAcademySettings, uploadUserPhoto } from './services/firebase/mutations';
 import type {
+  AppRole,
   AcademyRecord,
   AttendanceRecord,
   AttendanceRequestRecord,
@@ -66,6 +68,11 @@ const THEME_STORAGE_PREFIX = 'applevel-theme';
 const NETWORK_NAME = 'LEVEL';
 type SuperadminViewMode = 'superadmin' | 'professor';
 type AcademyContextStatus = 'idle' | 'ready' | 'missing' | 'error';
+type ValidatedSessionSnapshot = {
+  uid: string;
+  academyId: string;
+  role: AppRole;
+};
 
 const SUPERADMIN_NETWORK_TABS = new Set(['home', 'notifications', 'students', 'management', 'learning', 'profile']);
 const SUPERADMIN_PROFESSOR_TABS = new Set(['home', 'calendar', 'management', 'notifications', 'learning', 'profile']);
@@ -81,7 +88,7 @@ function getErrorMessage(error: unknown): string {
     case 'auth/user-not-found':
       return 'E-mail ou senha invalidos.';
     case 'auth/user-disabled':
-      return 'Seu cadastro ainda esta aguardando aprovacao do professor ou do superadmin da unidade.';
+      return 'Seu cadastro ainda esta aguardando aprovacao do professor da unidade.';
     case 'auth/invalid-email':
       return 'Informe um e-mail valido.';
     case 'auth/too-many-requests':
@@ -394,6 +401,25 @@ function isSameMonth(value?: { toDate(): Date } | null) {
   return date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
 }
 
+function applyValidatedSessionToProfile(
+  profile: FirestoreEntity<UserRecord> | null,
+  session: ValidatedSessionSnapshot | null,
+): FirestoreEntity<UserRecord> | null {
+  if (!profile || !session || session.uid !== profile.id) {
+    return profile;
+  }
+
+  if (profile.role === session.role && profile.academyId === session.academyId) {
+    return profile;
+  }
+
+  return {
+    ...profile,
+    role: session.role,
+    academyId: session.academyId,
+  };
+}
+
 const App: React.FC = () => {
   const [authReady, setAuthReady] = useState(false);
   const [authUser, setAuthUser] = useState<FirebaseUser | null>(null);
@@ -436,6 +462,7 @@ const App: React.FC = () => {
   const [loginScreenError, setLoginScreenError] = useState('');
   const invalidSessionResetRef = useRef(false);
   const academyAccessRetryRef = useRef(false);
+  const validatedSessionRef = useRef<ValidatedSessionSnapshot | null>(null);
   const [academyAccessRetryNonce, setAcademyAccessRetryNonce] = useState(0);
 
   const setThemeMode = (mode: 'light' | 'dark') => {
@@ -510,6 +537,7 @@ const App: React.FC = () => {
     if (!authUser) {
       invalidSessionResetRef.current = false;
       academyAccessRetryRef.current = false;
+      validatedSessionRef.current = null;
       setProfile(null);
       setAcademy(null);
       setAcademyLoading(false);
@@ -550,7 +578,7 @@ const App: React.FC = () => {
           return;
         }
 
-        setProfile(record);
+        setProfile(applyValidatedSessionToProfile(record, validatedSessionRef.current));
         setProfileLoading(false);
 
         if (!record) {
@@ -587,6 +615,7 @@ const App: React.FC = () => {
 
     let cancelled = false;
     setSessionValidated(false);
+    validatedSessionRef.current = null;
 
     void backendFunctions
       .validateSessionAccess()
@@ -596,6 +625,18 @@ const App: React.FC = () => {
         }
 
         if (!cancelled) {
+          const nextValidatedSession = {
+            uid: session.uid,
+            academyId: session.academyId,
+            role: session.role,
+          };
+
+          validatedSessionRef.current = nextValidatedSession;
+          setProfile((current) => (
+            current
+              ? applyValidatedSessionToProfile(current, nextValidatedSession)
+              : current
+          ));
           setSessionValidated(true);
         }
       })
@@ -772,13 +813,20 @@ const App: React.FC = () => {
       : profile.academyId;
 
     const unsubscribers = [
-      subscribeToJoinRequests(scopedAcademyId, setJoinRequests, (error) => reportSessionError('data:subscribeToJoinRequests', error)),
       subscribeToAttendanceRequests(
         { academyId: scopedAcademyId },
         setAttendanceRequests,
         (error) => reportSessionError('data:subscribeToAttendanceRequests:academy', error),
       ),
     ];
+
+    if (profile.role === 'professor') {
+      unsubscribers.unshift(
+        subscribeToJoinRequests(scopedAcademyId, setJoinRequests, (error) => reportSessionError('data:subscribeToJoinRequests', error)),
+      );
+    } else {
+      setJoinRequests([]);
+    }
 
     return () => {
       unsubscribers.forEach((unsubscribe) => unsubscribe());
@@ -1050,30 +1098,32 @@ const App: React.FC = () => {
     }
   }
 
-  async function handleCreateClass(classPayloads: Array<{
-    title: string;
-    description?: string;
-    professorId: string;
-    professorName: string;
-    tatame: string;
-    scheduledStart: string;
-    scheduledEnd: string;
-    capacity: number;
-  }>) {
-    for (const payload of classPayloads) {
-      await backendFunctions.upsertClassSchedule({
-        academyId: profile?.role === 'superadmin' ? (selectedAcademyId || undefined) : undefined,
-        title: payload.title,
-        description: payload.description,
-        professorId: payload.professorId,
-        professorName: payload.professorName,
-        tatame: payload.tatame,
+  async function handleCreateClass(classPayloads: CreateClassPayload[]): Promise<CreateClassScheduleBatchResult> {
+    if (classPayloads.length === 0) {
+      return {
+        requestedCount: 0,
+        createdCount: 0,
+        skippedCount: 0,
+        skipped: [],
+      };
+    }
+
+    const [firstPayload] = classPayloads;
+
+    return backendFunctions.createClassScheduleBatch({
+      academyId: profile?.role === 'superadmin' ? (selectedAcademyId || undefined) : undefined,
+      title: firstPayload.title,
+      description: firstPayload.description,
+      professorId: firstPayload.professorId,
+      professorName: firstPayload.professorName,
+      tatame: firstPayload.tatame,
+      capacity: firstPayload.capacity,
+      checkinWindowMinutes: academy?.classCheckinWindowMinutes ?? 15,
+      occurrences: classPayloads.map((payload) => ({
         scheduledStart: payload.scheduledStart,
         scheduledEnd: payload.scheduledEnd,
-        capacity: payload.capacity,
-        checkinWindowMinutes: academy?.classCheckinWindowMinutes ?? 15,
-      });
-    }
+      })),
+    });
   }
 
   async function handleStartClass(classId: string) {
@@ -1140,9 +1190,9 @@ const App: React.FC = () => {
     }
   }
 
-  async function handleApproveJoinRequest(requestId: string) {
+  async function handleApproveJoinRequest(payload: { requestId: string; belt?: string; grade?: number }) {
     try {
-      await backendFunctions.approveJoinRequest({ requestId });
+      await backendFunctions.approveJoinRequest(payload);
     } catch (error) {
       throw new Error(getErrorMessage(error));
     }
@@ -1214,6 +1264,7 @@ const App: React.FC = () => {
         belt: string;
         stripeEvery: number;
         maxStripes: number;
+        beltPromotionOffset?: number;
       }>;
     };
     kids: {
@@ -1222,6 +1273,7 @@ const App: React.FC = () => {
           belt: string;
           stripeEvery: number;
           maxStripes: number;
+          beltPromotionOffset?: number;
         }>;
       };
       level_infanto_juvenil: {
@@ -1229,6 +1281,7 @@ const App: React.FC = () => {
           belt: string;
           stripeEvery: number;
           maxStripes: number;
+          beltPromotionOffset?: number;
         }>;
       };
       level_juvenil: {
@@ -1236,6 +1289,7 @@ const App: React.FC = () => {
           belt: string;
           stripeEvery: number;
           maxStripes: number;
+          beltPromotionOffset?: number;
         }>;
       };
     };

@@ -55,6 +55,7 @@ export interface ProgressionBeltRule {
   belt: string;
   stripeEvery: number;
   maxStripes: number;
+  beltPromotionOffset?: number;
 }
 
 export interface ProgressionRuleSegment {
@@ -398,6 +399,8 @@ export interface JoinRequestDoc {
   isCompetitor: boolean;
   requestedBelt: string;
   requestedGrade: number;
+  approvedBelt?: string;
+  approvedGrade?: number;
   status: JoinRequestStatus;
   createdAt: FirebaseFirestore.Timestamp;
   updatedAt: FirebaseFirestore.Timestamp;
@@ -411,10 +414,10 @@ export const DEFAULT_PROGRESSION_RULES: ProgressionRules = {
   schema: 'v2',
   adult: {
     belts: [
-      { belt: 'white', stripeEvery: 30, maxStripes: 4 },
-      { belt: 'blue', stripeEvery: 65, maxStripes: 4 },
-      { belt: 'purple', stripeEvery: 75, maxStripes: 4 },
-      { belt: 'brown', stripeEvery: 85, maxStripes: 4 },
+      { belt: 'white', stripeEvery: 30, maxStripes: 4, beltPromotionOffset: 1 },
+      { belt: 'blue', stripeEvery: 65, maxStripes: 4, beltPromotionOffset: 1 },
+      { belt: 'purple', stripeEvery: 75, maxStripes: 4, beltPromotionOffset: 1 },
+      { belt: 'brown', stripeEvery: 85, maxStripes: 4, beltPromotionOffset: 1 },
       { belt: 'black', stripeEvery: 0, maxStripes: 0 },
     ],
   },

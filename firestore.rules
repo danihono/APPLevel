@@ -97,7 +97,7 @@ service cloud.firestore {
     }
 
     match /join_requests/{requestId} {
-      allow read: if isApprover() && sameAcademy(resource.data.academyId);
+      allow read: if isAdmin() && sameAcademy(resource.data.academyId);
       allow write: if false;
     }
 

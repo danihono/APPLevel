@@ -17,6 +17,21 @@ type SignupAcademyRecord = {
   timezone: string;
 };
 
+export interface CreateClassScheduleOccurrencePayload {
+  scheduledStart: string;
+  scheduledEnd: string;
+}
+
+export interface CreateClassScheduleBatchResult {
+  requestedCount: number;
+  createdCount: number;
+  skippedCount: number;
+  skipped: Array<{
+    scheduledStart: string;
+    reason: string;
+  }>;
+}
+
 const useFirebaseEmulators = import.meta.env.DEV && import.meta.env.VITE_USE_FIREBASE_EMULATORS === 'true';
 const hostedCallableProxyOrigin =
   import.meta.env.VITE_CALLABLE_PROXY_ORIGIN ||
@@ -114,6 +129,18 @@ export const backendFunctions = {
     checkinWindowMinutes?: number;
   }) => callFunction<{ classId: string; academyId: string; status: string }>('upsertClassSchedule', payload),
 
+  createClassScheduleBatch: (payload: {
+    academyId?: string;
+    title: string;
+    tatame: string;
+    description?: string;
+    professorId?: string;
+    professorName?: string;
+    capacity?: number;
+    checkinWindowMinutes?: number;
+    occurrences: CreateClassScheduleOccurrencePayload[];
+  }) => callFunction<CreateClassScheduleBatchResult>('createClassScheduleBatch', payload),
+
   startClassSession: (payload: { classId: string; qrDurationMinutes?: number }) =>
     callFunction<{
       classId: string;
@@ -151,7 +178,7 @@ export const backendFunctions = {
   rejectAttendanceRequest: (payload: { requestId: string }) =>
     callFunction<{ requestId: string; status: AttendanceRequestStatus }>('rejectAttendanceRequest', payload),
 
-  approveJoinRequest: (payload: { requestId: string }) =>
+  approveJoinRequest: (payload: { requestId: string; belt?: string; grade?: number }) =>
     callFunction<{ requestId: string; userId: string; status: JoinRequestStatus }>('approveJoinRequest', payload),
 
   rejectJoinRequest: (payload: { requestId: string }) =>

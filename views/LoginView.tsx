@@ -13,6 +13,18 @@ interface LoginViewProps {
   initialError?: string;
 }
 
+function getSignupPasswordError(password: string): string {
+  if (password.length < 8) {
+    return 'A senha deve ter no minimo 8 caracteres.';
+  }
+
+  if (!/[0-9]/.test(password)) {
+    return 'A senha deve conter pelo menos um numero.';
+  }
+
+  return '';
+}
+
 const LoginView: React.FC<LoginViewProps> = ({ onLogin, initialError = '' }) => {
   const [mode, setMode] = useState<'login' | 'signup' | 'success'>('login');
   const [email, setEmail] = useState('');
@@ -150,6 +162,13 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, initialError = '' }) => 
 
   const handleSignup = async (event: React.FormEvent) => {
     event.preventDefault();
+    const passwordError = getSignupPasswordError(signupPassword);
+
+    if (passwordError) {
+      setSignupError(passwordError);
+      return;
+    }
+
     setSignupLoading(true);
     setSignupError('');
 
@@ -262,7 +281,7 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, initialError = '' }) => 
           {mode === 'signup' ? (
             <>
               <p className="app-note mt-4">
-                Seu cadastro fica pendente ate aprovacao do professor ou do superadmin da unidade.
+                Seu cadastro fica pendente ate aprovacao do professor da unidade.
               </p>
 
               <form className="mt-6 app-form-grid" onSubmit={handleSignup}>
@@ -287,7 +306,18 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, initialError = '' }) => 
 
                 <label className="app-field">
                   <span className="app-field__label">Senha</span>
-                  <input type="password" value={signupPassword} onChange={(event) => setSignupPassword(event.target.value)} className="app-input" minLength={6} required />
+                  <input
+                    type="password"
+                    value={signupPassword}
+                    onChange={(event) => setSignupPassword(event.target.value)}
+                    className="app-input"
+                    minLength={8}
+                    pattern="(?=.*[0-9]).{8,}"
+                    title="A senha deve ter no minimo 8 caracteres e conter pelo menos um numero."
+                    autoComplete="new-password"
+                    required
+                  />
+                  <span className="app-field__hint">Use pelo menos 8 caracteres e 1 numero.</span>
                 </label>
 
                 <label className="app-field">
@@ -402,7 +432,7 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, initialError = '' }) => 
           {mode === 'success' ? (
             <div className="mt-6 app-form-grid">
               <div className="app-alert app-alert--success">
-                Cadastro enviado com sucesso. Agora aguarde a aprovacao do professor ou do superadmin da unidade antes de tentar entrar.
+                Cadastro enviado com sucesso. Agora aguarde a aprovacao do professor da unidade antes de tentar entrar.
               </div>
 
               <button

@@ -114,11 +114,11 @@ function assertProfessorOrSuperadmin(actorRole: Role): void {
   );
 }
 
-function assertRequestApproverRole(actorRole: Role): void {
+function assertJoinRequestApproverRole(actorRole: Role): void {
   assertCondition(
-    actorRole === 'professor' || actorRole === 'superadmin',
+    actorRole === 'professor',
     'permission-denied',
-    'Somente professor ou superadmin podem executar esta acao.',
+    'Somente professores da unidade podem aprovar ou rejeitar esta solicitacao.',
   );
 }
 
@@ -222,10 +222,7 @@ async function createNotifications(params: {
 }
 
 async function listApproversForAcademy(academyId: string): Promise<string[]> {
-  const [academyUsers, superadmins] = await Promise.all([
-    db.collection(COLLECTIONS.users).where('academyId', '==', academyId).get(),
-    db.collection(COLLECTIONS.users).where('role', '==', 'superadmin').get(),
-  ]);
+  const academyUsers = await db.collection(COLLECTIONS.users).where('academyId', '==', academyId).get();
 
   const recipients = new Set<string>();
 
@@ -236,15 +233,42 @@ async function listApproversForAcademy(academyId: string): Promise<string[]> {
     }
   }
 
-  for (const doc of superadmins.docs) {
-    recipients.add(doc.id);
-  }
-
   return [...recipients];
 }
 
-function buildStudentUserDoc(joinRequest: JoinRequestDoc, now: Timestamp): UserDoc {
-  const requestedGrade = Math.max(0, Math.floor(joinRequest.requestedGrade));
+function resolveJoinRequestProfile(params: {
+  joinRequest: JoinRequestDoc;
+  belt?: string;
+  grade?: number;
+}): {
+  belt: string;
+  grade: number;
+  kidsCategory?: JoinRequestDoc['kidsCategory'];
+} {
+  const belt = normalizeBeltId(params.belt ?? params.joinRequest.requestedBelt);
+  const grade = Math.max(0, Math.floor(params.grade ?? params.joinRequest.requestedGrade));
+  const kidsCategory = params.joinRequest.kidsCategory ?? inferKidsCategoryFromBirthDate(params.joinRequest.birthDate);
+
+  assertCondition(!(kidsCategory && isAdultOnlyBelt(belt)), 'invalid-argument', 'Alunos kids nao podem iniciar com faixas adultas.');
+  assertCondition(!(!kidsCategory && isKidsOnlyBelt(belt)), 'invalid-argument', 'Alunos adultos nao podem iniciar com faixas kids.');
+
+  return {
+    belt,
+    grade,
+    kidsCategory,
+  };
+}
+
+function buildStudentUserDoc(
+  joinRequest: JoinRequestDoc,
+  now: Timestamp,
+  approvedProfile: {
+    belt: string;
+    grade: number;
+    kidsCategory?: JoinRequestDoc['kidsCategory'];
+  },
+): UserDoc {
+  const approvedGrade = Math.max(0, Math.floor(approvedProfile.grade));
 
   return {
     academyId: joinRequest.academyId,
@@ -254,13 +278,13 @@ function buildStudentUserDoc(joinRequest: JoinRequestDoc, now: Timestamp): UserD
     email: joinRequest.email,
     cpf: joinRequest.cpf,
     birthDate: joinRequest.birthDate,
-    kidsCategory: joinRequest.kidsCategory,
+    kidsCategory: approvedProfile.kidsCategory,
     isCompetitor: joinRequest.isCompetitor,
     role: 'student',
     status: 'active',
-    belt: normalizeBeltId(joinRequest.requestedBelt),
-    stripes: requestedGrade,
-    grade: requestedGrade,
+    belt: approvedProfile.belt,
+    stripes: approvedGrade,
+    grade: approvedGrade,
     attendanceCount: 0,
     qrCheckinsCount: 0,
     currentStreak: 0,
@@ -548,9 +572,11 @@ export const createUserWithRole = onCall(callableOptions, async (request) => {
 
 export const approveJoinRequest = onCall(callableOptions, async (request) => {
   const actor = await getRequestContext(request, 'professor');
-  assertRequestApproverRole(actor.role);
+  assertJoinRequestApproverRole(actor.role);
 
   const requestId = requiredString(request.data, 'requestId');
+  const approvedBelt = optionalString(request.data, 'belt');
+  const approvedGrade = optionalNumber(request.data, 'grade');
   const joinRequestRef = db.collection(COLLECTIONS.joinRequests).doc(requestId);
   const joinRequestSnap = await joinRequestRef.get();
 
@@ -571,7 +597,12 @@ export const approveJoinRequest = onCall(callableOptions, async (request) => {
   });
 
   const now = Timestamp.now();
-  const userDoc = buildStudentUserDoc(joinRequest, now);
+  const approvedProfile = resolveJoinRequestProfile({
+    joinRequest,
+    belt: approvedBelt,
+    grade: approvedGrade,
+  });
+  const userDoc = buildStudentUserDoc(joinRequest, now, approvedProfile);
   const studentNotificationId = db.collection(COLLECTIONS.notifications).doc().id;
   const batch = db.batch();
 
@@ -581,6 +612,8 @@ export const approveJoinRequest = onCall(callableOptions, async (request) => {
     resolvedAt: now,
     resolvedBy: actor.uid,
     resolvedByRole: actor.role,
+    approvedBelt: approvedProfile.belt,
+    approvedGrade: approvedProfile.grade,
     updatedAt: now,
   });
   batch.set(db.collection(COLLECTIONS.notifications).doc(studentNotificationId), {
@@ -618,7 +651,7 @@ export const approveJoinRequest = onCall(callableOptions, async (request) => {
 
 export const rejectJoinRequest = onCall(callableOptions, async (request) => {
   const actor = await getRequestContext(request, 'professor');
-  assertRequestApproverRole(actor.role);
+  assertJoinRequestApproverRole(actor.role);
 
   const requestId = requiredString(request.data, 'requestId');
   const joinRequestRef = db.collection(COLLECTIONS.joinRequests).doc(requestId);

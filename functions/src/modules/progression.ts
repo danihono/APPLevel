@@ -45,11 +45,13 @@ function parseBeltRules(segment: unknown, fieldName: string): ProgressionBeltRul
     assertCondition(typeof entry.belt === 'string' && entry.belt.trim().length > 0, 'invalid-argument', `${fieldName}.belts[${index}].belt invalido.`);
     assertCondition(typeof entry.stripeEvery === 'number', 'invalid-argument', `${fieldName}.belts[${index}].stripeEvery invalido.`);
     assertCondition(typeof entry.maxStripes === 'number', 'invalid-argument', `${fieldName}.belts[${index}].maxStripes invalido.`);
+    assertCondition(entry.beltPromotionOffset == null || typeof entry.beltPromotionOffset === 'number', 'invalid-argument', `${fieldName}.belts[${index}].beltPromotionOffset invalido.`);
 
     return {
       belt: entry.belt.trim().toLowerCase(),
       stripeEvery: entry.stripeEvery,
       maxStripes: entry.maxStripes,
+      beltPromotionOffset: typeof entry.beltPromotionOffset === 'number' ? entry.beltPromotionOffset : undefined,
     };
   });
 }

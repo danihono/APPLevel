@@ -17,6 +17,7 @@ const ALLOWED_CALLABLES = new Set([
   'updateStudentBeltGrade',
   'validateSessionAccess',
   'upsertClassSchedule',
+  'createClassScheduleBatch',
   'startClassSession',
   'finishClassSession',
   'generateClassQrCode',
