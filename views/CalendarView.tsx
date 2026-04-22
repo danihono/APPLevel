@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Camera, CheckCircle, ChevronLeft, ChevronRight, MapPin, Play, Plus, QrCode, RefreshCw, ShieldCheck, Users, X } from 'lucide-react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Camera, CheckCircle, ChevronLeft, ChevronRight, MapPin, Play, Plus, QrCode, RefreshCw, ShieldCheck, X } from 'lucide-react';
 import QRCodeSVG from 'react-qr-code';
 import { buildMonthGrid, MONTH_WEEK_HEADER, sameCalendarDay, sameCalendarMonth, stripDate, toDateKey } from '../calendarUtils';
 import ClassSessionCard from '../components/ClassSessionCard';
@@ -242,14 +242,15 @@ interface MonthGridProps {
   onOpenClass: (classId: string, day: Date) => void;
 }
 
-const DesktopMonthGrid: React.FC<MonthGridProps> = ({
+const DesktopMonthGrid: React.FC<MonthGridProps> = React.memo(function DesktopMonthGrid({
   monthCells,
   classesByDay,
   selectedDay,
   today,
   onSelectDay,
   onOpenClass,
-}) => (
+}) {
+  return (
   <div className="app-calendar-month-grid">
     {MONTH_WEEK_HEADER.map((day) => (
       <div key={day} className="app-calendar-month-header">
@@ -337,15 +338,17 @@ const DesktopMonthGrid: React.FC<MonthGridProps> = ({
       );
     })}
   </div>
-);
+  );
+});
 
-const CompactMonthGrid: React.FC<Omit<MonthGridProps, 'onOpenClass'>> = ({
+const CompactMonthGrid: React.FC<Omit<MonthGridProps, 'onOpenClass'>> = React.memo(function CompactMonthGrid({
   monthCells,
   classesByDay,
   selectedDay,
   today,
   onSelectDay,
-}) => (
+}) {
+  return (
   <div className="app-calendar-month-grid app-calendar-month-grid--compact">
     {MONTH_WEEK_HEADER.map((day) => (
       <div key={day} className="app-calendar-month-header app-calendar-month-header--compact">
@@ -390,7 +393,8 @@ const CompactMonthGrid: React.FC<Omit<MonthGridProps, 'onOpenClass'>> = ({
       );
     })}
   </div>
-);
+  );
+});
 
 const CalendarView: React.FC<CalendarViewProps> = ({
   userRole,
@@ -753,30 +757,30 @@ const CalendarView: React.FC<CalendarViewProps> = ({
     }
   }
 
-  function openClassDetails(classId: string) {
+  const openClassDetails = useCallback((classId: string) => {
     setSelectedClassId(classId);
-  }
+  }, []);
 
-  function selectCalendarDay(day: Date) {
+  const selectCalendarDay = useCallback((day: Date) => {
     setSelectedDay(stripDate(day));
-  }
+  }, []);
 
-  function openClassDetailsFromGrid(classId: string, day: Date) {
-    selectCalendarDay(day);
-    openClassDetails(classId);
-  }
+  const openClassDetailsFromGrid = useCallback((classId: string, day: Date) => {
+    setSelectedDay(stripDate(day));
+    setSelectedClassId(classId);
+  }, []);
 
-  function goToToday() {
+  const goToToday = useCallback(() => {
     setVisibleMonth(new Date(today.getFullYear(), today.getMonth(), 1));
     setSelectedDay(today);
-  }
+  }, [today]);
 
-  function shiftMonth(dir: -1 | 1) {
+  const shiftMonth = useCallback((dir: -1 | 1) => {
     const nextMonth = new Date(visibleMonth.getFullYear(), visibleMonth.getMonth() + dir, 1);
     const lastDay = new Date(nextMonth.getFullYear(), nextMonth.getMonth() + 1, 0).getDate();
     setVisibleMonth(nextMonth);
     setSelectedDay((current) => new Date(nextMonth.getFullYear(), nextMonth.getMonth(), Math.min(current.getDate(), lastDay)));
-  }
+  }, [visibleMonth]);
 
   return (
     <div className="view-shell">

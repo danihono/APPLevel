@@ -5,11 +5,6 @@ import {
   KIDS_CATEGORIES,
   beltLabel,
   getClassesToNextBelt,
-  getBeltOptions,
-  inferKidsCategoryFromBirthDate,
-  inferTrainingTypeFromBirthDate,
-  isKidsOnlyBelt,
-  kidsCategoryLabel,
   normalizeProgressionRules,
   type ProgressionRulesV2,
 } from '../beltCatalog';
@@ -94,13 +89,6 @@ interface ManagementViewProps {
       };
     };
   }) => Promise<void>;
-  onUpdateStudentBeltGrade: (payload: {
-    userId: string;
-    belt: string;
-    grade: number;
-    stripes?: number;
-    kidsCategory?: string;
-  }) => Promise<void>;
 }
 
 const staffBeltPresets = ADULT_BELTS;
@@ -175,7 +163,6 @@ const ManagementView: React.FC<ManagementViewProps> = ({
   onCreateAcademy,
   onCreateUser,
   onSaveProgressionRules,
-  onUpdateStudentBeltGrade,
 }) => {
   const canManage = userRole === UserRole.PROFESSOR || userRole === UserRole.SUPERADMIN;
   const isSuperAdmin = userRole === UserRole.SUPERADMIN;
@@ -263,13 +250,6 @@ const ManagementView: React.FC<ManagementViewProps> = ({
   const [rulesBusy, setRulesBusy] = useState(false);
   const [rulesFeedback, setRulesFeedback] = useState('');
   const [rulesError, setRulesError] = useState('');
-  const [selectedStudentId, setSelectedStudentId] = useState('');
-  const [studentBelt, setStudentBelt] = useState('white');
-  const [studentGrade, setStudentGrade] = useState(0);
-  const [studentKidsCategory, setStudentKidsCategory] = useState<KidsCategory | ''>('');
-  const [studentProgressBusy, setStudentProgressBusy] = useState(false);
-  const [studentProgressFeedback, setStudentProgressFeedback] = useState('');
-  const [studentProgressError, setStudentProgressError] = useState('');
   const [peopleSearch, setPeopleSearch] = useState('');
   const [managementSection, setManagementSection] = useState<'overview' | 'students'>('overview');
 
@@ -325,59 +305,6 @@ const ManagementView: React.FC<ManagementViewProps> = ({
       window.cancelAnimationFrame(frame);
     };
   }, [focusSection, managedAcademy.id, onFocusSectionHandled]);
-
-  useEffect(() => {
-    const selectedStudent = students.find((entry) => entry.id === selectedStudentId) ?? students[0];
-
-    if (!selectedStudent) {
-      setSelectedStudentId('');
-      setStudentBelt('white');
-      setStudentGrade(0);
-      setStudentKidsCategory('');
-      return;
-    }
-
-    setSelectedStudentId(selectedStudent.id);
-    setStudentBelt(selectedStudent.belt);
-    setStudentGrade(selectedStudent.grade ?? selectedStudent.stripes ?? 0);
-    setStudentKidsCategory(selectedStudent.kidsCategory ?? inferKidsCategoryFromBirthDate(selectedStudent.birthDate) ?? '');
-  }, [selectedStudentId, students]);
-
-  const selectedStudent = students.find((entry) => entry.id === selectedStudentId) ?? students[0] ?? null;
-  const studentTrack = useMemo<'Adulto' | 'Kids'>(() => {
-    if (isKidsOnlyBelt(studentBelt)) {
-      return 'Kids';
-    }
-
-    if (studentKidsCategory) {
-      return 'Kids';
-    }
-
-    return inferTrainingTypeFromBirthDate(selectedStudent?.birthDate);
-  }, [selectedStudent?.birthDate, studentBelt, studentKidsCategory]);
-
-  const studentBeltOptions = useMemo(() => {
-    const baseOptions = getBeltOptions(studentTrack, studentKidsCategory || undefined);
-    if (baseOptions.some((entry) => entry.value === studentBelt)) {
-      return baseOptions;
-    }
-
-    return [...baseOptions, { value: studentBelt as never, label: beltLabel(studentBelt) }];
-  }, [studentBelt, studentKidsCategory, studentTrack]);
-  const inferredStudentKidsCategory = selectedStudent
-    ? inferKidsCategoryFromBirthDate(selectedStudent.birthDate)
-    : undefined;
-
-  useEffect(() => {
-    if (!studentBeltOptions.length) {
-      return;
-    }
-
-    if (!studentBeltOptions.some((entry) => entry.value === studentBelt)) {
-      setStudentBelt(studentBeltOptions[0].value);
-      setStudentGrade(0);
-    }
-  }, [studentBelt, studentBeltOptions]);
 
   function updateAdultRule(index: number, field: 'stripeEvery' | 'maxStripes', value: number) {
     setRules((previous) => ({
@@ -579,41 +506,6 @@ const ManagementView: React.FC<ManagementViewProps> = ({
       setRulesError(submitError instanceof Error ? submitError.message : 'Nao foi possivel salvar as regras.');
     } finally {
       setRulesBusy(false);
-    }
-  }
-
-  async function handleSaveStudentProgress(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-
-    if (!hasManagedAcademy) {
-      setStudentProgressError('Selecione uma unidade antes de alterar a graduacao de alunos.');
-      setStudentProgressFeedback('');
-      return;
-    }
-
-    if (!selectedStudentId) {
-      setStudentProgressError('Selecione um aluno para atualizar a graduacao.');
-      setStudentProgressFeedback('');
-      return;
-    }
-
-    setStudentProgressBusy(true);
-    setStudentProgressFeedback('');
-    setStudentProgressError('');
-
-    try {
-      await onUpdateStudentBeltGrade({
-        userId: selectedStudentId,
-        belt: studentBelt,
-        grade: studentGrade,
-        stripes: studentGrade,
-        kidsCategory: studentTrack === 'Kids' ? studentKidsCategory : '',
-      });
-      setStudentProgressFeedback('Graduacao do aluno atualizada com sucesso.');
-    } catch (submitError) {
-      setStudentProgressError(submitError instanceof Error ? submitError.message : 'Nao foi possivel atualizar a graduacao.');
-    } finally {
-      setStudentProgressBusy(false);
     }
   }
 
@@ -1111,93 +1003,6 @@ const ManagementView: React.FC<ManagementViewProps> = ({
 
           {hasManagedAcademy ? (
             <>
-              <form onSubmit={handleSaveStudentProgress} className="app-panel app-panel-pad">
-                <div className="flex items-center gap-3">
-                  <div className="app-icon-shell">
-                    <GraduationCap size={18} />
-                  </div>
-                  <div>
-                    <p className="app-section-label">Graduacao manual</p>
-                    <h2 className="text-xl font-bold">Faixa e grau do aluno</h2>
-                  </div>
-                </div>
-
-                <div className="mt-6 space-y-4">
-                  <FeedbackBlock success={studentProgressFeedback} error={studentProgressError} />
-                </div>
-
-	                <div className="mt-6 app-grid-2">
-	                  <label className="app-field md:col-span-2">
-	                    <span className="app-field__label">Aluno</span>
-	                    <select value={selectedStudentId} onChange={(event) => setSelectedStudentId(event.target.value)} className="app-select" required>
-	                      {students.map((entry) => (
-	                        <option key={entry.id} value={entry.id}>{entry.displayName}</option>
-	                      ))}
-	                    </select>
-	                  </label>
-
-	                  {selectedStudent ? (
-	                    <div className="app-panel app-panel--soft p-4 md:col-span-2">
-	                      <div className="flex flex-wrap items-center justify-between gap-3">
-	                        <div>
-	                          <p className="text-sm font-bold">{selectedStudent.displayName}</p>
-	                          <p className="mt-1 text-xs text-[color:var(--text-soft)]">
-	                            Trilha {studentTrack} • Faixa atual {beltLabel(selectedStudent.belt)}
-	                          </p>
-	                        </div>
-	                        {studentTrack === 'Kids' ? (
-	                          <span className="app-badge app-badge--muted">
-	                            {studentKidsCategory
-	                              ? `Categoria: ${kidsCategoryLabel(studentKidsCategory)}`
-	                              : `Categoria sugerida: ${kidsCategoryLabel(inferredStudentKidsCategory)}`}
-	                          </span>
-	                        ) : null}
-	                      </div>
-	                    </div>
-	                  ) : null}
-
-	                  <label className="app-field">
-	                    <span className="app-field__label">Faixa</span>
-	                    <select value={studentBelt} onChange={(event) => setStudentBelt(event.target.value)} className="app-select">
-	                      {studentBeltOptions.map((entry) => <option key={entry.value} value={entry.value}>{entry.label}</option>)}
-	                    </select>
-	                  </label>
-
-	                  <label className="app-field">
-	                    <span className="app-field__label">Grau</span>
-	                    <input type="number" min={0} value={studentGrade} onChange={(event) => setStudentGrade(Number(event.target.value))} className="app-input" />
-	                  </label>
-
-	                  {studentTrack === 'Kids' ? (
-	                    <label className="app-field md:col-span-2">
-	                      <span className="app-field__label">Categoria kids</span>
-	                      <select
-	                        value={studentKidsCategory}
-	                        onChange={(event) => setStudentKidsCategory(event.target.value as KidsCategory | '')}
-	                        className="app-select"
-	                      >
-	                        <option value="">Inferir pela idade</option>
-	                        {KIDS_CATEGORIES.map((entry) => (
-	                          <option key={entry.value} value={entry.value}>{entry.label}</option>
-	                        ))}
-	                      </select>
-	                      <span className="app-field__hint">
-	                        Se ficar em branco, o sistema usa a faixa etaria do aluno para escolher a curva infantil.
-	                      </span>
-	                    </label>
-	                  ) : null}
-	                </div>
-
-                <button type="submit" disabled={studentProgressBusy || students.length === 0} className="app-button app-button--gold mt-6">
-                  <Save size={16} />
-                  {studentProgressBusy ? 'Salvando...' : 'Salvar graduacao do aluno'}
-                </button>
-
-                {students.length === 0 ? (
-                  <div className="app-empty mt-6">Nenhum aluno ativo na unidade para atualizar graduacao.</div>
-                ) : null}
-              </form>
-
               <section className="app-panel app-panel-pad">
                 <div className="flex items-center gap-3">
                   <div className="app-icon-shell">

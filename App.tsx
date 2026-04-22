@@ -1668,7 +1668,6 @@ const App: React.FC = () => {
           onCreateAcademy={handleCreateAcademy}
           onCreateUser={handleCreateUser}
           onSaveProgressionRules={handleSaveProgressionRules}
-          onUpdateStudentBeltGrade={handleUpdateStudentBeltGrade}
         />
       );
     }
@@ -1777,7 +1776,6 @@ const App: React.FC = () => {
             onCreateAcademy={handleCreateAcademy}
             onCreateUser={handleCreateUser}
             onSaveProgressionRules={handleSaveProgressionRules}
-            onUpdateStudentBeltGrade={handleUpdateStudentBeltGrade}
           />
         );
       case 'notifications':
