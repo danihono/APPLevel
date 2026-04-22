@@ -13,6 +13,8 @@ export type MissionMetric =
   | 'belt_promotions';
 export type NotificationChannel = 'academy' | 'team' | 'system';
 export type NotificationKind = 'notice' | 'join_request' | 'attendance_request' | 'graduation';
+export type GraduationRequestStatus = 'pending' | 'approved' | 'superseded';
+export type GraduationTargetType = 'stripe' | 'belt';
 export type JoinRequestStatus = 'pending' | 'approved' | 'rejected';
 export type AttendanceRequestStatus = 'pending' | 'approved' | 'rejected';
 export type LearningContentStatus = 'draft' | 'published';
@@ -199,6 +201,27 @@ export interface GraduationRecord {
   promotedAt?: Timestamp;
   ruleVersion: number;
   reason: 'automatic_progression' | 'manual_progression';
+}
+
+export interface GraduationApprovalRequestRecord {
+  academyId: string;
+  userId: string;
+  userDisplayName: string;
+  currentBelt: string;
+  currentStripes: number;
+  targetType: GraduationTargetType;
+  targetBelt: string;
+  targetStripes: number;
+  attendanceCount: number;
+  attendanceTarget: number;
+  remainingClasses: number;
+  ruleVersion: number;
+  status: GraduationRequestStatus;
+  createdAt?: Timestamp;
+  updatedAt?: Timestamp;
+  approvedAt?: Timestamp;
+  approvedBy?: string;
+  approvedByRole?: AppRole;
 }
 
 export interface JoinRequestRecord {

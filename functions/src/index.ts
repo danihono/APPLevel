@@ -1,5 +1,6 @@
 import { setGlobalOptions } from 'firebase-functions/v2';
 import {
+  approveGraduationRequest,
   approveJoinRequest,
   assignUserToAcademy,
   createAcademy,
@@ -66,6 +67,7 @@ setGlobalOptions({
 });
 
 export {
+  approveGraduationRequest,
   approveJoinRequest,
   approveAttendanceRequest,
   assignUserToAcademy,

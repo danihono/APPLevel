@@ -17,6 +17,7 @@ import {
   subscribeToAllUsers,
   subscribeToAttendanceRequests,
   subscribeToCompetitions,
+  subscribeToGraduationRequests,
   subscribeToJoinRequests,
   subscribeToLearningCourses,
   subscribeToLearningLessons,
@@ -39,6 +40,7 @@ import type {
   ClassRecord,
   CompetitionRecord,
   FightRecord,
+  GraduationApprovalRequestRecord,
   GraduationRecord,
   JoinRequestRecord,
   LearningCourseRecord,
@@ -442,6 +444,7 @@ const App: React.FC = () => {
   const [attendances, setAttendances] = useState<Array<FirestoreEntity<AttendanceRecord>>>([]);
   const [attendanceRequests, setAttendanceRequests] = useState<Array<FirestoreEntity<AttendanceRequestRecord>>>([]);
   const [joinRequests, setJoinRequests] = useState<Array<FirestoreEntity<JoinRequestRecord>>>([]);
+  const [graduationRequests, setGraduationRequests] = useState<Array<FirestoreEntity<GraduationApprovalRequestRecord>>>([]);
   const [graduations, setGraduations] = useState<Array<FirestoreEntity<GraduationRecord>>>([]);
   const [competitions, setCompetitions] = useState<Array<FirestoreEntity<CompetitionRecord>>>([]);
   const [fights, setFights] = useState<Array<FirestoreEntity<FightRecord>>>([]);
@@ -460,6 +463,7 @@ const App: React.FC = () => {
   const [sessionError, setSessionError] = useState('');
   const [sessionErrorSource, setSessionErrorSource] = useState('');
   const [loginScreenError, setLoginScreenError] = useState('');
+  const [selectedStudentId, setSelectedStudentId] = useState('');
   const invalidSessionResetRef = useRef(false);
   const academyAccessRetryRef = useRef(false);
   const validatedSessionRef = useRef<ValidatedSessionSnapshot | null>(null);
@@ -792,12 +796,14 @@ const App: React.FC = () => {
 
   useEffect(() => {
     if (!profile || !sessionValidated) {
+      setGraduationRequests([]);
       setJoinRequests([]);
       setAttendanceRequests([]);
       return;
     }
 
     if (profile.role === 'student') {
+      setGraduationRequests([]);
       const unsubscribe = subscribeToAttendanceRequests(
         { userId: profile.id },
         setAttendanceRequests,
@@ -813,6 +819,13 @@ const App: React.FC = () => {
       : profile.academyId;
 
     const unsubscribers = [
+      scopedAcademyId
+        ? subscribeToGraduationRequests(
+          { academyId: scopedAcademyId },
+          setGraduationRequests,
+          (error) => reportSessionError('data:subscribeToGraduationRequests:academy', error),
+        )
+        : () => {},
       subscribeToAttendanceRequests(
         { academyId: scopedAcademyId },
         setAttendanceRequests,
@@ -821,11 +834,12 @@ const App: React.FC = () => {
     ];
 
     const isProfessorContext = profile.role === 'professor' || (profile.role === 'superadmin' && superadminViewMode === 'professor');
-    if (isProfessorContext) {
+    if (isProfessorContext && scopedAcademyId) {
       unsubscribers.unshift(
         subscribeToJoinRequests(scopedAcademyId, setJoinRequests, (error) => reportSessionError('data:subscribeToJoinRequests', error)),
       );
     } else {
+      setGraduationRequests([]);
       setJoinRequests([]);
     }
 
@@ -833,6 +847,16 @@ const App: React.FC = () => {
       unsubscribers.forEach((unsubscribe) => unsubscribe());
     };
   }, [profile, selectedAcademyId, sessionValidated, superadminViewMode]);
+
+  useEffect(() => {
+    if (!selectedStudentId) {
+      return;
+    }
+
+    if (!academyUsers.some((entry) => entry.id === selectedStudentId && entry.role === 'student')) {
+      setSelectedStudentId('');
+    }
+  }, [academyUsers, selectedStudentId]);
 
   useEffect(() => {
     if (!profile || !sessionValidated) {
@@ -1202,6 +1226,14 @@ const App: React.FC = () => {
   async function handleRejectJoinRequest(requestId: string) {
     try {
       await backendFunctions.rejectJoinRequest({ requestId });
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
+  }
+
+  async function handleApproveGraduationRequest(requestId: string) {
+    try {
+      await backendFunctions.approveGraduationRequest({ requestId });
     } catch (error) {
       throw new Error(getErrorMessage(error));
     }
@@ -1664,6 +1696,9 @@ const App: React.FC = () => {
               academyUsers={academyUsers}
               classes={classes}
               notifications={notifications}
+              joinRequests={joinRequests}
+              attendanceRequests={attendanceRequests}
+              canReviewAllAttendanceRequests={profile.role === 'superadmin'}
             />
           ) : (
             <HomeView
@@ -1713,11 +1748,16 @@ const App: React.FC = () => {
         return (
           <StudentsView
             students={students}
+            graduationRequests={graduationRequests}
             academyName={hasFocusedAcademy ? (allAcademies.find((entry) => entry.id === selectedAcademyId)?.name ?? resolvedAcademy.name) : undefined}
             academies={allAcademies.map((entry) => ({ id: entry.id, name: entry.name }))}
             selectedAcademyId={selectedAcademyId}
             onSelectAcademy={setSelectedAcademyId}
             requireAcademySelection={isSuperAdmin}
+            selectedStudentId={selectedStudentId}
+            onSelectStudent={setSelectedStudentId}
+            onApproveGraduationRequest={handleApproveGraduationRequest}
+            onUpdateStudentBeltGrade={handleUpdateStudentBeltGrade}
           />
         );
       case 'management':
@@ -1751,6 +1791,7 @@ const App: React.FC = () => {
             notifications={notifications}
             joinRequests={joinRequests}
             attendanceRequests={attendanceRequests}
+            graduationRequests={graduationRequests}
             academies={allAcademies}
             selectedAcademyId={selectedAcademyId}
             canActionRequests={canActionRequests}
@@ -1761,6 +1802,11 @@ const App: React.FC = () => {
             onRejectJoinRequest={handleRejectJoinRequest}
             onApproveAttendanceRequest={handleApproveAttendanceRequest}
             onRejectAttendanceRequest={handleRejectAttendanceRequest}
+            onApproveGraduationRequest={handleApproveGraduationRequest}
+            onOpenStudent={(studentId) => {
+              setSelectedStudentId(studentId);
+              setActiveTab('students');
+            }}
           />
         );
       case 'learning':

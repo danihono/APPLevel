@@ -18,6 +18,7 @@ import type {
   ClassRsvpRecord,
   CompetitionRecord,
   FightRecord,
+  GraduationApprovalRequestRecord,
   GraduationRecord,
   JoinRequestRecord,
   LearningCourseRecord,
@@ -235,6 +236,33 @@ export function subscribeToUserGraduations(
       const records = snapshot.docs
         .map((item) => mapDoc<GraduationRecord>(item))
         .sort((left, right) => toMillis(right.promotedAt) - toMillis(left.promotedAt));
+      listener(records);
+    },
+    onError,
+  );
+}
+
+export function subscribeToGraduationRequests(
+  params: {
+    academyId?: string;
+    userId?: string;
+  },
+  listener: (records: Array<FirestoreEntity<GraduationApprovalRequestRecord>>) => void,
+  onError?: (error: Error) => void,
+) {
+  const baseCollection = collection(firebaseDb, 'graduation_requests');
+  const graduationRequestQuery = params.userId
+    ? query(baseCollection, where('userId', '==', params.userId))
+    : params.academyId
+      ? query(baseCollection, where('academyId', '==', params.academyId))
+      : baseCollection;
+
+  return onSnapshot(
+    graduationRequestQuery,
+    (snapshot) => {
+      const records = snapshot.docs
+        .map((item) => mapDoc<GraduationApprovalRequestRecord>(item))
+        .sort((left, right) => toMillis(right.updatedAt ?? right.createdAt) - toMillis(left.updatedAt ?? left.createdAt));
       listener(records);
     },
     onError,

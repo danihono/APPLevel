@@ -22,7 +22,9 @@ export const MOCK_USER: User = {
   role: UserRole.ALUNO,
   avatar: 'https://picsum.photos/id/64/200/200',
   belt: BeltColor.AZUL,
+  grade: 2,
   stripes: 2,
+  status: 'active',
   classesToNextStripe: 5,
   totalClassesToNextBelt: 65,
   currentStripeProgress: 30, // 5 of 30

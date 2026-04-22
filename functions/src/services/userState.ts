@@ -13,6 +13,7 @@ import {
 } from '../domain/models';
 import { db } from '../lib/firebase';
 import { findSingleByFields, getUserDoc } from '../lib/context';
+import { syncGraduationApprovalRequest } from './graduationRequests';
 import { resolveProgressionTargets } from './progression';
 
 interface EngagementMetrics {
@@ -355,6 +356,13 @@ export async function syncUserDerivedState(
   });
 
   await batch.commit();
+  await syncGraduationApprovalRequest({
+    academyId,
+    userId,
+    user,
+    attendanceCount: metrics.attendanceCount,
+    rules,
+  });
   await upsertRanking(
     userId,
     academyId,

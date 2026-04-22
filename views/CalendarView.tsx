@@ -150,10 +150,35 @@ function methodColor(method: AttendanceRecord['checkInMethod']) {
 interface ClassListItemProps {
   lesson: FirestoreEntity<ClassRecord>;
   onOpen: (classId: string) => void;
+  compact?: boolean;
 }
 
-const ClassListItem: React.FC<ClassListItemProps> = ({ lesson, onOpen }) => {
+const ClassListItem: React.FC<ClassListItemProps> = ({ lesson, onOpen, compact = false }) => {
   const capacityLabel = lesson.capacity ? `${lesson.currentAttendanceCount}/${lesson.capacity}` : `${lesson.currentAttendanceCount}/--`;
+  const colors = statusColors(lesson.status);
+
+  if (compact) {
+    return (
+      <button
+        type="button"
+        onClick={() => onOpen(lesson.id)}
+        className="calendar-mobile__class-card"
+      >
+        <span
+          className="calendar-mobile__class-accent"
+          style={{ backgroundColor: lesson.status === 'scheduled' ? 'var(--gold-mid)' : colors.accent }}
+          aria-hidden="true"
+        />
+
+        <div className="calendar-mobile__class-copy">
+          <p className="calendar-mobile__class-title">{lesson.title}</p>
+          <p className="calendar-mobile__class-time">{formatTimeLabel(lesson.scheduledStart)}</p>
+        </div>
+
+        <ChevronRight size={18} className="calendar-mobile__class-arrow" aria-hidden="true" />
+      </button>
+    );
+  }
 
   return (
     <button
@@ -337,8 +362,7 @@ const CompactMonthGrid: React.FC<Omit<MonthGridProps, 'onOpenClass'>> = ({
 
       const key = toDateKey(cell);
       const dayClasses = classesByDay.get(key) ?? [];
-      const visibleDots = dayClasses.slice(0, 3);
-      const remainingCount = dayClasses.length - visibleDots.length;
+      const hasClasses = dayClasses.length > 0;
       const isToday = sameCalendarDay(cell, today);
       const isSelected = sameCalendarDay(cell, selectedDay);
 
@@ -359,31 +383,10 @@ const CompactMonthGrid: React.FC<Omit<MonthGridProps, 'onOpenClass'>> = ({
             <span className="app-calendar-month-day__number app-calendar-month-day__number--compact">
               {cell.getDate()}
             </span>
-
-            {dayClasses.length > 0 ? (
-              <span className="app-calendar-month-day__count app-calendar-month-day__count--compact">
-                {dayClasses.length}
-              </span>
-            ) : null}
           </div>
 
           <div className="app-calendar-month-day__dots" aria-hidden="true">
-            {visibleDots.map((lesson) => {
-              const colors = statusColors(lesson.status);
-              return (
-                <span
-                  key={lesson.id}
-                  className="app-calendar-month-day__dot"
-                  style={{ backgroundColor: colors.accent }}
-                />
-              );
-            })}
-
-            {remainingCount > 0 ? (
-              <span className="app-calendar-month-day__more-inline">
-                +{remainingCount}
-              </span>
-            ) : null}
+            {hasClasses ? <span className="app-calendar-month-day__dot app-calendar-month-day__dot--gold" /> : null}
           </div>
         </div>
       );
@@ -415,7 +418,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
   );
 
   const [surfaceTab, setSurfaceTab] = useState<CalendarSurface>('calendar');
-  const [view, setView] = useState<StaffFilter>(isStaff ? 'minhas' : 'todas');
+  const [view, setView] = useState<StaffFilter>('todas');
   const [visibleMonth, setVisibleMonth] = useState(() => new Date(today.getFullYear(), today.getMonth(), 1));
   const [selectedDay, setSelectedDay] = useState(() => today);
   const [createModalOpen, setCreateModalOpen] = useState(false);
@@ -645,6 +648,10 @@ const CalendarView: React.FC<CalendarViewProps> = ({
 
   const selectedDayLabel = useMemo(() => capitalize(longDayFormatter.format(selectedDay)), [selectedDay]);
   const todayLabel = useMemo(() => capitalize(longDayFormatter.format(today)), [today]);
+  const selectedDaySummaryLabel = useMemo(
+    () => `${selectedDayClasses.length} ${selectedDayClasses.length === 1 ? 'aula' : 'aulas'} em ${formatDateLabel(selectedDay)}`,
+    [selectedDay, selectedDayClasses.length],
+  );
 
   const selectedClass = selectedClassId ? classes.find((entry) => entry.id === selectedClassId) ?? null : null;
   const canManageSelected = isStaff
@@ -775,76 +782,69 @@ const CalendarView: React.FC<CalendarViewProps> = ({
 
   return (
     <div className="view-shell">
-      <section className="app-panel app-panel-pad">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <p className="app-section-label">Agenda</p>
-            <h1 className="app-section-title">Calendario de aulas</h1>
-            <p className="app-section-copy mt-4">
-              {surfaceTab === 'calendar'
-                ? 'Use o calendario mensal para localizar as aulas do dia e abrir a agenda logo abaixo.'
-                : 'Veja as aulas de hoje em lista, com leitura rapida e acesso direto aos detalhes.'}
-            </p>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="app-segment">
-              <button
-                type="button"
-                onClick={() => setSurfaceTab('calendar')}
-                className={`app-segment__button ${surfaceTab === 'calendar' ? 'is-active' : ''}`}
-              >
-                Calendario
-              </button>
-              <button
-                type="button"
-                onClick={() => setSurfaceTab('today')}
-                className={`app-segment__button ${surfaceTab === 'today' ? 'is-active' : ''}`}
-              >
-                Hoje
-              </button>
+      {!isCompactMonthGrid ? (
+        <section className="app-panel app-panel-pad">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <p className="app-section-label">Agenda</p>
+              <h1 className="app-section-title">Calendario de aulas</h1>
+              <p className="app-section-copy mt-4">
+                {surfaceTab === 'calendar'
+                  ? 'Use o calendario mensal para localizar as aulas do dia e abrir a agenda logo abaixo.'
+                  : 'Veja as aulas de hoje em lista, com leitura rapida e acesso direto aos detalhes.'}
+              </p>
             </div>
 
-            {isStaff ? (
-              <button type="button" onClick={() => setCreateModalOpen(true)} className="app-button app-button--dark">
-                <Plus size={14} />
-                Criar aula
-              </button>
-            ) : null}
-          </div>
-        </div>
-      </section>
-
-      {surfaceTab === 'calendar' ? (
-        <>
-          <section className="app-panel app-panel-pad">
-            <div className="flex flex-wrap items-start justify-between gap-4">
-              <div>
-                <p className="app-section-label">Mes em foco</p>
-                <h2 className="text-2xl font-bold capitalize">{capitalize(monthFormatter.format(visibleMonth))}</h2>
-                <p className="mt-3 text-sm text-[color:var(--text-muted)]">
-                  Toque em um dia para listar as aulas abaixo. O filtro atual vale para o calendario inteiro.
-                </p>
-              </div>
-
-              <div className="flex flex-wrap items-center gap-2">
-                <button type="button" onClick={() => shiftMonth(-1)} className="app-button app-button--ghost app-button--icon">
-                  <ChevronLeft size={16} />
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="app-segment">
+                <button
+                  type="button"
+                  onClick={() => setSurfaceTab('calendar')}
+                  className={`app-segment__button ${surfaceTab === 'calendar' ? 'is-active' : ''}`}
+                >
+                  Calendario
                 </button>
-                <button type="button" onClick={() => shiftMonth(1)} className="app-button app-button--ghost app-button--icon">
-                  <ChevronRight size={16} />
-                </button>
-                <button type="button" onClick={goToToday} className="app-button app-button--ghost">
+                <button
+                  type="button"
+                  onClick={() => setSurfaceTab('today')}
+                  className={`app-segment__button ${surfaceTab === 'today' ? 'is-active' : ''}`}
+                >
                   Hoje
                 </button>
-                <span className={visibleMonthClassCount > 0 ? 'app-badge app-badge--gold' : 'app-badge app-badge--muted'}>
-                  {visibleMonthClassCount} {visibleMonthClassCount === 1 ? 'aula no mes' : 'aulas no mes'}
-                </span>
               </div>
-            </div>
 
-            <div className="mt-6">
-              {isCompactMonthGrid ? (
+              {isStaff ? (
+                <button type="button" onClick={() => setCreateModalOpen(true)} className="app-button app-button--dark">
+                  <Plus size={14} />
+                  Criar aula
+                </button>
+              ) : null}
+            </div>
+          </div>
+        </section>
+      ) : null}
+
+      {surfaceTab === 'calendar' || isCompactMonthGrid ? (
+        <>
+          {isCompactMonthGrid ? (
+            <>
+              <section className="calendar-mobile__hero">
+                <div className="calendar-mobile__hero-head">
+                  <div>
+                    <p className="calendar-mobile__eyebrow">Mes em foco</p>
+                    <h2 className="calendar-mobile__month-title">{capitalize(monthFormatter.format(visibleMonth))}</h2>
+                  </div>
+
+                  <div className="calendar-mobile__month-nav">
+                    <button type="button" onClick={() => shiftMonth(-1)} className="calendar-mobile__month-button" aria-label="Mes anterior">
+                      <ChevronLeft size={16} />
+                    </button>
+                    <button type="button" onClick={() => shiftMonth(1)} className="calendar-mobile__month-button" aria-label="Proximo mes">
+                      <ChevronRight size={16} />
+                    </button>
+                  </div>
+                </div>
+
                 <CompactMonthGrid
                   monthCells={monthCells}
                   classesByDay={classesByDay}
@@ -852,66 +852,125 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                   today={today}
                   onSelectDay={selectCalendarDay}
                 />
-              ) : (
-                <DesktopMonthGrid
-                  monthCells={monthCells}
-                  classesByDay={classesByDay}
-                  selectedDay={selectedDay}
-                  today={today}
-                  onSelectDay={selectCalendarDay}
-                  onOpenClass={openClassDetailsFromGrid}
-                />
-              )}
-            </div>
-          </section>
 
-          <section className="app-panel app-panel-pad">
-            <div className="flex flex-wrap items-start justify-between gap-4">
-              <div>
-                <p className="app-section-label">{sameCalendarDay(selectedDay, today) ? 'Agenda de hoje' : 'Dia selecionado'}</p>
-                <h2 className="text-2xl font-bold" style={{ textTransform: 'capitalize' }}>{selectedDayLabel}</h2>
-                <p className="app-section-copy mt-4">
-                  {selectedDayClasses.length > 0
-                    ? 'Selecione uma aula para abrir detalhes, presenca e QR.'
-                    : selectedDayEmptyMessage}
-                </p>
-              </div>
+                <p className="calendar-mobile__month-summary">{selectedDaySummaryLabel}</p>
+              </section>
 
-              <div className="flex flex-wrap items-center gap-2">
-                <span className={selectedDayClasses.length > 0 ? 'app-badge app-badge--gold' : 'app-badge app-badge--muted'}>
-                  {selectedDayClasses.length} {selectedDayClasses.length === 1 ? 'aula' : 'aulas'}
-                </span>
-                {isStaff ? (
-                  <div className="app-segment">
-                    <button
-                      type="button"
-                      onClick={() => setView('minhas')}
-                      className={`app-segment__button ${view === 'minhas' ? 'is-active' : ''}`}
-                    >
-                      Minhas
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setView('todas')}
-                      className={`app-segment__button ${view === 'todas' ? 'is-active' : ''}`}
-                    >
-                      Todas
-                    </button>
+              <section className="calendar-mobile__day-section">
+                <div className="calendar-mobile__day-head">
+                  <div>
+                    <p className="calendar-mobile__day-label">Aulas do dia</p>
+                    <p className="calendar-mobile__day-title">{selectedDayLabel}</p>
                   </div>
-                ) : null}
-              </div>
-            </div>
 
-            <div className="mt-6 app-list">
-              {selectedDayClasses.length > 0 ? (
-                selectedDayClasses.map((lesson) => (
-                  <ClassListItem key={lesson.id} lesson={lesson} onOpen={openClassDetails} />
-                ))
-              ) : (
-                <div className="app-empty">{selectedDayEmptyMessage}</div>
-              )}
-            </div>
-          </section>
+                  {isStaff ? (
+                    <button type="button" onClick={() => setCreateModalOpen(true)} className="app-button app-button--gold calendar-mobile__create-button">
+                      <Plus size={14} />
+                      Criar aula
+                    </button>
+                  ) : null}
+                </div>
+
+                <div className="calendar-mobile__day-list">
+                  {selectedDayClasses.length > 0 ? (
+                    selectedDayClasses.map((lesson) => (
+                      <ClassListItem key={lesson.id} lesson={lesson} onOpen={openClassDetails} compact />
+                    ))
+                  ) : (
+                    <div className="calendar-mobile__empty">{selectedDayEmptyMessage}</div>
+                  )}
+                </div>
+              </section>
+            </>
+          ) : (
+            <>
+              <section className="app-panel app-panel-pad">
+                <div className="flex flex-wrap items-start justify-between gap-4">
+                  <div>
+                    <p className="app-section-label">Mes em foco</p>
+                    <h2 className="text-2xl font-bold capitalize">{capitalize(monthFormatter.format(visibleMonth))}</h2>
+                    <p className="mt-3 text-sm text-[color:var(--text-muted)]">
+                      Toque em um dia para listar as aulas abaixo. O filtro atual vale para o calendario inteiro.
+                    </p>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button type="button" onClick={() => shiftMonth(-1)} className="app-button app-button--ghost app-button--icon">
+                      <ChevronLeft size={16} />
+                    </button>
+                    <button type="button" onClick={() => shiftMonth(1)} className="app-button app-button--ghost app-button--icon">
+                      <ChevronRight size={16} />
+                    </button>
+                    <button type="button" onClick={goToToday} className="app-button app-button--ghost">
+                      Hoje
+                    </button>
+                    <span className={visibleMonthClassCount > 0 ? 'app-badge app-badge--gold' : 'app-badge app-badge--muted'}>
+                      {visibleMonthClassCount} {visibleMonthClassCount === 1 ? 'aula no mes' : 'aulas no mes'}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="mt-6">
+                  <DesktopMonthGrid
+                    monthCells={monthCells}
+                    classesByDay={classesByDay}
+                    selectedDay={selectedDay}
+                    today={today}
+                    onSelectDay={selectCalendarDay}
+                    onOpenClass={openClassDetailsFromGrid}
+                  />
+                </div>
+              </section>
+
+              <section className="app-panel app-panel-pad">
+                <div className="flex flex-wrap items-start justify-between gap-4">
+                  <div>
+                    <p className="app-section-label">{sameCalendarDay(selectedDay, today) ? 'Agenda de hoje' : 'Dia selecionado'}</p>
+                    <h2 className="text-2xl font-bold" style={{ textTransform: 'capitalize' }}>{selectedDayLabel}</h2>
+                    <p className="app-section-copy mt-4">
+                      {selectedDayClasses.length > 0
+                        ? 'Selecione uma aula para abrir detalhes, presenca e QR.'
+                        : selectedDayEmptyMessage}
+                    </p>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className={selectedDayClasses.length > 0 ? 'app-badge app-badge--gold' : 'app-badge app-badge--muted'}>
+                      {selectedDayClasses.length} {selectedDayClasses.length === 1 ? 'aula' : 'aulas'}
+                    </span>
+                    {isStaff ? (
+                      <div className="app-segment">
+                        <button
+                          type="button"
+                          onClick={() => setView('minhas')}
+                          className={`app-segment__button ${view === 'minhas' ? 'is-active' : ''}`}
+                        >
+                          Minhas
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setView('todas')}
+                          className={`app-segment__button ${view === 'todas' ? 'is-active' : ''}`}
+                        >
+                          Todas
+                        </button>
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+
+                <div className="mt-6 app-list">
+                  {selectedDayClasses.length > 0 ? (
+                    selectedDayClasses.map((lesson) => (
+                      <ClassListItem key={lesson.id} lesson={lesson} onOpen={openClassDetails} />
+                    ))
+                  ) : (
+                    <div className="app-empty">{selectedDayEmptyMessage}</div>
+                  )}
+                </div>
+              </section>
+            </>
+          )}
         </>
       ) : (
         <section className="app-panel app-panel-pad">

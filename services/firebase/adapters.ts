@@ -132,7 +132,9 @@ export function toUiUser(params: {
     role: toUserRole(user.role),
     avatar: user.photoPath && user.photoPath.startsWith('http') ? user.photoPath : undefined,
     belt: toBeltColor(user.belt),
+    grade: user.grade ?? user.stripes ?? 0,
     stripes: user.stripes,
+    status: user.status,
     classesToNextStripe: relativeStripeTotal,
     totalClassesToNextBelt: relativeBeltTotal,
     currentStripeProgress: relativeStripeProgress,
@@ -152,6 +154,6 @@ export function toUiUser(params: {
         title: fight.opponentName ? `Luta vs ${fight.opponentName}` : 'Vídeo de luta',
         url: fight.videoUrl as string,
         date: formatDateLabel(fight.occurredAt),
-      })),
+    })),
   };
 }

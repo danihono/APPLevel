@@ -216,7 +216,7 @@ const Layout: React.FC<LayoutProps> = ({
     : (pageMeta[activeTab] ?? pageMeta.home);
   const isWideLayout = isSuperAdmin;
   const canToggleVision = isSuperAdmin && Boolean(onSetSuperadminViewMode);
-  const showProfessorAcademyPicker = canToggleVision && isProfessorVision && Boolean(onSelectAcademy);
+  const showSuperadminAcademyPicker = canToggleVision && !isProfessorVision && Boolean(onSelectAcademy);
   const professorVisionDisabled = superadminAcademies.length === 0;
 
   useEffect(() => {
@@ -341,7 +341,7 @@ const Layout: React.FC<LayoutProps> = ({
           <div className={isSuperAdmin ? 'app-content-shell' : ''}>
             <header className={`app-topbar ${isSuperAdmin ? 'app-topbar--superadmin' : ''}`.trim()}>
               <div
-                className={`app-mobile-header ${canToggleVision ? 'app-mobile-header--with-vision-switch' : ''}`.trim()}
+                className={`app-mobile-header ${canToggleVision && !showSuperadminAcademyPicker ? 'app-mobile-header--with-vision-switch' : ''}`.trim()}
                 title={mobileUnitLabel}
               >
                 <div className="app-mobile-header__row">
@@ -350,22 +350,60 @@ const Layout: React.FC<LayoutProps> = ({
                     <span className="app-mobile-header__brand-wordmark">LEVEL</span>
                   </div>
 
-                  <div className="app-mobile-header__unit">
-                    <img src="/logo3.png" alt="" aria-hidden="true" className="app-mobile-header__unit-mark" />
-                    <span className="app-mobile-header__unit-name">{mobileUnitLabel}</span>
-                  </div>
+                  {!showSuperadminAcademyPicker ? (
+                    <div className="app-mobile-header__unit">
+                      <img src="/logo3.png" alt="" aria-hidden="true" className="app-mobile-header__unit-mark" />
+                      <span className="app-mobile-header__unit-name">{mobileUnitLabel}</span>
+                    </div>
+                  ) : null}
                 </div>
 
                 <div className="app-mobile-header__title-row">
-                  <span className="app-mobile-header__eyebrow">Visao atual</span>
-                  <p className="app-mobile-header__title">{currentPage.title}</p>
+                  <div className="app-mobile-header__title-copy">
+                    <span className="app-mobile-header__eyebrow">Visao atual</span>
+                    <p className="app-mobile-header__title">{currentPage.title}</p>
+                  </div>
+
+                  {showSuperadminAcademyPicker ? (
+                    <div className="app-mobile-header__context">
+                      <select
+                        value={selectedAcademyId}
+                        onChange={(event) => onSelectAcademy?.(event.target.value)}
+                        className="app-select app-select--compact app-mobile-header__select"
+                        aria-label="Selecionar unidade em foco"
+                      >
+                        <option value="">Escolha uma unidade</option>
+                        {superadminAcademies.map((entry) => (
+                          <option key={entry.id} value={entry.id}>{entry.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                  ) : null}
                 </div>
               </div>
 
               <div
                 className={`app-pagebar ${isSuperAdmin ? 'app-topbar-panel--superadmin' : ''} ${canToggleVision ? 'app-pagebar--with-vision-switch' : ''}`.trim()}
               >
-                <h1 className="app-pagebar__title">{currentPage.title}</h1>
+                <div className="app-pagebar__row">
+                  <h1 className="app-pagebar__title">{currentPage.title}</h1>
+
+                  {showSuperadminAcademyPicker ? (
+                    <div className="app-pagebar__context">
+                      <select
+                        value={selectedAcademyId}
+                        onChange={(event) => onSelectAcademy?.(event.target.value)}
+                        className="app-select app-select--compact app-pagebar__select"
+                        aria-label="Selecionar unidade em foco"
+                      >
+                        <option value="">Escolha uma unidade</option>
+                        {superadminAcademies.map((entry) => (
+                          <option key={entry.id} value={entry.id}>{entry.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                  ) : null}
+                </div>
               </div>
 
               {canToggleVision ? (
@@ -396,23 +434,6 @@ const Layout: React.FC<LayoutProps> = ({
                 </div>
               ) : null}
 
-              {showProfessorAcademyPicker ? (
-                <div className="app-vision-context">
-                  <label className="app-vision-context__field">
-                    <span className="app-vision-context__label">Unidade em foco</span>
-                    <select
-                      value={selectedAcademyId}
-                      onChange={(event) => onSelectAcademy?.(event.target.value)}
-                      className="app-select app-select--compact"
-                    >
-                      <option value="">Escolha uma unidade</option>
-                      {superadminAcademies.map((entry) => (
-                        <option key={entry.id} value={entry.id}>{entry.name}</option>
-                      ))}
-                    </select>
-                  </label>
-                </div>
-              ) : null}
             </header>
 
             <main className="app-main">{children}</main>
@@ -462,6 +483,7 @@ const Layout: React.FC<LayoutProps> = ({
                       <Icon size={24} strokeWidth={1.85} />
                       {showNotificationBadge ? <span className="app-notification-dot" aria-hidden="true" /> : null}
                     </span>
+                    <span className="app-nav-button__label">{item.label}</span>
                   </button>
 
                   {index !== navItems.length - 1 ? <span className="app-nav-divider" aria-hidden="true" /> : null}

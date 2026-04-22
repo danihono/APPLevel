@@ -13,9 +13,11 @@ import {
   normalizeProgressionRules,
   type ProgressionRulesV2,
 } from '../beltCatalog';
+import { toUiUser } from '../services/firebase/adapters';
 import { Building2, GraduationCap, Save, Settings2, ShieldCheck, UserPlus, Users } from 'lucide-react';
 import type { FirestoreEntity } from '../services/firebase/data';
 import type { AcademyRecord, ClassRecord, UserRecord } from '../services/firebase/models';
+import StudentRoster from '../components/StudentRoster';
 import { UserRole, type KidsCategory } from '../types';
 
 interface ManagementViewProps {
@@ -137,6 +139,27 @@ function roleLabel(role: UserRecord['role']) {
   }
 }
 
+function roleTagLabel(role: UserRecord['role']) {
+  switch (role) {
+    case 'superadmin':
+      return 'Superadmin';
+    case 'admin':
+    case 'professor':
+      return 'Professor';
+    default:
+      return 'Aluno';
+  }
+}
+
+function getInitial(name: string) {
+  return name.trim().charAt(0).toUpperCase() || 'A';
+}
+
+function staffRankLabel(user: FirestoreEntity<UserRecord>) {
+  const gradeValue = Number(user.grade ?? user.stripes ?? 0);
+  return `Faixa ${beltLabel(user.belt)} · ${gradeValue}º Grau`;
+}
+
 const ManagementView: React.FC<ManagementViewProps> = ({
   userRole,
   academy,
@@ -182,8 +205,28 @@ const ManagementView: React.FC<ManagementViewProps> = ({
   const activeStudents = managedUsers.filter((entry) => entry.role === 'student' && entry.status === 'active');
   const instructors = managedUsers.filter((entry) => entry.role !== 'student');
   const students = managedUsers.filter((entry) => entry.role === 'student');
+  const studentRosterUsers = useMemo(() => (
+    students.map((entry) => toUiUser({ id: entry.id, user: entry, graduations: [], fights: [] }))
+  ), [students]);
   const masterBlackUsers = managedUsers.filter(isMasterBlack);
   const activeClasses = classes.filter((entry) => entry.status === 'active').length;
+  const sortedInstructors = useMemo(() => (
+    [...instructors].sort((left, right) => {
+      const roleOrder: Record<UserRecord['role'], number> = {
+        superadmin: 0,
+        admin: 1,
+        professor: 2,
+        student: 3,
+      };
+
+      const orderDiff = roleOrder[left.role] - roleOrder[right.role];
+      if (orderDiff !== 0) {
+        return orderDiff;
+      }
+
+      return left.displayName.localeCompare(right.displayName, 'pt-BR');
+    })
+  ), [instructors]);
   const masterBlackSectionRef = useRef<HTMLElement | null>(null);
 
   const [academyName, setAcademyName] = useState(managedAcademy.name);
@@ -227,6 +270,8 @@ const ManagementView: React.FC<ManagementViewProps> = ({
   const [studentProgressBusy, setStudentProgressBusy] = useState(false);
   const [studentProgressFeedback, setStudentProgressFeedback] = useState('');
   const [studentProgressError, setStudentProgressError] = useState('');
+  const [peopleSearch, setPeopleSearch] = useState('');
+  const [managementSection, setManagementSection] = useState<'overview' | 'students'>('overview');
 
   useEffect(() => {
     setAcademyName(managedAcademy.name);
@@ -236,6 +281,10 @@ const ManagementView: React.FC<ManagementViewProps> = ({
     setMasterBlackLimit(managedAcademy.masterBlackLimit ?? 1);
     setRules(normalizeProgressionRules(managedAcademy.progressionRules ?? DEFAULT_PROGRESSION_RULES));
   }, [managedAcademy]);
+
+  useEffect(() => {
+    setPeopleSearch('');
+  }, [managedAcademy.id]);
 
   useEffect(() => {
     if (!isSuperAdmin) {
@@ -582,6 +631,141 @@ const ManagementView: React.FC<ManagementViewProps> = ({
     : isAwaitingAcademyFocus
       ? 'Escolha uma unidade para editar configuracoes, acompanhar alunos e ajustar regras locais.'
       : 'Ajuste operacao, equipe e regras da unidade em foco.';
+  const filteredInstructors = useMemo(() => {
+    const query = peopleSearch.trim().toLocaleLowerCase('pt-BR');
+    if (!query) {
+      return sortedInstructors;
+    }
+
+    return sortedInstructors.filter((entry) => {
+      const searchIndex = [
+        entry.displayName,
+        roleTagLabel(entry.role),
+        beltLabel(entry.belt),
+        `${entry.grade ?? entry.stripes ?? 0}`,
+      ]
+        .join(' ')
+        .toLocaleLowerCase('pt-BR');
+
+      return searchIndex.includes(query);
+    });
+  }, [peopleSearch, sortedInstructors]);
+
+  const sectionTabs = (
+    <div className="app-segment app-segment--block" role="tablist" aria-label="Secoes da academia">
+      <button
+        type="button"
+        role="tab"
+        aria-selected={managementSection === 'overview'}
+        onClick={() => setManagementSection('overview')}
+        className={`app-segment__button ${managementSection === 'overview' ? 'is-active' : ''}`}
+      >
+        Visao geral
+      </button>
+      <button
+        type="button"
+        role="tab"
+        aria-selected={managementSection === 'students'}
+        onClick={() => setManagementSection('students')}
+        className={`app-segment__button ${managementSection === 'students' ? 'is-active' : ''}`}
+      >
+        Alunos
+      </button>
+    </div>
+  );
+
+  if (!isSuperAdmin) {
+    return (
+      <div className="view-shell academy-mobile">
+        <section className="app-panel app-panel-pad">
+          <div className="flex flex-col gap-4">
+            <div>
+              <p className="app-section-label">Academia em foco</p>
+              <h2 className="mt-2 text-xl font-bold">{focusLabel}</h2>
+              <p className="mt-2 text-sm text-[color:var(--text-muted)]">{focusDescription}</p>
+            </div>
+            {sectionTabs}
+          </div>
+        </section>
+
+        {managementSection === 'students' ? (
+          <StudentRoster
+            students={studentRosterUsers}
+            academyName={managedAcademy.name}
+            kicker="Alunos da academia"
+            title="Todos os alunos da sua unidade com filtros e leitura rapida."
+            description="Pesquise por nome, filtre por faixa e grau e abra o detalhe completo de cada aluno."
+            emptyResultsMessage={students.length === 0 ? 'Nenhum aluno cadastrado nesta academia.' : 'Nenhum aluno encontrado com os filtros atuais.'}
+          />
+        ) : hasManagedAcademy ? (
+          <>
+            <section className="academy-mobile__stats">
+              <article className="academy-mobile__stat-card">
+                <p className="academy-mobile__stat-value">{sortedInstructors.length}</p>
+                <p className="academy-mobile__stat-label">Instrutores</p>
+              </article>
+
+              <article className="academy-mobile__stat-card">
+                <p className="academy-mobile__stat-value">{activeStudents.length}</p>
+                <p className="academy-mobile__stat-label">Alunos ativos</p>
+              </article>
+
+              <article className="academy-mobile__stat-card">
+                <p className="academy-mobile__stat-value">{masterBlackUsers.length}</p>
+                <p className="academy-mobile__stat-label">Master black</p>
+              </article>
+
+              <article className="academy-mobile__stat-card">
+                <p className="academy-mobile__stat-value">{activeClasses}</p>
+                <p className="academy-mobile__stat-label">Aulas ativas</p>
+              </article>
+            </section>
+
+            <section className="academy-mobile__section">
+              <div className="academy-mobile__section-head">
+                <p className="academy-mobile__section-label">Equipe de instrutores</p>
+                <input
+                  type="search"
+                  value={peopleSearch}
+                  onChange={(event) => setPeopleSearch(event.target.value)}
+                  className="app-input academy-mobile__search-input"
+                  placeholder="Buscar pessoas"
+                  aria-label="Buscar pessoas da academia"
+                />
+              </div>
+
+              <div className="academy-mobile__list">
+                {filteredInstructors.length > 0 ? (
+                  filteredInstructors.map((entry) => (
+                    <article key={entry.id} className="academy-mobile__instructor-card">
+                      <div className="academy-mobile__avatar" aria-hidden="true">{getInitial(entry.displayName)}</div>
+
+                      <div className="academy-mobile__instructor-copy">
+                        <p className="academy-mobile__instructor-name">{entry.displayName}</p>
+                        <p className="academy-mobile__instructor-rank">{staffRankLabel(entry)}</p>
+                      </div>
+
+                      <span className="academy-mobile__role-tag">{roleTagLabel(entry.role)}</span>
+                    </article>
+                  ))
+                ) : sortedInstructors.length > 0 ? (
+                  <div className="academy-mobile__empty">Nenhuma pessoa encontrada para essa busca.</div>
+                ) : (
+                  <div className="academy-mobile__empty">Nenhum instrutor vinculado a esta academia ainda.</div>
+                )}
+              </div>
+            </section>
+          </>
+        ) : (
+          <section className="academy-mobile__section">
+            <div className="academy-mobile__empty">
+              Selecione uma unidade para visualizar equipe e operacao local.
+            </div>
+          </section>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="view-shell">
@@ -609,8 +793,33 @@ const ManagementView: React.FC<ManagementViewProps> = ({
             </label>
           ) : null}
         </div>
+
+        <div className="mt-6">
+          {sectionTabs}
+        </div>
       </section>
 
+      {managementSection === 'students' ? (
+        hasManagedAcademy ? (
+          <StudentRoster
+            students={studentRosterUsers}
+            academyName={managedAcademy.name}
+            kicker="Alunos da academia"
+            title="Todos os alunos da unidade em uma leitura pronta para operacao."
+            description="Use busca, faixa, grau e ordenacao para encontrar rapidamente quem voce precisa."
+            emptyResultsMessage={students.length === 0 ? 'Nenhum aluno cadastrado nesta academia.' : 'Nenhum aluno encontrado com os filtros atuais.'}
+          />
+        ) : (
+          <section className="app-panel app-panel-pad">
+            <div className="app-empty">
+              {isEmptyNetwork
+                ? 'A rede ainda nao tem nenhuma unidade. Use o formulario abaixo para cadastrar a primeira unidade da LEVEL.'
+                : 'Selecione uma unidade para abrir os alunos daquela academia.'}
+            </div>
+          </section>
+        )
+      ) : (
+        <>
       <section className="app-stat-grid">
         <article className="app-panel app-panel-pad">
           <p className="app-stat-card__label">{hasManagedAcademy ? 'Instrutores' : 'Unidades'}</p>
@@ -1107,6 +1316,8 @@ const ManagementView: React.FC<ManagementViewProps> = ({
               </section>
             </>
           ) : null}
+        </>
+      )}
         </>
       )}
     </div>

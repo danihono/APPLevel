@@ -151,6 +151,41 @@ function isProfessor(user: FirestoreEntity<UserRecord>) {
   return user.role === 'professor';
 }
 
+function inferTrackLevel(
+  track: FirestoreEntity<LearningTrackRecord>,
+  index: number,
+  total: number,
+) {
+  const source = `${track.title} ${track.description ?? ''}`.toLocaleLowerCase('pt-BR');
+
+  if (source.includes('inic') || source.includes('fundament') || source.includes('basic')) {
+    return 'Iniciante';
+  }
+
+  if (source.includes('intermedi') || source.includes('guarda')) {
+    return 'Intermediario';
+  }
+
+  if (source.includes('avanc') || source.includes('compet') || source.includes('estrateg')) {
+    return 'Avancado';
+  }
+
+  if (total <= 1) {
+    return 'Iniciante';
+  }
+
+  const ratio = (index + 1) / total;
+  if (ratio <= 0.34) {
+    return 'Iniciante';
+  }
+
+  if (ratio <= 0.67) {
+    return 'Intermediario';
+  }
+
+  return 'Avancado';
+}
+
 function buildOrderedLessons(
   trackId: string,
   courses: Array<FirestoreEntity<LearningCourseRecord>>,
@@ -517,6 +552,30 @@ const LearningHubView: React.FC<LearningHubViewProps> = (props) => {
       completionPercent: totalLessons === 0 ? 0 : Math.round((completedLessons / totalLessons) * 100),
     };
   }, [activeTrackLessons, ownProgressByLessonId]);
+  const professorTrackRows = useMemo(() => publishedTracks.map((track, index) => {
+    const orderedLessons = buildOrderedLessons(track.id, publishedCourses, publishedLessons);
+    const completedLessons = orderedLessons.filter((entry) => ownProgressByLessonId.get(entry.lesson.id)?.quizPassed).length;
+    const startedLessons = orderedLessons.filter((entry) => (ownProgressByLessonId.get(entry.lesson.id)?.watchPercent ?? 0) > 0).length;
+    const completionPercent = orderedLessons.length === 0 ? 0 : Math.round((completedLessons / orderedLessons.length) * 100);
+    const nextEntry = orderedLessons.find((entry) => {
+      const status = lessonRuntimeStatus(orderedLessons, ownProgressByLessonId, entry.lesson.id);
+      return status !== 'completed' && status !== 'locked';
+    }) ?? orderedLessons[0] ?? null;
+
+    return {
+      track,
+      lessonCount: orderedLessons.length,
+      level: inferTrackLevel(track, index, publishedTracks.length),
+      completionPercent,
+      ctaLabel: completionPercent >= 100
+        ? 'Rever trilha'
+        : startedLessons > 0 || completedLessons > 0
+          ? 'Continuar'
+          : 'Comecar trilha',
+      badgeLabel: completionPercent > 0 ? `${completionPercent}%` : 'Novo',
+      nextLessonId: nextEntry?.lesson.id ?? '',
+    };
+  }), [ownProgressByLessonId, publishedCourses, publishedLessons, publishedTracks]);
 
   async function runEditorAction<T>(key: string, action: () => Promise<T>) {
     setBusyKey(key);
@@ -677,6 +736,62 @@ const LearningHubView: React.FC<LearningHubViewProps> = (props) => {
   }
 
   if (isProfessorRole) {
+    return (
+      <div className="view-shell learning-mobile">
+        <section className="learning-mobile__hero">
+          <div>
+            <p className="learning-mobile__eyebrow">Hub da equipe</p>
+            <h1 className="learning-mobile__title">Learning Hub</h1>
+            <p className="learning-mobile__copy">Trilhas de aprendizado da equipe {academyName}.</p>
+          </div>
+        </section>
+
+        <section className="learning-mobile__section" aria-labelledby="learning-mobile-section-title">
+          <p id="learning-mobile-section-title" className="learning-mobile__section-label">Trilhas disponiveis</p>
+
+          {professorTrackRows.length > 0 ? (
+            <div className="learning-mobile__track-list">
+              {professorTrackRows.map((row) => {
+                const isActive = activeTrack?.id === row.track.id;
+                const lessonLabel = row.lessonCount === 1 ? '1 aula' : `${row.lessonCount} aulas`;
+
+                return (
+                  <article key={row.track.id} className={`learning-mobile__track-card ${isActive ? 'is-active' : ''}`}>
+                    <div className="learning-mobile__track-head">
+                      <div className="learning-mobile__track-copy">
+                        <h2 className="learning-mobile__track-title">{row.track.title}</h2>
+                        <p className="learning-mobile__track-meta">{lessonLabel} - {row.level}</p>
+                      </div>
+                      <span className={`learning-mobile__track-badge ${row.badgeLabel === 'Novo' ? 'is-new' : ''}`}>{row.badgeLabel}</span>
+                    </div>
+
+                    <div className="learning-mobile__track-progress">
+                      <ProgressBar current={row.completionPercent} total={100} />
+                    </div>
+
+                    <button
+                      type="button"
+                      className="learning-mobile__track-cta"
+                      onClick={() => {
+                        setActiveTrackId(row.track.id);
+                        setActiveLessonId(row.nextLessonId);
+                      }}
+                    >
+                      {row.ctaLabel}
+                    </button>
+                  </article>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="learning-mobile__empty">
+              Ainda nao existe nenhuma trilha publicada. Assim que o catalogo for liberado, ele aparece aqui.
+            </div>
+          )}
+        </section>
+      </div>
+    );
+
     if (publishedTracks.length === 0) {
       return (
         <div className="view-shell">

@@ -6,6 +6,7 @@ export const COLLECTIONS = {
   classes: 'classes',
   competitions: 'competitions',
   fights: 'fights',
+  graduationRequests: 'graduation_requests',
   graduations: 'graduations',
   joinRequests: 'join_requests',
   learningCourses: 'learning_courses',
@@ -40,6 +41,8 @@ export type FightResult = 'win' | 'loss' | 'draw' | 'submission' | 'points' | 'w
 export type NotificationStatus = 'queued' | 'sent' | 'read' | 'stored' | 'failed';
 export type NotificationChannel = 'academy' | 'team' | 'system';
 export type NotificationKind = 'notice' | 'join_request' | 'attendance_request' | 'graduation';
+export type GraduationRequestStatus = 'pending' | 'approved' | 'superseded';
+export type GraduationTargetType = 'stripe' | 'belt';
 export type JoinRequestStatus = 'pending' | 'approved' | 'rejected';
 export type AttendanceRequestStatus = 'pending' | 'approved' | 'rejected';
 export type LearningContentStatus = 'draft' | 'published';
@@ -206,6 +209,27 @@ export interface GraduationDoc {
   promotedAt: FirebaseFirestore.Timestamp;
   ruleVersion: number;
   reason: 'automatic_progression' | 'manual_progression';
+}
+
+export interface GraduationApprovalRequestDoc {
+  academyId: string;
+  userId: string;
+  userDisplayName: string;
+  currentBelt: string;
+  currentStripes: number;
+  targetType: GraduationTargetType;
+  targetBelt: string;
+  targetStripes: number;
+  attendanceCount: number;
+  attendanceTarget: number;
+  remainingClasses: number;
+  ruleVersion: number;
+  status: GraduationRequestStatus;
+  createdAt: FirebaseFirestore.Timestamp;
+  updatedAt: FirebaseFirestore.Timestamp;
+  approvedAt?: FirebaseFirestore.Timestamp;
+  approvedBy?: string;
+  approvedByRole?: Role;
 }
 
 export interface MissionDoc {

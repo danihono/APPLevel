@@ -26,6 +26,7 @@ const ALLOWED_CALLABLES = new Set([
   'approveAttendanceRequest',
   'rejectAttendanceRequest',
   'approveJoinRequest',
+  'approveGraduationRequest',
   'rejectJoinRequest',
   'updateOwnStudentProfile',
   'syncOwnUserEmail',

@@ -37,7 +37,9 @@ export interface User {
   role: UserRole;
   avatar?: string;
   belt: BeltColor;
+  grade: number;
   stripes: number; // 0-4
+  status?: 'active' | 'invited' | 'suspended';
   classesToNextStripe: number;
   totalClassesToNextBelt: number;
   currentStripeProgress: number;

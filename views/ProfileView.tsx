@@ -1,7 +1,24 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { beltLabel } from '../beltCatalog';
-import { LogOut, Mail, Moon, Phone, Save, ShieldCheck, Sparkles, Sun, Upload, UserRound } from 'lucide-react';
+import {
+  Award,
+  Bell,
+  ChevronRight,
+  History,
+  LogOut,
+  Mail,
+  Moon,
+  Phone,
+  Save,
+  Settings2,
+  ShieldCheck,
+  Sparkles,
+  Sun,
+  Upload,
+  UserRound,
+} from 'lucide-react';
 import AvatarWithBelt from '../components/AvatarWithBelt';
+import ProgressBar from '../components/ProgressBar';
 import type { FirestoreEntity } from '../services/firebase/data';
 import type { AttendanceRecord, GraduationRecord, UserRecord } from '../services/firebase/models';
 import type { User } from '../types';
@@ -78,7 +95,22 @@ const ProfileView: React.FC<ProfileViewProps> = ({
   const nextStripeRemaining = Math.max(user.classesToNextStripe - user.currentStripeProgress, 0);
   const nextBeltRemaining = Math.max(user.totalClassesToNextBelt - user.currentBeltProgress, 0);
   const canEditProfile = profile.role === 'student';
+  const isStaffMobileProfile = profile.role !== 'student';
   const currentThemeLabel = isDarkMode ? 'Escuro' : 'Claro';
+  const nextMilestoneCurrent = user.stripes >= 4 ? user.currentBeltProgress : user.currentStripeProgress;
+  const nextMilestoneRemaining = user.stripes >= 4 ? nextBeltRemaining : nextStripeRemaining;
+  const nextMilestoneGoal = Math.max(nextMilestoneCurrent + nextMilestoneRemaining, 1);
+  const nextMilestonePercent = Math.round((nextMilestoneCurrent / nextMilestoneGoal) * 100);
+  const nextMilestoneLabel = user.stripes >= 4
+    ? `Proxima faixa - ${beltLabel(user.belt)}`
+    : `${user.stripes + 1}o Grau - Faixa ${beltLabel(user.belt)}`;
+  const currentGradeLabel = user.stripes > 0 ? `${user.stripes}o Grau` : '0 Grau';
+  const staffMenuItems = [
+    { icon: Settings2, label: 'Configuracoes da conta' },
+    { icon: Bell, label: 'Notificacoes' },
+    { icon: History, label: 'Historico de aulas' },
+    { icon: Award, label: 'Conquistas' },
+  ];
 
   useEffect(() => {
     setFirstName(profile.firstName);
@@ -130,6 +162,79 @@ const ProfileView: React.FC<ProfileViewProps> = ({
     } finally {
       setEmailBusy(false);
     }
+  }
+
+  if (isStaffMobileProfile) {
+    return (
+      <div className="view-shell profile-mobile">
+        <section className="profile-mobile__hero">
+          <AvatarWithBelt
+            avatar={user.avatar}
+            name={user.name}
+            belt={user.belt}
+            stripes={user.stripes}
+            size="lg"
+          />
+
+          <div className="profile-mobile__identity">
+            <h1 className="profile-mobile__name">{user.name}</h1>
+            <p className="profile-mobile__team">{academyName || 'LEVEL'} - {roleLabel(profile.role)}</p>
+          </div>
+
+          <div className="profile-mobile__tags">
+            <span className="profile-mobile__tag is-gold">Faixa {beltLabel(user.belt)}</span>
+            <span className="profile-mobile__tag">{currentGradeLabel}</span>
+            <span className="profile-mobile__tag">{user.type}</span>
+          </div>
+        </section>
+
+        <section className="profile-mobile__kpis">
+          <article className="profile-mobile__kpi-card">
+            <p className="profile-mobile__kpi-label">Total de aulas</p>
+            <p className="profile-mobile__kpi-value">{totalClasses}</p>
+            <p className="profile-mobile__kpi-note">Presencas registradas</p>
+          </article>
+
+          <article className="profile-mobile__kpi-card">
+            <p className="profile-mobile__kpi-label">Frequencia</p>
+            <p className="profile-mobile__kpi-value">{attendanceRate}%</p>
+            <p className="profile-mobile__kpi-note">No mes atual</p>
+          </article>
+        </section>
+
+        <section className="profile-mobile__progress-card">
+          <p className="profile-mobile__section-label">Proximo grau</p>
+          <h2 className="profile-mobile__progress-title">{nextMilestoneLabel}</h2>
+          <p className="profile-mobile__progress-copy">{nextMilestoneRemaining} aulas restantes para elegibilidade</p>
+          <div className="profile-mobile__progress-bar">
+            <ProgressBar current={nextMilestoneCurrent} total={nextMilestoneGoal} />
+          </div>
+          <p className="profile-mobile__progress-caption">{nextMilestonePercent}% do objetivo</p>
+        </section>
+
+        <section className="profile-mobile__menu-card" aria-label="Menu do perfil">
+          {staffMenuItems.map((item) => {
+            const Icon = item.icon;
+            return (
+              <div key={item.label} className="profile-mobile__menu-row">
+                <div className="profile-mobile__menu-icon">
+                  <Icon size={18} />
+                </div>
+                <span className="profile-mobile__menu-label">{item.label}</span>
+                <ChevronRight size={18} className="profile-mobile__menu-arrow" />
+              </div>
+            );
+          })}
+        </section>
+
+        <div className="profile-mobile__footer">
+          <button type="button" onClick={() => void onLogout()} className="app-button app-button--danger app-button--block">
+            <LogOut size={16} />
+            Sair
+          </button>
+        </div>
+      </div>
+    );
   }
 
   return (

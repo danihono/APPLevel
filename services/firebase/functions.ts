@@ -104,6 +104,9 @@ export const backendFunctions = {
   updateStudentBeltGrade: (payload: { userId: string; belt: string; grade: number; stripes?: number; kidsCategory?: string }) =>
     callFunction<{ userId: string; belt: string; grade: number; stripes: number; kidsCategory?: string | null }>('updateStudentBeltGrade', payload),
 
+  approveGraduationRequest: (payload: { requestId: string }) =>
+    callFunction<{ requestId: string; userId: string; status: string }>('approveGraduationRequest', payload),
+
   validateSessionAccess: () =>
     callFunction<{
       uid: string;

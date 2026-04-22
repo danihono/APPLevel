@@ -23,6 +23,15 @@ export interface ProgressionSnapshot {
   ruleVersion: number;
 }
 
+export interface ProgressionNextStep {
+  targetType: 'stripe' | 'belt';
+  targetBelt: string;
+  targetStripes: number;
+  attendanceTarget: number;
+  remainingClasses: number;
+  ruleVersion: number;
+}
+
 const ADULT_ONLY_BELTS = new Set(['blue', 'purple', 'brown', 'black']);
 const KIDS_ONLY_BELTS = new Set([
   'gray-white',
@@ -458,6 +467,49 @@ export function resolveProgressionTargets(
     classesToNextStripe,
     currentBeltProgress,
     totalClassesToNextBelt,
+    ruleVersion: normalizedRules.version,
+  };
+}
+
+export function resolveNextProgressionStep(
+  currentBelt: string,
+  currentStripes: number,
+  totalAttendances: number,
+  rules?: Partial<ProgressionRules> | null,
+  options?: { birthDate?: string | null; kidsCategory?: KidsCategory | null },
+): ProgressionNextStep | null {
+  const normalizedRules = normalizeProgressionRules(rules);
+  const context = resolveProgressionContext(currentBelt, normalizedRules, options);
+  const currentMilestone = getMilestoneByBelt(currentBelt, context.milestones) ?? context.milestones[0];
+  const currentIndex = context.milestones.findIndex((item) => item.belt === currentMilestone.belt);
+  const nextMilestone = context.milestones[currentIndex + 1];
+  const stripes = Math.min(
+    currentMilestone.maxStripes,
+    Math.max(0, Math.floor(currentStripes)),
+  );
+
+  if (stripes < currentMilestone.maxStripes && currentMilestone.stripeEvery > 0) {
+    const attendanceTarget = currentMilestone.minAttendances + (stripes + 1) * currentMilestone.stripeEvery;
+    return {
+      targetType: 'stripe',
+      targetBelt: currentMilestone.belt,
+      targetStripes: stripes + 1,
+      attendanceTarget,
+      remainingClasses: Math.max(attendanceTarget - totalAttendances, 0),
+      ruleVersion: normalizedRules.version,
+    };
+  }
+
+  if (!nextMilestone) {
+    return null;
+  }
+
+  return {
+    targetType: 'belt',
+    targetBelt: nextMilestone.belt,
+    targetStripes: 0,
+    attendanceTarget: nextMilestone.minAttendances,
+    remainingClasses: Math.max(nextMilestone.minAttendances - totalAttendances, 0),
     ruleVersion: normalizedRules.version,
   };
 }

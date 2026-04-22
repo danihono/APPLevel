@@ -4,6 +4,7 @@ import {
   AcademyDoc,
   COLLECTIONS,
   DEFAULT_PROGRESSION_RULES,
+  GraduationApprovalRequestDoc,
   JoinRequestDoc,
   NotificationChannel,
   NotificationDoc,
@@ -116,10 +117,47 @@ function assertProfessorOrSuperadmin(actorRole: Role): void {
 
 function assertJoinRequestApproverRole(actorRole: Role): void {
   assertCondition(
-    actorRole === 'professor',
+    actorRole === 'professor' || actorRole === 'superadmin',
     'permission-denied',
-    'Somente professores da unidade podem aprovar ou rejeitar esta solicitacao.',
+    'Somente professor ou superadmin podem aprovar ou rejeitar esta solicitacao.',
   );
+}
+
+async function applyStudentBeltGradeUpdate(params: {
+  targetUserId: string;
+  targetUser: UserDoc;
+  belt: string;
+  grade: number;
+  stripes: number;
+  kidsCategory?: string;
+  hasKidsCategoryField: boolean;
+  ruleVersion?: number;
+}): Promise<Timestamp> {
+  const now = Timestamp.now();
+  await db.collection(COLLECTIONS.users).doc(params.targetUserId).update({
+    belt: params.belt,
+    grade: params.grade,
+    stripes: params.stripes,
+    ...(params.hasKidsCategoryField ? { kidsCategory: params.kidsCategory ?? null } : {}),
+    updatedAt: now,
+  });
+
+  if (params.targetUser.belt !== params.belt || params.targetUser.stripes !== params.stripes) {
+    await db.collection(COLLECTIONS.graduations).doc().set({
+      academyId: params.targetUser.academyId,
+      userId: params.targetUserId,
+      previousBelt: params.targetUser.belt,
+      previousStripes: params.targetUser.stripes,
+      newBelt: params.belt,
+      newStripes: params.stripes,
+      attendanceCount: params.targetUser.attendanceCount,
+      promotedAt: now,
+      ruleVersion: params.ruleVersion ?? 1,
+      reason: 'manual_progression',
+    });
+  }
+
+  return now;
 }
 
 async function ensureUniqueIdentity(params: {
@@ -906,29 +944,15 @@ export const updateStudentBeltGrade = onCall(callableOptions, async (request) =>
     'Voce so pode alterar alunos da sua unidade.',
   );
 
-  const now = Timestamp.now();
-  await db.collection(COLLECTIONS.users).doc(targetUserId).update({
+  await applyStudentBeltGradeUpdate({
+    targetUserId,
+    targetUser,
     belt,
     grade,
     stripes,
-    ...(hasKidsCategoryField ? { kidsCategory: kidsCategory ?? null } : {}),
-    updatedAt: now,
+    kidsCategory,
+    hasKidsCategoryField,
   });
-
-  if (targetUser.belt !== belt || targetUser.stripes !== stripes) {
-    await db.collection(COLLECTIONS.graduations).doc().set({
-      academyId: targetUser.academyId,
-      userId: targetUserId,
-      previousBelt: targetUser.belt,
-      previousStripes: targetUser.stripes,
-      newBelt: belt,
-      newStripes: stripes,
-      attendanceCount: targetUser.attendanceCount,
-      promotedAt: now,
-      ruleVersion: 1,
-      reason: 'manual_progression',
-    });
-  }
 
   await syncUserDerivedState(targetUserId, targetUser.academyId);
 
@@ -938,6 +962,62 @@ export const updateStudentBeltGrade = onCall(callableOptions, async (request) =>
     grade,
     stripes,
     kidsCategory: hasKidsCategoryField ? (kidsCategory ?? null) : targetUser.kidsCategory ?? null,
+  };
+});
+
+export const approveGraduationRequest = onCall(callableOptions, async (request) => {
+  const actor = await getRequestContext(request, 'professor');
+  assertProfessorOrSuperadmin(actor.role);
+
+  const requestId = requiredString(request.data, 'requestId');
+  const requestRef = db.collection(COLLECTIONS.graduationRequests).doc(requestId);
+  const requestSnap = await requestRef.get();
+  assertCondition(requestSnap.exists, 'not-found', 'Pendencia de graduacao nao encontrada.');
+
+  const graduationRequest = requestSnap.data() as GraduationApprovalRequestDoc;
+  assertCondition(graduationRequest.status === 'pending', 'failed-precondition', 'Esta pendencia ja foi resolvida.');
+  assertCondition(
+    actor.role === 'superadmin' || graduationRequest.academyId === actor.academyId,
+    'permission-denied',
+    'Voce so pode aprovar graduacoes da sua unidade.',
+  );
+
+  const targetUser = await getUserDoc(graduationRequest.userId);
+  assertCondition(targetUser.role === 'student', 'invalid-argument', 'Somente alunos podem ter graduacao aprovada.');
+  assertCondition(
+    targetUser.academyId === graduationRequest.academyId,
+    'failed-precondition',
+    'Aluno e pendencia de graduacao precisam pertencer a mesma academia.',
+  );
+
+  const now = await applyStudentBeltGradeUpdate({
+    targetUserId: graduationRequest.userId,
+    targetUser,
+    belt: graduationRequest.targetBelt,
+    grade: graduationRequest.targetStripes,
+    stripes: graduationRequest.targetStripes,
+    hasKidsCategoryField: false,
+    ruleVersion: graduationRequest.ruleVersion,
+  });
+
+  await requestRef.update({
+    currentBelt: graduationRequest.targetBelt,
+    currentStripes: graduationRequest.targetStripes,
+    attendanceCount: targetUser.attendanceCount,
+    remainingClasses: 0,
+    status: 'approved',
+    approvedAt: now,
+    approvedBy: actor.uid,
+    approvedByRole: actor.role,
+    updatedAt: now,
+  });
+
+  await syncUserDerivedState(graduationRequest.userId, graduationRequest.academyId);
+
+  return {
+    requestId,
+    userId: graduationRequest.userId,
+    status: 'approved' as const,
   };
 });
 

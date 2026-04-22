@@ -1,9 +1,15 @@
 import React, { useMemo } from 'react';
-import { beltLabel } from '../beltCatalog';
-import { BellRing, CalendarDays, UserCog, Users } from 'lucide-react';
-import ClassSessionCard from '../components/ClassSessionCard';
+import { ChevronRight, Layers3 } from 'lucide-react';
+import { formatTimeLabel } from '../services/firebase/adapters';
 import type { FirestoreEntity } from '../services/firebase/data';
-import type { AcademyRecord, ClassRecord, NotificationRecord, UserRecord } from '../services/firebase/models';
+import type {
+  AcademyRecord,
+  AttendanceRequestRecord,
+  ClassRecord,
+  JoinRequestRecord,
+  NotificationRecord,
+  UserRecord,
+} from '../services/firebase/models';
 import type { User } from '../types';
 
 interface StaffDashboardViewProps {
@@ -12,6 +18,9 @@ interface StaffDashboardViewProps {
   academyUsers: Array<FirestoreEntity<UserRecord>>;
   classes: Array<FirestoreEntity<ClassRecord>>;
   notifications: Array<FirestoreEntity<NotificationRecord>>;
+  joinRequests: Array<FirestoreEntity<JoinRequestRecord>>;
+  attendanceRequests: Array<FirestoreEntity<AttendanceRequestRecord>>;
+  canReviewAllAttendanceRequests?: boolean;
 }
 
 function isSameDay(left?: Date | null, right?: Date | null) {
@@ -24,155 +33,242 @@ function isSameDay(left?: Date | null, right?: Date | null) {
     && left.getFullYear() === right.getFullYear();
 }
 
+function isSameMonth(left?: Date | null, right?: Date | null) {
+  if (!left || !right) {
+    return false;
+  }
+
+  return left.getMonth() === right.getMonth()
+    && left.getFullYear() === right.getFullYear();
+}
+
+function getGreeting(date: Date) {
+  const hour = date.getHours();
+
+  if (hour < 12) {
+    return 'Bom dia';
+  }
+
+  if (hour < 18) {
+    return 'Boa tarde';
+  }
+
+  return 'Boa noite';
+}
+
+function getPendingCopy(joinCount: number, attendanceCount: number, unreadCount: number) {
+  if (joinCount > 0 && attendanceCount > 0) {
+    return {
+      title: `${joinCount + attendanceCount} pendencias aguardando acao`,
+      note: `${joinCount} pedidos de entrada e ${attendanceCount} solicitacoes de presenca.`,
+    };
+  }
+
+  if (joinCount > 0) {
+    return {
+      title: `${joinCount} ${joinCount === 1 ? 'pedido de entrada' : 'pedidos de entrada'}`,
+      note: 'Aguardando aprovacao da unidade.',
+    };
+  }
+
+  if (attendanceCount > 0) {
+    return {
+      title: `${attendanceCount} ${attendanceCount === 1 ? 'solicitacao de presenca' : 'solicitacoes de presenca'}`,
+      note: 'Aguardando analise do professor responsavel.',
+    };
+  }
+
+  if (unreadCount > 0) {
+    return {
+      title: `${unreadCount} ${unreadCount === 1 ? 'aviso recente' : 'avisos recentes'}`,
+      note: 'Abra a aba de avisos para revisar as atualizacoes da unidade.',
+    };
+  }
+
+  return {
+    title: 'Nenhuma pendencia agora',
+    note: 'Tudo em dia na rotina da unidade.',
+  };
+}
+
 const StaffDashboardView: React.FC<StaffDashboardViewProps> = ({
   user,
   academy,
   academyUsers,
   classes,
   notifications,
+  joinRequests,
+  attendanceRequests,
+  canReviewAllAttendanceRequests = false,
 }) => {
-  const today = new Date();
+  const now = new Date();
 
   const todayClasses = useMemo(
-    () =>
-      classes.filter((lesson) => isSameDay(lesson.scheduledStart?.toDate(), today)),
-    [classes, today],
+    () => classes
+      .filter((lesson) => isSameDay(lesson.scheduledStart?.toDate(), now))
+      .sort((left, right) => (left.scheduledStart?.toMillis?.() ?? 0) - (right.scheduledStart?.toMillis?.() ?? 0)),
+    [classes, now],
   );
-  const myTodayClasses = useMemo(
-    () => todayClasses.filter((lesson) => lesson.professorId === user.id),
-    [todayClasses, user.id],
+
+  const instructors = useMemo(
+    () => academyUsers.filter((entry) => entry.role !== 'student' && entry.status === 'active'),
+    [academyUsers],
   );
-  const instructors = academyUsers.filter((entry) => entry.role !== 'student');
-  const students = academyUsers.filter((entry) => entry.role === 'student');
-  const unreadNotifications = notifications.filter((entry) => entry.status !== 'read').length;
-  const highlightedClasses = myTodayClasses.length > 0 ? myTodayClasses : todayClasses;
+  const students = useMemo(
+    () => academyUsers.filter((entry) => entry.role === 'student'),
+    [academyUsers],
+  );
+
+  const monthlyAttendanceRate = useMemo(() => {
+    const trackedClasses = classes.filter((lesson) => {
+      const start = lesson.scheduledStart?.toDate();
+
+      if (!start) {
+        return false;
+      }
+
+      return isSameMonth(start, now)
+        && start.getTime() <= now.getTime()
+        && lesson.status !== 'cancelled'
+        && (lesson.capacity ?? 0) > 0;
+    });
+
+    const totalCapacity = trackedClasses.reduce((sum, lesson) => sum + (lesson.capacity ?? 0), 0);
+    if (totalCapacity === 0) {
+      return 0;
+    }
+
+    const totalAttendance = trackedClasses.reduce(
+      (sum, lesson) => sum + Math.min(lesson.currentAttendanceCount, lesson.capacity ?? lesson.currentAttendanceCount),
+      0,
+    );
+
+    return Math.max(0, Math.min(100, Math.round((totalAttendance / totalCapacity) * 100)));
+  }, [classes, now]);
+
+  const unreadNotifications = useMemo(
+    () => notifications.filter((entry) => entry.status !== 'read').length,
+    [notifications],
+  );
+  const pendingJoinRequests = useMemo(
+    () => joinRequests.filter((entry) => entry.status === 'pending'),
+    [joinRequests],
+  );
+  const pendingAttendanceRequests = useMemo(
+    () => attendanceRequests.filter(
+      (entry) => entry.status === 'pending' && (canReviewAllAttendanceRequests || entry.professorId === user.id),
+    ),
+    [attendanceRequests, canReviewAllAttendanceRequests, user.id],
+  );
+  const pendingCount = pendingJoinRequests.length + pendingAttendanceRequests.length;
+  const pendingBadgeCount = pendingCount || unreadNotifications;
+  const pendingCopy = getPendingCopy(
+    pendingJoinRequests.length,
+    pendingAttendanceRequests.length,
+    unreadNotifications,
+  );
 
   return (
-    <div className="view-shell">
-      <section className="app-panel app-panel-pad">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <p className="text-sm font-bold">{academy.name}</p>
-            <p className="mt-2 text-sm text-[color:var(--text-muted)]">
-              Operacao do dia com equipe, agenda e pendencias da unidade.
-            </p>
+    <div className="view-shell staff-home">
+      <section className="staff-home__hero">
+        <div className="staff-home__hero-copy">
+          <p className="staff-home__eyebrow">{getGreeting(now)},</p>
+          <h1 className="staff-home__greeting">{user.name}</h1>
+          <p className="staff-home__summary">
+            Operacao do dia com equipe, agenda e pendencias da unidade.
+          </p>
+        </div>
+
+        <div className="staff-home__vision">
+          <div className="staff-home__vision-dot" aria-hidden="true" />
+          <div className="staff-home__vision-copy">
+            <p className="staff-home__vision-label">Visao atual</p>
+            <p className="staff-home__vision-title">APPLevel Staff - {academy.name}</p>
           </div>
-          <span className="app-badge app-badge--muted">APPLevel staff</span>
+          <span className="app-badge app-badge--gold">Staff</span>
         </div>
       </section>
 
-      <section className="app-stat-grid">
-        <article className="app-stat-card">
-          <p className="app-stat-card__label">Instrutores</p>
-          <p className="app-stat-card__value">{instructors.length}</p>
-          <p className="app-stat-card__note">Equipe e liderancas ativas</p>
-        </article>
-        <article className="app-stat-card">
-          <p className="app-stat-card__label">Alunos</p>
-          <p className="app-stat-card__value">{students.length}</p>
-          <p className="app-stat-card__note">Base cadastrada nesta unidade</p>
-        </article>
-        <article className="app-stat-card">
-          <p className="app-stat-card__label">Suas aulas de hoje</p>
-          <p className="app-stat-card__value">{myTodayClasses.length}</p>
-          <p className="app-stat-card__note">Aulas em que voce esta escalado</p>
-        </article>
-        <article className="app-stat-card">
-          <p className="app-stat-card__label">Pendencias</p>
-          <p className="app-stat-card__value">{unreadNotifications}</p>
-          <p className="app-stat-card__note">Notificacoes e eventos nao lidos</p>
-        </article>
-      </section>
+      <section className="staff-home__section">
+        <p className="staff-home__section-label">Visao geral</p>
 
-      <section className="app-panel app-panel-pad">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-3">
-              <div className="app-icon-shell">
-                <CalendarDays size={18} />
-              </div>
-              <div>
-                <p className="app-section-label">Agenda de hoje</p>
-                <h2 className="text-2xl font-bold">Suas aulas de hoje</h2>
-              </div>
-            </div>
-            <p className="app-section-copy mt-4">
-              Quando voce nao estiver escalado em nenhuma aula, o painel mostra a agenda geral da academia para o dia.
-            </p>
-          </div>
-          <span className="app-badge app-badge--gold">{highlightedClasses.length} em destaque</span>
+        <div className="staff-home__kpi-grid">
+          <article className="staff-home__kpi-card">
+            <p className="staff-home__kpi-label">Instrutores</p>
+            <p className="staff-home__kpi-value">{instructors.length}</p>
+            <p className="staff-home__kpi-note">Equipe ativa</p>
+          </article>
+
+          <article className="staff-home__kpi-card">
+            <p className="staff-home__kpi-label">Alunos</p>
+            <p className="staff-home__kpi-value">{students.length}</p>
+            <p className="staff-home__kpi-note">Matriculados</p>
+          </article>
+
+          <article className="staff-home__kpi-card">
+            <p className="staff-home__kpi-label">Aulas hoje</p>
+            <p className="staff-home__kpi-value">{todayClasses.length}</p>
+            <p className="staff-home__kpi-note">Agendadas</p>
+          </article>
+
+          <article className="staff-home__kpi-card">
+            <p className="staff-home__kpi-label">Frequencia</p>
+            <p className="staff-home__kpi-value">{monthlyAttendanceRate}%</p>
+            <p className="staff-home__kpi-note">Este mes</p>
+          </article>
         </div>
       </section>
 
-      <section className="app-list">
-        {highlightedClasses.length > 0 ? (
-          highlightedClasses.map((lesson) => (
-            <ClassSessionCard key={lesson.id} lesson={lesson} showDate={false} />
-          ))
-        ) : (
-          <div className="app-empty">Nenhuma aula programada para hoje nesta academia.</div>
-        )}
+      <section className="staff-home__section">
+        <div className="staff-home__section-head">
+          <p className="staff-home__section-label">Aulas de hoje</p>
+          <span className="app-badge app-badge--muted">{todayClasses.length}</span>
+        </div>
+
+        <div className="staff-home__list">
+          {todayClasses.length > 0 ? (
+            todayClasses.map((lesson) => {
+              const professorName = lesson.professorName || 'Equipe tecnica';
+              const classMeta = lesson.currentAttendanceCount > 0
+                ? `${lesson.currentAttendanceCount} alunos - ${professorName}`
+                : `Professor: ${professorName}`;
+
+              return (
+                <article key={lesson.id} className="staff-home__class-row">
+                  <p className="staff-home__class-time">{formatTimeLabel(lesson.scheduledStart)}</p>
+                  <span className="staff-home__class-divider" aria-hidden="true" />
+
+                  <div className="staff-home__class-copy">
+                    <p className="staff-home__class-title">{lesson.title}</p>
+                    <p className="staff-home__class-meta">{classMeta}</p>
+                  </div>
+
+                  <ChevronRight size={18} className="staff-home__class-arrow" aria-hidden="true" />
+                </article>
+              );
+            })
+          ) : (
+            <div className="staff-home__empty">Nenhuma aula programada para hoje nesta unidade.</div>
+          )}
+        </div>
       </section>
 
-      <section className="app-grid-2">
-        <article className="app-panel app-panel-pad">
-          <div className="flex items-center gap-3">
-            <div className="app-icon-shell">
-              <UserCog size={18} />
-            </div>
-            <div>
-              <p className="app-section-label">Equipe</p>
-              <h2 className="text-xl font-bold">Instrutores em evidência</h2>
-            </div>
+      <section className="staff-home__section">
+        <p className="staff-home__section-label">Pendencias</p>
+
+        <article className="staff-home__pending-card">
+          <div className="staff-home__pending-icon" aria-hidden="true">
+            <Layers3 size={18} />
           </div>
 
-          <div className="mt-6 app-list">
-            {instructors.slice(0, 4).map((entry) => (
-              <div key={entry.id} className="app-list-card flex items-center justify-between gap-3">
-                <div>
-                  <p className="text-sm font-bold">{entry.displayName}</p>
-                  <p className="mt-1 text-xs text-[color:var(--text-soft)]">
-                    {entry.role} • faixa {beltLabel(entry.belt)}
-                  </p>
-                </div>
-                <span className="app-badge app-badge--muted">{entry.status}</span>
-              </div>
-            ))}
-
-            {instructors.length === 0 ? (
-              <div className="app-empty">Nenhum instrutor vinculado a esta academia.</div>
-            ) : null}
-          </div>
-        </article>
-
-        <article className="app-panel app-panel-pad">
-          <div className="flex items-center gap-3">
-            <div className="app-icon-shell">
-              <BellRing size={18} />
-            </div>
-            <div>
-              <p className="app-section-label">Atencao</p>
-              <h2 className="text-xl font-bold">Resumo rapido do dia</h2>
-            </div>
+          <div className="staff-home__pending-copy">
+            <p className="staff-home__pending-title">{pendingCopy.title}</p>
+            <p className="staff-home__pending-note">{pendingCopy.note}</p>
           </div>
 
-          <div className="mt-6 app-list">
-            <div className="app-list-card">
-              <p className="text-[11px] uppercase tracking-[0.18em] text-[color:var(--text-soft)]">Usuario logado</p>
-              <p className="mt-2 text-lg font-bold">{user.name}</p>
-              <p className="mt-1 text-sm text-[color:var(--text-muted)]">Faixa {beltLabel(user.belt)} • {user.stripes} graus</p>
-            </div>
-            <div className="app-list-card">
-              <p className="text-[11px] uppercase tracking-[0.18em] text-[color:var(--text-soft)]">Aulas do dia</p>
-              <p className="mt-2 text-lg font-bold">{todayClasses.length} no total</p>
-              <p className="mt-1 text-sm text-[color:var(--text-muted)]">Inclui agenda geral da unidade para hoje.</p>
-            </div>
-            <div className="app-list-card">
-              <p className="text-[11px] uppercase tracking-[0.18em] text-[color:var(--text-soft)]">Base da academia</p>
-              <p className="mt-2 text-lg font-bold">{students.length} alunos</p>
-              <p className="mt-1 text-sm text-[color:var(--text-muted)]">Monitore crescimento e ocupacao logo ao abrir o app.</p>
-            </div>
-          </div>
+          <span className={`staff-home__count-badge ${pendingBadgeCount === 0 ? 'is-zero' : ''}`}>
+            {pendingBadgeCount}
+          </span>
         </article>
       </section>
     </div>
