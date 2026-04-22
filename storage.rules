@@ -42,9 +42,14 @@ service firebase.storage {
       return signedIn() && request.auth.uid == userId;
     }
 
+    match /academies/{academyDocId}/learning/lessons/{allPaths=**} {
+      allow read: if signedIn() && (isSuperAdmin() || academyDocId == 'shared' || academyId() == academyDocId);
+      allow write: if isSuperAdmin();
+    }
+
     match /academies/{academyDocId}/{allPaths=**} {
       allow read: if sameAcademy(academyDocId);
-      allow write: if isAcademyStaff(academyDocId);
+      allow write: if isAcademyStaff(academyDocId) && !allPaths.matches('learning/lessons/.*');
     }
 
     match /users/{userId}/{allPaths=**} {

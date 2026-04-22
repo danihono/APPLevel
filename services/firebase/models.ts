@@ -18,6 +18,7 @@ export type GraduationTargetType = 'stripe' | 'belt';
 export type JoinRequestStatus = 'pending' | 'approved' | 'rejected';
 export type AttendanceRequestStatus = 'pending' | 'approved' | 'rejected';
 export type LearningContentStatus = 'draft' | 'published';
+export type LearningLessonBlockType = 'youtube' | 'uploaded_video' | 'pdf' | 'image';
 
 export interface AcademyRecord {
   id: string;
@@ -313,12 +314,29 @@ export interface LearningLessonRecord {
   courseId: string;
   title: string;
   description?: string;
-  videoUrl: string;
+  videoUrl?: string;
   order: number;
   status: LearningContentStatus;
   passingScore: number;
   requiredWatchPercent: number;
   quizQuestionCount: number;
+  contentBlockCount: number;
+  createdAt?: Timestamp;
+  updatedAt?: Timestamp;
+}
+
+export interface LearningLessonBlockRecord {
+  lessonId: string;
+  trackId: string;
+  courseId: string;
+  type: LearningLessonBlockType;
+  title: string;
+  order: number;
+  sourceUrl?: string;
+  storagePath?: string;
+  mimeType?: string;
+  fileName?: string;
+  thumbnailUrl?: string;
   createdAt?: Timestamp;
   updatedAt?: Timestamp;
 }
@@ -352,6 +370,11 @@ export interface LearningProgressRecord {
   videoCompleted: boolean;
   quizReady: boolean;
   quizPassed: boolean;
+  lessonCompleted?: boolean;
+  completedContentIds?: string[];
+  contentProgressMap?: Record<string, number>;
+  contentCompletionPercent?: number;
+  contentCompleted?: boolean;
   lastScore: number;
   bestScore: number;
   attemptCount: number;

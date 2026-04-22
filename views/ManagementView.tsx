@@ -1,19 +1,14 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ADULT_BELTS,
-  DEFAULT_PROGRESSION_RULES,
-  KIDS_CATEGORIES,
   beltLabel,
-  getClassesToNextBelt,
-  normalizeProgressionRules,
-  type ProgressionRulesV2,
 } from '../beltCatalog';
 import { toUiUser } from '../services/firebase/adapters';
-import { Building2, GraduationCap, Save, Settings2, ShieldCheck, UserPlus, Users } from 'lucide-react';
+import { Building2, Save, Settings2, ShieldCheck, UserPlus, Users } from 'lucide-react';
 import type { FirestoreEntity } from '../services/firebase/data';
 import type { AcademyRecord, ClassRecord, UserRecord } from '../services/firebase/models';
 import StudentRoster from '../components/StudentRoster';
-import { UserRole, type KidsCategory } from '../types';
+import { UserRole } from '../types';
 
 interface ManagementViewProps {
   userRole?: UserRole;
@@ -52,51 +47,9 @@ interface ManagementViewProps {
     grade?: number;
     stripes?: number;
   }) => Promise<void>;
-  onSaveProgressionRules: (payload: {
-    academyId?: string;
-    adult: {
-      belts: Array<{
-        belt: string;
-        stripeEvery: number;
-        maxStripes: number;
-        beltPromotionOffset?: number;
-      }>;
-    };
-    kids: {
-      level_kids: {
-        belts: Array<{
-          belt: string;
-          stripeEvery: number;
-          maxStripes: number;
-          beltPromotionOffset?: number;
-        }>;
-      };
-      level_infanto_juvenil: {
-        belts: Array<{
-          belt: string;
-          stripeEvery: number;
-          maxStripes: number;
-          beltPromotionOffset?: number;
-        }>;
-      };
-      level_juvenil: {
-        belts: Array<{
-          belt: string;
-          stripeEvery: number;
-          maxStripes: number;
-          beltPromotionOffset?: number;
-        }>;
-      };
-    };
-  }) => Promise<void>;
 }
 
 const staffBeltPresets = ADULT_BELTS;
-const kidsRuleNotes: Record<KidsCategory, string> = {
-  level_kids: 'Branca e cinza com 12 aulas por grau.',
-  level_infanto_juvenil: 'Branca/cinza com 15 aulas. Amarela/laranja com 20 aulas por grau.',
-  level_juvenil: 'Branca/cinza com 20 aulas. Amarela/laranja com 22. Verde com 25 aulas por grau.',
-};
 
 function isMasterBlack(user: FirestoreEntity<UserRecord>) {
   const belt = user.belt.trim().toLowerCase();
@@ -162,7 +115,6 @@ const ManagementView: React.FC<ManagementViewProps> = ({
   onUpdateAcademy,
   onCreateAcademy,
   onCreateUser,
-  onSaveProgressionRules,
 }) => {
   const canManage = userRole === UserRole.PROFESSOR || userRole === UserRole.SUPERADMIN;
   const isSuperAdmin = userRole === UserRole.SUPERADMIN;
@@ -221,8 +173,6 @@ const ManagementView: React.FC<ManagementViewProps> = ({
   const [academyStatus, setAcademyStatus] = useState<'active' | 'inactive' | 'suspended'>(managedAcademy.status);
   const [checkinWindow, setCheckinWindow] = useState(managedAcademy.classCheckinWindowMinutes);
   const [masterBlackLimit, setMasterBlackLimit] = useState(managedAcademy.masterBlackLimit ?? 1);
-  const [rules, setRules] = useState<ProgressionRulesV2>(normalizeProgressionRules(managedAcademy.progressionRules));
-
   const [academyBusy, setAcademyBusy] = useState(false);
   const [academyFeedback, setAcademyFeedback] = useState('');
   const [academyError, setAcademyError] = useState('');
@@ -247,9 +197,6 @@ const ManagementView: React.FC<ManagementViewProps> = ({
   const [grade, setGrade] = useState(0);
   const [stripes, setStripes] = useState(0);
 
-  const [rulesBusy, setRulesBusy] = useState(false);
-  const [rulesFeedback, setRulesFeedback] = useState('');
-  const [rulesError, setRulesError] = useState('');
   const [peopleSearch, setPeopleSearch] = useState('');
   const [managementSection, setManagementSection] = useState<'overview' | 'students'>('overview');
 
@@ -259,7 +206,6 @@ const ManagementView: React.FC<ManagementViewProps> = ({
     setAcademyStatus(managedAcademy.status);
     setCheckinWindow(managedAcademy.classCheckinWindowMinutes);
     setMasterBlackLimit(managedAcademy.masterBlackLimit ?? 1);
-    setRules(normalizeProgressionRules(managedAcademy.progressionRules ?? DEFAULT_PROGRESSION_RULES));
   }, [managedAcademy]);
 
   useEffect(() => {
@@ -305,35 +251,6 @@ const ManagementView: React.FC<ManagementViewProps> = ({
       window.cancelAnimationFrame(frame);
     };
   }, [focusSection, managedAcademy.id, onFocusSectionHandled]);
-
-  function updateAdultRule(index: number, field: 'stripeEvery' | 'maxStripes', value: number) {
-    setRules((previous) => ({
-      ...previous,
-      adult: {
-        belts: previous.adult.belts.map((entry, entryIndex) => (
-          entryIndex === index
-            ? { ...entry, [field]: value }
-            : entry
-        )),
-      },
-    }));
-  }
-
-  function updateKidsRule(category: KidsCategory, index: number, field: 'stripeEvery' | 'maxStripes', value: number) {
-    setRules((previous) => ({
-      ...previous,
-      kids: {
-        ...previous.kids,
-        [category]: {
-          belts: previous.kids[category].belts.map((entry, entryIndex) => (
-            entryIndex === index
-              ? { ...entry, [field]: value }
-              : entry
-          )),
-        },
-      },
-    }));
-  }
 
   async function handleSaveAcademy(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -449,63 +366,6 @@ const ManagementView: React.FC<ManagementViewProps> = ({
       setUserError(submitError instanceof Error ? submitError.message : 'Nao foi possivel criar o acesso.');
     } finally {
       setUserBusy(false);
-    }
-  }
-
-  async function handleSaveRules() {
-    if (!hasManagedAcademy) {
-      setRulesError('Selecione uma unidade antes de salvar regras de graduacao.');
-      setRulesFeedback('');
-      return;
-    }
-
-    setRulesBusy(true);
-    setRulesFeedback('');
-    setRulesError('');
-
-    try {
-      await onSaveProgressionRules({
-        academyId: isSuperAdmin ? managedAcademy.id : undefined,
-        adult: {
-          belts: rules.adult.belts.map((entry) => ({
-            belt: entry.belt,
-            stripeEvery: Number(entry.stripeEvery),
-            maxStripes: Number(entry.maxStripes),
-            beltPromotionOffset: Number(entry.beltPromotionOffset ?? 0),
-          })),
-        },
-        kids: {
-          level_kids: {
-            belts: rules.kids.level_kids.belts.map((entry) => ({
-              belt: entry.belt,
-              stripeEvery: Number(entry.stripeEvery),
-              maxStripes: Number(entry.maxStripes),
-              beltPromotionOffset: Number(entry.beltPromotionOffset ?? 0),
-            })),
-          },
-          level_infanto_juvenil: {
-            belts: rules.kids.level_infanto_juvenil.belts.map((entry) => ({
-              belt: entry.belt,
-              stripeEvery: Number(entry.stripeEvery),
-              maxStripes: Number(entry.maxStripes),
-              beltPromotionOffset: Number(entry.beltPromotionOffset ?? 0),
-            })),
-          },
-          level_juvenil: {
-            belts: rules.kids.level_juvenil.belts.map((entry) => ({
-              belt: entry.belt,
-              stripeEvery: Number(entry.stripeEvery),
-              maxStripes: Number(entry.maxStripes),
-              beltPromotionOffset: Number(entry.beltPromotionOffset ?? 0),
-            })),
-          },
-        },
-      });
-      setRulesFeedback('Regras de graduacao atualizadas com sucesso.');
-    } catch (submitError) {
-      setRulesError(submitError instanceof Error ? submitError.message : 'Nao foi possivel salvar as regras.');
-    } finally {
-      setRulesBusy(false);
     }
   }
 
@@ -712,7 +572,7 @@ const ManagementView: React.FC<ManagementViewProps> = ({
         )
       ) : (
         <>
-      <section className="app-stat-grid">
+      <section className="app-stat-grid management-kpi-grid">
         <article className="app-panel app-panel-pad">
           <p className="app-stat-card__label">{hasManagedAcademy ? 'Instrutores' : 'Unidades'}</p>
           <p className="app-stat-card__value">{hasManagedAcademy ? instructors.length : academies.length}</p>
@@ -999,127 +859,6 @@ const ManagementView: React.FC<ManagementViewProps> = ({
               {userBusy ? 'Criando...' : 'Criar acesso'}
             </button>
             </form>
-          ) : null}
-
-          {hasManagedAcademy ? (
-            <>
-              <section className="app-panel app-panel-pad">
-                <div className="flex items-center gap-3">
-                  <div className="app-icon-shell">
-                    <GraduationCap size={18} />
-                  </div>
-                  <div>
-                    <p className="app-section-label">Graduacao</p>
-                    <h2 className="text-xl font-bold">Graduacoes e regras por faixa</h2>
-                  </div>
-                </div>
-
-                <div className="mt-6 space-y-4">
-                  <FeedbackBlock success={rulesFeedback} error={rulesError} />
-                </div>
-
-	                <div className="mt-6 space-y-6">
-	                  <div>
-	                    <div className="mb-4">
-	                      <p className="app-section-label">Adulto</p>
-	                      <p className="text-sm text-[color:var(--text-muted)]">
-	                        Regras a partir de 16 anos. A faixa preta permanece com progressao manual.
-	                      </p>
-	                    </div>
-	                    <div className="app-list">
-	                      {rules.adult.belts.map((entry, index) => (
-	                        <div key={`adult-${entry.belt}-${index}`} className="app-panel app-panel--soft p-4">
-	                          <div className="flex flex-wrap items-center justify-between gap-3">
-	                            <div>
-	                              <p className="text-sm font-bold">{beltLabel(entry.belt)}</p>
-	                              <p className="mt-1 text-xs text-[color:var(--text-soft)]">
-	                                {entry.stripeEvery > 0
-	                                  ? `Proxima faixa em ${getClassesToNextBelt(entry)} aulas`
-	                                  : 'Progressao manual / IBJJF'}
-	                              </p>
-	                            </div>
-	                            <span className="app-badge app-badge--muted">{entry.maxStripes} graus</span>
-	                          </div>
-	                          <div className="mt-4 grid gap-4 md:grid-cols-2">
-	                            <label className="app-field">
-	                              <span className="app-field__label">Aulas por grau</span>
-	                              <input
-	                                type="number"
-	                                min={0}
-	                                value={entry.stripeEvery}
-	                                onChange={(event) => updateAdultRule(index, 'stripeEvery', Number(event.target.value))}
-	                                className="app-input"
-	                              />
-	                            </label>
-	                            <label className="app-field">
-	                              <span className="app-field__label">Graus por faixa</span>
-	                              <input
-	                                type="number"
-	                                min={0}
-	                                value={entry.maxStripes}
-	                                onChange={(event) => updateAdultRule(index, 'maxStripes', Number(event.target.value))}
-	                                className="app-input"
-	                              />
-	                            </label>
-	                          </div>
-	                        </div>
-	                      ))}
-	                    </div>
-	                  </div>
-
-	                  {KIDS_CATEGORIES.map((category) => (
-	                    <div key={category.value}>
-	                      <div className="mb-4">
-	                        <p className="app-section-label">{category.label}</p>
-	                        <p className="text-sm text-[color:var(--text-muted)]">{kidsRuleNotes[category.value]}</p>
-	                      </div>
-	                      <div className="app-list">
-	                        {rules.kids[category.value].belts.map((entry, index) => (
-	                          <div key={`${category.value}-${entry.belt}-${index}`} className="app-panel app-panel--soft p-4">
-	                            <div className="flex flex-wrap items-center justify-between gap-3">
-	                              <div>
-	                                <p className="text-sm font-bold">{beltLabel(entry.belt)}</p>
-	                                <p className="mt-1 text-xs text-[color:var(--text-soft)]">
-	                                  Proxima faixa em {getClassesToNextBelt(entry)} aulas
-	                                </p>
-	                              </div>
-	                              <span className="app-badge app-badge--muted">{entry.maxStripes} graus</span>
-	                            </div>
-	                            <div className="mt-4 grid gap-4 md:grid-cols-2">
-	                              <label className="app-field">
-	                                <span className="app-field__label">Aulas por grau</span>
-	                                <input
-	                                  type="number"
-	                                  min={0}
-	                                  value={entry.stripeEvery}
-	                                  onChange={(event) => updateKidsRule(category.value, index, 'stripeEvery', Number(event.target.value))}
-	                                  className="app-input"
-	                                />
-	                              </label>
-	                              <label className="app-field">
-	                                <span className="app-field__label">Graus por faixa</span>
-	                                <input
-	                                  type="number"
-	                                  min={0}
-	                                  value={entry.maxStripes}
-	                                  onChange={(event) => updateKidsRule(category.value, index, 'maxStripes', Number(event.target.value))}
-	                                  className="app-input"
-	                                />
-	                              </label>
-	                            </div>
-	                          </div>
-	                        ))}
-	                      </div>
-	                    </div>
-	                  ))}
-	                </div>
-
-                <button type="button" onClick={() => void handleSaveRules()} disabled={rulesBusy} className="app-button app-button--dark mt-6">
-                  <Save size={16} />
-                  {rulesBusy ? 'Salvando...' : 'Salvar regras'}
-                </button>
-              </section>
-            </>
           ) : null}
         </>
       )}

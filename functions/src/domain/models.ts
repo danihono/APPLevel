@@ -10,6 +10,7 @@ export const COLLECTIONS = {
   graduations: 'graduations',
   joinRequests: 'join_requests',
   learningCourses: 'learning_courses',
+  learningLessonBlocks: 'learning_lesson_blocks',
   learningLessons: 'learning_lessons',
   learningProgress: 'learning_progress',
   learningQuizAttempts: 'learning_quiz_attempts',
@@ -46,6 +47,7 @@ export type GraduationTargetType = 'stripe' | 'belt';
 export type JoinRequestStatus = 'pending' | 'approved' | 'rejected';
 export type AttendanceRequestStatus = 'pending' | 'approved' | 'rejected';
 export type LearningContentStatus = 'draft' | 'published';
+export type LearningLessonBlockType = 'youtube' | 'uploaded_video' | 'pdf' | 'image';
 export type KidsCategory = 'level_kids' | 'level_infanto_juvenil' | 'level_juvenil';
 
 export interface ProgressionMilestone {
@@ -338,12 +340,29 @@ export interface LearningLessonDoc {
   courseId: string;
   title: string;
   description?: string;
-  videoUrl: string;
+  videoUrl?: string;
   order: number;
   status: LearningContentStatus;
   passingScore: number;
   requiredWatchPercent: number;
   quizQuestionCount: number;
+  contentBlockCount: number;
+  createdAt: FirebaseFirestore.Timestamp;
+  updatedAt: FirebaseFirestore.Timestamp;
+}
+
+export interface LearningLessonBlockDoc {
+  lessonId: string;
+  trackId: string;
+  courseId: string;
+  type: LearningLessonBlockType;
+  title: string;
+  order: number;
+  sourceUrl?: string;
+  storagePath?: string;
+  mimeType?: string;
+  fileName?: string;
+  thumbnailUrl?: string;
   createdAt: FirebaseFirestore.Timestamp;
   updatedAt: FirebaseFirestore.Timestamp;
 }
@@ -377,6 +396,11 @@ export interface LearningProgressDoc {
   videoCompleted: boolean;
   quizReady: boolean;
   quizPassed: boolean;
+  lessonCompleted?: boolean;
+  completedContentIds?: string[];
+  contentProgressMap?: Record<string, number>;
+  contentCompletionPercent?: number;
+  contentCompleted?: boolean;
   lastScore: number;
   bestScore: number;
   attemptCount: number;

@@ -13,9 +13,7 @@ import {
   Save,
   Settings2,
   ShieldCheck,
-  Sparkles,
   Sun,
-  Upload,
   UserRound,
 } from 'lucide-react';
 import AvatarWithBelt from '../components/AvatarWithBelt';
@@ -113,6 +111,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({
     : `${user.stripes + 1}o Grau - Faixa ${beltLabel(user.belt)}`;
   const currentGradeLabel = user.stripes > 0 ? `${user.stripes}o Grau` : '0 Grau';
   const [activeSection, setActiveSection] = useState<'settings' | 'history' | 'achievements' | null>(null);
+  const [activeStudentSection, setActiveStudentSection] = useState<'dados-pessoais' | 'acesso-email' | 'aparencia' | 'historicos' | null>(null);
   const staffMenuItems = [
     { id: 'settings' as const, icon: Settings2, label: 'Configuracoes da conta' },
     { id: 'notifications' as const, icon: Bell, label: 'Notificacoes' },
@@ -430,8 +429,8 @@ const ProfileView: React.FC<ProfileViewProps> = ({
         </div>
       </section>
 
-      {/* Stats */}
-      <section className="app-stat-grid">
+      {/* KPIs 2x2 */}
+      <section className="grid grid-cols-2 gap-3">
         <article className="app-panel app-panel-pad">
           <p className="app-stat-card__label">Total de aulas</p>
           <p className="app-stat-card__value">{totalClasses}</p>
@@ -440,253 +439,279 @@ const ProfileView: React.FC<ProfileViewProps> = ({
         <article className="app-panel app-panel-pad">
           <p className="app-stat-card__label">Frequencia</p>
           <p className="app-stat-card__value">{attendanceRate}%</p>
-          <p className="app-stat-card__note">Percentual no mes atual</p>
+          <p className="app-stat-card__note">No mes atual</p>
         </article>
         <article className="app-panel app-panel-pad">
           <p className="app-stat-card__label">Proximo grau</p>
           <p className="app-stat-card__value">{nextStripeRemaining}</p>
           <p className="app-stat-card__note">Aulas restantes</p>
         </article>
+        <article className="app-panel app-panel-pad">
+          <p className="app-stat-card__label">Proxima faixa</p>
+          <p className="app-stat-card__value">{nextBeltRemaining}</p>
+          <p className="app-stat-card__note">Aulas para elegibilidade</p>
+        </article>
       </section>
 
-      {/* Dados pessoais + Conta e e-mail */}
-      <section className="app-grid-2">
-        <article className="app-panel app-panel-pad">
-          <div className="flex items-center gap-3">
-            <div className="app-icon-shell">
-              <UserRound size={18} />
-            </div>
-            <div>
-              <p className="app-section-label">Conta</p>
-              <h2 className="text-xl font-bold">Dados pessoais</h2>
-            </div>
-          </div>
+      {/* Accordion menu */}
+      <section className="app-panel" aria-label="Configuracoes do perfil">
+        {/* Dados pessoais */}
+        <div>
+          <button
+            type="button"
+            className="profile-mobile__menu-row w-full text-left"
+            onClick={() => setActiveStudentSection(activeStudentSection === 'dados-pessoais' ? null : 'dados-pessoais')}
+          >
+            <div className="profile-mobile__menu-icon"><UserRound size={18} /></div>
+            <span className="profile-mobile__menu-label">Dados pessoais</span>
+            <ChevronRight
+              size={18}
+              className={`profile-mobile__menu-arrow transition-transform duration-200 ${activeStudentSection === 'dados-pessoais' ? 'rotate-90' : ''}`}
+            />
+          </button>
 
-          {canEditProfile ? (
-            <form onSubmit={handleSubmit} className="mt-6 app-form-grid">
-              {feedback ? <div className="app-alert app-alert--success">{feedback}</div> : null}
-              {error ? <div className="app-alert app-alert--error">{error}</div> : null}
+          {activeStudentSection === 'dados-pessoais' ? (
+            <div className="px-4 pb-5 border-t border-white/10">
+              {canEditProfile ? (
+                <form onSubmit={handleSubmit} className="mt-4 app-form-grid">
+                  {feedback ? <div className="app-alert app-alert--success">{feedback}</div> : null}
+                  {error ? <div className="app-alert app-alert--error">{error}</div> : null}
 
-              <label className="app-field">
-                <span className="app-field__label">Nome</span>
-                <input value={firstName} onChange={(event) => setFirstName(event.target.value)} className="app-input" required />
-              </label>
+                  <label className="app-field">
+                    <span className="app-field__label">Nome</span>
+                    <input value={firstName} onChange={(event) => setFirstName(event.target.value)} className="app-input" required />
+                  </label>
 
-              <label className="app-field">
-                <span className="app-field__label">Sobrenome</span>
-                <input value={lastName} onChange={(event) => setLastName(event.target.value)} className="app-input" required />
-              </label>
+                  <label className="app-field">
+                    <span className="app-field__label">Sobrenome</span>
+                    <input value={lastName} onChange={(event) => setLastName(event.target.value)} className="app-input" required />
+                  </label>
 
-              <label className="app-field">
-                <span className="app-field__label">CPF</span>
-                <input value={cpf} onChange={(event) => setCpf(event.target.value)} className="app-input" required />
-              </label>
+                  <label className="app-field">
+                    <span className="app-field__label">CPF</span>
+                    <input value={cpf} onChange={(event) => setCpf(event.target.value)} className="app-input" required />
+                  </label>
 
-              <label className="app-field">
-                <span className="app-field__label">Telefone</span>
-                <input value={phone} onChange={(event) => setPhone(event.target.value)} className="app-input" />
-              </label>
+                  <label className="app-field">
+                    <span className="app-field__label">Telefone</span>
+                    <input value={phone} onChange={(event) => setPhone(event.target.value)} className="app-input" />
+                  </label>
 
-              <label className="app-field">
-                <span className="app-field__label">Nascimento</span>
-                <input type="date" value={birthDate} onChange={(event) => setBirthDate(event.target.value)} className="app-input" required />
-              </label>
+                  <label className="app-field">
+                    <span className="app-field__label">Nascimento</span>
+                    <input type="date" value={birthDate} onChange={(event) => setBirthDate(event.target.value)} className="app-input" required />
+                  </label>
 
-              <label className="app-field">
-                <span className="app-field__label">Competidor</span>
-                <select value={isCompetitor ? 'yes' : 'no'} onChange={(event) => setIsCompetitor(event.target.value === 'yes')} className="app-select">
-                  <option value="no">Nao</option>
-                  <option value="yes">Sim</option>
-                </select>
-              </label>
+                  <label className="app-field">
+                    <span className="app-field__label">Competidor</span>
+                    <select value={isCompetitor ? 'yes' : 'no'} onChange={(event) => setIsCompetitor(event.target.value === 'yes')} className="app-select">
+                      <option value="no">Nao</option>
+                      <option value="yes">Sim</option>
+                    </select>
+                  </label>
 
-              <label className="app-field md:col-span-2">
-                <span className="app-field__label">Foto</span>
-                <input type="file" accept="image/*" onChange={(event) => setPhotoFile(event.target.files?.[0] ?? null)} className="app-input" />
-              </label>
+                  <label className="app-field md:col-span-2">
+                    <span className="app-field__label">Foto</span>
+                    <input type="file" accept="image/*" onChange={(event) => setPhotoFile(event.target.files?.[0] ?? null)} className="app-input" />
+                  </label>
 
-              <button type="submit" disabled={busy} className="app-button app-button--gold app-button--block md:col-span-2">
-                <Save size={16} />
-                {busy ? 'Salvando...' : 'Salvar perfil'}
-              </button>
-            </form>
-          ) : (
-            <div className="mt-6 app-list">
-              <div className="app-list-card">
-                <p className="text-[11px] uppercase tracking-[0.16em] text-[color:var(--text-soft)]">Funcao</p>
-                <p className="mt-1 text-sm font-bold">{roleLabel(profile.role)}</p>
-              </div>
-              <div className="app-list-card">
-                <div className="flex items-center gap-2 text-sm font-bold">
-                  <Mail size={16} className="text-[color:var(--gold-mid)]" />
-                  {user.email}
+                  <button type="submit" disabled={busy} className="app-button app-button--gold app-button--block md:col-span-2">
+                    <Save size={16} />
+                    {busy ? 'Salvando...' : 'Salvar perfil'}
+                  </button>
+                </form>
+              ) : (
+                <div className="mt-4 app-list">
+                  <div className="app-list-card">
+                    <p className="text-[11px] uppercase tracking-[0.16em] text-[color:var(--text-soft)]">Funcao</p>
+                    <p className="mt-1 text-sm font-bold">{roleLabel(profile.role)}</p>
+                  </div>
+                  <div className="app-list-card">
+                    <div className="flex items-center gap-2 text-sm font-bold">
+                      <Mail size={16} className="text-[color:var(--gold-mid)]" />
+                      {user.email}
+                    </div>
+                  </div>
+                  <div className="app-list-card">
+                    <div className="flex items-center gap-2 text-sm font-bold">
+                      <Phone size={16} className="text-[color:var(--gold-mid)]" />
+                      {profile.phone || 'Telefone nao informado'}
+                    </div>
+                  </div>
                 </div>
-              </div>
-              <div className="app-list-card">
-                <div className="flex items-center gap-2 text-sm font-bold">
-                  <Phone size={16} className="text-[color:var(--gold-mid)]" />
-                  {profile.phone || 'Telefone nao informado'}
-                </div>
-              </div>
+              )}
             </div>
-          )}
-        </article>
-
-        <article className="app-panel app-panel-pad">
-          <div className="flex items-center gap-3">
-            <div className="app-icon-shell">
-              <ShieldCheck size={18} />
-            </div>
-            <div>
-              <p className="app-section-label">Acesso</p>
-              <h2 className="text-xl font-bold">Conta e e-mail</h2>
-            </div>
-          </div>
-
-          <div className="mt-6 app-list">
-            <div className="app-list-card">
-              <p className="text-sm font-bold">Permissoes</p>
-              <p className="mt-1 text-xs text-[color:var(--text-soft)]">Perfil atual: {roleLabel(profile.role)}</p>
-            </div>
-            <div className="app-list-card">
-              <p className="text-sm font-bold">Academia</p>
-              <p className="mt-1 text-xs text-[color:var(--text-soft)]">{academyName || 'Sem academia vinculada'}</p>
-            </div>
-            <div className="app-list-card">
-              <p className="text-sm font-bold">Faixa e grau</p>
-              <p className="mt-1 text-xs text-[color:var(--text-soft)]">Alteracao feita apenas por professor ou superadmin.</p>
-            </div>
-          </div>
-
-          {canEditProfile ? (
-            <form onSubmit={handleEmailSubmit} className="mt-6 app-form-grid">
-              <p className="app-section-label md:col-span-2">Alterar e-mail</p>
-
-              {emailFeedback ? <div className="app-alert app-alert--success md:col-span-2">{emailFeedback}</div> : null}
-              {emailError ? <div className="app-alert app-alert--error md:col-span-2">{emailError}</div> : null}
-
-              <label className="app-field">
-                <span className="app-field__label">Novo e-mail</span>
-                <input type="email" value={newEmail} onChange={(event) => setNewEmail(event.target.value)} className="app-input" required />
-              </label>
-
-              <label className="app-field">
-                <span className="app-field__label">Senha atual</span>
-                <input type="password" value={currentPassword} onChange={(event) => setCurrentPassword(event.target.value)} className="app-input" required />
-              </label>
-
-              <button type="submit" disabled={emailBusy} className="app-button app-button--ghost app-button--block md:col-span-2">
-                <Mail size={16} />
-                {emailBusy ? 'Atualizando e-mail...' : 'Atualizar e-mail'}
-              </button>
-            </form>
           ) : null}
-        </article>
-      </section>
-
-      {/* Aparência — card full-width, isolado */}
-      <section className="app-panel app-panel-pad">
-        <div className="flex items-center gap-3">
-          <div className="app-icon-shell">
-            {isDarkMode ? <Moon size={18} /> : <Sun size={18} />}
-          </div>
-          <div>
-            <p className="app-section-label">Interface</p>
-            <h2 className="text-xl font-bold">Aparencia</h2>
-            <p className="mt-1 text-sm text-[color:var(--text-muted)]">
-              Tema atual: {currentThemeLabel}.
-            </p>
-          </div>
         </div>
 
-        <div className="profile-theme-picker mt-5">
+        {/* Acesso conta email */}
+        <div>
           <button
             type="button"
-            onClick={() => onSetThemeMode('light')}
-            className={`app-button app-button--small app-button--block ${!isDarkMode ? 'app-button--gold' : 'app-button--ghost'} profile-theme-choice`}
-            aria-pressed={!isDarkMode}
+            className="profile-mobile__menu-row w-full text-left"
+            onClick={() => setActiveStudentSection(activeStudentSection === 'acesso-email' ? null : 'acesso-email')}
           >
-            <Sun size={16} />
-            Claro
+            <div className="profile-mobile__menu-icon"><ShieldCheck size={18} /></div>
+            <span className="profile-mobile__menu-label">Acesso conta email</span>
+            <ChevronRight
+              size={18}
+              className={`profile-mobile__menu-arrow transition-transform duration-200 ${activeStudentSection === 'acesso-email' ? 'rotate-90' : ''}`}
+            />
           </button>
+
+          {activeStudentSection === 'acesso-email' ? (
+            <div className="px-4 pb-5 border-t border-white/10">
+              <div className="mt-4 app-list">
+                <div className="app-list-card">
+                  <p className="text-sm font-bold">Permissoes</p>
+                  <p className="mt-1 text-xs text-[color:var(--text-soft)]">Perfil atual: {roleLabel(profile.role)}</p>
+                </div>
+                <div className="app-list-card">
+                  <p className="text-sm font-bold">Academia</p>
+                  <p className="mt-1 text-xs text-[color:var(--text-soft)]">{academyName || 'Sem academia vinculada'}</p>
+                </div>
+                <div className="app-list-card">
+                  <p className="text-sm font-bold">Faixa e grau</p>
+                  <p className="mt-1 text-xs text-[color:var(--text-soft)]">Alteracao feita apenas por professor ou superadmin.</p>
+                </div>
+              </div>
+
+              {canEditProfile ? (
+                <form onSubmit={handleEmailSubmit} className="mt-4 app-form-grid">
+                  <p className="app-section-label md:col-span-2">Alterar e-mail</p>
+
+                  {emailFeedback ? <div className="app-alert app-alert--success md:col-span-2">{emailFeedback}</div> : null}
+                  {emailError ? <div className="app-alert app-alert--error md:col-span-2">{emailError}</div> : null}
+
+                  <label className="app-field">
+                    <span className="app-field__label">Novo e-mail</span>
+                    <input type="email" value={newEmail} onChange={(event) => setNewEmail(event.target.value)} className="app-input" required />
+                  </label>
+
+                  <label className="app-field">
+                    <span className="app-field__label">Senha atual</span>
+                    <input type="password" value={currentPassword} onChange={(event) => setCurrentPassword(event.target.value)} className="app-input" required />
+                  </label>
+
+                  <button type="submit" disabled={emailBusy} className="app-button app-button--ghost app-button--block md:col-span-2">
+                    <Mail size={16} />
+                    {emailBusy ? 'Atualizando e-mail...' : 'Atualizar e-mail'}
+                  </button>
+                </form>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
+
+        {/* Aparencia */}
+        <div>
           <button
             type="button"
-            onClick={() => onSetThemeMode('dark')}
-            className={`app-button app-button--small app-button--block ${isDarkMode ? 'app-button--gold' : 'app-button--ghost'} profile-theme-choice`}
-            aria-pressed={isDarkMode}
+            className="profile-mobile__menu-row w-full text-left"
+            onClick={() => setActiveStudentSection(activeStudentSection === 'aparencia' ? null : 'aparencia')}
           >
-            <Moon size={16} />
-            Escuro
+            <div className="profile-mobile__menu-icon">
+              {isDarkMode ? <Moon size={18} /> : <Sun size={18} />}
+            </div>
+            <span className="profile-mobile__menu-label">Aparencia</span>
+            <ChevronRight
+              size={18}
+              className={`profile-mobile__menu-arrow transition-transform duration-200 ${activeStudentSection === 'aparencia' ? 'rotate-90' : ''}`}
+            />
+          </button>
+
+          {activeStudentSection === 'aparencia' ? (
+            <div className="px-4 pb-5 border-t border-white/10">
+              <p className="mt-4 text-sm text-[color:var(--text-muted)]">Tema atual: {currentThemeLabel}.</p>
+              <div className="profile-theme-picker mt-3">
+                <button
+                  type="button"
+                  onClick={() => onSetThemeMode('light')}
+                  className={`app-button app-button--small app-button--block ${!isDarkMode ? 'app-button--gold' : 'app-button--ghost'} profile-theme-choice`}
+                  aria-pressed={!isDarkMode}
+                >
+                  <Sun size={16} />
+                  Claro
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onSetThemeMode('dark')}
+                  className={`app-button app-button--small app-button--block ${isDarkMode ? 'app-button--gold' : 'app-button--ghost'} profile-theme-choice`}
+                  aria-pressed={isDarkMode}
+                >
+                  <Moon size={16} />
+                  Escuro
+                </button>
+              </div>
+            </div>
+          ) : null}
+        </div>
+
+        {/* Historicos */}
+        <div>
+          <button
+            type="button"
+            className="profile-mobile__menu-row w-full text-left"
+            onClick={() => setActiveStudentSection(activeStudentSection === 'historicos' ? null : 'historicos')}
+          >
+            <div className="profile-mobile__menu-icon"><History size={18} /></div>
+            <span className="profile-mobile__menu-label">Historicos</span>
+            <ChevronRight
+              size={18}
+              className={`profile-mobile__menu-arrow transition-transform duration-200 ${activeStudentSection === 'historicos' ? 'rotate-90' : ''}`}
+            />
+          </button>
+
+          {activeStudentSection === 'historicos' ? (
+            <div className="px-4 pb-5 border-t border-white/10">
+              <p className="mt-4 text-[10px] font-bold uppercase tracking-widest text-[color:var(--text-soft)]">Presencas recentes</p>
+              <div className="mt-2 app-list">
+                {recentAttendances.map((attendance) => (
+                  <div key={attendance.id} className="app-list-card">
+                    <p className="text-sm font-bold">{classNameById.get(attendance.classId) || 'Aula da academia'}</p>
+                    <p className="mt-1 text-xs text-[color:var(--text-soft)]">
+                      {attendance.checkedInAt?.toDate().toLocaleString('pt-BR')} • metodo {attendance.checkInMethod}
+                    </p>
+                  </div>
+                ))}
+                {recentAttendances.length === 0 ? (
+                  <div className="app-empty">Ainda nao ha presencas registradas neste perfil.</div>
+                ) : null}
+              </div>
+
+              <p className="mt-4 text-[10px] font-bold uppercase tracking-widest text-[color:var(--text-soft)]">Graduacoes</p>
+              <div className="mt-2 app-list">
+                {graduations.slice(0, 5).map((graduation) => (
+                  <div key={graduation.id} className="app-list-card">
+                    <p className="text-sm font-bold">
+                      {beltLabel(graduation.previousBelt)} {graduation.previousStripes} → {beltLabel(graduation.newBelt)} {graduation.newStripes}
+                    </p>
+                    <p className="mt-1 text-xs text-[color:var(--text-soft)]">
+                      {graduation.promotedAt?.toDate().toLocaleDateString('pt-BR')} • {graduation.reason.replaceAll('_', ' ')}
+                    </p>
+                  </div>
+                ))}
+                {graduations.length === 0 ? (
+                  <div className="app-empty">Ainda nao ha graduacoes registradas para este perfil.</div>
+                ) : null}
+              </div>
+            </div>
+          ) : null}
+        </div>
+
+        {/* Sair da conta */}
+        <div>
+          <button
+            type="button"
+            className="profile-mobile__menu-row w-full text-left"
+            onClick={() => void onLogout()}
+          >
+            <div className="profile-mobile__menu-icon" style={{ color: 'var(--color-danger, #ef4444)' }}><LogOut size={18} /></div>
+            <span className="profile-mobile__menu-label" style={{ color: 'var(--color-danger, #ef4444)' }}>Sair da conta</span>
+            <ChevronRight size={18} className="profile-mobile__menu-arrow" />
           </button>
         </div>
       </section>
-
-      {/* Histórico */}
-      <section className="app-grid-2">
-        <article className="app-panel app-panel-pad">
-          <div className="flex items-center gap-3">
-            <div className="app-icon-shell">
-              <Upload size={18} />
-            </div>
-            <div>
-              <p className="app-section-label">Presencas</p>
-              <h2 className="text-xl font-bold">Historico recente</h2>
-            </div>
-          </div>
-
-          <div className="mt-6 app-list">
-            {recentAttendances.map((attendance) => (
-              <div key={attendance.id} className="app-list-card">
-                <p className="text-sm font-bold">{classNameById.get(attendance.classId) || 'Aula da academia'}</p>
-                <p className="mt-1 text-xs text-[color:var(--text-soft)]">
-                  {attendance.checkedInAt?.toDate().toLocaleString('pt-BR')} • metodo {attendance.checkInMethod}
-                </p>
-              </div>
-            ))}
-
-            {recentAttendances.length === 0 ? (
-              <div className="app-empty">Ainda nao ha presencas registradas neste perfil.</div>
-            ) : null}
-          </div>
-        </article>
-
-        <article className="app-panel app-panel-pad">
-          <div className="flex items-center gap-3">
-            <div className="app-icon-shell">
-              <Sparkles size={18} />
-            </div>
-            <div>
-              <p className="app-section-label">Graduacoes</p>
-              <h2 className="text-xl font-bold">Historico resumido</h2>
-            </div>
-          </div>
-
-          <div className="mt-6 app-list">
-            {graduations.slice(0, 5).map((graduation) => (
-              <div key={graduation.id} className="app-list-card">
-                <p className="text-sm font-bold">
-                  {beltLabel(graduation.previousBelt)} {graduation.previousStripes} → {beltLabel(graduation.newBelt)} {graduation.newStripes}
-                </p>
-                <p className="mt-1 text-xs text-[color:var(--text-soft)]">
-                  {graduation.promotedAt?.toDate().toLocaleDateString('pt-BR')} • {graduation.reason.replaceAll('_', ' ')}
-                </p>
-              </div>
-            ))}
-
-            {graduations.length === 0 ? (
-              <div className="app-empty">Ainda nao ha graduacoes registradas para este perfil.</div>
-            ) : null}
-          </div>
-        </article>
-      </section>
-
-      {/* Zona de perigo — separada visualmente */}
-      <div style={{ borderTop: '1px solid var(--divider)', paddingTop: '2rem' }}>
-        <button type="button" onClick={() => void onLogout()} className="app-button app-button--danger app-button--block">
-          <LogOut size={16} />
-          Sair da conta
-        </button>
-      </div>
     </div>
   );
 };

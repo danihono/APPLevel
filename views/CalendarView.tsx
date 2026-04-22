@@ -4,11 +4,11 @@ import QRCodeSVG from 'react-qr-code';
 import { buildMonthGrid, MONTH_WEEK_HEADER, sameCalendarDay, sameCalendarMonth, stripDate, toDateKey } from '../calendarUtils';
 import ClassSessionCard from '../components/ClassSessionCard';
 import CreateClassModal, { type CreateClassPayload } from '../components/CreateClassModal';
-import { subscribeToClassRsvps, getMyClassRsvp, type FirestoreEntity } from '../services/firebase/data';
+import { getMyClassRsvp, type FirestoreEntity } from '../services/firebase/data';
 import { backendFunctions, type CreateClassScheduleBatchResult } from '../services/firebase/functions';
-import type { AttendanceRecord, AttendanceRequestRecord, ClassRecord, ClassRsvpRecord } from '../services/firebase/models';
+import type { AttendanceRecord, AttendanceRequestRecord, ClassRecord } from '../services/firebase/models';
 import { formatDateLabel, formatTimeLabel } from '../services/firebase/adapters';
-import { UserRole } from '../types';
+import { UserRole, type KidsCategory } from '../types';
 
 interface QrSessionPayload {
   classId: string;
@@ -22,6 +22,9 @@ interface CalendarViewProps {
   userRole?: UserRole;
   currentUserId: string;
   currentUserName: string;
+  currentUserBelt?: string;
+  currentUserStripes?: number;
+  currentUserKidsCategory?: KidsCategory;
   professors: Array<{ id: string; displayName: string }>;
   classes: Array<FirestoreEntity<ClassRecord>>;
   attendanceRequests?: Array<FirestoreEntity<AttendanceRequestRecord>>;
@@ -151,9 +154,10 @@ interface ClassListItemProps {
   lesson: FirestoreEntity<ClassRecord>;
   onOpen: (classId: string) => void;
   compact?: boolean;
+  isConfirmed?: boolean;
 }
 
-const ClassListItem: React.FC<ClassListItemProps> = ({ lesson, onOpen, compact = false }) => {
+const ClassListItem: React.FC<ClassListItemProps> = ({ lesson, onOpen, compact = false, isConfirmed = false }) => {
   const colors = statusColors(lesson.status);
 
   if (compact) {
@@ -173,6 +177,10 @@ const ClassListItem: React.FC<ClassListItemProps> = ({ lesson, onOpen, compact =
           <p className="calendar-mobile__class-title">{lesson.title}</p>
           <p className="calendar-mobile__class-time">{formatTimeLabel(lesson.scheduledStart)}</p>
         </div>
+
+        {isConfirmed ? (
+          <span className="app-badge app-badge--success" style={{ flexShrink: 0, fontSize: '0.65rem' }}>Confirmado</span>
+        ) : null}
 
         <ChevronRight size={18} className="calendar-mobile__class-arrow" aria-hidden="true" />
       </button>
@@ -214,6 +222,9 @@ const ClassListItem: React.FC<ClassListItemProps> = ({ lesson, onOpen, compact =
             <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8 }}>
               <p style={{ fontSize: '1rem', fontWeight: 700 }}>{lesson.title}</p>
               <span className={statusBadgeClass(lesson.status)}>{statusLabel(lesson.status)}</span>
+              {isConfirmed ? (
+                <span className="app-badge app-badge--success" style={{ fontSize: '0.65rem' }}>Confirmado</span>
+              ) : null}
             </div>
 
             {lesson.description ? (
@@ -396,10 +407,40 @@ const CompactMonthGrid: React.FC<Omit<MonthGridProps, 'onOpenClass'>> = React.me
   );
 });
 
+const ADULT_CLASS_TYPES = new Set(['iniciante', 'vida', 'sport', 'feminino', 'competicao', 'nogi']);
+const INFANTIL_CLASS_TYPES = new Set(['kids-5-7', 'infanto-8-10', 'juvenil-11-14']);
+
+function isClassVisibleForStudent(
+  desc: string | undefined,
+  belt: string,
+  stripes: number,
+  kidsCategory?: KidsCategory,
+): boolean {
+  const d = desc ?? '';
+
+  if (kidsCategory) {
+    if (kidsCategory === 'level_kids') return d === 'kids-5-7';
+    if (kidsCategory === 'level_infanto_juvenil') return d === 'infanto-8-10';
+    if (kidsCategory === 'level_juvenil') return d === 'juvenil-11-14';
+    return false;
+  }
+
+  if (INFANTIL_CLASS_TYPES.has(d)) return false;
+
+  if (belt === 'white' && stripes <= 1) {
+    return d === 'iniciante' || !ADULT_CLASS_TYPES.has(d);
+  }
+
+  return true;
+}
+
 const CalendarView: React.FC<CalendarViewProps> = ({
   userRole,
   currentUserId,
   currentUserName,
+  currentUserBelt,
+  currentUserStripes,
+  currentUserKidsCategory,
   professors,
   classes,
   attendanceRequests = [],
@@ -438,7 +479,6 @@ const CalendarView: React.FC<CalendarViewProps> = ({
   const [scannerOpen, setScannerOpen] = useState(false);
   const [scannerClassId, setScannerClassId] = useState<string | null>(null);
   const [myRsvpByClass, setMyRsvpByClass] = useState<Record<string, boolean>>({});
-  const [rsvpListByClass, setRsvpListByClass] = useState<Record<string, Array<FirestoreEntity<ClassRsvpRecord>>>>({});
   const [rsvpBusyByClass, setRsvpBusyByClass] = useState<Record<string, boolean>>({});
 
   const tokenInputRef = useRef<HTMLInputElement>(null);
@@ -448,31 +488,31 @@ const CalendarView: React.FC<CalendarViewProps> = ({
   }, [selectedClassId]);
 
   useEffect(() => {
-    if (!selectedClassId) {
-      return undefined;
+    if (!selectedClassId || isStaff) {
+      return;
     }
 
     const classEntry = classes.find((entry) => entry.id === selectedClassId);
     if (!classEntry || classEntry.status !== 'scheduled') {
-      return undefined;
+      return;
     }
 
-    if (!isStaff) {
-      void getMyClassRsvp(selectedClassId, currentUserId).then((rsvped) => {
-        setMyRsvpByClass((current) => ({ ...current, [selectedClassId]: rsvped }));
-      });
-      return undefined;
-    }
-
-    const unsubscribe = subscribeToClassRsvps(
-      selectedClassId,
-      classEntry.academyId,
-      (records) => {
-        setRsvpListByClass((current) => ({ ...current, [selectedClassId]: records }));
-      },
-    );
-    return unsubscribe;
+    void getMyClassRsvp(selectedClassId, currentUserId).then((rsvped) => {
+      setMyRsvpByClass((current) => ({ ...current, [selectedClassId]: rsvped }));
+    });
   }, [selectedClassId, classes, isStaff, currentUserId]);
+
+  useEffect(() => {
+    if (isStaff) {
+      return;
+    }
+
+    classes.filter((entry) => entry.status === 'scheduled').forEach((cls) => {
+      void getMyClassRsvp(cls.id, currentUserId).then((rsvped) => {
+        setMyRsvpByClass((current) => ({ ...current, [cls.id]: rsvped }));
+      });
+    });
+  }, [classes, currentUserId, isStaff]);
 
   useEffect(() => {
     if (typeof window === 'undefined') {
@@ -591,10 +631,18 @@ const CalendarView: React.FC<CalendarViewProps> = ({
           if (view === 'minhas' && isStaff) {
             return entry.professorId === currentUserId;
           }
+          if (userRole === UserRole.ALUNO) {
+            return isClassVisibleForStudent(
+              entry.description,
+              currentUserBelt ?? 'white',
+              currentUserStripes ?? 0,
+              currentUserKidsCategory,
+            );
+          }
           return true;
         })
         .sort(sortClasses),
-    [classes, currentUserId, isStaff, view],
+    [classes, currentUserId, currentUserBelt, currentUserKidsCategory, currentUserStripes, isStaff, userRole, view],
   );
 
   const classesByDay = useMemo(() => {
@@ -876,7 +924,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                 <div className="calendar-mobile__day-list">
                   {selectedDayClasses.length > 0 ? (
                     selectedDayClasses.map((lesson) => (
-                      <ClassListItem key={lesson.id} lesson={lesson} onOpen={openClassDetails} compact />
+                      <ClassListItem key={lesson.id} lesson={lesson} onOpen={openClassDetails} compact isConfirmed={!!myRsvpByClass[lesson.id]} />
                     ))
                   ) : (
                     <div className="calendar-mobile__empty">{selectedDayEmptyMessage}</div>
@@ -964,7 +1012,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                 <div className="mt-6 app-list">
                   {selectedDayClasses.length > 0 ? (
                     selectedDayClasses.map((lesson) => (
-                      <ClassListItem key={lesson.id} lesson={lesson} onOpen={openClassDetails} />
+                      <ClassListItem key={lesson.id} lesson={lesson} onOpen={openClassDetails} isConfirmed={!!myRsvpByClass[lesson.id]} />
                     ))
                   ) : (
                     <div className="app-empty">{selectedDayEmptyMessage}</div>
@@ -1013,7 +1061,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
           <div className="mt-6 app-list">
             {todayClasses.length > 0 ? (
               todayClasses.map((lesson) => (
-                <ClassListItem key={lesson.id} lesson={lesson} onOpen={openClassDetails} />
+                <ClassListItem key={lesson.id} lesson={lesson} onOpen={openClassDetails} isConfirmed={!!myRsvpByClass[lesson.id]} />
               ))
             ) : (
               <div className="app-empty">{todayEmptyMessage}</div>
@@ -1059,11 +1107,6 @@ const CalendarView: React.FC<CalendarViewProps> = ({
 
                   {selectedClass.status === 'scheduled' ? (
                     <>
-                      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8 }}>
-                        <span className="app-badge app-badge--muted">
-                          {selectedClass.rsvpCount ?? 0} {(selectedClass.rsvpCount ?? 0) === 1 ? 'confirmado' : 'confirmados'}
-                        </span>
-                      </div>
                       <button
                         type="button"
                         onClick={() => void handleToggleRsvp(selectedClass.id)}
@@ -1198,27 +1241,6 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                         </div>
                       ) : null}
 
-                      {selectedClass.status === 'scheduled' ? (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                            <Users size={14} style={{ color: 'var(--gold-mid)' }} />
-                            <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-soft)' }}>
-                              {selectedClass.rsvpCount ?? 0} {(selectedClass.rsvpCount ?? 0) === 1 ? 'confirmado' : 'confirmados'}
-                            </span>
-                          </div>
-                          {(rsvpListByClass[selectedClass.id] ?? []).length === 0 ? (
-                            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', padding: '4px 0' }}>
-                              Nenhum aluno confirmou presenca ainda.
-                            </div>
-                          ) : (
-                            (rsvpListByClass[selectedClass.id] ?? []).map((rsvp) => (
-                              <div key={rsvp.id} className="app-list-card" style={{ fontSize: '0.82rem', padding: '8px 12px' }}>
-                                {rsvp.userDisplayName}
-                              </div>
-                            ))
-                          )}
-                        </div>
-                      ) : null}
                     </div>
                   ) : (
                     <div style={{ padding: '0 20px 16px', display: 'flex', flexDirection: 'column', gap: 12 }}>

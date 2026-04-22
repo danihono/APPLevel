@@ -12,21 +12,21 @@ interface ClassSessionCardProps {
   showStatus?: boolean;
 }
 
+const INFANTIL_TYPES = new Set(['kids-5-7', 'infanto-8-10', 'juvenil-11-14']);
+const PERFORMANCE_TYPES = new Set(['competicao', 'nogi']);
+const DESENVOLVIMENTO_TYPES = new Set(['iniciante', 'vida', 'sport', 'feminino']);
+const ALL_TYPE_CODES = new Set([...INFANTIL_TYPES, ...PERFORMANCE_TYPES, ...DESENVOLVIMENTO_TYPES, 'kids', 'advanced', 'no-gi']);
+
 function toCategory(lesson: FirestoreEntity<ClassRecord>) {
-  const source = `${lesson.title} ${lesson.description ?? ''}`.toLowerCase();
+  const desc = lesson.description ?? '';
+  if (INFANTIL_TYPES.has(desc))       return 'Infantil';
+  if (PERFORMANCE_TYPES.has(desc))    return 'Performance';
+  if (DESENVOLVIMENTO_TYPES.has(desc)) return 'Desenvolvimento';
 
-  if (source.includes('kids')) {
-    return 'Kids';
-  }
-
-  if (source.includes('advanced') || source.includes('avanc')) {
-    return 'Advanced';
-  }
-
-  if (source.includes('no-gi') || source.includes('nogi')) {
-    return 'No-Gi';
-  }
-
+  const source = `${lesson.title} ${desc}`.toLowerCase();
+  if (source.includes('kids'))                                 return 'Kids';
+  if (source.includes('advanced') || source.includes('avanc')) return 'Advanced';
+  if (source.includes('no-gi') || source.includes('nogi'))     return 'No-Gi';
   return 'Adulto';
 }
 
@@ -82,7 +82,7 @@ const ClassSessionCard: React.FC<ClassSessionCardProps> = ({
             {showStatus ? <span className={getStatusClass(lesson.status)}>{lesson.status}</span> : null}
           </div>
 
-          {lesson.description ? (
+          {lesson.description && !ALL_TYPE_CODES.has(lesson.description) ? (
             <p className="app-section-copy mt-3">{lesson.description}</p>
           ) : null}
         </div>

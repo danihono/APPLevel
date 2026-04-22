@@ -20,6 +20,7 @@ import {
   subscribeToGraduationRequests,
   subscribeToJoinRequests,
   subscribeToLearningCourses,
+  subscribeToLearningLessonBlocks,
   subscribeToLearningLessons,
   subscribeToLearningProgress,
   subscribeToLearningQuizzes,
@@ -31,7 +32,7 @@ import {
   subscribeToUserProfile,
 } from './services/firebase/data';
 import { backendFunctions, type CreateClassScheduleBatchResult } from './services/firebase/functions';
-import { updateAcademySettings, uploadUserPhoto } from './services/firebase/mutations';
+import { updateAcademySettings, uploadLearningLessonAsset, uploadUserPhoto } from './services/firebase/mutations';
 import type {
   AppRole,
   AcademyRecord,
@@ -44,6 +45,7 @@ import type {
   GraduationRecord,
   JoinRequestRecord,
   LearningCourseRecord,
+  LearningLessonBlockRecord,
   LearningLessonRecord,
   LearningProgressRecord,
   LearningQuizRecord,
@@ -453,6 +455,7 @@ const App: React.FC = () => {
   const [learningTracks, setLearningTracks] = useState<Array<FirestoreEntity<LearningTrackRecord>>>([]);
   const [learningCourses, setLearningCourses] = useState<Array<FirestoreEntity<LearningCourseRecord>>>([]);
   const [learningLessons, setLearningLessons] = useState<Array<FirestoreEntity<LearningLessonRecord>>>([]);
+  const [learningLessonBlocks, setLearningLessonBlocks] = useState<Array<FirestoreEntity<LearningLessonBlockRecord>>>([]);
   const [learningQuizzes, setLearningQuizzes] = useState<Array<FirestoreEntity<LearningQuizRecord>>>([]);
   const [learningProgress, setLearningProgress] = useState<Array<FirestoreEntity<LearningProgressRecord>>>([]);
   const [profileLoading, setProfileLoading] = useState(false);
@@ -563,6 +566,7 @@ const App: React.FC = () => {
       setLearningTracks([]);
       setLearningCourses([]);
       setLearningLessons([]);
+      setLearningLessonBlocks([]);
       setLearningQuizzes([]);
       setLearningProgress([]);
       setSessionValidated(false);
@@ -1033,6 +1037,7 @@ const App: React.FC = () => {
       setLearningTracks([]);
       setLearningCourses([]);
       setLearningLessons([]);
+      setLearningLessonBlocks([]);
       setLearningQuizzes([]);
       setLearningProgress([]);
       return;
@@ -1042,6 +1047,7 @@ const App: React.FC = () => {
       setLearningTracks([]);
       setLearningCourses([]);
       setLearningLessons([]);
+      setLearningLessonBlocks([]);
       setLearningQuizzes([]);
       setLearningProgress([]);
       return;
@@ -1063,6 +1069,10 @@ const App: React.FC = () => {
         { publishedOnly },
         setLearningLessons,
         (error) => reportSessionError('data:subscribeToLearningLessons', error),
+      ),
+      subscribeToLearningLessonBlocks(
+        setLearningLessonBlocks,
+        (error) => reportSessionError('data:subscribeToLearningLessonBlocks', error),
       ),
       subscribeToLearningProgress(
         profile.role === 'superadmin'
@@ -1142,7 +1152,6 @@ const App: React.FC = () => {
       professorId: firstPayload.professorId,
       professorName: firstPayload.professorName,
       tatame: firstPayload.tatame,
-      capacity: firstPayload.capacity,
       checkinWindowMinutes: academy?.classCheckinWindowMinutes ?? 15,
       occurrences: classPayloads.map((payload) => ({
         scheduledStart: payload.scheduledStart,
@@ -1400,13 +1409,35 @@ const App: React.FC = () => {
     courseId: string;
     title: string;
     description?: string;
-    videoUrl: string;
+    videoUrl?: string;
     order: number;
     status: 'draft' | 'published';
     passingScore: number;
+    contentBlockCount: number;
   }) {
     try {
       return await backendFunctions.upsertLearningLesson(payload);
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
+  }
+
+  async function handleReplaceLearningLessonBlocks(payload: {
+    lessonId: string;
+    blocks: Array<{
+      blockId?: string;
+      type: LearningLessonBlockRecord['type'];
+      title: string;
+      order: number;
+      sourceUrl?: string;
+      storagePath?: string;
+      mimeType?: string;
+      fileName?: string;
+      thumbnailUrl?: string;
+    }>;
+  }) {
+    try {
+      return await backendFunctions.replaceLearningLessonBlocks(payload);
     } catch (error) {
       throw new Error(getErrorMessage(error));
     }
@@ -1429,11 +1460,38 @@ const App: React.FC = () => {
 
   async function handleRecordLessonPlayback(payload: {
     lessonId: string;
+    blockId: string;
     currentSeconds: number;
     durationSeconds: number;
   }) {
     try {
-      return await backendFunctions.recordLessonPlayback(payload);
+      return await backendFunctions.recordLearningBlockPlayback(payload);
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
+  }
+
+  async function handleMarkLearningBlockComplete(payload: {
+    lessonId: string;
+    blockId: string;
+  }) {
+    try {
+      return await backendFunctions.markLearningBlockComplete(payload);
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
+  }
+
+  async function handleUploadLearningAsset(payload: {
+    lessonId: string;
+    file: File;
+  }) {
+    const academyId = profile?.role === 'superadmin'
+      ? (selectedAcademyId || undefined)
+      : profile?.academyId;
+
+    try {
+      return await uploadLearningLessonAsset(academyId, payload.lessonId, payload.file);
     } catch (error) {
       throw new Error(getErrorMessage(error));
     }
@@ -1667,7 +1725,6 @@ const App: React.FC = () => {
           onUpdateAcademy={handleUpdateAcademy}
           onCreateAcademy={handleCreateAcademy}
           onCreateUser={handleCreateUser}
-          onSaveProgressionRules={handleSaveProgressionRules}
         />
       );
     }
@@ -1717,6 +1774,9 @@ const App: React.FC = () => {
             userRole={viewUserRole}
             currentUserId={currentUser.id}
             currentUserName={profile.displayName}
+            currentUserBelt={currentUser.belt}
+            currentUserStripes={currentUser.stripes}
+            currentUserKidsCategory={currentUser.kidsCategory}
             professors={professors}
             classes={classes}
             attendanceRequests={studentAttendanceRequests}
@@ -1775,7 +1835,6 @@ const App: React.FC = () => {
             onUpdateAcademy={handleUpdateAcademy}
             onCreateAcademy={handleCreateAcademy}
             onCreateUser={handleCreateUser}
-            onSaveProgressionRules={handleSaveProgressionRules}
           />
         );
       case 'notifications':
@@ -1821,14 +1880,18 @@ const App: React.FC = () => {
             tracks={learningTracks}
             courses={learningCourses}
             lessons={learningLessons}
+            lessonBlocks={learningLessonBlocks}
             quizzes={learningQuizzes}
             progressRecords={learningProgress}
             onSelectAcademy={setSelectedAcademyId}
             onUpsertTrack={handleUpsertLearningTrack}
             onUpsertCourse={handleUpsertLearningCourse}
             onUpsertLesson={handleUpsertLearningLesson}
+            onReplaceLessonBlocks={handleReplaceLearningLessonBlocks}
             onUpsertQuiz={handleUpsertLessonQuiz}
+            onUploadLearningAsset={handleUploadLearningAsset}
             onRecordPlayback={handleRecordLessonPlayback}
+            onMarkBlockComplete={handleMarkLearningBlockComplete}
             onStartQuiz={handleStartLessonQuiz}
             onSubmitQuiz={handleSubmitLessonQuiz}
           />

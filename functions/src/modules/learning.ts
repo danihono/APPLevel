@@ -4,6 +4,8 @@ import {
   COLLECTIONS,
   LearningContentStatus,
   LearningCourseDoc,
+  LearningLessonBlockDoc,
+  LearningLessonBlockType,
   LearningLessonDoc,
   LearningProgressDoc,
   LearningQuizAttemptDoc,
@@ -15,6 +17,7 @@ import { getRequestContext } from '../lib/context';
 import { assertCondition } from '../lib/errors';
 import { db } from '../lib/firebase';
 import {
+  optionalNumber,
   optionalString,
   requiredNumber,
   requiredString,
@@ -22,11 +25,15 @@ import {
 
 const callableOptions = { region: 'southamerica-east1', invoker: 'public' as const };
 const DEFAULT_REQUIRED_WATCH_PERCENT = 80;
+const LEGACY_VIDEO_BLOCK_ID = 'legacy-youtube';
+
+type ResolvedLessonBlock = LearningLessonBlockDoc & { id: string };
 
 type PublishedLessonContext = {
   track: LearningTrackDoc;
   course: LearningCourseDoc;
   lesson: LearningLessonDoc;
+  blocks: ResolvedLessonBlock[];
   quiz?: LearningQuizDoc;
 };
 
@@ -37,6 +44,18 @@ type OrderedTrackLesson = {
   courseOrder: number;
   lessonOrder: number;
   title: string;
+};
+
+type ParsedBlockInput = {
+  blockId?: string;
+  type: LearningLessonBlockType;
+  title: string;
+  order: number;
+  sourceUrl?: string;
+  storagePath?: string;
+  mimeType?: string;
+  fileName?: string;
+  thumbnailUrl?: string;
 };
 
 function normalizeContentStatus(value: string): LearningContentStatus {
@@ -62,6 +81,16 @@ function normalizePercentage(value: number, fieldName: string): number {
   return normalized;
 }
 
+function normalizeBlockType(value: string): LearningLessonBlockType {
+  assertCondition(
+    value === 'youtube' || value === 'uploaded_video' || value === 'pdf' || value === 'image',
+    'invalid-argument',
+    'Tipo de conteudo invalido.',
+  );
+
+  return value;
+}
+
 function assertProfessorOnly(actorRole: string): void {
   assertCondition(actorRole === 'professor', 'permission-denied', 'Somente professores podem consumir o Learning Hub.');
 }
@@ -82,12 +111,104 @@ function assertYouTubeUrl(value: string): void {
   assertCondition(
     isYouTubeUrl(value),
     'invalid-argument',
-    'Informe uma URL valida do YouTube para a aula.',
+    'Informe uma URL valida do YouTube para o modulo.',
   );
 }
 
 function progressDocId(userId: string, lessonId: string): string {
   return `${userId}__${lessonId}`;
+}
+
+function hasQuizConfigured(lesson: LearningLessonDoc, quiz?: LearningQuizDoc): boolean {
+  if (quiz) {
+    return Array.isArray(quiz.questions) && quiz.questions.length > 0;
+  }
+
+  return lesson.quizQuestionCount > 0;
+}
+
+function isManualBlockType(type: LearningLessonBlockType): boolean {
+  return type === 'pdf' || type === 'image';
+}
+
+function isVideoBlockType(type: LearningLessonBlockType): boolean {
+  return type === 'youtube' || type === 'uploaded_video';
+}
+
+function clampProgressValue(value: unknown): number {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    return 0;
+  }
+
+  return Math.max(0, Math.min(100, Math.round(value)));
+}
+
+function normalizeProgressMap(progress?: LearningProgressDoc): Record<string, number> {
+  const base = progress?.contentProgressMap;
+  if (!base || typeof base !== 'object') {
+    return {};
+  }
+
+  return Object.entries(base).reduce<Record<string, number>>((accumulator, [blockId, value]) => {
+    accumulator[blockId] = clampProgressValue(value);
+    return accumulator;
+  }, {});
+}
+
+function deriveContentState(blocks: ResolvedLessonBlock[], rawProgressMap: Record<string, number>) {
+  const contentProgressMap: Record<string, number> = {};
+  const completedContentIds: string[] = [];
+
+  let progressTotal = 0;
+
+  blocks.forEach((block) => {
+    const progress = clampProgressValue(rawProgressMap[block.id] ?? 0);
+    contentProgressMap[block.id] = progress;
+    progressTotal += progress;
+
+    if (progress >= 100) {
+      completedContentIds.push(block.id);
+    }
+  });
+
+  const contentCompletionPercent = blocks.length > 0
+    ? Math.round(progressTotal / blocks.length)
+    : 0;
+  const contentCompleted = blocks.length > 0 && completedContentIds.length === blocks.length;
+
+  return {
+    contentProgressMap,
+    completedContentIds,
+    contentCompletionPercent,
+    contentCompleted,
+  };
+}
+
+function isLessonCompleted(progress?: LearningProgressDoc): boolean {
+  if (!progress) {
+    return false;
+  }
+
+  return !!progress.lessonCompleted || !!progress.quizPassed || !!progress.contentCompleted;
+}
+
+function buildLegacyLessonBlock(lesson: LearningLessonDoc): ResolvedLessonBlock | null {
+  if (!lesson.videoUrl) {
+    return null;
+  }
+
+  return {
+    id: LEGACY_VIDEO_BLOCK_ID,
+    lessonId: '',
+    trackId: lesson.trackId,
+    courseId: lesson.courseId,
+    type: 'youtube',
+    title: lesson.title,
+    order: 1,
+    sourceUrl: lesson.videoUrl,
+    createdAt: lesson.createdAt,
+    updatedAt: lesson.updatedAt,
+  };
 }
 
 async function getTrackOrThrow(trackId: string): Promise<FirebaseFirestore.DocumentSnapshot<FirebaseFirestore.DocumentData>> {
@@ -104,28 +225,57 @@ async function getCourseOrThrow(courseId: string): Promise<FirebaseFirestore.Doc
 
 async function getLessonOrThrow(lessonId: string): Promise<FirebaseFirestore.DocumentSnapshot<FirebaseFirestore.DocumentData>> {
   const snapshot = await db.collection(COLLECTIONS.learningLessons).doc(lessonId).get();
-  assertCondition(snapshot.exists, 'not-found', 'Aula nao encontrada.');
+  assertCondition(snapshot.exists, 'not-found', 'Modulo nao encontrado.');
   return snapshot;
+}
+
+async function listLessonBlocks(lessonId: string): Promise<ResolvedLessonBlock[]> {
+  const snapshot = await db.collection(COLLECTIONS.learningLessonBlocks).where('lessonId', '==', lessonId).get();
+
+  return snapshot.docs
+    .map((doc) => ({ id: doc.id, ...(doc.data() as LearningLessonBlockDoc) }))
+    .sort((left, right) => left.order - right.order || left.title.localeCompare(right.title, 'pt-BR'));
+}
+
+async function resolveLessonBlocks(lessonId: string, lesson: LearningLessonDoc): Promise<ResolvedLessonBlock[]> {
+  const storedBlocks = await listLessonBlocks(lessonId);
+  if (storedBlocks.length > 0) {
+    return storedBlocks;
+  }
+
+  const legacyBlock = buildLegacyLessonBlock(lesson);
+  if (!legacyBlock) {
+    return [];
+  }
+
+  return [
+    {
+      ...legacyBlock,
+      lessonId,
+    },
+  ];
 }
 
 async function getLessonContext(lessonId: string, includeQuiz = false): Promise<PublishedLessonContext> {
   const lessonSnap = await getLessonOrThrow(lessonId);
   const lesson = lessonSnap.data() as LearningLessonDoc;
 
-  const [trackSnap, courseSnap, quizSnap] = await Promise.all([
+  const [trackSnap, courseSnap, quizSnap, blocks] = await Promise.all([
     getTrackOrThrow(lesson.trackId),
     getCourseOrThrow(lesson.courseId),
     includeQuiz ? db.collection(COLLECTIONS.learningQuizzes).doc(lessonId).get() : Promise.resolve(null),
+    resolveLessonBlocks(lessonId, lesson),
   ]);
 
   const track = trackSnap.data() as LearningTrackDoc;
   const course = courseSnap.data() as LearningCourseDoc;
-  assertCondition(course.trackId === lesson.trackId, 'failed-precondition', 'Curso e aula estao fora da mesma trilha.');
+  assertCondition(course.trackId === lesson.trackId, 'failed-precondition', 'Curso e modulo estao fora da mesma trilha.');
 
   return {
     track,
     course,
     lesson,
+    blocks,
     quiz: quizSnap?.exists ? (quizSnap.data() as LearningQuizDoc) : undefined,
   };
 }
@@ -170,7 +320,7 @@ async function listOrderedTrackLessons(trackId: string): Promise<OrderedTrackLes
 function assertPublishedContext(context: PublishedLessonContext): void {
   assertCondition(context.track.status === 'published', 'failed-precondition', 'A trilha ainda nao foi publicada.');
   assertCondition(context.course.status === 'published', 'failed-precondition', 'O curso ainda nao foi publicado.');
-  assertCondition(context.lesson.status === 'published', 'failed-precondition', 'A aula ainda nao foi publicada.');
+  assertCondition(context.lesson.status === 'published', 'failed-precondition', 'O modulo ainda nao foi publicado.');
 }
 
 async function ensureLessonUnlocked(params: {
@@ -179,7 +329,7 @@ async function ensureLessonUnlocked(params: {
   orderedLessons: OrderedTrackLesson[];
 }): Promise<void> {
   const lessonIndex = params.orderedLessons.findIndex((lesson) => lesson.id === params.lessonId);
-  assertCondition(lessonIndex >= 0, 'not-found', 'A aula nao faz parte da trilha publicada.');
+  assertCondition(lessonIndex >= 0, 'not-found', 'O modulo nao faz parte da trilha publicada.');
 
   if (lessonIndex === 0) {
     return;
@@ -195,15 +345,20 @@ async function ensureLessonUnlocked(params: {
   const previousData = previousProgress.data() as LearningProgressDoc | undefined;
 
   assertCondition(
-    previousProgress.exists && !!previousData?.quizPassed,
+    previousProgress.exists && isLessonCompleted(previousData),
     'failed-precondition',
-    'Conclua a aula anterior antes de liberar esta etapa.',
+    'Conclua o modulo anterior antes de liberar esta etapa.',
   );
 }
 
-function parseQuizQuestions(data: unknown): LearningQuizQuestionDoc[] {
+function parseQuizQuestions(data: unknown, options?: { allowEmpty?: boolean }): LearningQuizQuestionDoc[] {
   const rawQuestions = (data as { questions?: unknown } | null)?.questions;
-  assertCondition(Array.isArray(rawQuestions) && rawQuestions.length > 0, 'invalid-argument', 'Cadastre ao menos uma pergunta no quiz.');
+  assertCondition(Array.isArray(rawQuestions), 'invalid-argument', 'Envie as perguntas do quiz em formato de lista.');
+
+  if (rawQuestions.length === 0) {
+    assertCondition(!!options?.allowEmpty, 'invalid-argument', 'Cadastre ao menos uma pergunta no quiz.');
+    return [];
+  }
 
   return rawQuestions.map((question, index) => {
     assertCondition(typeof question === 'object' && question !== null, 'invalid-argument', `Pergunta ${index + 1} invalida.`);
@@ -211,7 +366,7 @@ function parseQuizQuestions(data: unknown): LearningQuizQuestionDoc[] {
     const prompt = typeof (question as { prompt?: unknown }).prompt === 'string'
       ? (question as { prompt: string }).prompt.trim()
       : '';
-    const options = Array.isArray((question as { options?: unknown }).options)
+    const optionsList = Array.isArray((question as { options?: unknown }).options)
       ? (question as { options: unknown[] }).options
         .map((option) => (typeof option === 'string' ? option.trim() : ''))
         .filter(Boolean)
@@ -219,21 +374,21 @@ function parseQuizQuestions(data: unknown): LearningQuizQuestionDoc[] {
     const correctOptionIndex = (question as { correctOptionIndex?: unknown }).correctOptionIndex;
 
     assertCondition(prompt.length > 0, 'invalid-argument', `Informe o enunciado da pergunta ${index + 1}.`);
-    assertCondition(options.length >= 2, 'invalid-argument', `A pergunta ${index + 1} precisa ter ao menos duas opcoes.`);
+    assertCondition(optionsList.length >= 2, 'invalid-argument', `A pergunta ${index + 1} precisa ter ao menos duas opcoes.`);
     assertCondition(
       typeof correctOptionIndex === 'number' && Number.isInteger(correctOptionIndex),
       'invalid-argument',
       `Informe a resposta correta da pergunta ${index + 1}.`,
     );
     assertCondition(
-      correctOptionIndex >= 0 && correctOptionIndex < options.length,
+      correctOptionIndex >= 0 && correctOptionIndex < optionsList.length,
       'invalid-argument',
       `A resposta correta da pergunta ${index + 1} esta fora do intervalo.`,
     );
 
     return {
       prompt,
-      options,
+      options: optionsList,
       correctOptionIndex,
     };
   });
@@ -251,6 +406,85 @@ function parseAnswerIndexes(data: unknown): number[] {
   return rawAnswers as number[];
 }
 
+function parseLessonBlocks(data: unknown): ParsedBlockInput[] {
+  const rawBlocks = (data as { blocks?: unknown } | null)?.blocks;
+  assertCondition(Array.isArray(rawBlocks), 'invalid-argument', 'Envie os blocos do modulo em formato de lista.');
+
+  const parsedBlocks = rawBlocks.map((entry, index) => {
+    assertCondition(typeof entry === 'object' && entry !== null, 'invalid-argument', `Bloco ${index + 1} invalido.`);
+
+    const record = entry as {
+      blockId?: unknown;
+      type?: unknown;
+      title?: unknown;
+      order?: unknown;
+      sourceUrl?: unknown;
+      storagePath?: unknown;
+      mimeType?: unknown;
+      fileName?: unknown;
+      thumbnailUrl?: unknown;
+    };
+
+    const blockId = typeof record.blockId === 'string' && record.blockId.trim().length > 0
+      ? record.blockId.trim()
+      : undefined;
+    const type = normalizeBlockType(requiredString(record, 'type'));
+    const title = requiredString(record, 'title').trim();
+    const order = normalizePositiveInteger(requiredNumber(record, 'order'), 'order', 1);
+    const sourceUrl = optionalString(record, 'sourceUrl');
+    const storagePath = optionalString(record, 'storagePath');
+    const mimeType = optionalString(record, 'mimeType');
+    const fileName = optionalString(record, 'fileName');
+    const thumbnailUrl = optionalString(record, 'thumbnailUrl');
+
+    if (type === 'youtube') {
+      assertCondition(!!sourceUrl, 'invalid-argument', `Informe a URL do YouTube no bloco ${index + 1}.`);
+      assertYouTubeUrl(sourceUrl);
+    } else {
+      assertCondition(!!sourceUrl, 'invalid-argument', `Informe a URL publica do arquivo no bloco ${index + 1}.`);
+      assertCondition(!!storagePath, 'invalid-argument', `Informe o storagePath do bloco ${index + 1}.`);
+      assertCondition(!!mimeType, 'invalid-argument', `Informe o mimeType do bloco ${index + 1}.`);
+      assertCondition(!!fileName, 'invalid-argument', `Informe o nome do arquivo no bloco ${index + 1}.`);
+
+      if (type === 'uploaded_video') {
+        assertCondition(mimeType.startsWith('video/'), 'invalid-argument', `O bloco ${index + 1} precisa apontar para um video.`);
+      }
+
+      if (type === 'pdf') {
+        assertCondition(mimeType === 'application/pdf', 'invalid-argument', `O bloco ${index + 1} precisa apontar para um PDF.`);
+      }
+
+      if (type === 'image') {
+        assertCondition(mimeType.startsWith('image/'), 'invalid-argument', `O bloco ${index + 1} precisa apontar para uma imagem.`);
+      }
+    }
+
+    return {
+      blockId,
+      type,
+      title,
+      order,
+      sourceUrl,
+      storagePath,
+      mimeType,
+      fileName,
+      thumbnailUrl,
+    };
+  });
+
+  const seenIds = new Set<string>();
+  parsedBlocks.forEach((block, index) => {
+    if (!block.blockId) {
+      return;
+    }
+
+    assertCondition(!seenIds.has(block.blockId), 'invalid-argument', `O bloco ${index + 1} usa um id duplicado.`);
+    seenIds.add(block.blockId);
+  });
+
+  return parsedBlocks;
+}
+
 function sanitizeQuizQuestions(questions: LearningQuizQuestionDoc[]) {
   return questions.map((question, index) => ({
     id: String(index + 1),
@@ -266,6 +500,137 @@ function findNextLessonId(orderedLessons: OrderedTrackLesson[], lessonId: string
   }
 
   return orderedLessons[lessonIndex + 1]?.id;
+}
+
+function buildProgressPayload(params: {
+  actor: Awaited<ReturnType<typeof getRequestContext>>;
+  lessonId: string;
+  context: PublishedLessonContext;
+  existing?: LearningProgressDoc;
+  now: Timestamp;
+  contentProgressMap: Record<string, number>;
+  videoSecondsWatched: number;
+  durationSeconds: number;
+  watchPercent: number;
+  videoCompleted: boolean;
+  quizPassed?: boolean;
+  attemptCount?: number;
+  lastScore?: number;
+  bestScore?: number;
+  lastAttemptAt?: Timestamp;
+  passedAt?: Timestamp;
+}) {
+  const contentState = deriveContentState(params.context.blocks, params.contentProgressMap);
+  const quizPassed = params.quizPassed ?? params.existing?.quizPassed ?? false;
+  const hasQuiz = hasQuizConfigured(params.context.lesson, params.context.quiz);
+  const lessonCompleted = hasQuiz
+    ? contentState.contentCompleted && quizPassed
+    : contentState.contentCompleted;
+
+  return {
+    academyId: params.actor.academyId,
+    userId: params.actor.uid,
+    userDisplayName: params.actor.user.displayName,
+    trackId: params.context.lesson.trackId,
+    courseId: params.context.lesson.courseId,
+    lessonId: params.lessonId,
+    videoSecondsWatched: params.videoSecondsWatched,
+    durationSeconds: params.durationSeconds,
+    watchPercent: params.watchPercent,
+    videoCompleted: params.videoCompleted,
+    quizReady: contentState.contentCompleted,
+    quizPassed,
+    lessonCompleted,
+    completedContentIds: contentState.completedContentIds,
+    contentProgressMap: contentState.contentProgressMap,
+    contentCompletionPercent: contentState.contentCompletionPercent,
+    contentCompleted: contentState.contentCompleted,
+    lastScore: params.lastScore ?? params.existing?.lastScore ?? 0,
+    bestScore: params.bestScore ?? params.existing?.bestScore ?? 0,
+    attemptCount: params.attemptCount ?? params.existing?.attemptCount ?? 0,
+    unlockedAt: params.existing?.unlockedAt ?? params.now,
+    passedAt: params.passedAt ?? params.existing?.passedAt,
+    lastAttemptAt: params.lastAttemptAt ?? params.existing?.lastAttemptAt,
+    createdAt: params.existing?.createdAt ?? params.now,
+    updatedAt: params.now,
+  } satisfies LearningProgressDoc;
+}
+
+function getDefaultVideoBlock(context: PublishedLessonContext): ResolvedLessonBlock {
+  const block = context.blocks.find((entry) => isVideoBlockType(entry.type));
+  assertCondition(!!block, 'failed-precondition', 'O modulo nao possui um bloco de video reproduzivel.');
+  if (!block) {
+    throw new Error('O modulo nao possui um bloco de video reproduzivel.');
+  }
+  return block;
+}
+
+async function recordVideoProgress(params: {
+  actor: Awaited<ReturnType<typeof getRequestContext>>;
+  lessonId: string;
+  blockId: string;
+  currentSeconds: number;
+  durationSeconds: number;
+}) {
+  const context = await getLessonContext(params.lessonId);
+  const orderedLessons = await listOrderedTrackLessons(context.lesson.trackId);
+  const progressRef = db.collection(COLLECTIONS.learningProgress).doc(progressDocId(params.actor.uid, params.lessonId));
+  const block = context.blocks.find((entry) => entry.id === params.blockId);
+
+  assertPublishedContext(context);
+  await ensureLessonUnlocked({
+    userId: params.actor.uid,
+    lessonId: params.lessonId,
+    orderedLessons,
+  });
+
+  if (!block) {
+    throw new Error('Bloco de conteudo nao encontrado.');
+  }
+  assertCondition(isVideoBlockType(block.type), 'failed-precondition', 'Este bloco nao aceita progresso por reproducao.');
+
+  const now = Timestamp.now();
+  const clampedCurrentSeconds = Math.min(params.currentSeconds, params.durationSeconds);
+  const safeDuration = Math.max(params.durationSeconds, 1);
+  const rawWatchPercent = Math.min(100, Math.round((clampedCurrentSeconds / safeDuration) * 100));
+  const normalizedBlockProgress = Math.min(
+    100,
+    Math.round((rawWatchPercent / Math.max(context.lesson.requiredWatchPercent, 1)) * 100),
+  );
+
+  await db.runTransaction(async (transaction) => {
+    const existingSnapshot = await transaction.get(progressRef);
+    const existing = existingSnapshot.exists ? (existingSnapshot.data() as LearningProgressDoc) : undefined;
+    const contentProgressMap = normalizeProgressMap(existing);
+    contentProgressMap[block.id] = Math.max(contentProgressMap[block.id] ?? 0, normalizedBlockProgress);
+
+    const payload = buildProgressPayload({
+      actor: params.actor,
+      lessonId: params.lessonId,
+      context,
+      existing,
+      now,
+      contentProgressMap,
+      videoSecondsWatched: clampedCurrentSeconds,
+      durationSeconds: safeDuration,
+      watchPercent: rawWatchPercent,
+      videoCompleted: (contentProgressMap[block.id] ?? 0) >= 100,
+    });
+
+    transaction.set(progressRef, payload, { merge: true });
+  });
+
+  const updated = await progressRef.get();
+  const progress = updated.data() as LearningProgressDoc;
+
+  return {
+    lessonId: params.lessonId,
+    blockId: block.id,
+    watchPercent: progress.watchPercent,
+    contentCompletionPercent: progress.contentCompletionPercent ?? 0,
+    contentCompleted: progress.contentCompleted ?? false,
+    quizReady: progress.quizReady,
+  };
 }
 
 export const upsertLearningTrack = onCall(callableOptions, async (request) => {
@@ -346,39 +711,51 @@ export const upsertLearningLesson = onCall(callableOptions, async (request) => {
   const courseId = requiredString(request.data, 'courseId');
   const title = requiredString(request.data, 'title');
   const description = optionalString(request.data, 'description');
-  const videoUrl = requiredString(request.data, 'videoUrl');
+  const videoUrl = optionalString(request.data, 'videoUrl');
   const order = normalizePositiveInteger(requiredNumber(request.data, 'order'), 'order');
   const status = normalizeContentStatus(requiredString(request.data, 'status'));
   const passingScore = normalizePercentage(requiredNumber(request.data, 'passingScore'), 'passingScore');
+  const hintedContentBlockCount = normalizePositiveInteger(optionalNumber(request.data, 'contentBlockCount') ?? (videoUrl ? 1 : 0), 'contentBlockCount');
   const now = Timestamp.now();
 
-  assertYouTubeUrl(videoUrl);
+  if (videoUrl) {
+    assertYouTubeUrl(videoUrl);
+  }
 
   const lessonRef = lessonId
     ? db.collection(COLLECTIONS.learningLessons).doc(lessonId)
     : db.collection(COLLECTIONS.learningLessons).doc();
-  const [trackSnap, courseSnap, existing, quizSnap] = await Promise.all([
+  const [trackSnap, courseSnap, existing, quizSnap, storedBlocks] = await Promise.all([
     getTrackOrThrow(trackId),
     getCourseOrThrow(courseId),
     lessonId ? lessonRef.get() : Promise.resolve(null),
     lessonId ? db.collection(COLLECTIONS.learningQuizzes).doc(lessonId).get() : Promise.resolve(null),
+    lessonId ? listLessonBlocks(lessonId) : Promise.resolve([]),
   ]);
 
   const course = courseSnap.data() as LearningCourseDoc;
+  const existingLesson = existing?.exists ? (existing.data() as LearningLessonDoc) : undefined;
+  const legacyVideoUrl = videoUrl ?? existingLesson?.videoUrl;
+  const effectiveContentBlockCount = Math.max(
+    hintedContentBlockCount,
+    storedBlocks.length,
+    existingLesson?.contentBlockCount ?? 0,
+    legacyVideoUrl ? 1 : 0,
+  );
+
   assertCondition(trackSnap.exists, 'not-found', 'Trilha nao encontrada.');
   assertCondition(course.trackId === trackId, 'failed-precondition', 'O curso precisa pertencer a trilha informada.');
 
   if (existing?.exists) {
-    assertCondition(existing.get('trackId') === trackId, 'failed-precondition', 'Nao e possivel mover uma aula para outra trilha no v1.');
-    assertCondition(existing.get('courseId') === courseId, 'failed-precondition', 'Nao e possivel mover uma aula para outro curso no v1.');
+    assertCondition(existing.get('trackId') === trackId, 'failed-precondition', 'Nao e possivel mover um modulo para outra trilha no v1.');
+    assertCondition(existing.get('courseId') === courseId, 'failed-precondition', 'Nao e possivel mover um modulo para outro curso no v1.');
   }
 
   if (status === 'published') {
-    const questionCount = Array.isArray(quizSnap?.get('questions')) ? (quizSnap?.get('questions') as unknown[]).length : 0;
     assertCondition(
-      questionCount > 0,
+      effectiveContentBlockCount > 0,
       'failed-precondition',
-      'Salve a aula como draft, cadastre o quiz e publique depois.',
+      'Salve ao menos um bloco de conteudo antes de publicar o modulo.',
     );
   }
 
@@ -387,12 +764,13 @@ export const upsertLearningLesson = onCall(callableOptions, async (request) => {
     courseId,
     title,
     description,
-    videoUrl,
+    ...(legacyVideoUrl ? { videoUrl: legacyVideoUrl } : {}),
     order,
     status,
     passingScore,
     requiredWatchPercent: DEFAULT_REQUIRED_WATCH_PERCENT,
-    quizQuestionCount: Array.isArray(quizSnap?.get('questions')) ? (quizSnap?.get('questions') as unknown[]).length : ((existing?.get('quizQuestionCount') as number | undefined) ?? 0),
+    quizQuestionCount: Array.isArray(quizSnap?.get('questions')) ? (quizSnap?.get('questions') as unknown[]).length : ((existingLesson?.quizQuestionCount) ?? 0),
+    contentBlockCount: effectiveContentBlockCount,
     createdAt: (existing?.get('createdAt') as FirebaseFirestore.Timestamp | undefined) ?? now,
     updatedAt: now,
   };
@@ -417,15 +795,89 @@ export const upsertLearningLesson = onCall(callableOptions, async (request) => {
   };
 });
 
+export const replaceLearningLessonBlocks = onCall(callableOptions, async (request) => {
+  await getRequestContext(request, 'superadmin');
+  const lessonId = requiredString(request.data, 'lessonId');
+  const parsedBlocks = parseLessonBlocks(request.data);
+  const now = Timestamp.now();
+  const lessonSnap = await getLessonOrThrow(lessonId);
+  const lesson = lessonSnap.data() as LearningLessonDoc;
+  const existingBlocks = await listLessonBlocks(lessonId);
+
+  if (lesson.status === 'published') {
+    assertCondition(parsedBlocks.length > 0, 'failed-precondition', 'Um modulo publicado precisa ter ao menos um bloco de conteudo.');
+  }
+
+  const batch = db.batch();
+  const existingBlocksById = new Map(existingBlocks.map((block) => [block.id, block]));
+  existingBlocks.forEach((block) => {
+    batch.delete(db.collection(COLLECTIONS.learningLessonBlocks).doc(block.id));
+  });
+
+  parsedBlocks.forEach((block) => {
+    const blockRef = block.blockId
+      ? db.collection(COLLECTIONS.learningLessonBlocks).doc(block.blockId)
+      : db.collection(COLLECTIONS.learningLessonBlocks).doc();
+    const previousBlock = existingBlocksById.get(blockRef.id);
+    const payload: LearningLessonBlockDoc = {
+      lessonId,
+      trackId: lesson.trackId,
+      courseId: lesson.courseId,
+      type: block.type,
+      title: block.title,
+      order: block.order,
+      ...(block.sourceUrl ? { sourceUrl: block.sourceUrl } : {}),
+      ...(block.storagePath ? { storagePath: block.storagePath } : {}),
+      ...(block.mimeType ? { mimeType: block.mimeType } : {}),
+      ...(block.fileName ? { fileName: block.fileName } : {}),
+      ...(block.thumbnailUrl ? { thumbnailUrl: block.thumbnailUrl } : {}),
+      createdAt: previousBlock?.createdAt ?? now,
+      updatedAt: now,
+    };
+
+    batch.set(blockRef, payload);
+  });
+
+  batch.update(lessonSnap.ref, {
+    contentBlockCount: parsedBlocks.length,
+    updatedAt: now,
+  });
+
+  await batch.commit();
+
+  return {
+    lessonId,
+    blockCount: parsedBlocks.length,
+  };
+});
+
 export const upsertLessonQuiz = onCall(callableOptions, async (request) => {
   await getRequestContext(request, 'superadmin');
   const lessonId = requiredString(request.data, 'lessonId');
-  const questions = parseQuizQuestions(request.data);
+  const questions = parseQuizQuestions(request.data, { allowEmpty: true });
   const now = Timestamp.now();
   const lessonSnap = await getLessonOrThrow(lessonId);
   const lesson = lessonSnap.data() as LearningLessonDoc;
   const quizRef = db.collection(COLLECTIONS.learningQuizzes).doc(lessonId);
   const existing = await quizRef.get();
+
+  const batch = db.batch();
+
+  if (questions.length === 0) {
+    if (existing.exists) {
+      batch.delete(quizRef);
+    }
+    batch.update(lessonSnap.ref, {
+      quizQuestionCount: 0,
+      updatedAt: now,
+    });
+    await batch.commit();
+
+    return {
+      lessonId,
+      questionCount: 0,
+    };
+  }
 
   const payload: LearningQuizDoc = {
     lessonId,
@@ -437,7 +889,6 @@ export const upsertLessonQuiz = onCall(callableOptions, async (request) => {
     updatedAt: now,
   };
 
-  const batch = db.batch();
   batch.set(quizRef, payload, { merge: true });
   batch.update(lessonSnap.ref, {
     quizQuestionCount: questions.length,
@@ -451,6 +902,24 @@ export const upsertLessonQuiz = onCall(callableOptions, async (request) => {
   };
 });
 
+export const recordLearningBlockPlayback = onCall(callableOptions, async (request) => {
+  const actor = await getRequestContext(request, 'professor');
+  assertProfessorOnly(actor.role);
+
+  const lessonId = requiredString(request.data, 'lessonId');
+  const blockId = requiredString(request.data, 'blockId');
+  const currentSeconds = normalizePositiveInteger(requiredNumber(request.data, 'currentSeconds'), 'currentSeconds');
+  const durationSeconds = normalizePositiveInteger(requiredNumber(request.data, 'durationSeconds'), 'durationSeconds', 1);
+
+  return recordVideoProgress({
+    actor,
+    lessonId,
+    blockId,
+    currentSeconds,
+    durationSeconds,
+  });
+});
+
 export const recordLessonPlayback = onCall(callableOptions, async (request) => {
   const actor = await getRequestContext(request, 'professor');
   assertProfessorOnly(actor.role);
@@ -459,8 +928,27 @@ export const recordLessonPlayback = onCall(callableOptions, async (request) => {
   const currentSeconds = normalizePositiveInteger(requiredNumber(request.data, 'currentSeconds'), 'currentSeconds');
   const durationSeconds = normalizePositiveInteger(requiredNumber(request.data, 'durationSeconds'), 'durationSeconds', 1);
   const context = await getLessonContext(lessonId);
+  const defaultBlock = getDefaultVideoBlock(context);
+
+  return recordVideoProgress({
+    actor,
+    lessonId,
+    blockId: defaultBlock.id,
+    currentSeconds,
+    durationSeconds,
+  });
+});
+
+export const markLearningBlockComplete = onCall(callableOptions, async (request) => {
+  const actor = await getRequestContext(request, 'professor');
+  assertProfessorOnly(actor.role);
+
+  const lessonId = requiredString(request.data, 'lessonId');
+  const blockId = requiredString(request.data, 'blockId');
+  const context = await getLessonContext(lessonId);
   const orderedLessons = await listOrderedTrackLessons(context.lesson.trackId);
   const progressRef = db.collection(COLLECTIONS.learningProgress).doc(progressDocId(actor.uid, lessonId));
+  const block = context.blocks.find((entry) => entry.id === blockId);
 
   assertPublishedContext(context);
   await ensureLessonUnlocked({
@@ -469,38 +957,31 @@ export const recordLessonPlayback = onCall(callableOptions, async (request) => {
     orderedLessons,
   });
 
+  if (!block) {
+    throw new Error('Bloco de conteudo nao encontrado.');
+  }
+  assertCondition(isManualBlockType(block.type), 'failed-precondition', 'Este bloco nao permite conclusao manual.');
+
   const now = Timestamp.now();
-  const clampedCurrentSeconds = Math.min(currentSeconds, durationSeconds);
 
   await db.runTransaction(async (transaction) => {
     const existingSnapshot = await transaction.get(progressRef);
     const existing = existingSnapshot.exists ? (existingSnapshot.data() as LearningProgressDoc) : undefined;
-    const videoSecondsWatched = Math.max(existing?.videoSecondsWatched ?? 0, clampedCurrentSeconds);
-    const safeDuration = Math.max(existing?.durationSeconds ?? 0, durationSeconds);
-    const watchPercent = Math.min(100, Math.round((videoSecondsWatched / Math.max(safeDuration, 1)) * 100));
-    const videoCompleted = (existing?.videoCompleted ?? false) || watchPercent >= context.lesson.requiredWatchPercent;
-    const payload: LearningProgressDoc = {
-      academyId: actor.academyId,
-      userId: actor.uid,
-      userDisplayName: actor.user.displayName,
-      trackId: context.lesson.trackId,
-      courseId: context.lesson.courseId,
+    const contentProgressMap = normalizeProgressMap(existing);
+    contentProgressMap[block.id] = 100;
+
+    const payload = buildProgressPayload({
+      actor,
       lessonId,
-      videoSecondsWatched,
-      durationSeconds: safeDuration,
-      watchPercent,
-      videoCompleted,
-      quizReady: videoCompleted,
-      quizPassed: existing?.quizPassed ?? false,
-      lastScore: existing?.lastScore ?? 0,
-      bestScore: existing?.bestScore ?? 0,
-      attemptCount: existing?.attemptCount ?? 0,
-      unlockedAt: existing?.unlockedAt ?? now,
-      passedAt: existing?.passedAt,
-      lastAttemptAt: existing?.lastAttemptAt,
-      createdAt: existing?.createdAt ?? now,
-      updatedAt: now,
-    };
+      context,
+      existing,
+      now,
+      contentProgressMap,
+      videoSecondsWatched: existing?.videoSecondsWatched ?? 0,
+      durationSeconds: existing?.durationSeconds ?? 0,
+      watchPercent: existing?.watchPercent ?? 0,
+      videoCompleted: existing?.videoCompleted ?? false,
+    });
 
     transaction.set(progressRef, payload, { merge: true });
   });
@@ -510,7 +991,10 @@ export const recordLessonPlayback = onCall(callableOptions, async (request) => {
 
   return {
     lessonId,
-    watchPercent: progress.watchPercent,
+    blockId,
+    contentCompletionPercent: progress.contentCompletionPercent ?? 0,
+    contentCompleted: progress.contentCompleted ?? false,
+    lessonCompleted: progress.lessonCompleted ?? false,
     quizReady: progress.quizReady,
   };
 });
@@ -531,12 +1015,13 @@ export const startLessonQuiz = onCall(callableOptions, async (request) => {
     lessonId,
     orderedLessons,
   });
-  assertCondition(!!context.quiz && context.quiz.questions.length > 0, 'failed-precondition', 'O quiz desta aula ainda nao foi configurado.');
-  assertCondition(!!progress?.quizReady, 'failed-precondition', 'Assista ao minimo exigido da aula antes de abrir o quiz.');
+  assertCondition(!!context.quiz && context.quiz.questions.length > 0, 'failed-precondition', 'O quiz deste modulo ainda nao foi configurado.');
+  assertCondition(!!progress?.contentCompleted, 'failed-precondition', 'Conclua todos os blocos do modulo antes de abrir o quiz.');
+  const quiz = context.quiz as LearningQuizDoc;
 
   return {
-    questions: sanitizeQuizQuestions(context.quiz.questions),
-    passingScore: context.quiz.passingScore,
+    questions: sanitizeQuizQuestions(quiz.questions),
+    passingScore: quiz.passingScore,
     attemptCount: progress.attemptCount ?? 0,
   };
 });
@@ -559,19 +1044,20 @@ export const submitLessonQuiz = onCall(callableOptions, async (request) => {
     lessonId,
     orderedLessons,
   });
-  assertCondition(!!context.quiz && context.quiz.questions.length > 0, 'failed-precondition', 'O quiz desta aula ainda nao foi configurado.');
-  assertCondition(!!existingProgress?.quizReady, 'failed-precondition', 'Assista ao minimo exigido da aula antes de enviar o quiz.');
+  assertCondition(!!context.quiz && context.quiz.questions.length > 0, 'failed-precondition', 'O quiz deste modulo ainda nao foi configurado.');
+  assertCondition(!!existingProgress?.contentCompleted, 'failed-precondition', 'Conclua todos os blocos do modulo antes de enviar o quiz.');
+  const quiz = context.quiz as LearningQuizDoc;
   assertCondition(
-    answers.length === context.quiz.questions.length,
+    answers.length === quiz.questions.length,
     'invalid-argument',
     'Responda todas as perguntas antes de enviar o quiz.',
   );
 
-  const correctAnswers = context.quiz.questions.reduce((total, question, index) => (
+  const correctAnswers = quiz.questions.reduce((total, question, index) => (
     total + (answers[index] === question.correctOptionIndex ? 1 : 0)
   ), 0);
-  const scorePercent = Math.round((correctAnswers / Math.max(context.quiz.questions.length, 1)) * 100);
-  const passed = scorePercent >= context.quiz.passingScore;
+  const scorePercent = Math.round((correctAnswers / Math.max(quiz.questions.length, 1)) * 100);
+  const passed = scorePercent >= quiz.passingScore;
   const unlockedLessonId = passed ? findNextLessonId(orderedLessons, lessonId) : undefined;
   const now = Timestamp.now();
   const attemptRef = db.collection(COLLECTIONS.learningQuizAttempts).doc();
@@ -580,7 +1066,7 @@ export const submitLessonQuiz = onCall(callableOptions, async (request) => {
     const freshProgressSnapshot = await transaction.get(progressRef);
     const freshProgress = freshProgressSnapshot.exists ? (freshProgressSnapshot.data() as LearningProgressDoc) : undefined;
 
-    assertCondition(!!freshProgress?.quizReady, 'failed-precondition', 'Assista ao minimo exigido da aula antes de enviar o quiz.');
+    assertCondition(!!freshProgress?.contentCompleted, 'failed-precondition', 'Conclua todos os blocos do modulo antes de enviar o quiz.');
 
     const attemptNumber = (freshProgress?.attemptCount ?? 0) + 1;
     const attemptPayload: LearningQuizAttemptDoc = {
@@ -598,31 +1084,27 @@ export const submitLessonQuiz = onCall(callableOptions, async (request) => {
       updatedAt: now,
     };
 
-    const nextProgress: LearningProgressDoc = {
-      academyId: actor.academyId,
-      userId: actor.uid,
-      userDisplayName: actor.user.displayName,
-      trackId: context.lesson.trackId,
-      courseId: context.lesson.courseId,
+    const payload = buildProgressPayload({
+      actor,
       lessonId,
+      context,
+      existing: freshProgress,
+      now,
+      contentProgressMap: normalizeProgressMap(freshProgress),
       videoSecondsWatched: freshProgress?.videoSecondsWatched ?? 0,
       durationSeconds: freshProgress?.durationSeconds ?? 0,
       watchPercent: freshProgress?.watchPercent ?? 0,
       videoCompleted: freshProgress?.videoCompleted ?? false,
-      quizReady: freshProgress?.quizReady ?? false,
       quizPassed: (freshProgress?.quizPassed ?? false) || passed,
+      attemptCount: attemptNumber,
       lastScore: scorePercent,
       bestScore: Math.max(freshProgress?.bestScore ?? 0, scorePercent),
-      attemptCount: attemptNumber,
-      unlockedAt: freshProgress?.unlockedAt ?? now,
-      passedAt: freshProgress?.passedAt ?? (passed ? now : undefined),
       lastAttemptAt: now,
-      createdAt: freshProgress?.createdAt ?? now,
-      updatedAt: now,
-    };
+      passedAt: freshProgress?.passedAt ?? (passed ? now : undefined),
+    });
 
     transaction.set(attemptRef, attemptPayload);
-    transaction.set(progressRef, nextProgress, { merge: true });
+    transaction.set(progressRef, payload, { merge: true });
   });
 
   return {

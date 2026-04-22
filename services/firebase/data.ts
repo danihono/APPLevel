@@ -22,6 +22,7 @@ import type {
   GraduationRecord,
   JoinRequestRecord,
   LearningCourseRecord,
+  LearningLessonBlockRecord,
   LearningLessonRecord,
   LearningProgressRecord,
   LearningQuizRecord,
@@ -445,6 +446,28 @@ export function subscribeToLearningLessons(
       const records = snapshot.docs
         .map((item) => mapDoc<LearningLessonRecord>(item))
         .sort((left, right) => left.order - right.order || left.title.localeCompare(right.title, 'pt-BR'));
+      listener(records);
+    },
+    onError,
+  );
+}
+
+export function subscribeToLearningLessonBlocks(
+  listener: (records: Array<FirestoreEntity<LearningLessonBlockRecord>>) => void,
+  onError?: (error: Error) => void,
+) {
+  return onSnapshot(
+    collection(firebaseDb, 'learning_lesson_blocks'),
+    (snapshot) => {
+      const records = snapshot.docs
+        .map((item) => mapDoc<LearningLessonBlockRecord>(item))
+        .sort((left, right) => {
+          if (left.lessonId !== right.lessonId) {
+            return left.lessonId.localeCompare(right.lessonId, 'pt-BR');
+          }
+
+          return left.order - right.order || left.title.localeCompare(right.title, 'pt-BR');
+        });
       listener(records);
     },
     onError,

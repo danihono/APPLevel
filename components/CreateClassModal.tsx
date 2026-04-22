@@ -3,6 +3,12 @@ import { Check, ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { buildMonthGrid, MONTH_WEEK_HEADER, stripDate, toDateKey } from '../calendarUtils';
 import type { CreateClassScheduleBatchResult } from '../services/firebase/functions';
 
+const TATAME_OPTIONS = [
+  { label: 'Tatame 1', value: 'Tatame 1' },
+  { label: 'Tatame 2', value: 'Tatame 2' },
+  { label: 'Tatame 3', value: 'Tatame 3' },
+];
+
 const DURATION_OPTIONS = [
   { label: '30 min', value: 30 },
   { label: '45 min', value: 45 },
@@ -12,10 +18,15 @@ const DURATION_OPTIONS = [
 ];
 
 const TYPE_OPTIONS = [
-  { label: 'Adulto', value: 'Adulto' },
-  { label: 'Kids', value: 'Kids' },
-  { label: 'Advanced', value: 'Advanced' },
-  { label: 'No-Gi', value: 'No-Gi' },
+  { group: 'DESENVOLVIMENTO', label: 'LEVEL Iniciante',              value: 'iniciante' },
+  { group: 'DESENVOLVIMENTO', label: 'LEVEL para a Vida',            value: 'vida' },
+  { group: 'DESENVOLVIMENTO', label: 'LEVEL Sport',                  value: 'sport' },
+  { group: 'DESENVOLVIMENTO', label: 'LEVEL Feminino',               value: 'feminino' },
+  { group: 'PERFORMANCE',     label: 'LEVEL Competição',             value: 'competicao' },
+  { group: 'PERFORMANCE',     label: 'LEVEL Nogi',                   value: 'nogi' },
+  { group: 'INFANTIL',        label: 'LEVEL Kids (5-7)',             value: 'kids-5-7' },
+  { group: 'INFANTIL',        label: 'LEVEL Infanto Juvenil (8-10)', value: 'infanto-8-10' },
+  { group: 'INFANTIL',        label: 'LEVEL Juvenil (11-14)',        value: 'juvenil-11-14' },
 ];
 
 const WEEKDAY_OPTIONS = [
@@ -28,12 +39,10 @@ const WEEKDAY_OPTIONS = [
   { label: 'Dom', value: 0 },
 ] as const;
 
-const TIPO_DESCRIPTION: Record<string, string | undefined> = {
-  Adulto: undefined,
-  Kids: 'kids',
-  Advanced: 'advanced',
-  'No-Gi': 'no-gi',
-};
+// description stores the type value directly
+function tipoDescription(value: string): string {
+  return value;
+}
 
 const monthFormatter = new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric' });
 const summaryDateFormatter = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
@@ -129,7 +138,7 @@ function buildPayloads(params: {
       description: params.description,
       professorId: params.professorId,
       professorName: params.professorName,
-      tatame: params.tatame.trim() || 'Tatame Principal',
+      tatame: params.tatame,
       scheduledStart: start.toISOString(),
       scheduledEnd: end.toISOString(),
     };
@@ -157,12 +166,13 @@ const CreateClassModal: React.FC<CreateClassModalProps> = ({
   const [recurringWeekdays, setRecurringWeekdays] = useState<Set<number>>(new Set([initDay.getDay()]));
 
   const [title, setTitle] = useState('Treino');
-  const [tipo, setTipo] = useState('Adulto');
+  const [tipo, setTipo] = useState('iniciante');
   const [time, setTime] = useState(toHHMM(nextRound30(new Date())));
   const [duration, setDuration] = useState(60);
-  const [professorId, setProfessorId] = useState(currentUserId);
-  const [professorName, setProfessorName] = useState(currentUserName);
-  const [tatame, setTatame] = useState('Tatame Principal');
+  const initialProfessor = professors.find((p) => p.id === currentUserId) ?? professors[0];
+  const [professorId, setProfessorId] = useState(initialProfessor?.id ?? '');
+  const [professorName, setProfessorName] = useState(initialProfessor?.displayName ?? currentUserName);
+  const [tatame, setTatame] = useState('Tatame 1');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [submitResult, setSubmitResult] = useState<CreateClassScheduleBatchResult | null>(null);
@@ -185,7 +195,7 @@ const CreateClassModal: React.FC<CreateClassModalProps> = ({
     () => buildPayloads({
       dates: activeDates,
       title,
-      description: TIPO_DESCRIPTION[tipo],
+      description: tipoDescription(tipo),
       professorId,
       professorName,
       tatame,
@@ -356,8 +366,12 @@ const CreateClassModal: React.FC<CreateClassModalProps> = ({
               <label className="app-field">
                 <span className="app-field__label">Tipo</span>
                 <select value={tipo} onChange={(event) => setTipo(event.target.value)} className="app-input">
-                  {TYPE_OPTIONS.map((option) => (
-                    <option key={option.value} value={option.value}>{option.label}</option>
+                  {Array.from(new Map(TYPE_OPTIONS.map((o) => [o.group, o.group])).keys()).map((group) => (
+                    <optgroup key={group} label={group}>
+                      {TYPE_OPTIONS.filter((o) => o.group === group).map((option) => (
+                        <option key={option.value} value={option.value}>{option.label}</option>
+                      ))}
+                    </optgroup>
                   ))}
                 </select>
               </label>
@@ -516,15 +530,12 @@ const CreateClassModal: React.FC<CreateClassModalProps> = ({
             <div className="app-form-grid">
               <label className="app-field">
                 <span className="app-field__label">Tatame</span>
-                <input
-                  type="text"
-                  value={tatame}
-                  onChange={(event) => setTatame(event.target.value)}
-                  className="app-input"
-                  placeholder="Tatame Principal"
-                />
+                <select value={tatame} onChange={(event) => setTatame(event.target.value)} className="app-input">
+                  {TATAME_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>{option.label}</option>
+                  ))}
+                </select>
               </label>
-
             </div>
 
             <div className="app-list-card">

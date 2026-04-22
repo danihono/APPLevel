@@ -226,6 +226,16 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    match /learning_lesson_blocks/{blockId} {
+      allow read: if isSuperAdmin()
+        || (
+          signedIn()
+          && isAdmin()
+          && get(/databases/$(database)/documents/learning_lessons/$(resource.data.lessonId)).data.status == 'published'
+        );
+      allow write: if false;
+    }
+
     match /learning_quizzes/{lessonId} {
       allow read: if isSuperAdmin();
       allow write: if false;

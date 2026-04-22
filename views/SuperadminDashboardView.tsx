@@ -332,6 +332,9 @@ const SuperadminDashboardView: React.FC<SuperadminDashboardViewProps> = ({
     ? Math.round(filteredRows.reduce((sum, academyRow) => sum + academyRow.averageAttendance, 0) / totalAcademies)
     : 0;
   const academiesInAttention = filteredRows.filter((academyRow) => academyRow.attentionReasons.length > 0).length;
+  const activeShare = percentOf(activeAcademies, totalAcademies);
+  const inactiveShare = percentOf(inactiveAcademies, totalAcademies);
+  const suspendedShare = percentOf(suspendedAcademies, totalAcademies);
 
   const topAcademies = useMemo(
     () => [...filteredRows]
@@ -428,6 +431,69 @@ const SuperadminDashboardView: React.FC<SuperadminDashboardViewProps> = ({
   const activeDegrees = (activeAcademies / totalRowsForRing) * 360;
   const inactiveDegrees = activeDegrees + ((inactiveAcademies / totalRowsForRing) * 360);
   const suspendedDegrees = inactiveDegrees + ((suspendedAcademies / totalRowsForRing) * 360);
+  const healthBadgeClass = academiesInAttention > 0 ? 'app-badge app-badge--danger' : 'app-badge app-badge--success';
+  const healthBadgeLabel = academiesInAttention > 0
+    ? `${formatNumber(academiesInAttention)} em atencao`
+    : 'Operacao estavel';
+  const healthHeadline = totalAcademies === 0
+    ? 'Sem academias no recorte'
+    : suspendedAcademies > 0
+      ? 'Rede pede acao imediata em pontos criticos'
+      : activeShare >= 85
+        ? 'Rede operando com alta estabilidade'
+        : 'Rede em transicao operacional';
+  const healthCopy = totalAcademies === 0
+    ? 'Ajuste os filtros para reconstruir o panorama da rede.'
+    : `${formatNumber(activeAcademies)} de ${formatNumber(totalAcademies)} academias seguem ativas no recorte atual. ${academiesInAttention > 0 ? `${formatNumber(academiesInAttention)} aparecem no radar de atencao.` : 'Nenhuma academia entrou no radar de atencao.'}`;
+  const healthSummaryCards = [
+    {
+      key: 'coverage',
+      label: 'Cobertura ativa',
+      value: `${activeShare}%`,
+      toneClass: 'superadmin-health-pill--success',
+    },
+    {
+      key: 'attention',
+      label: 'Radar de atencao',
+      value: formatNumber(academiesInAttention),
+      toneClass: academiesInAttention > 0 ? 'superadmin-health-pill--danger' : 'superadmin-health-pill--success',
+    },
+    {
+      key: 'out-of-flow',
+      label: 'Fora do fluxo',
+      value: formatNumber(inactiveAcademies + suspendedAcademies),
+      toneClass: inactiveAcademies + suspendedAcademies > 0 ? 'superadmin-health-pill--gold' : 'superadmin-health-pill--muted',
+    },
+  ];
+  const operationalStatusCards = [
+    {
+      key: 'active',
+      label: 'Ativas',
+      count: activeAcademies,
+      share: activeShare,
+      note: 'Operando no recorte atual',
+      badgeClass: 'app-badge app-badge--success',
+      toneClass: 'superadmin-status-card--success',
+    },
+    {
+      key: 'inactive',
+      label: 'Inativas',
+      count: inactiveAcademies,
+      share: inactiveShare,
+      note: 'Fora da rotina principal',
+      badgeClass: 'app-badge app-badge--muted',
+      toneClass: 'superadmin-status-card--muted',
+    },
+    {
+      key: 'suspended',
+      label: 'Suspensas',
+      count: suspendedAcademies,
+      share: suspendedShare,
+      note: 'Pedem acao imediata',
+      badgeClass: 'app-badge app-badge--danger',
+      toneClass: 'superadmin-status-card--danger',
+    },
+  ];
 
   return (
     <div className="view-shell superadmin-dashboard">
@@ -553,40 +619,66 @@ const SuperadminDashboardView: React.FC<SuperadminDashboardViewProps> = ({
           </div>
 
           <div className="superadmin-health-layout">
-            <div
-              className="superadmin-ring"
-              style={{
-                background: `conic-gradient(var(--success) 0deg ${activeDegrees}deg, rgba(196, 151, 70, 0.9) ${activeDegrees}deg ${inactiveDegrees}deg, var(--danger) ${inactiveDegrees}deg ${suspendedDegrees}deg, rgba(127, 127, 147, 0.18) ${suspendedDegrees}deg 360deg)`,
-              }}
-            >
-              <div className="superadmin-ring__core">
-                <strong>{percentOf(activeAcademies, totalAcademies)}%</strong>
-                <span>ativas</span>
+            <div className="superadmin-health-hero">
+              <div className="superadmin-health-hero__top">
+                <span className={healthBadgeClass}>{healthBadgeLabel}</span>
+                <span className="superadmin-health-hero__meta">{formatNumber(totalAcademies)} academias no recorte</span>
+              </div>
+
+              <div className="superadmin-health-hero__ring">
+                <div
+                  className="superadmin-ring"
+                  style={{
+                    background: `conic-gradient(var(--success) 0deg ${activeDegrees}deg, rgba(196, 151, 70, 0.92) ${activeDegrees}deg ${inactiveDegrees}deg, var(--danger) ${inactiveDegrees}deg ${suspendedDegrees}deg, rgba(127, 127, 147, 0.16) ${suspendedDegrees}deg 360deg)`,
+                  }}
+                >
+                  <div className="superadmin-ring__core">
+                    <span className="superadmin-ring__eyebrow">Cobertura ativa</span>
+                    <strong>{activeShare}%</strong>
+                    <span>da rede</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="superadmin-health-hero__summary">
+                <div>
+                  <p className="superadmin-health-hero__label">Panorama do recorte</p>
+                  <strong className="superadmin-health-hero__title">{healthHeadline}</strong>
+                  <p className="superadmin-health-hero__copy">{healthCopy}</p>
+                </div>
+
+                <div className="superadmin-health-pill-grid">
+                  {healthSummaryCards.map((item) => (
+                    <div key={item.key} className={`superadmin-health-pill ${item.toneClass}`}>
+                      <span>{item.label}</span>
+                      <strong>{item.value}</strong>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
 
-            <div className="superadmin-status-grid">
-              <div className="superadmin-status-card">
-                <div className="superadmin-status-card__top">
-                  <span className="app-badge app-badge--success">Ativas</span>
-                  <strong>{formatNumber(activeAcademies)}</strong>
+            <div className="superadmin-status-grid superadmin-status-grid--operational">
+              {operationalStatusCards.map((item) => (
+                <div key={item.key} className={`superadmin-status-card ${item.toneClass}`}>
+                  <div className="superadmin-status-card__top">
+                    <span className={item.badgeClass}>{item.label}</span>
+                    <div className="superadmin-status-card__value">
+                      <strong>{formatNumber(item.count)}</strong>
+                      <span className="superadmin-status-card__share">{item.share}% da rede</span>
+                    </div>
+                  </div>
+
+                  <div className="superadmin-status-card__bar">
+                    <span style={{ width: `${item.share}%` }} />
+                  </div>
+
+                  <div className="superadmin-status-card__foot">
+                    <p className="superadmin-status-card__note">{item.note}</p>
+                    <span>{formatNumber(item.count)} academia{item.count === 1 ? '' : 's'}</span>
+                  </div>
                 </div>
-                <p className="superadmin-status-card__note">Operando no recorte atual</p>
-              </div>
-              <div className="superadmin-status-card">
-                <div className="superadmin-status-card__top">
-                  <span className="app-badge app-badge--muted">Inativas</span>
-                  <strong>{formatNumber(inactiveAcademies)}</strong>
-                </div>
-                <p className="superadmin-status-card__note">Fora da rotina principal</p>
-              </div>
-              <div className="superadmin-status-card">
-                <div className="superadmin-status-card__top">
-                  <span className="app-badge app-badge--danger">Suspensas</span>
-                  <strong>{formatNumber(suspendedAcademies)}</strong>
-                </div>
-                <p className="superadmin-status-card__note">Pedem acao imediata</p>
-              </div>
+              ))}
             </div>
           </div>
 

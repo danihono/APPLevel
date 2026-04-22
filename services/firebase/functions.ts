@@ -6,6 +6,7 @@ import type {
   CreateUserPayload,
   JoinRequestStatus,
   LearningContentStatus,
+  LearningLessonBlockType,
   NotificationChannel,
 } from './models';
 import type { ProgressionRuleSegment } from '../../beltCatalog';
@@ -267,16 +268,32 @@ export const backendFunctions = {
     courseId: string;
     title: string;
     description?: string;
-    videoUrl: string;
+    videoUrl?: string;
     order: number;
     status: LearningContentStatus;
     passingScore: number;
+    contentBlockCount: number;
   }) => callFunction<{
     lessonId: string;
     courseId: string;
     trackId: string;
     status: LearningContentStatus;
   }>('upsertLearningLesson', payload),
+
+  replaceLearningLessonBlocks: (payload: {
+    lessonId: string;
+    blocks: Array<{
+      blockId?: string;
+      type: LearningLessonBlockType;
+      title: string;
+      order: number;
+      sourceUrl?: string;
+      storagePath?: string;
+      mimeType?: string;
+      fileName?: string;
+      thumbnailUrl?: string;
+    }>;
+  }) => callFunction<{ lessonId: string; blockCount: number }>('replaceLearningLessonBlocks', payload),
 
   upsertLessonQuiz: (payload: {
     lessonId: string;
@@ -292,6 +309,32 @@ export const backendFunctions = {
     currentSeconds: number;
     durationSeconds: number;
   }) => callFunction<{ lessonId: string; watchPercent: number; quizReady: boolean }>('recordLessonPlayback', payload),
+
+  recordLearningBlockPlayback: (payload: {
+    lessonId: string;
+    blockId: string;
+    currentSeconds: number;
+    durationSeconds: number;
+  }) => callFunction<{
+    lessonId: string;
+    blockId: string;
+    watchPercent: number;
+    contentCompletionPercent: number;
+    contentCompleted: boolean;
+    quizReady: boolean;
+  }>('recordLearningBlockPlayback', payload),
+
+  markLearningBlockComplete: (payload: {
+    lessonId: string;
+    blockId: string;
+  }) => callFunction<{
+    lessonId: string;
+    blockId: string;
+    contentCompletionPercent: number;
+    contentCompleted: boolean;
+    lessonCompleted: boolean;
+    quizReady: boolean;
+  }>('markLearningBlockComplete', payload),
 
   startLessonQuiz: (payload: { lessonId: string }) =>
     callFunction<{

@@ -28,6 +28,25 @@ function emptyToDelete(value?: string) {
   return value.trim();
 }
 
+function sanitizeStorageFileName(fileName: string) {
+  return fileName
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-zA-Z0-9._-]+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '')
+    .toLowerCase() || 'arquivo';
+}
+
+function assertLearningAssetType(file: File) {
+  const mimeType = file.type || '';
+  if (mimeType.startsWith('video/') || mimeType.startsWith('image/') || mimeType === 'application/pdf') {
+    return mimeType;
+  }
+
+  throw new Error('Envie apenas video, PDF ou imagem para o modulo.');
+}
+
 export async function updateUserProfile(userId: string, payload: EditableUserProfile) {
   await updateDoc(doc(firebaseDb, 'users', userId), {
     ...(payload.firstName !== undefined ? { firstName: payload.firstName.trim() } : {}),
@@ -48,6 +67,28 @@ export async function uploadUserPhoto(userId: string, file: File) {
   });
 
   return getDownloadURL(storageRef);
+}
+
+export async function uploadLearningLessonAsset(
+  academyId: string | undefined,
+  lessonId: string,
+  file: File,
+) {
+  const mimeType = assertLearningAssetType(file);
+  const academySegment = academyId?.trim() || 'shared';
+  const safeFileName = sanitizeStorageFileName(file.name);
+  const storageRef = ref(firebaseStorage, `academies/${academySegment}/learning/lessons/${lessonId}/${Date.now()}-${safeFileName}`);
+
+  await uploadBytes(storageRef, file, {
+    contentType: mimeType,
+  });
+
+  return {
+    downloadURL: await getDownloadURL(storageRef),
+    storagePath: storageRef.fullPath,
+    mimeType,
+    fileName: file.name,
+  };
 }
 
 export async function updateAcademySettings(
