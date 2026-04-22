@@ -154,7 +154,6 @@ interface ClassListItemProps {
 }
 
 const ClassListItem: React.FC<ClassListItemProps> = ({ lesson, onOpen, compact = false }) => {
-  const capacityLabel = lesson.capacity ? `${lesson.currentAttendanceCount}/${lesson.capacity}` : `${lesson.currentAttendanceCount}/--`;
   const colors = statusColors(lesson.status);
 
   if (compact) {
@@ -229,7 +228,6 @@ const ClassListItem: React.FC<ClassListItemProps> = ({ lesson, onOpen, compact =
       <div className="app-meta-row">
         <span>{lesson.professorName || 'Equipe tecnica'}</span>
         <span className="inline-flex items-center gap-2"><MapPin size={14} />{lesson.tatame || 'Tatame principal'}</span>
-        <span className="inline-flex items-center gap-2"><Users size={14} />Capacidade {capacityLabel}</span>
       </div>
     </button>
   );
@@ -1061,9 +1059,6 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                         <span className="app-badge app-badge--muted">
                           {selectedClass.rsvpCount ?? 0} {(selectedClass.rsvpCount ?? 0) === 1 ? 'confirmado' : 'confirmados'}
                         </span>
-                        {selectedClass.capacity && (selectedClass.rsvpCount ?? 0) >= selectedClass.capacity ? (
-                          <span className="app-badge app-badge--gold">Capacidade maxima</span>
-                        ) : null}
                       </div>
                       <button
                         type="button"

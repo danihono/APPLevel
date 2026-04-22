@@ -1857,6 +1857,7 @@ const App: React.FC = () => {
             onSetThemeMode={setThemeMode}
             onSaveProfile={handleSaveOwnProfile}
             onChangeEmail={handleChangeOwnEmail}
+            onOpenNotifications={() => setActiveTab('notifications')}
             onLogout={handleLogout}
           />
         );

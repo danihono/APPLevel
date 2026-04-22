@@ -47,6 +47,7 @@ const ALLOWED_CALLABLES = new Set([
   'recordLessonPlayback',
   'startLessonQuiz',
   'submitLessonQuiz',
+  'toggleClassRsvp',
 ]);
 
 const FORWARDED_HEADERS = [

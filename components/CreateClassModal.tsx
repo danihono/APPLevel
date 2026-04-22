@@ -97,7 +97,6 @@ export interface CreateClassPayload {
   tatame: string;
   scheduledStart: string;
   scheduledEnd: string;
-  capacity: number;
 }
 
 interface CreateClassModalProps {
@@ -118,7 +117,6 @@ function buildPayloads(params: {
   tatame: string;
   time: string;
   duration: number;
-  capacity: number;
 }): CreateClassPayload[] {
   const [hours, minutes] = params.time.split(':').map(Number);
   return params.dates.map((classDate) => {
@@ -134,7 +132,6 @@ function buildPayloads(params: {
       tatame: params.tatame.trim() || 'Tatame Principal',
       scheduledStart: start.toISOString(),
       scheduledEnd: end.toISOString(),
-      capacity: params.capacity,
     };
   });
 }
@@ -166,7 +163,6 @@ const CreateClassModal: React.FC<CreateClassModalProps> = ({
   const [professorId, setProfessorId] = useState(currentUserId);
   const [professorName, setProfessorName] = useState(currentUserName);
   const [tatame, setTatame] = useState('Tatame Principal');
-  const [capacity, setCapacity] = useState(30);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [submitResult, setSubmitResult] = useState<CreateClassScheduleBatchResult | null>(null);
@@ -195,14 +191,13 @@ const CreateClassModal: React.FC<CreateClassModalProps> = ({
       tatame,
       time,
       duration,
-      capacity,
     }),
-    [activeDates, capacity, duration, professorId, professorName, tatame, time, title, tipo],
+    [activeDates, duration, professorId, professorName, tatame, time, title, tipo],
   );
 
   useEffect(() => {
     setSubmitResult(null);
-  }, [activeDates, capacity, duration, mode, professorId, recurringEnd, recurringStart, recurringWeekdays, tatame, time, title, tipo]);
+  }, [activeDates, duration, mode, professorId, recurringEnd, recurringStart, recurringWeekdays, tatame, time, title, tipo]);
 
   function shiftMonth(dir: -1 | 1) {
     const next = new Date(calYear, calMonth + dir, 1);
@@ -530,17 +525,6 @@ const CreateClassModal: React.FC<CreateClassModalProps> = ({
                 />
               </label>
 
-              <label className="app-field">
-                <span className="app-field__label">Capacidade</span>
-                <input
-                  type="number"
-                  value={capacity}
-                  onChange={(event) => setCapacity(Number(event.target.value))}
-                  className="app-input"
-                  min={1}
-                  max={500}
-                />
-              </label>
             </div>
 
             <div className="app-list-card">

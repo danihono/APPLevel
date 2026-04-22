@@ -183,9 +183,8 @@ const StaffDashboardView: React.FC<StaffDashboardViewProps> = ({
           <div className="staff-home__vision-dot" aria-hidden="true" />
           <div className="staff-home__vision-copy">
             <p className="staff-home__vision-label">Visao atual</p>
-            <p className="staff-home__vision-title">APPLevel Staff - {academy.name}</p>
+            <p className="staff-home__vision-title">{academy.name}</p>
           </div>
-          <span className="app-badge app-badge--gold">Staff</span>
         </div>
       </section>
 

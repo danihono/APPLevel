@@ -736,70 +736,58 @@ const LearningHubView: React.FC<LearningHubViewProps> = (props) => {
   }
 
   if (isProfessorRole) {
-    return (
-      <div className="view-shell learning-mobile">
-        <section className="learning-mobile__hero">
-          <div>
-            <p className="learning-mobile__eyebrow">Hub da equipe</p>
-            <h1 className="learning-mobile__title">Learning Hub</h1>
-            <p className="learning-mobile__copy">Trilhas de aprendizado da equipe {academyName}.</p>
-          </div>
-        </section>
-
-        <section className="learning-mobile__section" aria-labelledby="learning-mobile-section-title">
-          <p id="learning-mobile-section-title" className="learning-mobile__section-label">Trilhas disponiveis</p>
-
-          {professorTrackRows.length > 0 ? (
-            <div className="learning-mobile__track-list">
-              {professorTrackRows.map((row) => {
-                const isActive = activeTrack?.id === row.track.id;
-                const lessonLabel = row.lessonCount === 1 ? '1 aula' : `${row.lessonCount} aulas`;
-
-                return (
-                  <article key={row.track.id} className={`learning-mobile__track-card ${isActive ? 'is-active' : ''}`}>
-                    <div className="learning-mobile__track-head">
-                      <div className="learning-mobile__track-copy">
-                        <h2 className="learning-mobile__track-title">{row.track.title}</h2>
-                        <p className="learning-mobile__track-meta">{lessonLabel} - {row.level}</p>
-                      </div>
-                      <span className={`learning-mobile__track-badge ${row.badgeLabel === 'Novo' ? 'is-new' : ''}`}>{row.badgeLabel}</span>
-                    </div>
-
-                    <div className="learning-mobile__track-progress">
-                      <ProgressBar current={row.completionPercent} total={100} />
-                    </div>
-
-                    <button
-                      type="button"
-                      className="learning-mobile__track-cta"
-                      onClick={() => {
-                        setActiveTrackId(row.track.id);
-                        setActiveLessonId(row.nextLessonId);
-                      }}
-                    >
-                      {row.ctaLabel}
-                    </button>
-                  </article>
-                );
-              })}
-            </div>
-          ) : (
-            <div className="learning-mobile__empty">
-              Ainda nao existe nenhuma trilha publicada. Assim que o catalogo for liberado, ele aparece aqui.
-            </div>
-          )}
-        </section>
-      </div>
-    );
-
-    if (publishedTracks.length === 0) {
+    if (!activeLessonId) {
       return (
-        <div className="view-shell">
-          <section className="app-panel app-panel-pad">
-            <p className="text-sm font-bold">{academyName}</p>
-            <p className="mt-2 text-sm text-[color:var(--text-muted)]">
-              Ainda nao existe nenhuma trilha publicada. Assim que o superadmin publicar o catalogo, ele aparecera aqui.
-            </p>
+        <div className="view-shell learning-mobile">
+          <section className="learning-mobile__hero">
+            <div>
+              <p className="learning-mobile__eyebrow">Hub da equipe</p>
+              <p className="learning-mobile__copy">Trilhas de aprendizado da equipe {academyName}.</p>
+            </div>
+          </section>
+
+          <section className="learning-mobile__section" aria-labelledby="learning-mobile-section-title">
+            <p id="learning-mobile-section-title" className="learning-mobile__section-label">Trilhas disponiveis</p>
+
+            {professorTrackRows.length > 0 ? (
+              <div className="learning-mobile__track-list">
+                {professorTrackRows.map((row) => {
+                  const isActive = activeTrack?.id === row.track.id;
+                  const lessonLabel = row.lessonCount === 1 ? '1 aula' : `${row.lessonCount} aulas`;
+
+                  return (
+                    <article key={row.track.id} className={`learning-mobile__track-card ${isActive ? 'is-active' : ''}`}>
+                      <div className="learning-mobile__track-head">
+                        <div className="learning-mobile__track-copy">
+                          <h2 className="learning-mobile__track-title">{row.track.title}</h2>
+                          <p className="learning-mobile__track-meta">{lessonLabel} - {row.level}</p>
+                        </div>
+                        <span className={`learning-mobile__track-badge ${row.badgeLabel === 'Novo' ? 'is-new' : ''}`}>{row.badgeLabel}</span>
+                      </div>
+
+                      <div className="learning-mobile__track-progress">
+                        <ProgressBar current={row.completionPercent} total={100} />
+                      </div>
+
+                      <button
+                        type="button"
+                        className="learning-mobile__track-cta"
+                        onClick={() => {
+                          setActiveTrackId(row.track.id);
+                          setActiveLessonId(row.nextLessonId);
+                        }}
+                      >
+                        {row.ctaLabel}
+                      </button>
+                    </article>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="learning-mobile__empty">
+                Ainda nao existe nenhuma trilha publicada. Assim que o catalogo for liberado, ele aparece aqui.
+              </div>
+            )}
           </section>
         </div>
       );
@@ -815,10 +803,9 @@ const LearningHubView: React.FC<LearningHubViewProps> = (props) => {
                 Videos, trilhas e quizzes obrigatorios para apoiar a rotina da equipe.
               </p>
             </div>
-            <div className="flex flex-wrap gap-2">
-              <span className="app-badge app-badge--muted">Master Black</span>
-              <span className="app-badge app-badge--muted">Modo telespectador</span>
-            </div>
+            <button type="button" onClick={() => setActiveLessonId('')} className="app-button app-button--ghost app-button--small">
+              ← Voltar para trilhas
+            </button>
           </div>
         </section>
 

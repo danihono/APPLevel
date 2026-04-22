@@ -4173,8 +4173,7 @@ html.dark .superadmin-belt-dot {
   .notice-mobile__hero {
     margin-top: -1rem;
     margin-inline: -1rem;
-    border-top-left-radius: 0;
-    border-top-right-radius: 0;
+    border-radius: 0;
   }
 
   .app-pagebar {
@@ -4292,7 +4291,6 @@ html.dark .superadmin-belt-dot {
 
   .calendar-mobile__hero {
     padding: 1.2rem 0.95rem 1.1rem;
-    border-radius: 1.8rem;
   }
 
   .calendar-mobile__month-title {
@@ -4326,7 +4324,6 @@ html.dark .superadmin-belt-dot {
 
   .academy-mobile__hero {
     padding: 1.2rem 1rem;
-    border-radius: 1.8rem;
   }
 
   .academy-mobile__stats {
@@ -4360,7 +4357,6 @@ html.dark .superadmin-belt-dot {
 
   .learning-mobile__hero {
     padding: 1.2rem 1rem 1.1rem;
-    border-radius: 0 0 1.75rem 1.75rem;
   }
 
   .learning-mobile__title {
@@ -4389,7 +4385,6 @@ html.dark .superadmin-belt-dot {
 
   .notice-mobile__hero {
     padding: 1.2rem 1rem 0;
-    border-radius: 0 0 1.75rem 1.75rem;
   }
 
   .notice-mobile__tabs {

@@ -1,8 +1,9 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { beltLabel } from '../beltCatalog';
 import {
   Award,
   Bell,
+  Camera,
   ChevronRight,
   History,
   LogOut,
@@ -44,6 +45,7 @@ interface ProfileViewProps {
     photoFile?: File | null;
   }) => Promise<void>;
   onChangeEmail: (nextEmail: string, currentPassword: string) => Promise<void>;
+  onOpenNotifications?: () => void;
   onLogout: () => void | Promise<void>;
 }
 
@@ -73,6 +75,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({
   onSetThemeMode,
   onSaveProfile,
   onChangeEmail,
+  onOpenNotifications,
   onLogout,
 }) => {
   const [firstName, setFirstName] = useState(profile.firstName);
@@ -83,6 +86,10 @@ const ProfileView: React.FC<ProfileViewProps> = ({
   const [isCompetitor, setIsCompetitor] = useState(profile.isCompetitor ?? false);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
+  const staffPhotoInputRef = useRef<HTMLInputElement>(null);
+  const [staffPhotoBusy, setStaffPhotoBusy] = useState(false);
+  const [staffPhotoFeedback, setStaffPhotoFeedback] = useState('');
+  const [staffPhotoError, setStaffPhotoError] = useState('');
   const [feedback, setFeedback] = useState('');
   const [error, setError] = useState('');
   const [newEmail, setNewEmail] = useState(user.email);
@@ -105,11 +112,12 @@ const ProfileView: React.FC<ProfileViewProps> = ({
     ? `Proxima faixa - ${beltLabel(user.belt)}`
     : `${user.stripes + 1}o Grau - Faixa ${beltLabel(user.belt)}`;
   const currentGradeLabel = user.stripes > 0 ? `${user.stripes}o Grau` : '0 Grau';
+  const [activeSection, setActiveSection] = useState<'settings' | 'history' | 'achievements' | null>(null);
   const staffMenuItems = [
-    { icon: Settings2, label: 'Configuracoes da conta' },
-    { icon: Bell, label: 'Notificacoes' },
-    { icon: History, label: 'Historico de aulas' },
-    { icon: Award, label: 'Conquistas' },
+    { id: 'settings' as const, icon: Settings2, label: 'Configuracoes da conta' },
+    { id: 'notifications' as const, icon: Bell, label: 'Notificacoes' },
+    { id: 'history' as const, icon: History, label: 'Historico de aulas' },
+    { id: 'achievements' as const, icon: Award, label: 'Conquistas' },
   ];
 
   useEffect(() => {
@@ -121,6 +129,38 @@ const ProfileView: React.FC<ProfileViewProps> = ({
     setIsCompetitor(profile.isCompetitor ?? false);
     setNewEmail(profile.email);
   }, [profile.birthDate, profile.cpf, profile.email, profile.firstName, profile.isCompetitor, profile.lastName, profile.phone]);
+
+  async function handleStaffSettingsSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setBusy(true);
+    setFeedback('');
+    setError('');
+    try {
+      await onSaveProfile({ phone });
+      setFeedback('Dados atualizados com sucesso.');
+    } catch (submitError) {
+      setError(submitError instanceof Error ? submitError.message : 'Nao foi possivel salvar.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleStaffPhotoUpload(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0] ?? null;
+    if (!file) return;
+    setStaffPhotoBusy(true);
+    setStaffPhotoFeedback('');
+    setStaffPhotoError('');
+    try {
+      await onSaveProfile({ photoFile: file });
+      setStaffPhotoFeedback('Foto atualizada com sucesso.');
+    } catch (err) {
+      setStaffPhotoError(err instanceof Error ? err.message : 'Nao foi possivel salvar a foto.');
+    } finally {
+      setStaffPhotoBusy(false);
+      event.target.value = '';
+    }
+  }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -168,13 +208,38 @@ const ProfileView: React.FC<ProfileViewProps> = ({
     return (
       <div className="view-shell profile-mobile">
         <section className="profile-mobile__hero">
-          <AvatarWithBelt
-            avatar={user.avatar}
-            name={user.name}
-            belt={user.belt}
-            stripes={user.stripes}
-            size="lg"
-          />
+          <div className="relative inline-block">
+            <button
+              type="button"
+              onClick={() => staffPhotoInputRef.current?.click()}
+              disabled={staffPhotoBusy}
+              className="block focus:outline-none"
+              aria-label="Trocar foto de perfil"
+            >
+              <AvatarWithBelt
+                avatar={user.avatar}
+                name={user.name}
+                belt={user.belt}
+                stripes={user.stripes}
+                size="lg"
+              />
+              <span className="absolute bottom-1 right-1 flex h-7 w-7 items-center justify-center rounded-full bg-[color:var(--gold-mid)] text-black shadow-md pointer-events-none">
+                {staffPhotoBusy ? (
+                  <span className="h-3 w-3 animate-spin rounded-full border-2 border-black border-t-transparent" />
+                ) : (
+                  <Camera size={14} />
+                )}
+              </span>
+            </button>
+            <input
+              ref={staffPhotoInputRef}
+              type="file"
+              accept="image/*"
+              className="sr-only"
+              onChange={(e) => void handleStaffPhotoUpload(e)}
+              disabled={staffPhotoBusy}
+            />
+          </div>
 
           <div className="profile-mobile__identity">
             <h1 className="profile-mobile__name">{user.name}</h1>
@@ -186,6 +251,9 @@ const ProfileView: React.FC<ProfileViewProps> = ({
             <span className="profile-mobile__tag">{currentGradeLabel}</span>
             <span className="profile-mobile__tag">{user.type}</span>
           </div>
+
+          {staffPhotoFeedback ? <p className="text-xs text-green-400 text-center">{staffPhotoFeedback}</p> : null}
+          {staffPhotoError ? <p className="text-xs text-red-400 text-center">{staffPhotoError}</p> : null}
         </section>
 
         <section className="profile-mobile__kpis">
@@ -215,13 +283,110 @@ const ProfileView: React.FC<ProfileViewProps> = ({
         <section className="profile-mobile__menu-card" aria-label="Menu do perfil">
           {staffMenuItems.map((item) => {
             const Icon = item.icon;
+            const isExpanded = activeSection === item.id;
             return (
-              <div key={item.label} className="profile-mobile__menu-row">
-                <div className="profile-mobile__menu-icon">
-                  <Icon size={18} />
-                </div>
-                <span className="profile-mobile__menu-label">{item.label}</span>
-                <ChevronRight size={18} className="profile-mobile__menu-arrow" />
+              <div key={item.id}>
+                <button
+                  type="button"
+                  className="profile-mobile__menu-row w-full text-left"
+                  onClick={() => {
+                    if (item.id === 'notifications') {
+                      onOpenNotifications?.();
+                      return;
+                    }
+                    setActiveSection(isExpanded ? null : item.id as 'settings' | 'history' | 'achievements');
+                  }}
+                >
+                  <div className="profile-mobile__menu-icon">
+                    <Icon size={18} />
+                  </div>
+                  <span className="profile-mobile__menu-label">{item.label}</span>
+                  <ChevronRight
+                    size={18}
+                    className={`profile-mobile__menu-arrow transition-transform duration-200 ${isExpanded ? 'rotate-90' : ''}`}
+                  />
+                </button>
+
+                {isExpanded && item.id === 'settings' ? (
+                  <div className="px-4 pb-5 space-y-4 border-t border-white/10">
+                    <form onSubmit={(e) => void handleStaffSettingsSubmit(e)} className="space-y-3 pt-4">
+                      {feedback ? <div className="app-alert app-alert--success">{feedback}</div> : null}
+                      {error ? <div className="app-alert app-alert--error">{error}</div> : null}
+                      <label className="app-field">
+                        <span className="app-field__label">Telefone</span>
+                        <input value={phone} onChange={(e) => setPhone(e.target.value)} className="app-input" placeholder="+55 11 99999-9999" />
+                      </label>
+                      <button type="submit" disabled={busy} className="app-button app-button--gold app-button--block app-button--small">
+                        <Save size={14} />
+                        {busy ? 'Salvando...' : 'Salvar telefone'}
+                      </button>
+                    </form>
+
+                    <form onSubmit={(e) => void handleEmailSubmit(e)} className="space-y-3 pt-3 border-t border-white/10">
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-[color:var(--text-soft)] pt-1">Alterar e-mail</p>
+                      {emailFeedback ? <div className="app-alert app-alert--success">{emailFeedback}</div> : null}
+                      {emailError ? <div className="app-alert app-alert--error">{emailError}</div> : null}
+                      <label className="app-field">
+                        <span className="app-field__label">Novo e-mail</span>
+                        <input type="email" value={newEmail} onChange={(e) => setNewEmail(e.target.value)} className="app-input" required />
+                      </label>
+                      <label className="app-field">
+                        <span className="app-field__label">Senha atual</span>
+                        <input type="password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} className="app-input" required />
+                      </label>
+                      <button type="submit" disabled={emailBusy} className="app-button app-button--ghost app-button--block app-button--small">
+                        <Mail size={14} />
+                        {emailBusy ? 'Atualizando...' : 'Atualizar e-mail'}
+                      </button>
+                    </form>
+
+                    <div className="pt-3 border-t border-white/10">
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-[color:var(--text-soft)] pb-3">Aparencia</p>
+                      <div className="flex gap-2">
+                        <button type="button" onClick={() => onSetThemeMode('light')} className={`app-button app-button--small flex-1 ${!isDarkMode ? 'app-button--gold' : 'app-button--ghost'}`}>
+                          <Sun size={14} />Claro
+                        </button>
+                        <button type="button" onClick={() => onSetThemeMode('dark')} className={`app-button app-button--small flex-1 ${isDarkMode ? 'app-button--gold' : 'app-button--ghost'}`}>
+                          <Moon size={14} />Escuro
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ) : null}
+
+                {isExpanded && item.id === 'history' ? (
+                  <div className="px-4 pb-5 border-t border-white/10">
+                    <div className="pt-4 space-y-2">
+                      {attendances.slice(0, 8).map((attendance) => (
+                        <div key={attendance.id} className="app-list-card">
+                          <p className="text-sm font-bold">{classNameById.get(attendance.classId) || 'Aula da academia'}</p>
+                          <p className="mt-1 text-xs text-[color:var(--text-soft)]">
+                            {attendance.checkedInAt?.toDate().toLocaleString('pt-BR')} • {attendance.checkInMethod}
+                          </p>
+                        </div>
+                      ))}
+                      {attendances.length === 0 ? <div className="app-empty">Nenhuma presenca registrada.</div> : null}
+                    </div>
+                  </div>
+                ) : null}
+
+                {isExpanded && item.id === 'achievements' ? (
+                  <div className="px-4 pb-5 border-t border-white/10">
+                    <div className="pt-4 space-y-2">
+                      {graduations.slice(0, 8).map((graduation) => (
+                        <div key={graduation.id} className="app-list-card">
+                          <p className="text-sm font-bold">
+                            {beltLabel(graduation.previousBelt)} {graduation.previousStripes} → {beltLabel(graduation.newBelt)} {graduation.newStripes}
+                          </p>
+                          <p className="mt-1 text-xs text-[color:var(--text-soft)]">
+                            {graduation.promotedAt?.toDate().toLocaleDateString('pt-BR')} • {graduation.reason.replaceAll('_', ' ')}
+                          </p>
+                        </div>
+                      ))}
+                      {graduations.length === 0 ? <div className="app-empty">Nenhuma graduacao registrada.</div> : null}
+                    </div>
+                  </div>
+                ) : null}
               </div>
             );
           })}
