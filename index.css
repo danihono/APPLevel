@@ -645,6 +645,7 @@ html.dark .app-panel--tint {
 
 .app-calendar-month-day {
   position: relative;
+  isolation: isolate;
   min-height: 7.25rem;
   padding: 0.75rem;
   border-radius: 1.25rem;
@@ -673,13 +674,38 @@ html.dark .app-panel--tint {
   border: 0;
   background: transparent;
   cursor: pointer;
+  z-index: 1;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  -webkit-user-select: none;
+  transition: background-color 140ms ease, box-shadow 140ms ease;
+}
+
+.app-calendar-month-day__select:active {
+  background: rgba(232, 175, 72, 0.08);
+}
+
+.app-calendar-month-day__select:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 2px rgba(232, 175, 72, 0.38);
 }
 
 .app-calendar-month-day__top,
 .app-calendar-month-day__content,
 .app-calendar-month-day__dots {
   position: relative;
-  z-index: 1;
+  z-index: 2;
+}
+
+.app-calendar-month-day__top,
+.app-calendar-month-day__content,
+.app-calendar-month-day__dots,
+.app-calendar-month-day__number,
+.app-calendar-month-day__count,
+.app-calendar-month-day__empty,
+.app-calendar-month-day__more {
+  pointer-events: none;
 }
 
 .app-calendar-month-day__top {
@@ -745,6 +771,16 @@ html.dark .app-panel--tint {
   border: 1px solid transparent;
   text-align: left;
   cursor: pointer;
+  position: relative;
+  z-index: 3;
+  pointer-events: auto;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 120ms ease, box-shadow 120ms ease, border-color 120ms ease;
+}
+
+.app-calendar-month-day__preview:active {
+  transform: scale(0.985);
 }
 
 .app-calendar-month-day__preview-time {
@@ -789,14 +825,32 @@ html.dark .app-panel--tint {
 
 .app-calendar-month-day--compact {
   min-height: 3.5rem;
+  width: 100%;
   padding: 0.3rem 0.1rem 0.2rem;
   border: 0;
   border-radius: 1rem;
   background: transparent;
   box-shadow: none;
   gap: 0.25rem;
+  appearance: none;
+  -webkit-appearance: none;
   align-items: center;
   justify-content: center;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  -webkit-user-select: none;
+  transition: transform 120ms ease, background-color 140ms ease, box-shadow 140ms ease;
+}
+
+.app-calendar-month-day--compact:active {
+  transform: scale(0.97);
+  background: rgba(232, 175, 72, 0.12);
+}
+
+.app-calendar-month-day--compact:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 2px rgba(242, 196, 87, 0.4);
 }
 
 .app-calendar-month-day__top--compact {
@@ -4387,7 +4441,7 @@ html.dark .superadmin-belt-dot {
   }
 
   .app-calendar-month-grid {
-    gap: 0.32rem;
+    gap: 0.36rem;
   }
 
   .app-calendar-month-header {
@@ -4402,6 +4456,16 @@ html.dark .superadmin-belt-dot {
 
   .app-calendar-month-day {
     border-radius: 1rem;
+  }
+
+  .app-calendar-month-day--compact {
+    min-height: 3.75rem;
+    padding: 0.35rem 0.12rem 0.28rem;
+  }
+
+  .app-calendar-month-day__number--compact {
+    width: 2.65rem;
+    height: 2.65rem;
   }
 
   .app-topbar {
@@ -4998,5 +5062,397 @@ html.dark .profile-mobile__menu-icon {
 
   100% {
     transform: translateX(100%);
+  }
+}
+
+
+/* ─── Level Login Screen (mobile-first) ─────────────────────────── */
+
+.lv-login {
+  min-height: 100vh;
+  min-height: 100dvh;
+  background: #f4f1ec;
+  position: relative;
+  overflow-x: hidden;
+}
+
+.lv-login::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background:
+    linear-gradient(135deg, transparent 29.8%, rgba(196,151,70,0.14) 29.8%, rgba(196,151,70,0.14) 30.15%, transparent 30.15%),
+    linear-gradient(135deg, transparent 39.7%, rgba(196,151,70,0.09) 39.7%, rgba(196,151,70,0.09) 39.95%, transparent 39.95%),
+    linear-gradient(135deg, transparent 54.5%, rgba(196,151,70,0.06) 54.5%, rgba(196,151,70,0.06) 54.7%, transparent 54.7%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.lv-login__card {
+  position: relative;
+  z-index: 1;
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  background: transparent;
+}
+
+.lv-login__hero {
+  position: relative;
+  width: 100%;
+  height: 42vw;
+  min-height: 13rem;
+  max-height: 20rem;
+  overflow: hidden;
+  background: #f4f1ec;
+  flex-shrink: 0;
+}
+
+.lv-login__hero-photo {
+  position: absolute;
+  right: -2%;
+  top: 0;
+  width: 72%;
+  height: 115%;
+  background-image: var(--lv-fighter-image, none);
+  background-size: cover;
+  background-position: center top;
+  clip-path: polygon(20% 0%, 100% 0%, 100% 100%, 0% 100%);
+  filter: sepia(0.3) contrast(1.05);
+}
+
+.lv-login__hero-photo--placeholder {
+  background: linear-gradient(140deg, #b8a990 0%, #8a7a65 40%, #c49746 100%);
+}
+
+.lv-login__hero-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to right, #f4f1ec 24%, rgba(244,241,236,0.55) 55%, transparent 75%);
+}
+
+.lv-login__logo {
+  position: absolute;
+  top: 50%;
+  left: 20%;
+  transform: translate(-50%, -50%);
+  height: 13rem;
+  width: auto;
+  object-fit: contain;
+  z-index: 2;
+  filter: drop-shadow(0 4px 12px rgba(0,0,0,0.18));
+}
+
+.lv-login__body {
+  flex: 1;
+  padding: 1.5rem 1.25rem 2.5rem;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  z-index: 1;
+}
+
+.lv-login__kicker {
+  font-family: var(--font-display);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: #c49746;
+  text-transform: uppercase;
+  margin-bottom: 0.4rem;
+}
+
+.lv-login__headline {
+  font-family: var(--font-display);
+  font-size: clamp(1.75rem, 8vw, 2.2rem);
+  font-weight: 800;
+  line-height: 1.08;
+  color: #10131a;
+  margin: 0 0 0.6rem;
+}
+
+.lv-login__headline-period { color: #c49746; }
+
+.lv-login__sub {
+  font-size: 0.84rem;
+  color: #606a7f;
+  line-height: 1.5;
+  margin-bottom: 1.4rem;
+}
+
+.lv-field {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  background: #ffffff;
+  border-radius: 1rem;
+  padding: 0.85rem 0.9rem;
+  margin-bottom: 0.65rem;
+  box-shadow: 0 2px 14px rgba(0,0,0,0.06);
+  border: 1px solid rgba(0,0,0,0.04);
+}
+
+.lv-field__icon {
+  color: #c49746;
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.lv-field__inner {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.05rem;
+  min-width: 0;
+}
+
+.lv-field__label {
+  font-size: 0.7rem;
+  color: #9aa0ae;
+  font-weight: 500;
+}
+
+.lv-field__input {
+  background: transparent;
+  border: none;
+  outline: none;
+  font-size: 0.92rem;
+  color: #10131a;
+  font-family: var(--font-body);
+  padding: 0;
+  width: 100%;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.lv-field__input::placeholder { color: #c0c5d0; }
+
+.lv-field__eye {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #c49746;
+  display: flex;
+  align-items: center;
+  padding: 0.25rem;
+  flex-shrink: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.lv-login__remember-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1.25rem;
+}
+
+.lv-login__remember {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.82rem;
+  color: #434c5f;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+
+.lv-login__remember input[type=checkbox] {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 1.05rem;
+  height: 1.05rem;
+  border-radius: 0.28rem;
+  border: 2px solid #cfc9be;
+  background: #fff;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.lv-login__remember input[type=checkbox]:checked {
+  background: #c49746;
+  border-color: #c49746;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2 6l3 3 5-5' stroke='white' stroke-width='1.8' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C%2Fsvg%3E");
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 80%;
+}
+
+.lv-login__forgot {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #c49746;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  font-family: var(--font-body);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.lv-btn-entrar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  background: linear-gradient(100deg, #b8872e 0%, #c49746 40%, #dbb75a 100%);
+  border: none;
+  border-radius: 3rem;
+  padding: 0.75rem 0.75rem 0.75rem 1.6rem;
+  cursor: pointer;
+  box-shadow: 0 8px 28px rgba(196,151,70,0.4);
+  transition: opacity 0.15s, transform 0.12s;
+  margin-bottom: 1.1rem;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+.lv-btn-entrar:active:not(:disabled) {
+  opacity: 0.88;
+  transform: scale(0.98);
+}
+
+.lv-btn-entrar:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.lv-btn-entrar__label {
+  font-family: var(--font-display);
+  font-size: 1rem;
+  font-weight: 700;
+  color: #1a0e00;
+  letter-spacing: 0.01em;
+}
+
+.lv-btn-entrar__arrow {
+  width: 2.3rem;
+  height: 2.3rem;
+  background: #fff;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #c49746;
+  flex-shrink: 0;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.14);
+}
+
+.lv-login__or {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  margin-bottom: 1.1rem;
+}
+
+.lv-login__or::before,
+.lv-login__or::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: rgba(0,0,0,0.1);
+}
+
+.lv-login__or span {
+  font-size: 0.76rem;
+  color: #9aa0ae;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+}
+
+.lv-btn-google {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  width: 100%;
+  background: #fff;
+  border: 1.5px solid rgba(0,0,0,0.1);
+  border-radius: 3rem;
+  padding: 0.85rem 1.25rem;
+  font-family: var(--font-body);
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: #10131a;
+  cursor: pointer;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.06);
+  transition: background 0.15s;
+  margin-bottom: 1.4rem;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+.lv-btn-google:active { background: #f5f5f5; }
+
+.lv-login__register {
+  text-align: center;
+  font-size: 0.84rem;
+  color: #606a7f;
+  margin-top: auto;
+  padding-top: 0.5rem;
+}
+
+.lv-login__register-link {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #c49746;
+  font-weight: 700;
+  font-family: var(--font-body);
+  font-size: inherit;
+  padding: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.lv-login__watermark {
+  position: fixed;
+  bottom: 1.25rem;
+  left: 1.25rem;
+  opacity: 0.07;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.lv-login__watermark img {
+  height: 3rem;
+  width: auto;
+}
+
+.lv-login__error {
+  background: rgba(215,75,75,0.1);
+  border: 1px solid rgba(215,75,75,0.2);
+  border-radius: 0.85rem;
+  padding: 0.7rem 0.9rem;
+  font-size: 0.84rem;
+  color: #d74b4b;
+  margin-bottom: 0.9rem;
+}
+
+@media (min-width: 520px) {
+  .lv-login {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem 1rem;
+  }
+
+  .lv-login__card {
+    width: 26rem;
+    min-height: auto;
+    border-radius: 2rem;
+    overflow: hidden;
+    box-shadow: 0 32px 80px rgba(0,0,0,0.14);
+    background: #f4f1ec;
+  }
+
+  .lv-login__hero {
+    height: 16rem;
+    max-height: none;
+  }
+
+  .lv-login__watermark {
+    position: absolute;
   }
 }

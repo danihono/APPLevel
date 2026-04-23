@@ -445,18 +445,14 @@ const CompactMonthGrid: React.FC<Omit<MonthGridProps, 'onOpenClass'>> = React.me
       const isSelected = sameCalendarDay(cell, selectedDay);
 
       return (
-        <div
+        <button
           key={key}
+          type="button"
+          onClick={() => onSelectDay(stripDate(cell))}
+          aria-label={`Selecionar ${formatDateLabel(cell)}`}
+          aria-pressed={isSelected}
           className={`app-calendar-month-day app-calendar-month-day--compact ${isToday ? 'is-today' : ''} ${isSelected ? 'is-selected' : ''}`.trim()}
         >
-          <button
-            type="button"
-            onClick={() => onSelectDay(stripDate(cell))}
-            aria-label={`Selecionar ${formatDateLabel(cell)}`}
-            aria-pressed={isSelected}
-            className="app-calendar-month-day__select"
-          />
-
           <div className="app-calendar-month-day__top app-calendar-month-day__top--compact">
             <span className="app-calendar-month-day__number app-calendar-month-day__number--compact">
               {cell.getDate()}
@@ -466,7 +462,7 @@ const CompactMonthGrid: React.FC<Omit<MonthGridProps, 'onOpenClass'>> = React.me
           <div className="app-calendar-month-day__dots" aria-hidden="true">
             {hasClasses ? <span className="app-calendar-month-day__dot app-calendar-month-day__dot--gold" /> : null}
           </div>
-        </div>
+        </button>
       );
     })}
   </div>
