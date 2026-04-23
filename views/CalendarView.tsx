@@ -1342,27 +1342,26 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                       Fechar
                     </button>
 
+                    <button
+                      type="button"
+                      onClick={() => setEditModalOpen(true)}
+                      disabled={busy}
+                      className="app-button app-button--ghost app-button--small"
+                    >
+                      <Pencil size={14} />
+                      Editar
+                    </button>
+
                     {selectedClass.status === 'scheduled' ? (
-                      <>
-                        <button
-                          type="button"
-                          onClick={() => setEditModalOpen(true)}
-                          disabled={busy}
-                          className="app-button app-button--ghost app-button--small"
-                        >
-                          <Pencil size={14} />
-                          Editar
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => void runClassAction(selectedClass.id, () => onStartClass(selectedClass.id))}
-                          disabled={busy}
-                          className="app-button app-button--gold app-button--small"
-                        >
-                          <Play size={14} />
-                          {busy ? 'Iniciando...' : 'Iniciar aula'}
-                        </button>
-                      </>
+                      <button
+                        type="button"
+                        onClick={() => void runClassAction(selectedClass.id, () => onStartClass(selectedClass.id))}
+                        disabled={busy}
+                        className="app-button app-button--gold app-button--small"
+                      >
+                        <Play size={14} />
+                        {busy ? 'Iniciando...' : 'Iniciar aula'}
+                      </button>
                     ) : null}
 
                     {selectedClass.status === 'active' ? (
