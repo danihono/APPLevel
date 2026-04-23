@@ -27,15 +27,15 @@ const BjjBelt: React.FC<BjjBeltProps> = ({ color, stripes }) => {
       />
       <div className="absolute inset-y-0 right-0 w-28" style={{ background: meta.strapColor }} />
       <div
-        className="absolute inset-y-[0.4rem] right-8 flex items-center gap-1 rounded-full border px-2"
+        className="absolute inset-y-[0.4rem] right-8 flex items-center justify-center rounded-full border px-3"
         style={{
           borderColor: 'rgba(255, 255, 255, 0.14)',
           background: 'rgba(255, 255, 255, 0.08)',
         }}
       >
-        {Array.from({ length: stripes }).map((_, index) => (
-          <span key={index} className="h-8 w-1.5 rounded-full bg-white shadow-[0_0_8px_rgba(255,255,255,0.35)]" />
-        ))}
+        <span className="text-sm font-bold text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.5)]">
+          {stripes}°
+        </span>
       </div>
       <div
         className="absolute inset-y-0 left-8 w-24 opacity-65"

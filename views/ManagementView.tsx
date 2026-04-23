@@ -195,7 +195,6 @@ const ManagementView: React.FC<ManagementViewProps> = ({
   const [phone, setPhone] = useState('');
   const [belt, setBelt] = useState('white');
   const [grade, setGrade] = useState(0);
-  const [stripes, setStripes] = useState(0);
 
   const [peopleSearch, setPeopleSearch] = useState('');
   const [managementSection, setManagementSection] = useState<'overview' | 'students'>('overview');
@@ -347,7 +346,6 @@ const ManagementView: React.FC<ManagementViewProps> = ({
         phone: phone || undefined,
         belt,
         grade,
-        stripes,
       });
       setFirstName('');
       setLastName('');
@@ -360,7 +358,6 @@ const ManagementView: React.FC<ManagementViewProps> = ({
       setPhone('');
       setBelt(staffBeltPresets[0]);
       setGrade(0);
-      setStripes(0);
       setUserFeedback('Acesso criado com sucesso.');
     } catch (submitError) {
       setUserError(submitError instanceof Error ? submitError.message : 'Nao foi possivel criar o acesso.');
@@ -843,10 +840,6 @@ const ManagementView: React.FC<ManagementViewProps> = ({
               <label className="app-field">
                 <span className="app-field__label">Grau</span>
                 <input type="number" min={0} value={grade} onChange={(event) => setGrade(Number(event.target.value))} className="app-input" />
-              </label>
-              <label className="app-field">
-                <span className="app-field__label">Listras</span>
-                <input type="number" min={0} value={stripes} onChange={(event) => setStripes(Number(event.target.value))} className="app-input" />
               </label>
             </div>
 

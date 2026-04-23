@@ -2,6 +2,7 @@ import React, { Suspense, lazy, startTransition, useEffect, useRef, useState } f
 import { CheckCircle, X } from 'lucide-react';
 import type { User as FirebaseUser } from 'firebase/auth';
 import type { CreateClassPayload } from './components/CreateClassModal';
+import type { EditClassPayload } from './components/EditClassModal';
 import Layout from './components/Layout';
 import HomeView from './views/HomeView';
 import LoginView from './views/LoginView';
@@ -32,7 +33,7 @@ import {
   subscribeToUserProfile,
 } from './services/firebase/data';
 import { backendFunctions, type CreateClassScheduleBatchResult } from './services/firebase/functions';
-import { updateAcademySettings, uploadLearningLessonAsset, uploadUserPhoto } from './services/firebase/mutations';
+import { updateAcademySettings, updateUserProfile, uploadLearningLessonAsset, uploadUserPhoto } from './services/firebase/mutations';
 import type {
   AppRole,
   AcademyRecord,
@@ -1160,6 +1161,23 @@ const App: React.FC = () => {
     });
   }
 
+  async function handleEditClass(payload: EditClassPayload): Promise<void> {
+    try {
+      await backendFunctions.upsertClassSchedule({
+        classId: payload.classId,
+        title: payload.title,
+        description: payload.description,
+        professorId: payload.professorId,
+        professorName: payload.professorName,
+        tatame: payload.tatame,
+        scheduledStart: payload.scheduledStart,
+        scheduledEnd: payload.scheduledEnd,
+      });
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
+  }
+
   async function handleStartClass(classId: string) {
     try {
       return await backendFunctions.startClassSession({ classId });
@@ -1535,15 +1553,22 @@ const App: React.FC = () => {
     }
 
     try {
-      await backendFunctions.updateOwnStudentProfile({
-        firstName: payload.firstName,
-        lastName: payload.lastName,
-        cpf: payload.cpf,
-        phone: payload.phone,
-        birthDate: payload.birthDate,
-        isCompetitor: payload.isCompetitor,
-        photoPath,
-      });
+      if (profile?.role !== 'student') {
+        await updateUserProfile(authUser.uid, {
+          phone: payload.phone,
+          photoPath,
+        });
+      } else {
+        await backendFunctions.updateOwnStudentProfile({
+          firstName: payload.firstName,
+          lastName: payload.lastName,
+          cpf: payload.cpf,
+          phone: payload.phone,
+          birthDate: payload.birthDate,
+          isCompetitor: payload.isCompetitor,
+          photoPath,
+        });
+      }
     } catch (error) {
       throw new Error(getErrorMessage(error));
     }
@@ -1784,6 +1809,7 @@ const App: React.FC = () => {
             attendanceRate={attendanceRate}
             classNameById={classNameById}
             onCreateClass={handleCreateClass}
+            onEditClass={handleEditClass}
             onStartClass={handleStartClass}
             onFinishClass={handleFinishClass}
             onRefreshQr={handleRefreshQr}

@@ -1,9 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Camera, CheckCircle, ChevronLeft, ChevronRight, MapPin, Play, Plus, QrCode, RefreshCw, ShieldCheck, X } from 'lucide-react';
+import { Camera, CheckCircle, ChevronLeft, ChevronRight, MapPin, Pencil, Play, Plus, QrCode, RefreshCw, ShieldCheck, X } from 'lucide-react';
 import QRCodeSVG from 'react-qr-code';
 import { buildMonthGrid, MONTH_WEEK_HEADER, sameCalendarDay, sameCalendarMonth, stripDate, toDateKey } from '../calendarUtils';
 import ClassSessionCard from '../components/ClassSessionCard';
 import CreateClassModal, { type CreateClassPayload } from '../components/CreateClassModal';
+import EditClassModal, { type EditClassPayload } from '../components/EditClassModal';
 import { getMyClassRsvp, type FirestoreEntity } from '../services/firebase/data';
 import { backendFunctions, type CreateClassScheduleBatchResult } from '../services/firebase/functions';
 import type { AttendanceRecord, AttendanceRequestRecord, ClassRecord } from '../services/firebase/models';
@@ -32,6 +33,7 @@ interface CalendarViewProps {
   attendanceRate?: number;
   classNameById?: Map<string, string>;
   onCreateClass: (classes: CreateClassPayload[]) => Promise<CreateClassScheduleBatchResult>;
+  onEditClass: (payload: EditClassPayload) => Promise<void>;
   onStartClass: (classId: string) => Promise<QrSessionPayload>;
   onFinishClass: (classId: string) => Promise<void>;
   onRefreshQr: (classId: string) => Promise<QrSessionPayload>;
@@ -448,6 +450,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
   attendanceRate,
   classNameById,
   onCreateClass,
+  onEditClass,
   onStartClass,
   onFinishClass,
   onRefreshQr,
@@ -465,6 +468,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
   const [visibleMonth, setVisibleMonth] = useState(() => new Date(today.getFullYear(), today.getMonth(), 1));
   const [selectedDay, setSelectedDay] = useState(() => today);
   const [createModalOpen, setCreateModalOpen] = useState(false);
+  const [editModalOpen, setEditModalOpen] = useState(false);
   const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
   const [sheetTab, setSheetTab] = useState<'detalhes' | 'historico'>('detalhes');
   const [qrByClass, setQrByClass] = useState<Record<string, QrSessionPayload>>({});
@@ -1339,15 +1343,26 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                     </button>
 
                     {selectedClass.status === 'scheduled' ? (
-                      <button
-                        type="button"
-                        onClick={() => void runClassAction(selectedClass.id, () => onStartClass(selectedClass.id))}
-                        disabled={busy}
-                        className="app-button app-button--gold app-button--small"
-                      >
-                        <Play size={14} />
-                        {busy ? 'Iniciando...' : 'Iniciar aula'}
-                      </button>
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => setEditModalOpen(true)}
+                          disabled={busy}
+                          className="app-button app-button--ghost app-button--small"
+                        >
+                          <Pencil size={14} />
+                          Editar
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void runClassAction(selectedClass.id, () => onStartClass(selectedClass.id))}
+                          disabled={busy}
+                          className="app-button app-button--gold app-button--small"
+                        >
+                          <Play size={14} />
+                          {busy ? 'Iniciando...' : 'Iniciar aula'}
+                        </button>
+                      </>
                     ) : null}
 
                     {selectedClass.status === 'active' ? (
@@ -1508,6 +1523,19 @@ const CalendarView: React.FC<CalendarViewProps> = ({
             </button>
           </div>
         </div>
+      ) : null}
+
+      {editModalOpen && selectedClass ? (
+        <EditClassModal
+          lesson={selectedClass}
+          professors={professors}
+          onClose={() => setEditModalOpen(false)}
+          onSubmit={async (payload) => {
+            await onEditClass(payload);
+            setEditModalOpen(false);
+            setSelectedClassId(null);
+          }}
+        />
       ) : null}
 
       {createModalOpen ? (
