@@ -139,6 +139,7 @@ export function toUiUser(params: {
     totalClassesToNextBelt: relativeBeltTotal,
     currentStripeProgress: relativeStripeProgress,
     currentBeltProgress: relativeBeltProgress,
+    attendanceCountBonus: user.attendanceCountBonus ?? 0,
     lastGraduation: buildSafeDate(latestGraduationAt).toISOString(),
     branchId: user.academyId,
     type: trainingType,

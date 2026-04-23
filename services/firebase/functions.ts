@@ -23,6 +23,12 @@ export interface CreateClassScheduleOccurrencePayload {
   scheduledEnd: string;
 }
 
+export interface ClassScheduleMutationSkippedItem {
+  classId: string;
+  scheduledStart: string;
+  reason: string;
+}
+
 export interface CreateClassScheduleBatchResult {
   requestedCount: number;
   createdCount: number;
@@ -31,6 +37,20 @@ export interface CreateClassScheduleBatchResult {
     scheduledStart: string;
     reason: string;
   }>;
+}
+
+export interface UpdateRecurringClassSeriesResult {
+  requestedCount: number;
+  updatedCount: number;
+  skippedCount: number;
+  skipped: ClassScheduleMutationSkippedItem[];
+}
+
+export interface DeleteClassScheduleResult {
+  requestedCount: number;
+  deletedCount: number;
+  skippedCount: number;
+  skipped: ClassScheduleMutationSkippedItem[];
 }
 
 const useFirebaseEmulators = import.meta.env.DEV && import.meta.env.VITE_USE_FIREBASE_EMULATORS === 'true';
@@ -105,6 +125,9 @@ export const backendFunctions = {
   updateStudentBeltGrade: (payload: { userId: string; belt: string; grade: number; stripes?: number; kidsCategory?: string }) =>
     callFunction<{ userId: string; belt: string; grade: number; stripes: number; kidsCategory?: string | null }>('updateStudentBeltGrade', payload),
 
+  setStudentAttendanceBonus: (payload: { userId: string; attendanceCountBonus: number }) =>
+    callFunction<{ userId: string; attendanceCountBonus: number }>('setStudentAttendanceBonus', payload),
+
   approveGraduationRequest: (payload: { requestId: string }) =>
     callFunction<{ requestId: string; userId: string; status: string }>('approveGraduationRequest', payload),
 
@@ -142,8 +165,26 @@ export const backendFunctions = {
     professorName?: string;
     capacity?: number;
     checkinWindowMinutes?: number;
+    seriesMode?: 'manual' | 'recurring';
     occurrences: CreateClassScheduleOccurrencePayload[];
   }) => callFunction<CreateClassScheduleBatchResult>('createClassScheduleBatch', payload),
+
+  updateRecurringClassSeries: (payload: {
+    classId: string;
+    title: string;
+    tatame: string;
+    description?: string;
+    professorId?: string;
+    professorName?: string;
+    scheduledStart: string;
+    scheduledEnd: string;
+    scope: 'future';
+  }) => callFunction<UpdateRecurringClassSeriesResult>('updateRecurringClassSeries', payload),
+
+  deleteClassSchedule: (payload: {
+    classId: string;
+    scope: 'single' | 'future';
+  }) => callFunction<DeleteClassScheduleResult>('deleteClassSchedule', payload),
 
   startClassSession: (payload: { classId: string; qrDurationMinutes?: number }) =>
     callFunction<{

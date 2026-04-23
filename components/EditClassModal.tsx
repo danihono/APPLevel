@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { X } from 'lucide-react';
 import type { FirestoreEntity } from '../services/firebase/data';
+import type { UpdateRecurringClassSeriesResult } from '../services/firebase/functions';
 import type { ClassRecord } from '../services/firebase/models';
 
 const TATAME_OPTIONS = [
@@ -50,6 +51,7 @@ export interface EditClassPayload {
   professorId: string;
   professorName: string;
   tatame: string;
+  scope: 'single' | 'future';
   scheduledStart: string;
   scheduledEnd: string;
 }
@@ -58,19 +60,21 @@ interface EditClassModalProps {
   lesson: FirestoreEntity<ClassRecord>;
   professors: Array<{ id: string; displayName: string }>;
   onClose: () => void;
-  onSubmit: (payload: EditClassPayload) => Promise<void>;
+  onSubmit: (payload: EditClassPayload) => Promise<UpdateRecurringClassSeriesResult>;
 }
 
 const EditClassModal: React.FC<EditClassModalProps> = ({ lesson, professors, onClose, onSubmit }) => {
   const startDate = lesson.scheduledStart?.toDate() ?? new Date();
   const endDate = lesson.scheduledEnd?.toDate();
   const durationMs = endDate ? endDate.getTime() - startDate.getTime() : 60 * 60000;
+  const hasRecurringSeries = !!lesson.recurrenceSeriesId;
 
   const [title, setTitle] = useState(lesson.title);
   const [tipo, setTipo] = useState(() => {
     const match = TYPE_OPTIONS.find((o) => o.value === lesson.description);
     return match?.value ?? TYPE_OPTIONS[0].value;
   });
+  const [scope, setScope] = useState<'single' | 'future'>('single');
   const [date, setDate] = useState(toInputDateValue(startDate));
   const [time, setTime] = useState(toHHMM(startDate));
   const [duration, setDuration] = useState(closestDuration(durationMs));
@@ -112,6 +116,7 @@ const EditClassModal: React.FC<EditClassModalProps> = ({ lesson, professors, onC
         professorId,
         professorName: professor?.displayName ?? '',
         tatame,
+        scope: hasRecurringSeries ? scope : 'single',
         scheduledStart: scheduledStart.toISOString(),
         scheduledEnd: scheduledEnd.toISOString(),
       });
@@ -138,6 +143,31 @@ const EditClassModal: React.FC<EditClassModalProps> = ({ lesson, professors, onC
         </div>
 
         <form onSubmit={(event) => void handleSubmit(event)} className="mt-6 flex flex-col gap-5">
+          {hasRecurringSeries ? (
+            <div className="app-list-card">
+              <p className="app-field__label">Aplicar alteracao em</p>
+              <div className="mt-3 app-segment">
+                <button
+                  type="button"
+                  onClick={() => setScope('single')}
+                  className={`app-segment__button ${scope === 'single' ? 'is-active' : ''}`}
+                >
+                  Somente esta aula
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setScope('future')}
+                  className={`app-segment__button ${scope === 'future' ? 'is-active' : ''}`}
+                >
+                  Esta e as proximas
+                </button>
+              </div>
+              <p className="mt-3 text-xs text-[color:var(--text-soft)]">
+                A opcao em serie atualiza apenas as aulas agendadas futuras desta recorrencia.
+              </p>
+            </div>
+          ) : null}
+
           <div className="app-form-grid">
             <label className="app-field">
               <span className="app-field__label">Nome da aula</span>
@@ -223,7 +253,7 @@ const EditClassModal: React.FC<EditClassModalProps> = ({ lesson, professors, onC
               Cancelar
             </button>
             <button type="submit" disabled={submitting} className="app-button app-button--gold flex-1">
-              {submitting ? 'Salvando...' : 'Salvar alteracoes'}
+              {submitting ? 'Salvando...' : scope === 'future' ? 'Salvar esta e as proximas' : 'Salvar alteracoes'}
             </button>
           </div>
         </form>

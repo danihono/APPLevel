@@ -965,6 +965,32 @@ export const updateStudentBeltGrade = onCall(callableOptions, async (request) =>
   };
 });
 
+export const setStudentAttendanceBonus = onCall(callableOptions, async (request) => {
+  const actor = await getRequestContext(request, 'professor');
+  assertProfessorOrSuperadmin(actor.role);
+
+  const targetUserId = requiredString(request.data, 'userId');
+  const attendanceCountBonus = Math.max(0, Math.floor(requiredNumber(request.data, 'attendanceCountBonus')));
+  const targetUser = await getUserDoc(targetUserId);
+
+  assertCondition(targetUser.role === 'student', 'invalid-argument', 'Somente alunos podem ter aulas ajustadas.');
+  assertCondition(
+    actor.role === 'superadmin' || targetUser.academyId === actor.academyId,
+    'permission-denied',
+    'Voce so pode alterar alunos da sua unidade.',
+  );
+
+  const now = Timestamp.now();
+  await db.collection(COLLECTIONS.users).doc(targetUserId).update({
+    attendanceCountBonus,
+    updatedAt: now,
+  });
+
+  await syncUserDerivedState(targetUserId, targetUser.academyId);
+
+  return { userId: targetUserId, attendanceCountBonus };
+});
+
 export const approveGraduationRequest = onCall(callableOptions, async (request) => {
   const actor = await getRequestContext(request, 'professor');
   assertProfessorOrSuperadmin(actor.role);

@@ -21,6 +21,7 @@ export interface StudentRosterProps {
   onSelectStudent?: (studentId: string) => void;
   onApproveGraduationRequest?: (requestId: string) => Promise<void>;
   onUpdateStudentBeltGrade?: (payload: { userId: string; belt: string; grade: number; stripes?: number; kidsCategory?: string }) => Promise<void>;
+  onSetStudentAttendanceBonus?: (payload: { userId: string; attendanceCountBonus: number }) => Promise<void>;
   kicker?: string;
   title?: string;
   description?: string;
@@ -84,6 +85,7 @@ const StudentRoster: React.FC<StudentRosterProps> = ({
   onSelectStudent,
   onApproveGraduationRequest,
   onUpdateStudentBeltGrade,
+  onSetStudentAttendanceBonus,
   kicker = 'Roster',
   title = 'Alunos com leitura mais limpa e mais forte.',
   description,
@@ -155,6 +157,7 @@ const StudentRoster: React.FC<StudentRosterProps> = ({
         }}
         onApproveGraduationRequest={onApproveGraduationRequest}
         onUpdateStudentBeltGrade={onUpdateStudentBeltGrade}
+        onSetStudentAttendanceBonus={onSetStudentAttendanceBonus}
       />
     );
   }

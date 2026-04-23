@@ -2,6 +2,7 @@ import React, { Suspense, lazy, startTransition, useEffect, useRef, useState } f
 import { CheckCircle, X } from 'lucide-react';
 import type { User as FirebaseUser } from 'firebase/auth';
 import type { CreateClassPayload } from './components/CreateClassModal';
+import type { DeleteClassPayload } from './components/DeleteClassModal';
 import type { EditClassPayload } from './components/EditClassModal';
 import Layout from './components/Layout';
 import HomeView from './views/HomeView';
@@ -32,7 +33,12 @@ import {
   subscribeToUserGraduations,
   subscribeToUserProfile,
 } from './services/firebase/data';
-import { backendFunctions, type CreateClassScheduleBatchResult } from './services/firebase/functions';
+import {
+  backendFunctions,
+  type CreateClassScheduleBatchResult,
+  type DeleteClassScheduleResult,
+  type UpdateRecurringClassSeriesResult,
+} from './services/firebase/functions';
 import { updateAcademySettings, updateUserProfile, uploadLearningLessonAsset, uploadUserPhoto } from './services/firebase/mutations';
 import type {
   AppRole,
@@ -1154,6 +1160,7 @@ const App: React.FC = () => {
       professorName: firstPayload.professorName,
       tatame: firstPayload.tatame,
       checkinWindowMinutes: academy?.classCheckinWindowMinutes ?? 15,
+      seriesMode: firstPayload.seriesMode,
       occurrences: classPayloads.map((payload) => ({
         scheduledStart: payload.scheduledStart,
         scheduledEnd: payload.scheduledEnd,
@@ -1161,8 +1168,22 @@ const App: React.FC = () => {
     });
   }
 
-  async function handleEditClass(payload: EditClassPayload): Promise<void> {
+  async function handleEditClass(payload: EditClassPayload): Promise<UpdateRecurringClassSeriesResult> {
     try {
+      if (payload.scope === 'future') {
+        return await backendFunctions.updateRecurringClassSeries({
+          classId: payload.classId,
+          title: payload.title,
+          description: payload.description,
+          professorId: payload.professorId,
+          professorName: payload.professorName,
+          tatame: payload.tatame,
+          scheduledStart: payload.scheduledStart,
+          scheduledEnd: payload.scheduledEnd,
+          scope: 'future',
+        });
+      }
+
       await backendFunctions.upsertClassSchedule({
         classId: payload.classId,
         title: payload.title,
@@ -1172,6 +1193,24 @@ const App: React.FC = () => {
         tatame: payload.tatame,
         scheduledStart: payload.scheduledStart,
         scheduledEnd: payload.scheduledEnd,
+      });
+
+      return {
+        requestedCount: 1,
+        updatedCount: 1,
+        skippedCount: 0,
+        skipped: [],
+      };
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
+  }
+
+  async function handleDeleteClass(payload: DeleteClassPayload): Promise<DeleteClassScheduleResult> {
+    try {
+      return await backendFunctions.deleteClassSchedule({
+        classId: payload.classId,
+        scope: payload.scope,
       });
     } catch (error) {
       throw new Error(getErrorMessage(error));
@@ -1221,6 +1260,14 @@ const App: React.FC = () => {
   async function handleSubmitAttendanceRequest(classId: string) {
     try {
       await backendFunctions.submitAttendanceRequest({ classId });
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
+  }
+
+  async function handleMarkStudentForClass(classId: string, targetUserId: string) {
+    try {
+      await backendFunctions.registerAttendance({ classId, targetUserId });
     } catch (error) {
       throw new Error(getErrorMessage(error));
     }
@@ -1364,6 +1411,14 @@ const App: React.FC = () => {
   async function handleUpdateStudentBeltGrade(payload: { userId: string; belt: string; grade: number; stripes?: number; kidsCategory?: string }) {
     try {
       await backendFunctions.updateStudentBeltGrade(payload);
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
+  }
+
+  async function handleSetStudentAttendanceBonus(payload: { userId: string; attendanceCountBonus: number }) {
+    try {
+      await backendFunctions.setStudentAttendanceBonus(payload);
     } catch (error) {
       throw new Error(getErrorMessage(error));
     }
@@ -1810,11 +1865,14 @@ const App: React.FC = () => {
             classNameById={classNameById}
             onCreateClass={handleCreateClass}
             onEditClass={handleEditClass}
+            onDeleteClass={handleDeleteClass}
             onStartClass={handleStartClass}
             onFinishClass={handleFinishClass}
             onRefreshQr={handleRefreshQr}
+            academyStudents={academyUsers.filter((u) => u.role === 'student')}
             onRegisterAttendance={handleRegisterAttendance}
             onSubmitAttendanceRequest={handleSubmitAttendanceRequest}
+            onMarkStudentPresent={handleMarkStudentForClass}
           />
         );
       }
@@ -1843,6 +1901,7 @@ const App: React.FC = () => {
             onSelectStudent={setSelectedStudentId}
             onApproveGraduationRequest={handleApproveGraduationRequest}
             onUpdateStudentBeltGrade={handleUpdateStudentBeltGrade}
+            onSetStudentAttendanceBonus={handleSetStudentAttendanceBonus}
           />
         );
       case 'management':
@@ -1861,6 +1920,8 @@ const App: React.FC = () => {
             onUpdateAcademy={handleUpdateAcademy}
             onCreateAcademy={handleCreateAcademy}
             onCreateUser={handleCreateUser}
+            onUpdateStudentBeltGrade={handleUpdateStudentBeltGrade}
+            onSetStudentAttendanceBonus={handleSetStudentAttendanceBonus}
           />
         );
       case 'notifications':

@@ -104,6 +104,7 @@ export interface CreateClassPayload {
   professorId: string;
   professorName: string;
   tatame: string;
+  seriesMode: 'manual' | 'recurring';
   scheduledStart: string;
   scheduledEnd: string;
 }
@@ -124,6 +125,7 @@ function buildPayloads(params: {
   professorId: string;
   professorName: string;
   tatame: string;
+  seriesMode: 'manual' | 'recurring';
   time: string;
   duration: number;
 }): CreateClassPayload[] {
@@ -139,6 +141,7 @@ function buildPayloads(params: {
       professorId: params.professorId,
       professorName: params.professorName,
       tatame: params.tatame,
+      seriesMode: params.seriesMode,
       scheduledStart: start.toISOString(),
       scheduledEnd: end.toISOString(),
     };
@@ -199,10 +202,11 @@ const CreateClassModal: React.FC<CreateClassModalProps> = ({
       professorId,
       professorName,
       tatame,
+      seriesMode: mode === 'recurring' ? 'recurring' : 'manual',
       time,
       duration,
     }),
-    [activeDates, duration, professorId, professorName, tatame, time, title, tipo],
+    [activeDates, duration, mode, professorId, professorName, tatame, time, title, tipo],
   );
 
   useEffect(() => {

@@ -16,6 +16,7 @@ interface StudentsViewProps {
   onSelectStudent?: (studentId: string) => void;
   onApproveGraduationRequest?: (requestId: string) => Promise<void>;
   onUpdateStudentBeltGrade?: (payload: { userId: string; belt: string; grade: number; stripes?: number; kidsCategory?: string }) => Promise<void>;
+  onSetStudentAttendanceBonus?: (payload: { userId: string; attendanceCountBonus: number }) => Promise<void>;
 }
 
 const StudentsView: React.FC<StudentsViewProps> = ({
@@ -30,6 +31,7 @@ const StudentsView: React.FC<StudentsViewProps> = ({
   onSelectStudent,
   onApproveGraduationRequest,
   onUpdateStudentBeltGrade,
+  onSetStudentAttendanceBonus,
 }) => {
   return (
     <StudentRoster
@@ -44,6 +46,7 @@ const StudentsView: React.FC<StudentsViewProps> = ({
       onSelectStudent={onSelectStudent}
       onApproveGraduationRequest={onApproveGraduationRequest}
       onUpdateStudentBeltGrade={onUpdateStudentBeltGrade}
+      onSetStudentAttendanceBonus={onSetStudentAttendanceBonus}
     />
   );
 };

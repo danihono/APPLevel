@@ -1,13 +1,20 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Camera, CheckCircle, ChevronLeft, ChevronRight, MapPin, Pencil, Play, Plus, QrCode, RefreshCw, ShieldCheck, X } from 'lucide-react';
+import { Camera, CheckCircle, ChevronLeft, ChevronRight, MapPin, Pencil, Play, Plus, QrCode, RefreshCw, ShieldCheck, Trash2, X } from 'lucide-react';
 import QRCodeSVG from 'react-qr-code';
 import { buildMonthGrid, MONTH_WEEK_HEADER, sameCalendarDay, sameCalendarMonth, stripDate, toDateKey } from '../calendarUtils';
 import ClassSessionCard from '../components/ClassSessionCard';
 import CreateClassModal, { type CreateClassPayload } from '../components/CreateClassModal';
+import DeleteClassModal, { type DeleteClassPayload } from '../components/DeleteClassModal';
 import EditClassModal, { type EditClassPayload } from '../components/EditClassModal';
-import { getMyClassRsvp, type FirestoreEntity } from '../services/firebase/data';
-import { backendFunctions, type CreateClassScheduleBatchResult } from '../services/firebase/functions';
-import type { AttendanceRecord, AttendanceRequestRecord, ClassRecord } from '../services/firebase/models';
+import { getMyClassRsvp, subscribeToClassAttendances, type FirestoreEntity } from '../services/firebase/data';
+import {
+  backendFunctions,
+  type ClassScheduleMutationSkippedItem,
+  type CreateClassScheduleBatchResult,
+  type DeleteClassScheduleResult,
+  type UpdateRecurringClassSeriesResult,
+} from '../services/firebase/functions';
+import type { AttendanceRecord, AttendanceRequestRecord, ClassRecord, UserRecord } from '../services/firebase/models';
 import { formatDateLabel, formatTimeLabel } from '../services/firebase/adapters';
 import { UserRole, type KidsCategory } from '../types';
 
@@ -33,16 +40,23 @@ interface CalendarViewProps {
   attendanceRate?: number;
   classNameById?: Map<string, string>;
   onCreateClass: (classes: CreateClassPayload[]) => Promise<CreateClassScheduleBatchResult>;
-  onEditClass: (payload: EditClassPayload) => Promise<void>;
+  onEditClass: (payload: EditClassPayload) => Promise<UpdateRecurringClassSeriesResult>;
+  onDeleteClass: (payload: DeleteClassPayload) => Promise<DeleteClassScheduleResult>;
   onStartClass: (classId: string) => Promise<QrSessionPayload>;
   onFinishClass: (classId: string) => Promise<void>;
   onRefreshQr: (classId: string) => Promise<QrSessionPayload>;
+  academyStudents?: Array<FirestoreEntity<UserRecord>>;
   onRegisterAttendance: (classId: string, qrToken?: string) => Promise<void>;
   onSubmitAttendanceRequest: (classId: string) => Promise<void>;
+  onMarkStudentPresent?: (classId: string, targetUserId: string) => Promise<void>;
 }
 
 type CalendarSurface = 'calendar' | 'today';
 type StaffFilter = 'minhas' | 'todas';
+type FeedbackToast = {
+  title: string;
+  note?: string;
+};
 
 const monthFormatter = new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric' });
 const longDayFormatter = new Intl.DateTimeFormat('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' });
@@ -60,6 +74,56 @@ function fmtCountdown(ms: number): string {
   const minutes = Math.floor(totalSec / 60);
   const seconds = totalSec % 60;
   return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+}
+
+function buildSkippedNote(skipped: ClassScheduleMutationSkippedItem[]): string | undefined {
+  if (skipped.length === 0) {
+    return undefined;
+  }
+
+  const [firstItem] = skipped;
+  const extra = skipped.length > 1 ? ` Mais ${skipped.length - 1} ocorrencia${skipped.length - 1 === 1 ? '' : 's'}.` : '';
+  return `${firstItem.reason}${extra}`;
+}
+
+function buildEditToast(result: UpdateRecurringClassSeriesResult): FeedbackToast {
+  if (result.updatedCount === 1 && result.requestedCount === 1 && result.skippedCount === 0) {
+    return { title: 'Aula atualizada.' };
+  }
+
+  if (result.updatedCount === 0) {
+    return {
+      title: 'Nenhuma aula foi atualizada.',
+      note: buildSkippedNote(result.skipped),
+    };
+  }
+
+  return {
+    title: `${result.updatedCount} ${result.updatedCount === 1 ? 'aula atualizada' : 'aulas atualizadas'}.`,
+    note: result.skippedCount > 0
+      ? `${result.skippedCount} mantida${result.skippedCount === 1 ? '' : 's'}. ${buildSkippedNote(result.skipped) ?? ''}`.trim()
+      : undefined,
+  };
+}
+
+function buildDeleteToast(result: DeleteClassScheduleResult): FeedbackToast {
+  if (result.deletedCount === 1 && result.requestedCount === 1 && result.skippedCount === 0) {
+    return { title: 'Aula excluida.' };
+  }
+
+  if (result.deletedCount === 0) {
+    return {
+      title: 'Nenhuma aula foi excluida.',
+      note: buildSkippedNote(result.skipped),
+    };
+  }
+
+  return {
+    title: `${result.deletedCount} ${result.deletedCount === 1 ? 'aula excluida' : 'aulas excluidas'}.`,
+    note: result.skippedCount > 0
+      ? `${result.skippedCount} mantida${result.skippedCount === 1 ? '' : 's'}. ${buildSkippedNote(result.skipped) ?? ''}`.trim()
+      : undefined,
+  };
 }
 
 function sortClasses(left: FirestoreEntity<ClassRecord>, right: FirestoreEntity<ClassRecord>) {
@@ -451,11 +515,14 @@ const CalendarView: React.FC<CalendarViewProps> = ({
   classNameById,
   onCreateClass,
   onEditClass,
+  onDeleteClass,
   onStartClass,
   onFinishClass,
   onRefreshQr,
+  academyStudents = [],
   onRegisterAttendance,
   onSubmitAttendanceRequest,
+  onMarkStudentPresent,
 }) => {
   const isStaff = userRole === UserRole.PROFESSOR || userRole === UserRole.SUPERADMIN;
   const today = useMemo(() => stripDate(new Date()), []);
@@ -469,8 +536,9 @@ const CalendarView: React.FC<CalendarViewProps> = ({
   const [selectedDay, setSelectedDay] = useState(() => today);
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
-  const [sheetTab, setSheetTab] = useState<'detalhes' | 'historico'>('detalhes');
+  const [sheetTab, setSheetTab] = useState<'detalhes' | 'historico' | 'presencas'>('detalhes');
   const [qrByClass, setQrByClass] = useState<Record<string, QrSessionPayload>>({});
   const [qrCountdowns, setQrCountdowns] = useState<Record<string, string>>({});
   const [qrInputByClass, setQrInputByClass] = useState<Record<string, string>>({});
@@ -484,12 +552,39 @@ const CalendarView: React.FC<CalendarViewProps> = ({
   const [scannerClassId, setScannerClassId] = useState<string | null>(null);
   const [myRsvpByClass, setMyRsvpByClass] = useState<Record<string, boolean>>({});
   const [rsvpBusyByClass, setRsvpBusyByClass] = useState<Record<string, boolean>>({});
+  const [feedbackToast, setFeedbackToast] = useState<FeedbackToast | null>(null);
+  const [classAttendances, setClassAttendances] = useState<Array<FirestoreEntity<AttendanceRecord>>>([]);
 
   const tokenInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     setSheetTab('detalhes');
   }, [selectedClassId]);
+
+  useEffect(() => {
+    const selectedClass = classes.find((c) => c.id === selectedClassId);
+    if (!selectedClassId || !isStaff || !selectedClass) {
+      setClassAttendances([]);
+      return undefined;
+    }
+    return subscribeToClassAttendances(selectedClassId, selectedClass.academyId, setClassAttendances);
+  }, [selectedClassId, isStaff, classes]);
+
+  useEffect(() => {
+    if (!selectedClassId) {
+      setEditModalOpen(false);
+      setDeleteModalOpen(false);
+    }
+  }, [selectedClassId]);
+
+  useEffect(() => {
+    if (!feedbackToast) {
+      return undefined;
+    }
+
+    const timeoutId = window.setTimeout(() => setFeedbackToast(null), 5000);
+    return () => window.clearTimeout(timeoutId);
+  }, [feedbackToast]);
 
   useEffect(() => {
     if (!selectedClassId || isStaff) {
@@ -711,6 +806,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
   const canManageSelected = isStaff
     && selectedClass
     && (userRole === UserRole.PROFESSOR || userRole === UserRole.SUPERADMIN || selectedClass.professorId === currentUserId);
+  const canDeleteSelected = !!selectedClass && (selectedClass.status === 'scheduled' || !!selectedClass.recurrenceSeriesId);
   const pendingRequest = selectedClass
     ? attendanceRequests.find((entry) => entry.classId === selectedClass.id && entry.status === 'pending')
     : null;
@@ -788,6 +884,21 @@ const CalendarView: React.FC<CalendarViewProps> = ({
     }
   }
 
+  async function handleMarkStudentPresent(classId: string, studentId: string) {
+    const busyKey = `manual_${studentId}`;
+    setBusyByClass((prev) => ({ ...prev, [busyKey]: true }));
+    try {
+      await onMarkStudentPresent?.(classId, studentId);
+    } catch (error) {
+      setMessageByClass((prev) => ({
+        ...prev,
+        [classId]: error instanceof Error ? error.message : 'Erro ao marcar presenca.',
+      }));
+    } finally {
+      setBusyByClass((prev) => ({ ...prev, [busyKey]: false }));
+    }
+  }
+
   async function handleConfirmFinish() {
     if (!finishConfirmClassId) {
       return;
@@ -807,6 +918,23 @@ const CalendarView: React.FC<CalendarViewProps> = ({
       setFinishQrData(null);
       setSelectedClassId(null);
     }
+  }
+
+  async function handleEditSubmit(payload: EditClassPayload) {
+    const result = await onEditClass(payload);
+    setFeedbackToast(buildEditToast(result));
+    return result;
+  }
+
+  async function handleDeleteSubmit(payload: DeleteClassPayload) {
+    const result = await onDeleteClass(payload);
+    setFeedbackToast(buildDeleteToast(result));
+
+    if (payload.scope === 'single' || selectedClass?.status === 'scheduled') {
+      setSelectedClassId(null);
+    }
+
+    return result;
   }
 
   const openClassDetails = useCallback((classId: string) => {
@@ -836,6 +964,15 @@ const CalendarView: React.FC<CalendarViewProps> = ({
 
   return (
     <div className="view-shell">
+      {feedbackToast ? (
+        <div className="fixed top-24 left-4 right-4 z-[72] mx-auto max-w-lg">
+          <div className="app-toast text-sm">
+            <div className="font-semibold">{feedbackToast.title}</div>
+            {feedbackToast.note ? <div className="mt-1 text-xs opacity-80">{feedbackToast.note}</div> : null}
+          </div>
+        </div>
+      ) : null}
+
       {!isCompactMonthGrid ? (
         <section className="app-panel app-panel-pad">
           <div className="flex flex-wrap items-start justify-between gap-4">
@@ -1200,10 +1337,67 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                       >
                         Historico ({myAttendances.length})
                       </button>
+                      <button
+                        type="button"
+                        onClick={() => setSheetTab('presencas')}
+                        className={`app-segment__button ${sheetTab === 'presencas' ? 'is-active' : ''}`}
+                      >
+                        Presencas ({classAttendances.length})
+                      </button>
                     </div>
                   </div>
 
-                  {sheetTab === 'detalhes' ? (
+                  {sheetTab === 'presencas' ? (
+                    <div style={{ padding: '0 20px 16px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+                      <p style={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--text-soft)' }}>
+                        Alunos
+                      </p>
+                      {academyStudents.length === 0 ? (
+                        <div style={{ textAlign: 'center', padding: '20px 0', color: 'var(--text-soft)', fontSize: '0.85rem' }}>
+                          Nenhum aluno cadastrado
+                        </div>
+                      ) : (
+                        academyStudents.map((student) => {
+                          const record = classAttendances.find((a) => a.userId === student.id);
+                          const markBusy = !!busyByClass[`manual_${student.id}`];
+                          return (
+                            <div key={student.id} className="app-list-card" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                              {record ? (
+                                <CheckCircle size={16} style={{ color: methodColor(record.checkInMethod), flexShrink: 0 }} />
+                              ) : (
+                                <span style={{ width: 16, height: 16, border: '2px solid var(--border)', borderRadius: 4, flexShrink: 0, display: 'inline-block' }} />
+                              )}
+                              <div style={{ flex: 1, minWidth: 0 }}>
+                                <p style={{ fontSize: '0.82rem', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                  {student.displayName}
+                                </p>
+                                {record ? (
+                                  <p style={{ fontSize: '0.72rem', color: 'var(--text-soft)', marginTop: 2 }}>
+                                    {record.checkedInAt ? formatTimeLabel(record.checkedInAt) : '-'}
+                                  </p>
+                                ) : null}
+                              </div>
+                              {record ? (
+                                <span className={methodBadgeClass(record.checkInMethod)} style={{ flexShrink: 0, fontSize: '0.65rem' }}>
+                                  {methodLabel(record.checkInMethod)}
+                                </span>
+                              ) : (
+                                <button
+                                  type="button"
+                                  disabled={markBusy || selectedClass.status === 'cancelled'}
+                                  onClick={() => void handleMarkStudentPresent(selectedClass.id, student.id)}
+                                  className="app-button app-button--ghost app-button--small"
+                                  style={{ fontSize: '0.7rem', padding: '4px 10px', flexShrink: 0 }}
+                                >
+                                  {markBusy ? '...' : 'Marcar presente'}
+                                </button>
+                              )}
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+                  ) : sheetTab === 'detalhes' ? (
                     <div style={{ padding: '0 20px 16px', display: 'flex', flexDirection: 'column', gap: 12 }}>
                       {qrData ? (
                         <div className="app-panel app-panel--tint p-4">
@@ -1350,6 +1544,16 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                     >
                       <Pencil size={14} />
                       Editar
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setDeleteModalOpen(true)}
+                      disabled={busy || !canDeleteSelected}
+                      className="app-button app-button--ghost app-button--small"
+                    >
+                      <Trash2 size={14} />
+                      Excluir
                     </button>
 
                     {selectedClass.status === 'scheduled' ? (
@@ -1530,9 +1734,21 @@ const CalendarView: React.FC<CalendarViewProps> = ({
           professors={professors}
           onClose={() => setEditModalOpen(false)}
           onSubmit={async (payload) => {
-            await onEditClass(payload);
+            const result = await handleEditSubmit(payload);
             setEditModalOpen(false);
-            setSelectedClassId(null);
+            return result;
+          }}
+        />
+      ) : null}
+
+      {deleteModalOpen && selectedClass ? (
+        <DeleteClassModal
+          lesson={selectedClass}
+          onClose={() => setDeleteModalOpen(false)}
+          onSubmit={async (payload) => {
+            const result = await handleDeleteSubmit(payload);
+            setDeleteModalOpen(false);
+            return result;
           }}
         />
       ) : null}

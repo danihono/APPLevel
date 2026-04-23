@@ -194,6 +194,25 @@ export function subscribeToUserAttendances(
   );
 }
 
+export function subscribeToClassAttendances(
+  classId: string,
+  academyId: string,
+  listener: (records: Array<FirestoreEntity<AttendanceRecord>>) => void,
+  onError?: (error: Error) => void,
+) {
+  return onSnapshot(
+    query(
+      collection(firebaseDb, 'attendances'),
+      where('classId', '==', classId),
+      where('academyId', '==', academyId),
+    ),
+    (snapshot) => {
+      listener(snapshot.docs.map((item) => mapDoc<AttendanceRecord>(item)));
+    },
+    onError,
+  );
+}
+
 export function subscribeToAttendanceRequests(
   params: {
     academyId?: string;

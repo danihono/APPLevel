@@ -325,7 +325,9 @@ export async function syncUserDerivedState(
   options?: { recalculatePositions?: boolean },
 ): Promise<UserSyncResult> {
   const user = await getUserDoc(userId);
-  const metrics = await computeEngagementMetrics(userId, academyId);
+  const rawMetrics = await computeEngagementMetrics(userId, academyId);
+  const bonus = Math.max(0, Math.floor(user.attendanceCountBonus ?? 0));
+  const metrics = bonus > 0 ? { ...rawMetrics, attendanceCount: rawMetrics.attendanceCount + bonus } : rawMetrics;
   const rules = await loadAcademyRules(academyId);
   const progression = resolveProgressionTargets(user.belt, user.stripes, metrics.attendanceCount, rules, {
     birthDate: user.birthDate,

@@ -47,6 +47,8 @@ interface ManagementViewProps {
     grade?: number;
     stripes?: number;
   }) => Promise<void>;
+  onUpdateStudentBeltGrade?: (payload: { userId: string; belt: string; grade: number; stripes?: number; kidsCategory?: string }) => Promise<void>;
+  onSetStudentAttendanceBonus?: (payload: { userId: string; attendanceCountBonus: number }) => Promise<void>;
 }
 
 const staffBeltPresets = ADULT_BELTS;
@@ -115,6 +117,8 @@ const ManagementView: React.FC<ManagementViewProps> = ({
   onUpdateAcademy,
   onCreateAcademy,
   onCreateUser,
+  onUpdateStudentBeltGrade,
+  onSetStudentAttendanceBonus,
 }) => {
   const canManage = userRole === UserRole.PROFESSOR || userRole === UserRole.SUPERADMIN;
   const isSuperAdmin = userRole === UserRole.SUPERADMIN;
@@ -445,6 +449,8 @@ const ManagementView: React.FC<ManagementViewProps> = ({
             title="Todos os alunos da sua unidade com filtros e leitura rapida."
             description="Pesquise por nome, filtre por faixa e grau e abra o detalhe completo de cada aluno."
             emptyResultsMessage={students.length === 0 ? 'Nenhum aluno cadastrado nesta academia.' : 'Nenhum aluno encontrado com os filtros atuais.'}
+            onUpdateStudentBeltGrade={onUpdateStudentBeltGrade}
+            onSetStudentAttendanceBonus={onSetStudentAttendanceBonus}
           />
         ) : hasManagedAcademy ? (
           <>
@@ -557,6 +563,8 @@ const ManagementView: React.FC<ManagementViewProps> = ({
             title="Todos os alunos da unidade em uma leitura pronta para operacao."
             description="Use busca, faixa, grau e ordenacao para encontrar rapidamente quem voce precisa."
             emptyResultsMessage={students.length === 0 ? 'Nenhum aluno cadastrado nesta academia.' : 'Nenhum aluno encontrado com os filtros atuais.'}
+            onUpdateStudentBeltGrade={onUpdateStudentBeltGrade}
+            onSetStudentAttendanceBonus={onSetStudentAttendanceBonus}
           />
         ) : (
           <section className="app-panel app-panel-pad">

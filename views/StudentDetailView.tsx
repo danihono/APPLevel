@@ -8,7 +8,7 @@ import {
   kidsCategoryLabel,
   KIDS_CATEGORIES,
 } from '../beltCatalog';
-import { ArrowLeft, Award, Calendar, CheckCircle2, Clock, Mail, Save, TrendingUp, Video } from 'lucide-react';
+import { ArrowLeft, Award, Calendar, CheckCircle2, Clock, Mail, Save, TrendingUp, Video, BookOpen } from 'lucide-react';
 import AvatarWithBelt from '../components/AvatarWithBelt';
 import ProgressBar from '../components/ProgressBar';
 import type { FirestoreEntity } from '../services/firebase/data';
@@ -22,6 +22,7 @@ interface StudentDetailViewProps {
   onBack: () => void;
   onApproveGraduationRequest?: (requestId: string) => Promise<void>;
   onUpdateStudentBeltGrade?: (payload: { userId: string; belt: string; grade: number; stripes?: number; kidsCategory?: string }) => Promise<void>;
+  onSetStudentAttendanceBonus?: (payload: { userId: string; attendanceCountBonus: number }) => Promise<void>;
 }
 
 function formatDate(value?: string) {
@@ -49,6 +50,7 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
   onBack,
   onApproveGraduationRequest,
   onUpdateStudentBeltGrade,
+  onSetStudentAttendanceBonus,
 }) => {
   const age = student.birthDate
     ? new Date().getFullYear() - new Date(student.birthDate).getFullYear()
@@ -57,8 +59,10 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
   const [studentBelt, setStudentBelt] = useState(student.belt);
   const [studentGrade, setStudentGrade] = useState(student.stripes);
   const [studentKidsCategory, setStudentKidsCategory] = useState<KidsCategory | ''>(student.kidsCategory ?? inferredKidsCategory ?? '');
+  const [attendanceBonus, setAttendanceBonus] = useState(student.attendanceCountBonus ?? 0);
   const [approveBusy, setApproveBusy] = useState(false);
   const [saveBusy, setSaveBusy] = useState(false);
+  const [bonusBusy, setBonusBusy] = useState(false);
   const [feedback, setFeedback] = useState('');
   const [error, setError] = useState('');
 
@@ -66,6 +70,7 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
     setStudentBelt(student.belt);
     setStudentGrade(student.stripes);
     setStudentKidsCategory(student.kidsCategory ?? inferKidsCategoryFromBirthDate(student.birthDate) ?? '');
+    setAttendanceBonus(student.attendanceCountBonus ?? 0);
   }, [student]);
 
   const studentTrack = useMemo<'Adulto' | 'Kids'>(() => {
@@ -143,6 +148,27 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
       setError(submitError instanceof Error ? submitError.message : 'Nao foi possivel atualizar a graduacao.');
     } finally {
       setSaveBusy(false);
+    }
+  }
+
+  async function handleSaveAttendanceBonus(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!onSetStudentAttendanceBonus) {
+      return;
+    }
+
+    setBonusBusy(true);
+    setFeedback('');
+    setError('');
+
+    try {
+      await onSetStudentAttendanceBonus({ userId: student.id, attendanceCountBonus: attendanceBonus });
+      setFeedback('Aulas extras salvas com sucesso.');
+    } catch (submitError) {
+      setError(submitError instanceof Error ? submitError.message : 'Nao foi possivel salvar as aulas extras.');
+    } finally {
+      setBonusBusy(false);
     }
   }
 
@@ -281,6 +307,47 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
           <button type="submit" disabled={saveBusy} className="app-button app-button--gold mt-6">
             <Save size={16} />
             {saveBusy ? 'Salvando...' : 'Salvar graduacao do aluno'}
+          </button>
+        </form>
+      ) : null}
+
+      {onSetStudentAttendanceBonus ? (
+        <form onSubmit={handleSaveAttendanceBonus} className="app-panel app-panel-pad">
+          <div className="flex items-center gap-3">
+            <div className="app-icon-shell">
+              <BookOpen size={18} />
+            </div>
+            <div>
+              <p className="app-section-label">Aulas nao contabilizadas</p>
+              <h2 className="text-xl font-bold">Ajuste de presencas</h2>
+            </div>
+          </div>
+
+          <p className="mt-4 text-sm text-[color:var(--text-muted)]">
+            Informe quantas aulas extras devem ser somadas ao contador deste aluno. Use para corrigir presencas que nao foram registradas no sistema.
+          </p>
+
+          <div className="mt-6">
+            <label className="app-field">
+              <span className="app-field__label">Aulas extras a adicionar</span>
+              <input
+                type="number"
+                min={0}
+                value={attendanceBonus}
+                onChange={(event) => setAttendanceBonus(Math.max(0, Math.floor(Number(event.target.value) || 0)))}
+                className="app-input"
+              />
+              <span className="app-field__hint">
+                {attendanceBonus > 0
+                  ? `${attendanceBonus} aula(s) serao somadas ao total do aluno`
+                  : 'Nenhum ajuste aplicado'}
+              </span>
+            </label>
+          </div>
+
+          <button type="submit" disabled={bonusBusy} className="app-button app-button--gold mt-6">
+            <Save size={16} />
+            {bonusBusy ? 'Salvando...' : 'Salvar ajuste de aulas'}
           </button>
         </form>
       ) : null}

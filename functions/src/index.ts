@@ -8,6 +8,7 @@ import {
   getPublicSignupAcademies,
   listSignupAcademies,
   rejectJoinRequest,
+  setStudentAttendanceBonus,
   setUserRole,
   syncOwnUserEmail,
   submitStudentSignup,
@@ -17,9 +18,11 @@ import {
 } from './modules/auth';
 import {
   createClassScheduleBatch,
+  deleteClassSchedule,
   generateClassQrCode,
   finishClassSession,
   startClassSession,
+  updateRecurringClassSeries,
   upsertClassSchedule,
 } from './modules/classes';
 import {
@@ -79,6 +82,7 @@ export {
   createClassScheduleBatch,
   createUserWithRole,
   createUserWithRole as createUser,
+  deleteClassSchedule,
   evaluateUserProgression,
   finishClassSession,
   generateClassQrCode,
@@ -100,6 +104,7 @@ export {
   registerDeviceToken,
   replaceLearningLessonBlocks,
   sendSegmentedNotification,
+  setStudentAttendanceBonus,
   setUserRole,
   syncOwnUserEmail,
   startLessonQuiz,
@@ -109,6 +114,7 @@ export {
   submitLessonQuiz,
   syncUserMissionProgress,
   toggleClassRsvp,
+  updateRecurringClassSeries,
   updateOwnStudentProfile,
   updateStudentBeltGrade,
   upsertAcademyProgressionRules,

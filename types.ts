@@ -44,6 +44,7 @@ export interface User {
   totalClassesToNextBelt: number;
   currentStripeProgress: number;
   currentBeltProgress: number;
+  attendanceCountBonus?: number;
   lastGraduation: string;
   branchId: string;
   type: 'Adulto' | 'Kids';

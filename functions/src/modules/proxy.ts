@@ -18,6 +18,8 @@ const ALLOWED_CALLABLES = new Set([
   'validateSessionAccess',
   'upsertClassSchedule',
   'createClassScheduleBatch',
+  'updateRecurringClassSeries',
+  'deleteClassSchedule',
   'startClassSession',
   'finishClassSession',
   'generateClassQrCode',

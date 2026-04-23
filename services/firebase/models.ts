@@ -52,6 +52,7 @@ export interface UserRecord {
   grade: number;
   photoPath?: string;
   attendanceCount: number;
+  attendanceCountBonus?: number;
   qrCheckinsCount: number;
   currentStreak: number;
   longestStreak: number;
@@ -79,6 +80,7 @@ export interface ClassRecord {
   professorId: string;
   professorName?: string;
   tatame: string;
+  recurrenceSeriesId?: string;
   status: ClassStatus;
   scheduledStart?: Timestamp;
   scheduledEnd?: Timestamp;

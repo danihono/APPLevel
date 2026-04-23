@@ -116,6 +116,7 @@ export interface UserDoc {
   grade: number;
   photoPath?: string;
   attendanceCount: number;
+  attendanceCountBonus?: number;
   qrCheckinsCount: number;
   currentStreak: number;
   longestStreak: number;
@@ -143,6 +144,7 @@ export interface ClassDoc {
   professorId: string;
   professorName?: string;
   tatame: string;
+  recurrenceSeriesId?: string;
   status: ClassStatus;
   scheduledStart: FirebaseFirestore.Timestamp;
   scheduledEnd: FirebaseFirestore.Timestamp;
