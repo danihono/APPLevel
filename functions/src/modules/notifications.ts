@@ -54,50 +54,64 @@ export const sendSegmentedNotification = onCall(callableOptions, async (request)
     'Você só pode notificar usuários da própria academia.',
   );
 
-  let query: FirebaseFirestore.Query<FirebaseFirestore.DocumentData> = db.collection(COLLECTIONS.users).where('academyId', '==', academyId);
+  let query: FirebaseFirestore.Query<FirebaseFirestore.DocumentData> = db
+    .collection(COLLECTIONS.users)
+    .where('academyId', '==', academyId)
+    .limit(2000);
   if (targetRole) {
     query = query.where('role', '==', targetRole);
   }
 
   const usersSnapshot = await query.get();
   const recipients = usersSnapshot.docs
-    .map((doc) => ({ id: doc.id, data: doc.data() as UserDoc }))
+    .map((doc) => ({ id: doc.id, data: doc.data() as UserDoc & { fcmTokens?: string[] } }))
     .filter(({ data: user }) => !targetBelt || user.belt === targetBelt)
     .filter(({ id }) => !recipientUserIds || recipientUserIds.includes(id));
 
   const now = Timestamp.now();
-  const batch = db.batch();
   const tokens: string[] = [];
-  const recipientHasToken = new Set<string>();
 
-  for (const recipient of recipients) {
+  type PendingNotification = {
+    ref: FirebaseFirestore.DocumentReference;
+    doc: NotificationDoc;
+    hasToken: boolean;
+  };
+
+  const pending: PendingNotification[] = recipients.map((recipient) => {
     const tokenList = recipient.data.fcmTokens ?? [];
-    if (tokenList.length > 0) {
-      recipientHasToken.add(recipient.id);
+    const hasToken = tokenList.length > 0;
+    if (hasToken) {
       tokens.push(...tokenList);
     }
-
-    const notificationRef = db.collection(COLLECTIONS.notifications).doc();
-    const notification: NotificationDoc = {
-      academyId,
-      title,
-      body,
-      channel,
-      kind: 'notice',
-      status: tokenList.length > 0 ? 'queued' : 'stored',
-      createdBy: actor.uid,
-      createdAt: now,
-      updatedAt: now,
-      recipientUserId: recipient.id,
-      targetRole,
-      targetBelt,
-      data,
+    return {
+      ref: db.collection(COLLECTIONS.notifications).doc(),
+      doc: {
+        academyId,
+        title,
+        body,
+        channel,
+        kind: 'notice',
+        status: hasToken ? 'queued' : 'stored',
+        createdBy: actor.uid,
+        createdAt: now,
+        updatedAt: now,
+        recipientUserId: recipient.id,
+        targetRole,
+        targetBelt,
+        data,
+      },
+      hasToken,
     };
+  });
 
-    batch.set(notificationRef, notification);
+  // Write notifications in chunks of 500 (Firestore batch limit)
+  for (const batchChunk of chunk(pending, 500)) {
+    const writeBatch = db.batch();
+    for (const entry of batchChunk) {
+      writeBatch.set(entry.ref, entry.doc);
+    }
+    await writeBatch.commit();
   }
-
-  await batch.commit();
 
   let sent = 0;
   let failed = 0;
@@ -109,7 +123,6 @@ export const sendSegmentedNotification = onCall(callableOptions, async (request)
           notification: { title, body },
           data,
         });
-
         sent += response.successCount;
         failed += response.failureCount;
       }
@@ -118,24 +131,22 @@ export const sendSegmentedNotification = onCall(callableOptions, async (request)
     }
   }
 
-  const notificationSnapshot = await db
-    .collection(COLLECTIONS.notifications)
-    .where('academyId', '==', academyId)
-    .where('createdBy', '==', actor.uid)
-    .where('createdAt', '==', now)
-    .get();
+  // Update delivery status using the refs we already have — no re-query needed
+  const allFailed = tokens.length > 0 && failed === tokens.length;
+  const deliveredAt = Timestamp.now();
+  const toUpdate = pending.filter((entry) => entry.hasToken);
 
-  const updateBatch = db.batch();
-  for (const doc of notificationSnapshot.docs) {
-    const recipientUserId = doc.get('recipientUserId') as string | undefined;
-    const hasToken = recipientUserId ? recipientHasToken.has(recipientUserId) : false;
-    updateBatch.update(doc.ref, {
-      status: hasToken ? (failed === tokens.length ? 'failed' : 'sent') : 'stored',
-      deliveredAt: hasToken ? Timestamp.now() : null,
-      updatedAt: Timestamp.now(),
-    });
+  for (const updateChunk of chunk(toUpdate, 500)) {
+    const updateBatch = db.batch();
+    for (const entry of updateChunk) {
+      updateBatch.update(entry.ref, {
+        status: allFailed ? 'failed' : 'sent',
+        deliveredAt,
+        updatedAt: deliveredAt,
+      });
+    }
+    await updateBatch.commit();
   }
-  await updateBatch.commit();
 
   return {
     academyId,

@@ -1186,6 +1186,7 @@ const App: React.FC = () => {
 
       await backendFunctions.upsertClassSchedule({
         classId: payload.classId,
+        academyId: payload.academyId,
         title: payload.title,
         description: payload.description,
         professorId: payload.professorId,

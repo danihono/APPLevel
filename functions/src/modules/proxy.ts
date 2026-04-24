@@ -47,8 +47,12 @@ const ALLOWED_CALLABLES = new Set([
   'upsertLearningLesson',
   'upsertLessonQuiz',
   'recordLessonPlayback',
+  'recordLearningBlockPlayback',
+  'replaceLearningLessonBlocks',
+  'markLearningBlockComplete',
   'startLessonQuiz',
   'submitLessonQuiz',
+  'setStudentAttendanceBonus',
   'toggleClassRsvp',
 ]);
 

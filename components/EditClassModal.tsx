@@ -46,6 +46,7 @@ function closestDuration(ms: number): number {
 
 export interface EditClassPayload {
   classId: string;
+  academyId: string;
   title: string;
   description?: string;
   professorId: string;
@@ -111,6 +112,7 @@ const EditClassModal: React.FC<EditClassModalProps> = ({ lesson, professors, onC
     try {
       await onSubmit({
         classId: lesson.id,
+        academyId: lesson.academyId,
         title: title.trim(),
         description: tipo,
         professorId,
@@ -131,8 +133,7 @@ const EditClassModal: React.FC<EditClassModalProps> = ({ lesson, professors, onC
   return (
     <div className="fixed inset-0 z-[90] flex items-end justify-center bg-black/60 sm:items-center" onClick={onClose}>
       <div
-        className="app-panel app-panel-pad w-full max-w-2xl rounded-b-none sm:rounded-[1.8rem]"
-        style={{ maxHeight: '92vh', overflowY: 'auto' }}
+        className="app-panel app-panel-pad app-sheet-modal w-full max-w-2xl rounded-b-none sm:rounded-[1.8rem]"
         onClick={(event) => event.stopPropagation()}
       >
         <div className="flex items-center justify-between">

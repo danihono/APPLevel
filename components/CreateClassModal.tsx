@@ -324,8 +324,7 @@ const CreateClassModal: React.FC<CreateClassModalProps> = ({
   return (
     <div className="fixed inset-0 z-[90] flex items-end justify-center bg-black/60 sm:items-center" onClick={onClose}>
       <div
-        className="app-panel app-panel-pad create-class-modal w-full max-w-2xl rounded-b-none sm:rounded-[1.8rem]"
-        style={{ maxHeight: '92vh' }}
+        className="app-panel app-panel-pad app-sheet-modal create-class-modal w-full max-w-2xl rounded-b-none sm:rounded-[1.8rem]"
         onClick={(event) => event.stopPropagation()}
       >
         <div className="flex items-center justify-between">

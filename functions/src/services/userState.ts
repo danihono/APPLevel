@@ -398,10 +398,21 @@ export async function syncUserDerivedState(
 }
 
 export async function syncAllUsersInAcademy(academyId: string): Promise<number> {
-  const usersSnapshot = await db.collection(COLLECTIONS.users).where('academyId', '==', academyId).get();
+  const usersSnapshot = await db
+    .collection(COLLECTIONS.users)
+    .where('academyId', '==', academyId)
+    .limit(2000)
+    .get();
 
-  for (const doc of usersSnapshot.docs) {
-    await syncUserDerivedState(doc.id, academyId, { recalculatePositions: false });
+  const userIds = usersSnapshot.docs.map((doc) => doc.id);
+  const BATCH_SIZE = 10;
+
+  for (let i = 0; i < userIds.length; i += BATCH_SIZE) {
+    await Promise.all(
+      userIds.slice(i, i + BATCH_SIZE).map((uid) =>
+        syncUserDerivedState(uid, academyId, { recalculatePositions: false }),
+      ),
+    );
   }
 
   await recalculateAcademyRankingPositions(academyId);
