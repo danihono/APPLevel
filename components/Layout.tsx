@@ -425,10 +425,10 @@ const Layout: React.FC<LayoutProps> = ({
                       disabled={professorVisionDisabled}
                       className={`app-vision-switch__button ${isProfessorVision ? 'is-active' : ''}`}
                       aria-pressed={isProfessorVision}
-                      title="Visao por unidade"
+                      title="Visao professor"
                     >
                       <Building2 size={13} strokeWidth={2} />
-                      <span>Unid.</span>
+                      <span>Professor</span>
                     </button>
                   </div>
                 </div>

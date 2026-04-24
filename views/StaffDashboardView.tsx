@@ -175,7 +175,7 @@ const StaffDashboardView: React.FC<StaffDashboardViewProps> = ({
           <p className="staff-home__eyebrow">{getGreeting(now)},</p>
           <h1 className="staff-home__greeting">{user.name}</h1>
           <p className="staff-home__summary">
-            Operacao do dia com equipe, agenda e pendencias da unidade.
+            Visao do professor com equipe, agenda e pendencias da unidade.
           </p>
         </div>
 
