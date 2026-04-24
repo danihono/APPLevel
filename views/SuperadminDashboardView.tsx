@@ -497,6 +497,135 @@ const SuperadminDashboardView: React.FC<SuperadminDashboardViewProps> = ({
 
   return (
     <div className="view-shell superadmin-dashboard">
+      {/* ── MOBILE LAYOUT ── escondido no desktop via CSS */}
+      <div className="superadmin-mobile-layout">
+
+        {/* Header */}
+        <div className="sa-mob-header">
+          <div className="sa-mob-header__avatar">SA</div>
+          <div className="sa-mob-header__copy">
+            <p className="sa-mob-header__eyebrow">Superadmin</p>
+            <h1 className="sa-mob-header__title">
+              {focusAcademyRow ? focusAcademyRow.name : 'Rede inteira'}
+            </h1>
+          </div>
+          <div className="sa-mob-status-pill">
+            <span className="sa-mob-status-pill__dot" />
+            Leitura consolidada · {formatNumber(totalAcademies)} academias
+          </div>
+        </div>
+
+        {/* KPI 2×2 */}
+        <div className="sa-mob-kpi-grid">
+          <div className="sa-mob-kpi-tile">
+            <p className="sa-mob-kpi-tile__label">Academias</p>
+            <p className="sa-mob-kpi-tile__value">{formatNumber(totalAcademies)}</p>
+            <p className="sa-mob-kpi-tile__sublabel">{formatNumber(activeAcademies)} ativas</p>
+          </div>
+          <div className={`sa-mob-kpi-tile ${academiesInAttention > 0 ? 'sa-mob-kpi-tile--danger' : ''}`}>
+            <p className="sa-mob-kpi-tile__label">Em atenção</p>
+            <p className="sa-mob-kpi-tile__value">{formatNumber(academiesInAttention)}</p>
+            <p className="sa-mob-kpi-tile__sublabel">academias</p>
+          </div>
+          <div className="sa-mob-kpi-tile">
+            <p className="sa-mob-kpi-tile__label">Alunos ativos</p>
+            <p className="sa-mob-kpi-tile__value">{formatNumber(globalStudents)}</p>
+            <p className="sa-mob-kpi-tile__sublabel">{formatNumber(globalUsers)} usuários</p>
+          </div>
+          <div className="sa-mob-kpi-tile">
+            <p className="sa-mob-kpi-tile__label">Lideranças</p>
+            <p className="sa-mob-kpi-tile__value">{formatNumber(globalLeaders)}</p>
+            <p className="sa-mob-kpi-tile__sublabel">{formatNumber(globalMasterBlack)} master black</p>
+          </div>
+        </div>
+
+        {/* Hero dark — cobertura da rede */}
+        <div className="sa-mob-health-card">
+          <div className="sa-mob-health-card__left">
+            <p className="sa-mob-health-card__percent">{activeShare}%</p>
+            <p className="sa-mob-health-card__label">Cobertura ativa</p>
+            <p className="sa-mob-health-card__sub">
+              {formatNumber(activeAcademies)} de {formatNumber(totalAcademies)} academias
+            </p>
+          </div>
+          <div className="sa-mob-health-card__ring">
+            <svg viewBox="0 0 80 80" aria-hidden="true" className="sa-mob-ring-svg">
+              <circle cx="40" cy="40" r="32" className="sa-mob-ring-track" />
+              <circle
+                cx="40" cy="40" r="32"
+                className="sa-mob-ring-progress"
+                style={{ strokeDashoffset: 201 - (activeShare / 100) * 201 }}
+              />
+            </svg>
+          </div>
+        </div>
+
+        {/* Radar de atenção — condicional */}
+        {attentionRows.length > 0 && (
+          <div className="sa-mob-section">
+            <p className="sa-mob-section__label">Radar de atenção</p>
+            <div className="sa-mob-alert-list">
+              {attentionRows.map((academyRow) => (
+                <div key={academyRow.id} className="sa-mob-alert-item">
+                  <div className="sa-mob-alert-item__body">
+                    <p className="sa-mob-alert-item__name">{academyRow.name}</p>
+                    <p className="sa-mob-alert-item__desc">
+                      {academyRow.attentionReasons[0]}
+                      {academyRow.attentionReasons.length > 1
+                        ? ` +${academyRow.attentionReasons.length - 1} sinal`
+                        : ''}
+                    </p>
+                  </div>
+                  <span className="sa-mob-alert-badge">
+                    {formatNumber(academyRow.attentionReasons.length)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Lista de academias */}
+        <div className="sa-mob-section">
+          <p className="sa-mob-section__label">Academias da rede</p>
+          <div className="sa-mob-academy-list">
+            {filteredRows.map((academyRow) => (
+              <div
+                key={academyRow.id}
+                className="sa-mob-academy-row"
+                role="button"
+                tabIndex={0}
+                onClick={() => onEnterAcademy(academyRow.id)}
+              >
+                <span className={`sa-mob-dot ${academyRow.status === 'active' ? 'sa-mob-dot--active' : 'sa-mob-dot--risk'}`} />
+                <div className="sa-mob-academy-row__body">
+                  <p className="sa-mob-academy-row__name">{academyRow.name}</p>
+                </div>
+                <span className="sa-mob-academy-row__meta">
+                  {formatNumber(academyRow.activeStudents)} alunos
+                </span>
+                <span className="sa-mob-academy-row__chevron" aria-hidden="true">›</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Faixas da base ativa */}
+        <div className="sa-mob-section">
+          <p className="sa-mob-section__label">Faixas da base ativa</p>
+          <div className="sa-mob-belt-grid">
+            {beltBreakdown.map((entry) => (
+              <div key={entry.key} className="sa-mob-belt-item">
+                <span className="sa-mob-belt-dot" style={{ backgroundColor: entry.color }} />
+                <strong className="sa-mob-belt-count">{formatNumber(entry.total)}</strong>
+                <p className="sa-mob-belt-name">{entry.label}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+      </div>
+
       <section className="superadmin-hero">
         <div className={`superadmin-focus-inline ${focusAcademyRow ? 'is-focused' : 'is-network'}`}>
           <div className="superadmin-focus-inline__copy">
@@ -888,7 +1017,7 @@ const SuperadminDashboardView: React.FC<SuperadminDashboardViewProps> = ({
         </article>
       </section>
 
-      <section>
+      <section className="superadmin-academy-section">
         <div className="superadmin-section-header">
           <div>
             <p className="app-section-label">Mapa operacional</p>

@@ -165,6 +165,15 @@ service cloud.firestore {
       allow delete: if isAcademyStaff(resource.data.academyId) || isSuperAdmin();
     }
 
+    match /fight_video_submissions/{requestId} {
+      allow read: if sameAcademy(resource.data.academyId)
+        && (
+          isAcademyStaff(resource.data.academyId)
+          || isSelf(resource.data.athleteId)
+        );
+      allow write: if false;
+    }
+
     match /store_items/{storeItemId} {
       allow read: if sameAcademy(resource.data.academyId);
       allow create: if (isAdmin() && sameAcademy(request.resource.data.academyId)) || isSuperAdmin();

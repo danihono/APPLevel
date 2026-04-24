@@ -8,7 +8,7 @@ import { Building2, Save, Settings2, ShieldCheck, UserPlus, Users } from 'lucide
 import type { FirestoreEntity } from '../services/firebase/data';
 import type { AcademyRecord, ClassRecord, UserRecord } from '../services/firebase/models';
 import StudentRoster from '../components/StudentRoster';
-import { UserRole } from '../types';
+import { UserRole, type UserVideo } from '../types';
 
 interface ManagementViewProps {
   userRole?: UserRole;
@@ -17,6 +17,7 @@ interface ManagementViewProps {
   academyUsers: Array<FirestoreEntity<UserRecord>>;
   academies?: Array<FirestoreEntity<AcademyRecord>>;
   allUsers?: Array<FirestoreEntity<UserRecord>>;
+  studentVideoLibraryById?: Map<string, UserVideo[]>;
   selectedAcademyId?: string;
   onSelectAcademy?: (academyId: string) => void;
   focusSection?: 'master-black' | null;
@@ -110,6 +111,7 @@ const ManagementView: React.FC<ManagementViewProps> = ({
   academyUsers,
   academies = [],
   allUsers = [],
+  studentVideoLibraryById = new Map(),
   selectedAcademyId,
   onSelectAcademy,
   focusSection,
@@ -149,8 +151,14 @@ const ManagementView: React.FC<ManagementViewProps> = ({
   const instructors = managedUsers.filter((entry) => entry.role !== 'student');
   const students = managedUsers.filter((entry) => entry.role === 'student');
   const studentRosterUsers = useMemo(() => (
-    students.map((entry) => toUiUser({ id: entry.id, user: entry, graduations: [], fights: [] }))
-  ), [students]);
+    students.map((entry) => toUiUser({
+      id: entry.id,
+      user: entry,
+      graduations: [],
+      fights: [],
+      videoLibrary: studentVideoLibraryById.get(entry.id),
+    }))
+  ), [studentVideoLibraryById, students]);
   const masterBlackUsers = managedUsers.filter(isMasterBlack);
   const activeClasses = classes.filter((entry) => entry.status === 'active').length;
   const sortedInstructors = useMemo(() => (

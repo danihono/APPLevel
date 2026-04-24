@@ -47,6 +47,15 @@ function assertLearningAssetType(file: File) {
   throw new Error('Envie apenas video, PDF ou imagem para o modulo.');
 }
 
+function assertVideoAssetType(file: File) {
+  const mimeType = file.type || '';
+  if (mimeType.startsWith('video/')) {
+    return mimeType;
+  }
+
+  throw new Error('Envie apenas arquivos de video.');
+}
+
 export async function updateUserProfile(userId: string, payload: EditableUserProfile) {
   await updateDoc(doc(firebaseDb, 'users', userId), {
     ...(payload.firstName !== undefined ? { firstName: payload.firstName.trim() } : {}),
@@ -78,6 +87,23 @@ export async function uploadLearningLessonAsset(
   const academySegment = academyId?.trim() || 'shared';
   const safeFileName = sanitizeStorageFileName(file.name);
   const storageRef = ref(firebaseStorage, `academies/${academySegment}/learning/lessons/${lessonId}/${Date.now()}-${safeFileName}`);
+
+  await uploadBytes(storageRef, file, {
+    contentType: mimeType,
+  });
+
+  return {
+    downloadURL: await getDownloadURL(storageRef),
+    storagePath: storageRef.fullPath,
+    mimeType,
+    fileName: file.name,
+  };
+}
+
+export async function uploadFightVideoSubmissionAsset(userId: string, file: File) {
+  const mimeType = assertVideoAssetType(file);
+  const safeFileName = sanitizeStorageFileName(file.name);
+  const storageRef = ref(firebaseStorage, `users/${userId}/fight-videos/${Date.now()}-${safeFileName}`);
 
   await uploadBytes(storageRef, file, {
     contentType: mimeType,

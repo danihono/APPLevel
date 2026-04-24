@@ -18,6 +18,7 @@ import type {
   ClassRsvpRecord,
   CompetitionRecord,
   FightRecord,
+  FightVideoSubmissionRecord,
   GraduationApprovalRequestRecord,
   GraduationRecord,
   JoinRequestRecord,
@@ -343,6 +344,53 @@ export function subscribeToUserFights(
     ),
     (snapshot) => {
       listener(snapshot.docs.map((item) => mapDoc<FightRecord>(item)));
+    },
+    onError,
+  );
+}
+
+export function subscribeToAcademyFights(
+  academyId: string,
+  listener: (records: Array<FirestoreEntity<FightRecord>>) => void,
+  onError?: (error: Error) => void,
+) {
+  return onSnapshot(
+    query(
+      collection(firebaseDb, 'fights'),
+      where('academyId', '==', academyId),
+    ),
+    (snapshot) => {
+      const records = snapshot.docs
+        .map((item) => mapDoc<FightRecord>(item))
+        .sort((left, right) => toMillis(right.occurredAt) - toMillis(left.occurredAt));
+      listener(records);
+    },
+    onError,
+  );
+}
+
+export function subscribeToFightVideoSubmissions(
+  params: {
+    academyId?: string;
+    athleteId?: string;
+  },
+  listener: (records: Array<FirestoreEntity<FightVideoSubmissionRecord>>) => void,
+  onError?: (error: Error) => void,
+) {
+  const baseCollection = collection(firebaseDb, 'fight_video_submissions');
+  const fightVideoQuery = params.athleteId
+    ? query(baseCollection, where('athleteId', '==', params.athleteId))
+    : params.academyId
+      ? query(baseCollection, where('academyId', '==', params.academyId))
+      : baseCollection;
+
+  return onSnapshot(
+    fightVideoQuery,
+    (snapshot) => {
+      const records = snapshot.docs
+        .map((item) => mapDoc<FightVideoSubmissionRecord>(item))
+        .sort((left, right) => toMillis(right.updatedAt ?? right.createdAt) - toMillis(left.updatedAt ?? left.createdAt));
+      listener(records);
     },
     onError,
   );

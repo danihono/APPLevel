@@ -9,11 +9,13 @@ import {
   kidsCategoryLabel,
 } from '../beltCatalog';
 import { Bell, BellRing, CheckCircle2, ChevronDown, ChevronUp, ClipboardCheck, GraduationCap, Send, XCircle } from 'lucide-react';
+import AppVideoContent from '../components/AppVideoContent';
 import type { FirestoreEntity } from '../services/firebase/data';
 import type {
   AcademyRecord,
   AttendanceRequestRecord,
   ClassRecord,
+  FightVideoSubmissionRecord,
   GraduationApprovalRequestRecord,
   JoinRequestRecord,
   NotificationChannel,
@@ -32,6 +34,7 @@ interface NotificationsViewProps {
   joinRequests: Array<FirestoreEntity<JoinRequestRecord>>;
   attendanceRequests: Array<FirestoreEntity<AttendanceRequestRecord>>;
   graduationRequests: Array<FirestoreEntity<GraduationApprovalRequestRecord>>;
+  fightVideoSubmissions: Array<FirestoreEntity<FightVideoSubmissionRecord>>;
   academies?: Array<FirestoreEntity<AcademyRecord>>;
   selectedAcademyId?: string;
   canActionRequests: boolean;
@@ -50,6 +53,8 @@ interface NotificationsViewProps {
   onApproveAttendanceRequest: (requestId: string) => Promise<void>;
   onRejectAttendanceRequest: (requestId: string) => Promise<void>;
   onApproveGraduationRequest: (requestId: string) => Promise<void>;
+  onApproveFightVideoSubmission: (requestId: string) => Promise<void>;
+  onRejectFightVideoSubmission: (requestId: string) => Promise<void>;
   onOpenStudent?: (studentId: string) => void;
 }
 
@@ -80,7 +85,17 @@ type AttendanceRequestItem = {
   createdAt?: AttendanceRequestRecord['requestedAt'];
 };
 
-type RequestItem = JoinRequestItem | AttendanceRequestItem;
+type FightVideoRequestItem = {
+  id: string;
+  kind: 'fight_video_submission';
+  title: string;
+  body: string;
+  meta: string;
+  createdAt?: FightVideoSubmissionRecord['createdAt'];
+  request: FirestoreEntity<FightVideoSubmissionRecord>;
+};
+
+type RequestItem = JoinRequestItem | AttendanceRequestItem | FightVideoRequestItem;
 type StaffTab = 'notifications' | 'requests' | 'communication' | 'graduations';
 
 const beltOptions = [
@@ -141,8 +156,21 @@ function notificationType(notification: FirestoreEntity<NotificationRecord>) {
       return 'Solicitacao de presenca';
     case 'graduation':
       return 'Graduacao';
+    case 'fight_video_submission':
+      return 'Video';
     default:
       return notification.channel === 'team' ? 'Equipe' : 'Comunicado';
+  }
+}
+
+function fightVideoSourceLabel(sourceKind: FightVideoSubmissionRecord['sourceKind']) {
+  switch (sourceKind) {
+    case 'upload':
+      return 'Arquivo enviado';
+    case 'youtube':
+      return 'Link do YouTube';
+    default:
+      return 'Link externo';
   }
 }
 
@@ -181,6 +209,7 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
   joinRequests,
   attendanceRequests,
   graduationRequests,
+  fightVideoSubmissions,
   academies = [],
   selectedAcademyId = '',
   canActionRequests,
@@ -192,6 +221,8 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
   onApproveAttendanceRequest,
   onRejectAttendanceRequest,
   onApproveGraduationRequest,
+  onApproveFightVideoSubmission,
+  onRejectFightVideoSubmission,
   onOpenStudent,
 }) => {
   const isSuperAdmin = userRole === UserRole.SUPERADMIN;
@@ -296,9 +327,21 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
         createdAt: entry.requestedAt,
       }));
 
-    return [...pendingJoinRequests, ...pendingAttendanceRequests]
+    const pendingFightVideoRequests = fightVideoSubmissions
+      .filter((entry) => entry.status === 'pending')
+      .map((entry) => ({
+        id: entry.id,
+        kind: 'fight_video_submission' as const,
+        title: entry.athleteName,
+        body: entry.title,
+        meta: `${fightVideoSourceLabel(entry.sourceKind)} | ${formatStamp(entry.createdAt)}`,
+        createdAt: entry.createdAt,
+        request: entry,
+      }));
+
+    return [...pendingJoinRequests, ...pendingAttendanceRequests, ...pendingFightVideoRequests]
       .sort((left, right) => (right.createdAt?.toMillis?.() ?? 0) - (left.createdAt?.toMillis?.() ?? 0));
-  }, [attendanceRequests, currentUserId, isSuperAdmin, joinRequests, userRole]);
+  }, [attendanceRequests, currentUserId, fightVideoSubmissions, isSuperAdmin, joinRequests, userRole]);
 
   useEffect(() => {
     setExpandedRequestId((current) => (
@@ -397,6 +440,8 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
           belt: draft.belt,
           grade: draft.grade,
         });
+      } else if (item.kind === 'fight_video_submission') {
+        await onApproveFightVideoSubmission(item.id);
       } else {
         await onApproveAttendanceRequest(item.id);
       }
@@ -408,7 +453,11 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
   }
 
   async function handleReject(item: RequestItem) {
-    const label = item.kind === 'join_request' ? 'solicitacao de cadastro' : 'solicitacao de presenca';
+    const label = item.kind === 'join_request'
+      ? 'solicitacao de cadastro'
+      : item.kind === 'fight_video_submission'
+        ? 'solicitacao de video'
+        : 'solicitacao de presenca';
     if (!window.confirm(`Tem certeza que deseja rejeitar esta ${label}? Esta acao nao pode ser desfeita.`)) {
       return;
     }
@@ -419,6 +468,8 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
     try {
       if (item.kind === 'join_request') {
         await onRejectJoinRequest(item.id);
+      } else if (item.kind === 'fight_video_submission') {
+        await onRejectFightVideoSubmission(item.id);
       } else {
         await onRejectAttendanceRequest(item.id);
       }
@@ -1059,6 +1110,74 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
                       )}
                     </>
                   ) : null}
+                </article>
+              );
+            }
+
+            if (item.kind === 'fight_video_submission') {
+              return (
+                <article key={`${item.kind}-${item.id}`} className="app-panel app-panel-pad">
+                  <div className="flex flex-wrap items-start justify-between gap-4">
+                    <div>
+                      <div className="flex flex-wrap items-center gap-3">
+                        <h2 className="text-lg font-bold">{item.title}</h2>
+                        <span className="app-badge app-badge--gold">Solicitacao de video</span>
+                      </div>
+                      <p className="mt-3 text-sm leading-7 text-[color:var(--text-muted)]">{item.body}</p>
+                      <div className="mt-4 flex flex-wrap gap-2">
+                        <span className="app-badge app-badge--muted">{fightVideoSourceLabel(item.request.sourceKind)}</span>
+                        {item.request.opponentName ? (
+                          <span className="app-badge app-badge--muted">vs {item.request.opponentName}</span>
+                        ) : null}
+                        <span className="app-badge app-badge--muted">
+                          {item.request.occurredAt ? item.request.occurredAt.toDate().toLocaleDateString('pt-BR') : 'Data nao informada'}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="text-right text-xs text-[color:var(--text-soft)]">
+                      {formatStamp(item.createdAt)}
+                    </div>
+                  </div>
+
+                  <div className="mt-5">
+                    <AppVideoContent
+                      title={item.request.title}
+                      sourceUrl={item.request.sourceUrl}
+                      sourceKind={item.request.sourceKind}
+                    />
+                  </div>
+
+                  {canActionRequests ? (
+                    <div className="mt-5 flex flex-wrap gap-3">
+                      <button
+                        type="button"
+                        disabled={isProcessing}
+                        onClick={() => void handleApprove(item)}
+                        className="app-button app-button--gold app-button--small"
+                      >
+                        <CheckCircle2 size={15} />
+                        {isProcessing ? 'Processando...' : 'Aprovar video'}
+                      </button>
+                      <button
+                        type="button"
+                        disabled={isProcessing}
+                        onClick={() => void handleReject(item)}
+                        className="app-button app-button--danger app-button--small"
+                      >
+                        <XCircle size={15} />
+                        Rejeitar
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => onOpenStudent?.(item.request.athleteId)}
+                        className="app-button app-button--ghost app-button--small"
+                      >
+                        Abrir aluno
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="mt-5 app-empty">Somente professor ou superadmin podem agir sobre esta solicitacao.</div>
+                  )}
                 </article>
               );
             }

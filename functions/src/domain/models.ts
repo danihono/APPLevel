@@ -6,6 +6,7 @@ export const COLLECTIONS = {
   classes: 'classes',
   competitions: 'competitions',
   fights: 'fights',
+  fightVideoSubmissions: 'fight_video_submissions',
   graduationRequests: 'graduation_requests',
   graduations: 'graduations',
   joinRequests: 'join_requests',
@@ -41,11 +42,13 @@ export type MissionStatus = 'in_progress' | 'completed';
 export type FightResult = 'win' | 'loss' | 'draw' | 'submission' | 'points' | 'walkover';
 export type NotificationStatus = 'queued' | 'sent' | 'read' | 'stored' | 'failed';
 export type NotificationChannel = 'academy' | 'team' | 'system';
-export type NotificationKind = 'notice' | 'join_request' | 'attendance_request' | 'graduation';
+export type NotificationKind = 'notice' | 'join_request' | 'attendance_request' | 'graduation' | 'fight_video_submission';
 export type GraduationRequestStatus = 'pending' | 'approved' | 'superseded';
 export type GraduationTargetType = 'stripe' | 'belt';
 export type JoinRequestStatus = 'pending' | 'approved' | 'rejected';
 export type AttendanceRequestStatus = 'pending' | 'approved' | 'rejected';
+export type FightVideoSourceKind = 'youtube' | 'external' | 'upload';
+export type FightVideoSubmissionStatus = 'pending' | 'approved' | 'rejected';
 export type LearningContentStatus = 'draft' | 'published';
 export type LearningLessonBlockType = 'youtube' | 'uploaded_video' | 'pdf' | 'image';
 export type KidsCategory = 'level_kids' | 'level_infanto_juvenil' | 'level_juvenil';
@@ -302,6 +305,26 @@ export interface FightDoc {
   occurredAt: FirebaseFirestore.Timestamp;
   createdAt: FirebaseFirestore.Timestamp;
   updatedAt: FirebaseFirestore.Timestamp;
+}
+
+export interface FightVideoSubmissionDoc {
+  academyId: string;
+  athleteId: string;
+  athleteName: string;
+  title: string;
+  opponentName?: string;
+  occurredAt?: FirebaseFirestore.Timestamp;
+  sourceKind: FightVideoSourceKind;
+  sourceUrl: string;
+  storagePath?: string;
+  mimeType?: string;
+  fileName?: string;
+  status: FightVideoSubmissionStatus;
+  createdAt: FirebaseFirestore.Timestamp;
+  updatedAt: FirebaseFirestore.Timestamp;
+  reviewedAt?: FirebaseFirestore.Timestamp;
+  reviewedBy?: string;
+  reviewedByRole?: Role;
 }
 
 export interface StoreItemDoc {

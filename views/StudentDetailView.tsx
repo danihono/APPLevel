@@ -9,12 +9,12 @@ import {
   KIDS_CATEGORIES,
 } from '../beltCatalog';
 import { ArrowLeft, Award, Calendar, CheckCircle2, Clock, Mail, Save, TrendingUp, Video, BookOpen } from 'lucide-react';
+import AppVideoContent from '../components/AppVideoContent';
 import AvatarWithBelt from '../components/AvatarWithBelt';
 import ProgressBar from '../components/ProgressBar';
 import type { FirestoreEntity } from '../services/firebase/data';
 import type { GraduationApprovalRequestRecord } from '../services/firebase/models';
 import type { KidsCategory, User } from '../types';
-import { getYouTubeEmbedUrl } from '../utils';
 
 interface StudentDetailViewProps {
   student: User;
@@ -387,23 +387,25 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
             </div>
             <div>
               <p className="app-section-label">Videos</p>
-              <h2 className="text-xl font-bold">Arquivo de lutas</h2>
+              <h2 className="text-xl font-bold">Arquivo de videos</h2>
             </div>
           </div>
 
           <div className="mt-6 app-list">
             {student.videos.map((video) => (
               <div key={video.id} className="app-list-card">
-                <div className="app-video-frame aspect-video">
-                  <iframe
-                    src={getYouTubeEmbedUrl(video.url)}
-                    className="h-full w-full"
-                    allowFullScreen
-                    title={video.title}
-                  />
-                </div>
+                <AppVideoContent
+                  title={video.title}
+                  sourceUrl={video.url}
+                  sourceKind={video.sourceKind}
+                />
                 <div className="mt-4">
-                  <p className="text-sm font-bold">{video.title}</p>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="text-sm font-bold">{video.title}</p>
+                    <span className="app-badge app-badge--muted">
+                      {video.origin === 'submission' ? 'Enviado pelo aluno' : 'Luta oficial'}
+                    </span>
+                  </div>
                   <p className="mt-1 text-xs text-[color:var(--text-soft)]">{video.date}</p>
                 </div>
               </div>

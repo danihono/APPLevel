@@ -219,6 +219,32 @@ const Layout: React.FC<LayoutProps> = ({
   const showSuperadminAcademyPicker = canToggleVision && !isProfessorVision && Boolean(onSelectAcademy);
   const professorVisionDisabled = superadminAcademies.length === 0;
 
+  const renderVisionSwitch = () => (
+    <div className="app-vision-switch" role="group" aria-label="Trocar visao">
+      <button
+        type="button"
+        onClick={() => onSetSuperadminViewMode?.('superadmin')}
+        className={`app-vision-switch__button ${!isProfessorVision ? 'is-active' : ''}`}
+        aria-pressed={!isProfessorVision}
+        title="Visao da rede"
+      >
+        <Shield size={13} strokeWidth={2} />
+        <span>Rede</span>
+      </button>
+      <button
+        type="button"
+        onClick={() => onSetSuperadminViewMode?.('professor')}
+        disabled={professorVisionDisabled}
+        className={`app-vision-switch__button ${isProfessorVision ? 'is-active' : ''}`}
+        aria-pressed={isProfessorVision}
+        title="Visao professor"
+      >
+        <Building2 size={13} strokeWidth={2} />
+        <span>Professor</span>
+      </button>
+    </div>
+  );
+
   useEffect(() => {
     const updateIndicator = () => {
       const activeButton = navRefs.current[activeTab];
@@ -408,29 +434,7 @@ const Layout: React.FC<LayoutProps> = ({
 
               {canToggleVision ? (
                 <div className="app-vision-corner">
-                  <div className="app-vision-switch" role="group" aria-label="Trocar visao">
-                    <button
-                      type="button"
-                      onClick={() => onSetSuperadminViewMode?.('superadmin')}
-                      className={`app-vision-switch__button ${!isProfessorVision ? 'is-active' : ''}`}
-                      aria-pressed={!isProfessorVision}
-                      title="Visao da rede"
-                    >
-                      <Shield size={13} strokeWidth={2} />
-                      <span>Rede</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => onSetSuperadminViewMode?.('professor')}
-                      disabled={professorVisionDisabled}
-                      className={`app-vision-switch__button ${isProfessorVision ? 'is-active' : ''}`}
-                      aria-pressed={isProfessorVision}
-                      title="Visao professor"
-                    >
-                      <Building2 size={13} strokeWidth={2} />
-                      <span>Professor</span>
-                    </button>
-                  </div>
+                  {renderVisionSwitch()}
                 </div>
               ) : null}
 

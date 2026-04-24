@@ -1,4 +1,4 @@
-import React, { Suspense, lazy, startTransition, useEffect, useRef, useState } from 'react';
+import React, { Suspense, lazy, startTransition, useEffect, useMemo, useRef, useState } from 'react';
 import { CheckCircle, X } from 'lucide-react';
 import type { User as FirebaseUser } from 'firebase/auth';
 import type { CreateClassPayload } from './components/CreateClassModal';
@@ -9,16 +9,18 @@ import HomeView from './views/HomeView';
 import LoginView from './views/LoginView';
 import StaffDashboardView from './views/StaffDashboardView';
 import { logout, signInWithEmail, subscribeToAuthState, updateSignedInEmail } from './services/firebase/auth';
-import { toBranch, toUiUser } from './services/firebase/adapters';
+import { toBranch, toUiUser, toUserVideoLibrary } from './services/firebase/adapters';
 import {
   type FirestoreEntity,
   subscribeToAcademies,
   subscribeToAcademy,
+  subscribeToAcademyFights,
   subscribeToAcademyClasses,
   subscribeToAcademyUsers,
   subscribeToAllUsers,
   subscribeToAttendanceRequests,
   subscribeToCompetitions,
+  subscribeToFightVideoSubmissions,
   subscribeToGraduationRequests,
   subscribeToJoinRequests,
   subscribeToLearningCourses,
@@ -39,7 +41,13 @@ import {
   type DeleteClassScheduleResult,
   type UpdateRecurringClassSeriesResult,
 } from './services/firebase/functions';
-import { updateAcademySettings, updateUserProfile, uploadLearningLessonAsset, uploadUserPhoto } from './services/firebase/mutations';
+import {
+  updateAcademySettings,
+  updateUserProfile,
+  uploadFightVideoSubmissionAsset,
+  uploadLearningLessonAsset,
+  uploadUserPhoto,
+} from './services/firebase/mutations';
 import type {
   AppRole,
   AcademyRecord,
@@ -48,6 +56,7 @@ import type {
   ClassRecord,
   CompetitionRecord,
   FightRecord,
+  FightVideoSubmissionRecord,
   GraduationApprovalRequestRecord,
   GraduationRecord,
   JoinRequestRecord,
@@ -61,7 +70,7 @@ import type {
   NotificationRecord,
   UserRecord,
 } from './services/firebase/models';
-import { UserRole } from './types';
+import { UserRole, type UserVideo } from './types';
 import { MOCK_PRODUCTS } from './constants';
 
 const CalendarView = lazy(() => import('./views/CalendarView'));
@@ -299,61 +308,53 @@ function buildSuperadminVisionChoiceView(params: {
   const canUseProfessorVision = params.academyCount > 0;
 
   return (
-    <div className="app-auth-shell">
-      <div className="app-auth-grid">
-        <section className="app-panel app-panel--hero app-auth-side">
-          <div>
-            <p className="app-section-label">Superadmin LEVEL</p>
-            <h1 className="app-section-title">Escolha como voce quer entrar agora.</h1>
-            <p className="app-section-copy">
-              A conta continua sendo superadmin, mas voce pode operar no modo rede ou assumir a rotina de uma unidade como professor.
-            </p>
-          </div>
+    <div className="min-h-screen w-full bg-[#0e0e0e] flex flex-col">
+      <div className="flex-1 flex flex-col max-w-md mx-auto w-full px-5 pt-14 pb-10">
 
-          <div className="app-auth-bullets">
-            <div className="app-auth-bullet">
-              <div className="app-icon-shell">
-                <span className="app-orb__dot" />
-              </div>
-              <div>
-                <strong>Visao superadmin</strong>
-                <p className="app-note">Central consolidada, gestao da rede, comunicacao global e learning em nivel LEVEL.</p>
-              </div>
+        <p className="text-xs font-bold tracking-widest uppercase text-[#C9A465] mb-4">
+          Superadmin LEVEL
+        </p>
+        <h1 className="text-4xl font-bold text-white leading-tight mb-3">
+          Como você<br />quer entrar?
+        </h1>
+        <p className="text-sm text-[#888] mb-10">
+          A conta continua superadmin. Escolha o modo de operação.
+        </p>
+
+        <div className="flex flex-col gap-3">
+          <button
+            type="button"
+            onClick={params.onChooseNetwork}
+            className="w-full text-left bg-[#1a1a1a] border-2 border-[#C9A465] rounded-2xl p-5 flex items-start gap-4 active:opacity-80 transition-opacity"
+          >
+            <div className="mt-0.5 w-5 h-5 rounded-full border-2 border-[#C9A465] flex items-center justify-center flex-shrink-0">
+              <div className="w-2.5 h-2.5 rounded-full bg-[#C9A465]" />
             </div>
-            <div className="app-auth-bullet">
-              <div className="app-icon-shell">
-                <span className="app-orb__dot" />
-              </div>
-              <div>
-                <strong>Visao professor</strong>
-                <p className="app-note">Escolha uma unidade e opere o dia a dia dela com agenda, aulas, avisos e learning local.</p>
-              </div>
+            <div>
+              <p className="font-bold text-white text-base mb-1">Visão superadmin</p>
+              <p className="text-sm text-[#888] leading-snug">Rede consolidada, gestão global e learning LEVEL</p>
             </div>
-          </div>
-        </section>
+          </button>
 
-        <section className="app-panel app-auth-card app-panel-pad">
-          <div className="space-y-4">
-            <button type="button" onClick={params.onChooseNetwork} className="app-button app-button--gold app-button--block">
-              Entrar na visao superadmin
-            </button>
-
-            <button
-              type="button"
-              onClick={params.onChooseProfessor}
-              disabled={!canUseProfessorVision}
-              className="app-button app-button--dark app-button--block"
-            >
-              Entrar na visao professor
-            </button>
-
-            <div className="app-note text-center">
-              {canUseProfessorVision
-                ? `${params.academyCount} unidade${params.academyCount === 1 ? '' : 's'} disponivel${params.academyCount === 1 ? '' : 'eis'} para operar.`
-                : 'Crie a primeira unidade na visao superadmin para liberar a visao professor.'}
+          <button
+            type="button"
+            onClick={params.onChooseProfessor}
+            disabled={!canUseProfessorVision}
+            className="w-full text-left bg-[#141414] border border-[#2a2a2a] rounded-2xl p-5 flex items-start gap-4 active:opacity-80 transition-opacity disabled:opacity-40"
+          >
+            <div className="mt-0.5 w-5 h-5 rounded-full border-2 border-[#444] flex-shrink-0" />
+            <div>
+              <p className="font-bold text-white text-base mb-1">Visão professor</p>
+              <p className="text-sm text-[#888] leading-snug">Opera uma unidade com agenda, aulas e avisos</p>
             </div>
-          </div>
-        </section>
+          </button>
+        </div>
+
+        <p className="text-sm text-[#555] text-center mt-8">
+          {canUseProfessorVision
+            ? `${params.academyCount} unidade${params.academyCount === 1 ? '' : 's'} disponíve${params.academyCount === 1 ? 'l' : 'is'}`
+            : 'Crie a primeira unidade na visão superadmin para liberar a visão professor.'}
+        </p>
       </div>
     </div>
   );
@@ -365,38 +366,54 @@ function buildSuperadminUnitFocusView(params: {
   onBackToNetwork: () => void;
 }) {
   return (
-    <div className="app-auth-shell">
-      <div className="app-auth-grid">
-        <section className="app-panel app-panel--hero app-panel-pad">
-          <p className="app-section-label">Visao professor</p>
-          <h2 className="app-section-title">Escolha uma unidade para entrar.</h2>
-          <p className="app-section-copy">
-            O superadmin continua com acesso global, mas neste modo a operacao fica focada em uma unidade especifica.
+    <div className="min-h-screen w-full bg-[#0e0e0e] flex flex-col">
+      <div className="flex-1 flex flex-col max-w-md mx-auto w-full px-5 pt-12 pb-8">
+
+        <div className="mb-8">
+          <p className="text-xs font-bold tracking-widest uppercase text-[#C9A465] mb-3">
+            Visão professor
+          </p>
+          <h2 className="text-4xl font-extrabold text-white leading-tight mb-3">
+            Escolha<br />uma unidade.
+          </h2>
+          <p className="text-sm text-zinc-400 leading-relaxed">
+            Acesso global mantido. Operação focada em uma unidade específica.
           </p>
 
-          <div className="mt-6 flex flex-wrap gap-3">
-            <button type="button" onClick={params.onBackToNetwork} className="app-button app-button--ghost">
-              Voltar para a visao superadmin
-            </button>
-          </div>
-        </section>
+          <button
+            type="button"
+            onClick={params.onBackToNetwork}
+            className="mt-6 inline-flex items-center gap-2 px-4 py-2 rounded-full border border-[#C9A465] text-[#C9A465] text-sm font-semibold hover:bg-[#C9A465]/10 transition-colors"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
+              <path fillRule="evenodd" d="M11.78 5.22a.75.75 0 0 1 0 1.06L8.06 10l3.72 3.72a.75.75 0 1 1-1.06 1.06l-4.25-4.25a.75.75 0 0 1 0-1.06l4.25-4.25a.75.75 0 0 1 1.06 0Z" clipRule="evenodd" />
+            </svg>
+            Voltar para a rede
+          </button>
+        </div>
 
-        <section className="app-grid-2">
+        <div className="flex flex-col gap-3">
           {params.academies.map((entry) => (
             <button
               key={entry.id}
               type="button"
               onClick={() => params.onSelectAcademy(entry.id)}
-              className="app-panel app-panel-pad text-left transition hover:-translate-y-0.5"
+              className="w-full flex items-center justify-between rounded-2xl bg-[#1a1a1a] border border-zinc-800 px-5 py-4 text-left hover:border-[#C9A465]/40 hover:bg-[#1f1f1f] transition-colors"
             >
-              <p className="app-section-label">Unidade LEVEL</p>
-              <h3 className="mt-2 text-xl font-bold">{entry.name}</h3>
-              <p className="mt-2 text-sm text-[color:var(--text-muted)]">
-                Abrir agenda, equipe, comunicacao e learning desta unidade.
-              </p>
+              <div>
+                <p className="text-[10px] font-bold tracking-widest uppercase text-zinc-500 mb-1">
+                  Unidade Level
+                </p>
+                <p className="text-base font-bold text-white">{entry.name}</p>
+                <p className="text-xs text-zinc-500 mt-0.5">Agenda · equipe · learning</p>
+              </div>
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 text-zinc-600 flex-shrink-0 ml-4">
+                <path fillRule="evenodd" d="M8.22 5.22a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.75.75 0 0 1-1.06-1.06L11.94 10 8.22 6.28a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
+              </svg>
             </button>
           ))}
-        </section>
+        </div>
+
       </div>
     </div>
   );
@@ -457,6 +474,8 @@ const App: React.FC = () => {
   const [graduations, setGraduations] = useState<Array<FirestoreEntity<GraduationRecord>>>([]);
   const [competitions, setCompetitions] = useState<Array<FirestoreEntity<CompetitionRecord>>>([]);
   const [fights, setFights] = useState<Array<FirestoreEntity<FightRecord>>>([]);
+  const [academyFights, setAcademyFights] = useState<Array<FirestoreEntity<FightRecord>>>([]);
+  const [fightVideoSubmissions, setFightVideoSubmissions] = useState<Array<FirestoreEntity<FightVideoSubmissionRecord>>>([]);
   const [notifications, setNotifications] = useState<Array<FirestoreEntity<NotificationRecord>>>([]);
   const unreadNotificationsCount = notifications.filter((entry) => entry.status !== 'read').length;
   const [learningTracks, setLearningTracks] = useState<Array<FirestoreEntity<LearningTrackRecord>>>([]);
@@ -860,6 +879,36 @@ const App: React.FC = () => {
   }, [profile, selectedAcademyId, sessionValidated, superadminViewMode]);
 
   useEffect(() => {
+    if (!profile || !sessionValidated) {
+      setFightVideoSubmissions([]);
+      return;
+    }
+
+    if (profile.role === 'student') {
+      return subscribeToFightVideoSubmissions(
+        { athleteId: profile.id },
+        setFightVideoSubmissions,
+        (error) => reportSessionError('data:subscribeToFightVideoSubmissions:self', error),
+      );
+    }
+
+    const scopedAcademyId = profile.role === 'superadmin'
+      ? (selectedAcademyId || undefined)
+      : profile.academyId;
+
+    if (!scopedAcademyId) {
+      setFightVideoSubmissions([]);
+      return;
+    }
+
+    return subscribeToFightVideoSubmissions(
+      { academyId: scopedAcademyId },
+      setFightVideoSubmissions,
+      (error) => reportSessionError('data:subscribeToFightVideoSubmissions:academy', error),
+    );
+  }, [profile, selectedAcademyId, sessionValidated]);
+
+  useEffect(() => {
     if (!selectedStudentId) {
       return;
     }
@@ -881,6 +930,7 @@ const App: React.FC = () => {
       setGraduations([]);
       setCompetitions([]);
       setFights([]);
+      setAcademyFights([]);
       return;
     }
 
@@ -896,6 +946,7 @@ const App: React.FC = () => {
         setGraduations([]);
         setCompetitions([]);
         setFights([]);
+        setAcademyFights([]);
         return;
       }
 
@@ -910,6 +961,7 @@ const App: React.FC = () => {
         setGraduations([]);
         setCompetitions([]);
         setFights([]);
+        setAcademyFights([]);
         return;
       }
 
@@ -941,6 +993,7 @@ const App: React.FC = () => {
         ),
         subscribeToAcademyClasses(selectedAcademyId, setClasses, (error) => reportSessionError('data:subscribeToAcademyClasses', error)),
         subscribeToCompetitions(selectedAcademyId, setCompetitions, (error) => reportSessionError('data:subscribeToCompetitions', error)),
+        subscribeToAcademyFights(selectedAcademyId, setAcademyFights, (error) => reportSessionError('data:subscribeToAcademyFights', error)),
         subscribeToAcademyUsers(selectedAcademyId, setAcademyUsers, (error) => reportSessionError('data:subscribeToAcademyUsers', error)),
       ];
 
@@ -964,6 +1017,7 @@ const App: React.FC = () => {
       setGraduations([]);
       setCompetitions([]);
       setFights([]);
+      setAcademyFights([]);
       return;
     }
 
@@ -1029,9 +1083,11 @@ const App: React.FC = () => {
     if (profile.role !== 'student') {
       unsubscribers.push(
         subscribeToAcademyUsers(profile.academyId, setAcademyUsers, (error) => reportSessionError('data:subscribeToAcademyUsers', error)),
+        subscribeToAcademyFights(profile.academyId, setAcademyFights, (error) => reportSessionError('data:subscribeToAcademyFights', error)),
       );
     } else {
       setAcademyUsers([]);
+      setAcademyFights([]);
     }
 
     return () => {
@@ -1639,6 +1695,102 @@ const App: React.FC = () => {
     }
   }
 
+  async function handleUploadFightVideoAsset(file: File) {
+    if (!authUser) {
+      throw new Error('Sessao invalida.');
+    }
+
+    try {
+      return await uploadFightVideoSubmissionAsset(authUser.uid, file);
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
+  }
+
+  async function handleSubmitFightVideoSubmission(payload: {
+    title: string;
+    opponentName?: string;
+    occurredAt?: string;
+    sourceKind: 'youtube' | 'external' | 'upload';
+    sourceUrl: string;
+    storagePath?: string;
+    mimeType?: string;
+    fileName?: string;
+  }) {
+    try {
+      return await backendFunctions.submitFightVideoSubmission(payload);
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
+  }
+
+  async function handleApproveFightVideoSubmission(requestId: string) {
+    try {
+      await backendFunctions.approveFightVideoSubmission({ requestId });
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
+  }
+
+  async function handleRejectFightVideoSubmission(requestId: string) {
+    try {
+      await backendFunctions.rejectFightVideoSubmission({ requestId });
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
+  }
+
+  const currentUserFightVideoSubmissions = useMemo(() => {
+    if (!profile || profile.role !== 'student') {
+      return [];
+    }
+
+    return fightVideoSubmissions.filter((entry) => entry.athleteId === profile.id);
+  }, [profile, fightVideoSubmissions]);
+
+  const currentUserVideoLibrary = useMemo(
+    () => toUserVideoLibrary({
+      fights,
+      submissions: currentUserFightVideoSubmissions,
+    }),
+    [currentUserFightVideoSubmissions, fights],
+  );
+
+  const studentVideoLibraryById = useMemo(() => {
+    const fightsByAthleteId = new Map<string, Array<FirestoreEntity<FightRecord>>>();
+    for (const fight of academyFights) {
+      const current = fightsByAthleteId.get(fight.athleteId) ?? [];
+      current.push(fight);
+      fightsByAthleteId.set(fight.athleteId, current);
+    }
+
+    const approvedSubmissionsByAthleteId = new Map<string, Array<FirestoreEntity<FightVideoSubmissionRecord>>>();
+    for (const submission of fightVideoSubmissions) {
+      if (submission.status !== 'approved') {
+        continue;
+      }
+
+      const current = approvedSubmissionsByAthleteId.get(submission.athleteId) ?? [];
+      current.push(submission);
+      approvedSubmissionsByAthleteId.set(submission.athleteId, current);
+    }
+
+    const athleteIds = new Set([
+      ...fightsByAthleteId.keys(),
+      ...approvedSubmissionsByAthleteId.keys(),
+    ]);
+
+    const next = new Map<string, UserVideo[]>();
+    for (const athleteId of athleteIds) {
+      next.set(athleteId, toUserVideoLibrary({
+        fights: fightsByAthleteId.get(athleteId) ?? [],
+        submissions: approvedSubmissionsByAthleteId.get(athleteId) ?? [],
+      }));
+    }
+
+    return next;
+  }, [academyFights, fightVideoSubmissions]);
+
   if (!authReady) {
     return buildLoadingView('Validando a sua sessao com o Firebase.');
   }
@@ -1656,6 +1808,7 @@ const App: React.FC = () => {
     user: profile,
     graduations,
     fights,
+    videoLibrary: currentUserVideoLibrary,
   });
   const isSuperAdmin = profile.role === 'superadmin';
   const isSuperadminProfessorView = isSuperAdmin && superadminViewMode === 'professor';
@@ -1771,7 +1924,13 @@ const App: React.FC = () => {
   const attendanceDays = [...new Set(attendanceThisMonth.map((attendance) => attendance.checkedInAt?.toDate().getDate()).filter(Boolean))] as number[];
   const students = academyUsers
     .filter((user) => user.role === 'student')
-    .map((user) => toUiUser({ id: user.id, user, graduations: [], fights: [] }));
+    .map((user) => toUiUser({
+      id: user.id,
+      user,
+      graduations: [],
+      fights: [],
+      videoLibrary: studentVideoLibraryById.get(user.id),
+    }));
   const classNameById = new Map(classes.map((lesson) => [lesson.id, lesson.title]));
   const finishedClassesThisMonth = classes.filter((lesson) => lesson.status === 'finished' && isSameMonth(lesson.scheduledStart));
   const attendedFinishedClassIds = new Set(
@@ -1799,6 +1958,7 @@ const App: React.FC = () => {
           academyUsers={academyUsers}
           academies={allAcademies}
           allUsers={allUsers}
+          studentVideoLibraryById={studentVideoLibraryById}
           selectedAcademyId={selectedAcademyId}
           onSelectAcademy={setSelectedAcademyId}
           focusSection={managementFocusSection}
@@ -1878,7 +2038,17 @@ const App: React.FC = () => {
         );
       }
       case 'competition':
-        return <CompetitionView competitions={competitions} fights={fights} />;
+        return (
+          <CompetitionView
+            userRole={viewUserRole}
+            competitions={competitions}
+            fights={fights}
+            videoLibrary={currentUser.videos ?? []}
+            submissions={currentUserFightVideoSubmissions}
+            onUploadVideoAsset={handleUploadFightVideoAsset}
+            onSubmitVideoSubmission={handleSubmitFightVideoSubmission}
+          />
+        );
       case 'graduation':
         return (
           <GraduationView
@@ -1914,6 +2084,7 @@ const App: React.FC = () => {
             academyUsers={academyUsers}
             academies={allAcademies}
             allUsers={allUsers}
+            studentVideoLibraryById={studentVideoLibraryById}
             selectedAcademyId={selectedAcademyId}
             onSelectAcademy={setSelectedAcademyId}
             focusSection={managementFocusSection}
@@ -1937,6 +2108,7 @@ const App: React.FC = () => {
             joinRequests={joinRequests}
             attendanceRequests={attendanceRequests}
             graduationRequests={graduationRequests}
+            fightVideoSubmissions={fightVideoSubmissions}
             academies={allAcademies}
             selectedAcademyId={selectedAcademyId}
             canActionRequests={canActionRequests}
@@ -1948,6 +2120,8 @@ const App: React.FC = () => {
             onApproveAttendanceRequest={handleApproveAttendanceRequest}
             onRejectAttendanceRequest={handleRejectAttendanceRequest}
             onApproveGraduationRequest={handleApproveGraduationRequest}
+            onApproveFightVideoSubmission={handleApproveFightVideoSubmission}
+            onRejectFightVideoSubmission={handleRejectFightVideoSubmission}
             onOpenStudent={(studentId) => {
               setSelectedStudentId(studentId);
               setActiveTab('students');

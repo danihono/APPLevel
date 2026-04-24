@@ -4,12 +4,14 @@ import {
   inferTrainingTypeFromBirthDate,
   normalizeBeltId,
 } from '../../beltCatalog';
-import type { Branch, Product, User } from '../../types';
+import type { Branch, Product, User, UserVideo } from '../../types';
 import { UserRole } from '../../types';
+import { getVideoSourceKindFromUrl } from '../../utils';
 import type {
   AcademyRecord,
   AppRole,
   FightRecord,
+  FightVideoSubmissionRecord,
   GraduationRecord,
   StoreItemRecord,
   UserRecord,
@@ -30,6 +32,10 @@ function normalizeTimestamp(value?: Timestamp | Date | null): Date | null {
 
 function buildSafeDate(value?: Timestamp | Date | null, fallback?: Date): Date {
   return normalizeTimestamp(value) ?? fallback ?? new Date();
+}
+
+function videoTime(value?: Timestamp | Date | null): number {
+  return normalizeTimestamp(value)?.getTime() ?? 0;
 }
 
 export function formatDate(value?: Timestamp | Date | null): string {
@@ -103,13 +109,48 @@ export function toProduct(item: FirestoreEntity<StoreItemRecord>): Product {
   };
 }
 
+export function toUserVideoLibrary(params: {
+  fights: Array<FirestoreEntity<FightRecord>>;
+  submissions?: Array<FirestoreEntity<FightVideoSubmissionRecord>>;
+}): UserVideo[] {
+  const fightVideos = params.fights
+    .filter((fight) => !!fight.videoUrl)
+    .map((fight) => ({
+      id: fight.id,
+      title: fight.opponentName ? `Luta vs ${fight.opponentName}` : 'Video de luta',
+      url: fight.videoUrl as string,
+      date: formatDateLabel(fight.occurredAt),
+      sourceKind: getVideoSourceKindFromUrl(fight.videoUrl as string),
+      origin: 'fight' as const,
+      sortTime: videoTime(fight.occurredAt),
+    }));
+
+  const approvedSubmissions = (params.submissions ?? [])
+    .filter((submission) => submission.status === 'approved' && !!submission.sourceUrl)
+    .map((submission) => ({
+      id: submission.id,
+      title: submission.title,
+      url: submission.sourceUrl,
+      date: formatDateLabel(submission.occurredAt ?? submission.createdAt),
+      sourceKind: submission.sourceKind,
+      origin: 'submission' as const,
+      sortTime: videoTime(submission.occurredAt ?? submission.createdAt),
+    }));
+
+  return [...fightVideos, ...approvedSubmissions]
+    .sort((left, right) => right.sortTime - left.sortTime || left.title.localeCompare(right.title, 'pt-BR'))
+    .map(({ sortTime: _sortTime, ...item }) => item);
+}
+
 export function toUiUser(params: {
   id: string;
   user: FirestoreEntity<UserRecord>;
   graduations: Array<FirestoreEntity<GraduationRecord>>;
   fights: Array<FirestoreEntity<FightRecord>>;
+  submissions?: Array<FirestoreEntity<FightVideoSubmissionRecord>>;
+  videoLibrary?: User['videos'];
 }): User {
-  const { id, user, graduations, fights } = params;
+  const { id, user, graduations, fights, submissions = [], videoLibrary } = params;
   const latestGraduationAt = graduations[0]?.promotedAt ?? user.updatedAt ?? user.createdAt;
   const attendanceCount = user.attendanceCount ?? 0;
   const trainingType = inferTrainingTypeFromBirthDate(user.birthDate);
@@ -148,13 +189,6 @@ export function toUiUser(params: {
     birthDate: user.birthDate,
     startDate: formatDate(user.createdAt) || undefined,
     lastStripeDate: formatDate(latestGraduationAt) || undefined,
-    videos: fights
-      .filter((fight) => !!fight.videoUrl)
-      .map((fight) => ({
-        id: fight.id,
-        title: fight.opponentName ? `Luta vs ${fight.opponentName}` : 'Vídeo de luta',
-        url: fight.videoUrl as string,
-        date: formatDateLabel(fight.occurredAt),
-    })),
+    videos: videoLibrary ?? toUserVideoLibrary({ fights, submissions }),
   };
 }

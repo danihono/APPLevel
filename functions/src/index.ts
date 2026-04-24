@@ -34,6 +34,11 @@ import {
   submitAttendanceRequest,
 } from './modules/attendance';
 import {
+  approveFightVideoSubmission,
+  rejectFightVideoSubmission,
+  submitFightVideoSubmission,
+} from './modules/fightVideos';
+import {
   evaluateUserProgression,
   rebuildUserDerivedState,
   upsertAcademyProgressionRules,
@@ -76,6 +81,7 @@ export {
   approveGraduationRequest,
   approveJoinRequest,
   approveAttendanceRequest,
+  approveFightVideoSubmission,
   assignUserToAcademy,
   callableProxy,
   createAcademy,
@@ -98,6 +104,7 @@ export {
   recordLessonPlayback,
   recordLearningBlockPlayback,
   rejectAttendanceRequest,
+  rejectFightVideoSubmission,
   rejectJoinRequest,
   rebuildUserDerivedState,
   registerAttendance,
@@ -110,6 +117,7 @@ export {
   startLessonQuiz,
   startClassSession,
   submitAttendanceRequest,
+  submitFightVideoSubmission,
   submitStudentSignup,
   submitLessonQuiz,
   syncUserMissionProgress,

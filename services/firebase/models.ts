@@ -12,11 +12,13 @@ export type MissionMetric =
   | 'competition_points'
   | 'belt_promotions';
 export type NotificationChannel = 'academy' | 'team' | 'system';
-export type NotificationKind = 'notice' | 'join_request' | 'attendance_request' | 'graduation';
+export type NotificationKind = 'notice' | 'join_request' | 'attendance_request' | 'graduation' | 'fight_video_submission';
 export type GraduationRequestStatus = 'pending' | 'approved' | 'superseded';
 export type GraduationTargetType = 'stripe' | 'belt';
 export type JoinRequestStatus = 'pending' | 'approved' | 'rejected';
 export type AttendanceRequestStatus = 'pending' | 'approved' | 'rejected';
+export type FightVideoSourceKind = 'youtube' | 'external' | 'upload';
+export type FightVideoSubmissionStatus = 'pending' | 'approved' | 'rejected';
 export type LearningContentStatus = 'draft' | 'published';
 export type LearningLessonBlockType = 'youtube' | 'uploaded_video' | 'pdf' | 'image';
 
@@ -276,6 +278,26 @@ export interface FightRecord {
   occurredAt?: Timestamp;
   createdAt?: Timestamp;
   updatedAt?: Timestamp;
+}
+
+export interface FightVideoSubmissionRecord {
+  academyId: string;
+  athleteId: string;
+  athleteName: string;
+  title: string;
+  opponentName?: string;
+  occurredAt?: Timestamp;
+  sourceKind: FightVideoSourceKind;
+  sourceUrl: string;
+  storagePath?: string;
+  mimeType?: string;
+  fileName?: string;
+  status: FightVideoSubmissionStatus;
+  createdAt?: Timestamp;
+  updatedAt?: Timestamp;
+  reviewedAt?: Timestamp;
+  reviewedBy?: string;
+  reviewedByRole?: AppRole;
 }
 
 export interface StoreItemRecord {

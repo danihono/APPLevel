@@ -4,6 +4,8 @@ import type {
   AttendanceRequestStatus,
   CreateAcademyPayload,
   CreateUserPayload,
+  FightVideoSourceKind,
+  FightVideoSubmissionStatus,
   JoinRequestStatus,
   LearningContentStatus,
   LearningLessonBlockType,
@@ -246,6 +248,23 @@ export const backendFunctions = {
 
   syncOwnUserEmail: (payload: { email: string }) =>
     callFunction<{ userId: string; email: string }>('syncOwnUserEmail', payload),
+
+  submitFightVideoSubmission: (payload: {
+    title: string;
+    opponentName?: string;
+    occurredAt?: string;
+    sourceKind: FightVideoSourceKind;
+    sourceUrl: string;
+    storagePath?: string;
+    mimeType?: string;
+    fileName?: string;
+  }) => callFunction<{ requestId: string; status: FightVideoSubmissionStatus }>('submitFightVideoSubmission', payload),
+
+  approveFightVideoSubmission: (payload: { requestId: string }) =>
+    callFunction<{ requestId: string; status: FightVideoSubmissionStatus }>('approveFightVideoSubmission', payload),
+
+  rejectFightVideoSubmission: (payload: { requestId: string }) =>
+    callFunction<{ requestId: string; status: FightVideoSubmissionStatus }>('rejectFightVideoSubmission', payload),
 
   upsertAcademyProgressionRules: (payload: {
     academyId?: string;
