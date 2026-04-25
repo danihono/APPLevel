@@ -4783,11 +4783,11 @@ html.dark .superadmin-belt-dot {
   }
 
   .app-shell--superadmin .app-mobile-header {
-    display: none;
+    display: block;
   }
 
   .app-topbar--superadmin {
-    margin-bottom: 0;
+    margin-bottom: 1rem;
   }
 
   .superadmin-dashboard .superadmin-hero,
@@ -4812,7 +4812,7 @@ html.dark .superadmin-belt-dot {
   /* Header — dark full-bleed, mesmo estilo do hero da tela professor */
   .sa-mob-header {
     position: relative;
-    display: flex;
+    display: none;
     flex-direction: column;
     gap: 0.6rem;
     margin-top: -1rem;

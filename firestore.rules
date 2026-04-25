@@ -166,11 +166,7 @@ service cloud.firestore {
     }
 
     match /fight_video_submissions/{requestId} {
-      allow read: if sameAcademy(resource.data.academyId)
-        && (
-          isAcademyStaff(resource.data.academyId)
-          || isSelf(resource.data.athleteId)
-        );
+      allow read: if isAcademyStaff(resource.data.academyId) || isSelf(resource.data.athleteId);
       allow write: if false;
     }
 
