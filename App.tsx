@@ -86,6 +86,8 @@ const StudentsView = lazy(() => import('./views/StudentsView'));
 
 const THEME_STORAGE_PREFIX = 'applevel-theme';
 const NETWORK_NAME = 'LEVEL';
+const AUTH_CLAIM_REFRESH_ATTEMPTS = 4;
+const AUTH_CLAIM_REFRESH_DELAY_MS = 500;
 type SuperadminViewMode = 'superadmin' | 'professor';
 type AcademyContextStatus = 'idle' | 'ready' | 'missing' | 'error';
 type ValidatedSessionSnapshot = {
@@ -448,6 +450,32 @@ function applyValidatedSessionToProfile(
   };
 }
 
+function waitFor(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    window.setTimeout(resolve, ms);
+  });
+}
+
+function authClaimsMatchSession(claims: Record<string, unknown>, session: ValidatedSessionSnapshot): boolean {
+  const claimAcademyId = typeof claims.academyId === 'string' ? claims.academyId : '';
+  return claims.role === session.role && claimAcademyId === session.academyId;
+}
+
+async function refreshAuthClaimsForSession(user: FirebaseUser, session: ValidatedSessionSnapshot): Promise<void> {
+  for (let attempt = 0; attempt < AUTH_CLAIM_REFRESH_ATTEMPTS; attempt += 1) {
+    const token = await user.getIdTokenResult(true);
+    if (authClaimsMatchSession(token.claims, session)) {
+      return;
+    }
+
+    if (attempt < AUTH_CLAIM_REFRESH_ATTEMPTS - 1) {
+      await waitFor(AUTH_CLAIM_REFRESH_DELAY_MS);
+    }
+  }
+
+  throw new Error('Nao foi possivel atualizar as permissoes da sessao. Saia e entre novamente.');
+}
+
 const App: React.FC = () => {
   const [authReady, setAuthReady] = useState(false);
   const [authUser, setAuthUser] = useState<FirebaseUser | null>(null);
@@ -654,17 +682,15 @@ const App: React.FC = () => {
     void backendFunctions
       .validateSessionAccess()
       .then(async (session) => {
-        if (session.claimsUpdated) {
-          await authUser.getIdToken(true);
-        }
+        const nextValidatedSession = {
+          uid: session.uid,
+          academyId: session.academyId,
+          role: session.role,
+        };
+
+        await refreshAuthClaimsForSession(authUser, nextValidatedSession);
 
         if (!cancelled) {
-          const nextValidatedSession = {
-            uid: session.uid,
-            academyId: session.academyId,
-            role: session.role,
-          };
-
           validatedSessionRef.current = nextValidatedSession;
           setProfile((current) => (
             current

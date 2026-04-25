@@ -55,7 +55,7 @@ service cloud.firestore {
     }
 
     match /users/{userId} {
-      allow read: if isSelf(userId) || isAcademyStaff(resource.data.academyId);
+      allow read: if isSuperAdmin() || isSelf(userId) || isAcademyStaff(resource.data.academyId);
 
       allow create: if isSuperAdmin()
         || (
@@ -111,7 +111,8 @@ service cloud.firestore {
     }
 
     match /graduation_requests/{requestId} {
-      allow read: if sameAcademy(resource.data.academyId)
+      allow read: if isSuperAdmin()
+        || sameAcademy(resource.data.academyId)
         && (
           isAcademyStaff(resource.data.academyId)
           || isSelf(resource.data.userId)
@@ -125,11 +126,12 @@ service cloud.firestore {
     }
 
     match /attendance_requests/{requestId} {
-      allow read: if (
-        (isApprover() && sameAcademy(resource.data.academyId))
-        || isSelf(resource.data.userId)
-        || (isAdmin() && sameAcademy(resource.data.academyId))
-      );
+      allow read: if isSuperAdmin()
+        || (
+          (isApprover() && sameAcademy(resource.data.academyId))
+          || isSelf(resource.data.userId)
+          || (isAdmin() && sameAcademy(resource.data.academyId))
+        );
       allow write: if false;
     }
 
@@ -178,7 +180,8 @@ service cloud.firestore {
     }
 
     match /notifications/{notificationId} {
-      allow read: if sameAcademy(resource.data.academyId)
+      allow read: if isSuperAdmin()
+        || sameAcademy(resource.data.academyId)
         && (
           isAcademyStaff(resource.data.academyId)
           || isSelf(resource.data.recipientUserId)
