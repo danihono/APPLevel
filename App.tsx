@@ -1458,23 +1458,7 @@ const App: React.FC = () => {
       }>;
     };
     kids: {
-      level_kids: {
-        belts: Array<{
-          belt: string;
-          stripeEvery: number;
-          maxStripes: number;
-          beltPromotionOffset?: number;
-        }>;
-      };
-      level_infanto_juvenil: {
-        belts: Array<{
-          belt: string;
-          stripeEvery: number;
-          maxStripes: number;
-          beltPromotionOffset?: number;
-        }>;
-      };
-      level_juvenil: {
+      level_infantil: {
         belts: Array<{
           belt: string;
           stripeEvery: number;
@@ -1502,6 +1486,35 @@ const App: React.FC = () => {
   async function handleSetStudentAttendanceBonus(payload: { userId: string; attendanceCountBonus: number }) {
     try {
       await backendFunctions.setStudentAttendanceBonus(payload);
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
+  }
+
+  async function handleAdminUpdateStudentProfile(payload: {
+    userId: string;
+    firstName?: string;
+    lastName?: string;
+    phone?: string;
+    cpf?: string;
+    birthDate?: string;
+    isCompetitor?: boolean;
+  }) {
+    try {
+      await backendFunctions.adminUpdateStudentProfile(payload);
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
+  }
+
+  async function handleAdminUpdateStudentTimeline(payload: {
+    userId: string;
+    trainingStartDate?: string;
+    lastGraduationDateOverride?: string;
+    lastStripeDateOverride?: string;
+  }) {
+    try {
+      await backendFunctions.adminUpdateStudentTimeline(payload);
     } catch (error) {
       throw new Error(getErrorMessage(error));
     }
@@ -2099,6 +2112,8 @@ const App: React.FC = () => {
             onApproveGraduationRequest={handleApproveGraduationRequest}
             onUpdateStudentBeltGrade={handleUpdateStudentBeltGrade}
             onSetStudentAttendanceBonus={handleSetStudentAttendanceBonus}
+            onAdminUpdateStudentProfile={handleAdminUpdateStudentProfile}
+            onAdminUpdateStudentTimeline={handleAdminUpdateStudentTimeline}
           />
         );
       case 'management':
@@ -2120,6 +2135,8 @@ const App: React.FC = () => {
             onCreateUser={handleCreateUser}
             onUpdateStudentBeltGrade={handleUpdateStudentBeltGrade}
             onSetStudentAttendanceBonus={handleSetStudentAttendanceBonus}
+            onAdminUpdateStudentProfile={handleAdminUpdateStudentProfile}
+            onAdminUpdateStudentTimeline={handleAdminUpdateStudentTimeline}
           />
         );
       case 'notifications':

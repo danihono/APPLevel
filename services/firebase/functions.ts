@@ -130,6 +130,23 @@ export const backendFunctions = {
   setStudentAttendanceBonus: (payload: { userId: string; attendanceCountBonus: number }) =>
     callFunction<{ userId: string; attendanceCountBonus: number }>('setStudentAttendanceBonus', payload),
 
+  adminUpdateStudentProfile: (payload: {
+    userId: string;
+    firstName?: string;
+    lastName?: string;
+    phone?: string;
+    cpf?: string;
+    birthDate?: string;
+    isCompetitor?: boolean;
+  }) => callFunction<{ userId: string; displayName: string }>('adminUpdateStudentProfile', payload),
+
+  adminUpdateStudentTimeline: (payload: {
+    userId: string;
+    trainingStartDate?: string;
+    lastGraduationDateOverride?: string;
+    lastStripeDateOverride?: string;
+  }) => callFunction<{ userId: string }>('adminUpdateStudentTimeline', payload),
+
   approveGraduationRequest: (payload: { requestId: string }) =>
     callFunction<{ requestId: string; userId: string; status: string }>('approveGraduationRequest', payload),
 
@@ -270,9 +287,7 @@ export const backendFunctions = {
     academyId?: string;
     adult: ProgressionRuleSegment;
     kids: {
-      level_kids: ProgressionRuleSegment;
-      level_infanto_juvenil: ProgressionRuleSegment;
-      level_juvenil: ProgressionRuleSegment;
+      level_infantil: ProgressionRuleSegment;
     };
   }) => callFunction<{ academyId: string; rules: unknown; totalProcessed: number }>('upsertAcademyProgressionRules', payload),
 

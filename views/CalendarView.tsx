@@ -481,9 +481,7 @@ function isClassVisibleForStudent(
   const d = desc ?? '';
 
   if (kidsCategory) {
-    if (kidsCategory === 'level_kids') return d === 'kids-5-7';
-    if (kidsCategory === 'level_infanto_juvenil') return d === 'infanto-8-10';
-    if (kidsCategory === 'level_juvenil') return d === 'juvenil-11-14';
+    if (kidsCategory === 'level_infantil') return INFANTIL_CLASS_TYPES.has(d);
     return false;
   }
 

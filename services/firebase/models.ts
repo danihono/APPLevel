@@ -71,6 +71,9 @@ export interface UserRecord {
   lastAttendanceAt?: Timestamp;
   lastLoginAt?: Timestamp;
   fcmTokens?: string[];
+  trainingStartDate?: Timestamp;
+  lastGraduationDateOverride?: Timestamp;
+  lastStripeDateOverride?: Timestamp;
   createdAt?: Timestamp;
   updatedAt?: Timestamp;
 }

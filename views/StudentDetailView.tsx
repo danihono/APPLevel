@@ -8,10 +8,11 @@ import {
   kidsCategoryLabel,
   KIDS_CATEGORIES,
 } from '../beltCatalog';
-import { ArrowLeft, Award, Calendar, CheckCircle2, Clock, Mail, Save, TrendingUp, Video, BookOpen } from 'lucide-react';
+import { ArrowLeft, Award, Calendar, CheckCircle2, Clock, Edit, Mail, Save, TrendingUp, Video, BookOpen } from 'lucide-react';
 import AppVideoContent from '../components/AppVideoContent';
 import AvatarWithBelt from '../components/AvatarWithBelt';
 import ProgressBar from '../components/ProgressBar';
+import StudentProfileEditModal from '../components/StudentProfileEditModal';
 import type { FirestoreEntity } from '../services/firebase/data';
 import type { GraduationApprovalRequestRecord } from '../services/firebase/models';
 import type { KidsCategory, User } from '../types';
@@ -23,6 +24,21 @@ interface StudentDetailViewProps {
   onApproveGraduationRequest?: (requestId: string) => Promise<void>;
   onUpdateStudentBeltGrade?: (payload: { userId: string; belt: string; grade: number; stripes?: number; kidsCategory?: string }) => Promise<void>;
   onSetStudentAttendanceBonus?: (payload: { userId: string; attendanceCountBonus: number }) => Promise<void>;
+  onAdminUpdateStudentProfile?: (payload: {
+    userId: string;
+    firstName?: string;
+    lastName?: string;
+    phone?: string;
+    cpf?: string;
+    birthDate?: string;
+    isCompetitor?: boolean;
+  }) => Promise<void>;
+  onAdminUpdateStudentTimeline?: (payload: {
+    userId: string;
+    trainingStartDate?: string;
+    lastGraduationDateOverride?: string;
+    lastStripeDateOverride?: string;
+  }) => Promise<void>;
 }
 
 function formatDate(value?: string) {
@@ -51,7 +67,10 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
   onApproveGraduationRequest,
   onUpdateStudentBeltGrade,
   onSetStudentAttendanceBonus,
+  onAdminUpdateStudentProfile,
+  onAdminUpdateStudentTimeline,
 }) => {
+  const [showEditModal, setShowEditModal] = useState(false);
   const age = student.birthDate
     ? new Date().getFullYear() - new Date(student.birthDate).getFullYear()
     : 28;
@@ -172,6 +191,17 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
     }
   }
 
+  if (showEditModal) {
+    return (
+      <StudentProfileEditModal
+        student={student}
+        onClose={() => setShowEditModal(false)}
+        onAdminUpdateStudentProfile={onAdminUpdateStudentProfile}
+        onAdminUpdateStudentTimeline={onAdminUpdateStudentTimeline}
+      />
+    );
+  }
+
   return (
     <div className="view-shell">
       <div className="flex items-center gap-4">
@@ -203,6 +233,17 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
             {student.email}
           </div>
         </div>
+
+        {(onAdminUpdateStudentProfile || onAdminUpdateStudentTimeline) ? (
+          <button
+            type="button"
+            onClick={() => setShowEditModal(true)}
+            className="app-button app-button--ghost mt-4 w-full"
+          >
+            <Edit size={16} />
+            Editar dados completos
+          </button>
+        ) : null}
       </section>
 
       {graduationRequest ? (
@@ -324,23 +365,24 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
           </div>
 
           <p className="mt-4 text-sm text-[color:var(--text-muted)]">
-            Informe quantas aulas extras devem ser somadas ao contador deste aluno. Use para corrigir presencas que nao foram registradas no sistema.
+            Informe quantas aulas devem ser somadas ou removidas do contador deste aluno. Use valores positivos para adicionar e negativos para remover presencas.
           </p>
 
           <div className="mt-6">
             <label className="app-field">
-              <span className="app-field__label">Aulas extras a adicionar</span>
+              <span className="app-field__label">Ajuste de aulas (positivo ou negativo)</span>
               <input
                 type="number"
-                min={0}
                 value={attendanceBonus}
-                onChange={(event) => setAttendanceBonus(Math.max(0, Math.floor(Number(event.target.value) || 0)))}
+                onChange={(event) => setAttendanceBonus(Math.floor(Number(event.target.value) || 0))}
                 className="app-input"
               />
               <span className="app-field__hint">
                 {attendanceBonus > 0
                   ? `${attendanceBonus} aula(s) serao somadas ao total do aluno`
-                  : 'Nenhum ajuste aplicado'}
+                  : attendanceBonus < 0
+                    ? `${Math.abs(attendanceBonus)} aula(s) serao removidas do total do aluno`
+                    : 'Nenhum ajuste aplicado'}
               </span>
             </label>
           </div>

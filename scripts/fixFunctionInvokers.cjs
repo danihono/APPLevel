@@ -4,6 +4,8 @@ const fs = require('node:fs');
 const projectId = 'applevel-c5e73';
 const region = 'southamerica-east1';
 const functionIds = [
+  'adminUpdateStudentProfile',
+  'adminUpdateStudentTimeline',
   'approveJoinRequest',
   'approveAttendanceRequest',
   'assignUserToAcademy',

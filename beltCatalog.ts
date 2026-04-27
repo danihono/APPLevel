@@ -334,20 +334,7 @@ export const ADULT_BELTS: BeltColor[] = [
 ];
 
 export const KIDS_BELTS_BY_CATEGORY: Record<KidsCategory, BeltColor[]> = {
-  level_kids: [BeltColor.BRANCA, BeltColor.CINZA_BRANCA, BeltColor.CINZA, BeltColor.CINZA_PRETA],
-  level_infanto_juvenil: [
-    BeltColor.BRANCA,
-    BeltColor.CINZA_BRANCA,
-    BeltColor.CINZA,
-    BeltColor.CINZA_PRETA,
-    BeltColor.AMARELA_BRANCA,
-    BeltColor.AMARELA,
-    BeltColor.AMARELA_PRETA,
-    BeltColor.LARANJA_BRANCA,
-    BeltColor.LARANJA,
-    BeltColor.LARANJA_PRETA,
-  ],
-  level_juvenil: [
+  level_infantil: [
     BeltColor.BRANCA,
     BeltColor.CINZA_BRANCA,
     BeltColor.CINZA,
@@ -365,9 +352,7 @@ export const KIDS_BELTS_BY_CATEGORY: Record<KidsCategory, BeltColor[]> = {
 };
 
 export const KIDS_CATEGORIES: Array<{ value: KidsCategory; label: string }> = [
-  { value: 'level_kids', label: 'Level Kids (4-7)' },
-  { value: 'level_infanto_juvenil', label: 'Level Infanto Juvenil (8-10)' },
-  { value: 'level_juvenil', label: 'Level Juvenil (11-15)' },
+  { value: 'level_infantil', label: 'Infantil' },
 ];
 
 export const DEFAULT_PROGRESSION_RULES: ProgressionRulesV2 = {
@@ -383,15 +368,7 @@ export const DEFAULT_PROGRESSION_RULES: ProgressionRulesV2 = {
     ],
   },
   kids: {
-    level_kids: {
-      belts: [
-        { belt: BeltColor.BRANCA, stripeEvery: 12, maxStripes: 4 },
-        { belt: BeltColor.CINZA_BRANCA, stripeEvery: 12, maxStripes: 4 },
-        { belt: BeltColor.CINZA, stripeEvery: 12, maxStripes: 4 },
-        { belt: BeltColor.CINZA_PRETA, stripeEvery: 12, maxStripes: 4 },
-      ],
-    },
-    level_infanto_juvenil: {
+    level_infantil: {
       belts: [
         { belt: BeltColor.BRANCA, stripeEvery: 15, maxStripes: 4 },
         { belt: BeltColor.CINZA_BRANCA, stripeEvery: 15, maxStripes: 4 },
@@ -403,20 +380,6 @@ export const DEFAULT_PROGRESSION_RULES: ProgressionRulesV2 = {
         { belt: BeltColor.LARANJA_BRANCA, stripeEvery: 20, maxStripes: 4 },
         { belt: BeltColor.LARANJA, stripeEvery: 20, maxStripes: 4 },
         { belt: BeltColor.LARANJA_PRETA, stripeEvery: 20, maxStripes: 4 },
-      ],
-    },
-    level_juvenil: {
-      belts: [
-        { belt: BeltColor.BRANCA, stripeEvery: 20, maxStripes: 4 },
-        { belt: BeltColor.CINZA_BRANCA, stripeEvery: 20, maxStripes: 4 },
-        { belt: BeltColor.CINZA, stripeEvery: 20, maxStripes: 4 },
-        { belt: BeltColor.CINZA_PRETA, stripeEvery: 20, maxStripes: 4 },
-        { belt: BeltColor.AMARELA_BRANCA, stripeEvery: 22, maxStripes: 4 },
-        { belt: BeltColor.AMARELA, stripeEvery: 22, maxStripes: 4 },
-        { belt: BeltColor.AMARELA_PRETA, stripeEvery: 22, maxStripes: 4 },
-        { belt: BeltColor.LARANJA_BRANCA, stripeEvery: 22, maxStripes: 4 },
-        { belt: BeltColor.LARANJA, stripeEvery: 22, maxStripes: 4 },
-        { belt: BeltColor.LARANJA_PRETA, stripeEvery: 22, maxStripes: 4 },
         { belt: BeltColor.VERDE_BRANCA, stripeEvery: 25, maxStripes: 4 },
         { belt: BeltColor.VERDE, stripeEvery: 25, maxStripes: 4 },
         { belt: BeltColor.VERDE_PRETA, stripeEvery: 25, maxStripes: 4 },
@@ -499,9 +462,7 @@ export function normalizeProgressionRules(input?: ProgressionRules | null): Prog
       schema: 'v2',
       adult: sanitizeSegment(v2.adult, DEFAULT_PROGRESSION_RULES.adult),
       kids: {
-        level_kids: sanitizeSegment(v2.kids?.level_kids, DEFAULT_PROGRESSION_RULES.kids.level_kids),
-        level_infanto_juvenil: sanitizeSegment(v2.kids?.level_infanto_juvenil, DEFAULT_PROGRESSION_RULES.kids.level_infanto_juvenil),
-        level_juvenil: sanitizeSegment(v2.kids?.level_juvenil, DEFAULT_PROGRESSION_RULES.kids.level_juvenil),
+        level_infantil: sanitizeSegment(v2.kids?.level_infantil, DEFAULT_PROGRESSION_RULES.kids.level_infantil),
       },
     };
   }
@@ -572,27 +533,7 @@ export function inferKidsCategoryFromBirthDate(birthDate?: string | null): KidsC
     return undefined;
   }
 
-  const birthday = birthDate ? new Date(birthDate) : null;
-  if (!birthday || Number.isNaN(birthday.valueOf())) {
-    return 'level_kids';
-  }
-
-  const today = new Date();
-  let age = today.getFullYear() - birthday.getFullYear();
-  const monthDelta = today.getMonth() - birthday.getMonth();
-  if (monthDelta < 0 || (monthDelta === 0 && today.getDate() < birthday.getDate())) {
-    age -= 1;
-  }
-
-  if (age <= 7) {
-    return 'level_kids';
-  }
-
-  if (age <= 10) {
-    return 'level_infanto_juvenil';
-  }
-
-  return 'level_juvenil';
+  return 'level_infantil';
 }
 
 export function kidsCategoryLabel(value?: KidsCategory | null): string {
@@ -601,15 +542,15 @@ export function kidsCategoryLabel(value?: KidsCategory | null): string {
 
 export function getBeltOptions(type: TrainingType, kidsCategory?: KidsCategory | null): Array<{ value: BeltColor; label: string }> {
   const source = type === 'Kids'
-    ? KIDS_BELTS_BY_CATEGORY[kidsCategory ?? 'level_kids']
+    ? KIDS_BELTS_BY_CATEGORY[kidsCategory ?? 'level_infantil']
     : ADULT_BELTS;
 
   return source.map((belt) => ({
     value: belt,
-    label: beltLabel(belt),
+    label: type === 'Kids' && belt === BeltColor.BRANCA ? 'Branca Infantil' : beltLabel(belt),
   }));
 }
 
 export function isKidsOnlyBelt(value?: string | null): boolean {
-  return KIDS_BELTS_BY_CATEGORY.level_juvenil.includes(normalizeBeltId(value)) && !ADULT_BELTS.includes(normalizeBeltId(value));
+  return KIDS_BELTS_BY_CATEGORY.level_infantil.includes(normalizeBeltId(value)) && !ADULT_BELTS.includes(normalizeBeltId(value));
 }

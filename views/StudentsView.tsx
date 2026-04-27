@@ -17,6 +17,21 @@ interface StudentsViewProps {
   onApproveGraduationRequest?: (requestId: string) => Promise<void>;
   onUpdateStudentBeltGrade?: (payload: { userId: string; belt: string; grade: number; stripes?: number; kidsCategory?: string }) => Promise<void>;
   onSetStudentAttendanceBonus?: (payload: { userId: string; attendanceCountBonus: number }) => Promise<void>;
+  onAdminUpdateStudentProfile?: (payload: {
+    userId: string;
+    firstName?: string;
+    lastName?: string;
+    phone?: string;
+    cpf?: string;
+    birthDate?: string;
+    isCompetitor?: boolean;
+  }) => Promise<void>;
+  onAdminUpdateStudentTimeline?: (payload: {
+    userId: string;
+    trainingStartDate?: string;
+    lastGraduationDateOverride?: string;
+    lastStripeDateOverride?: string;
+  }) => Promise<void>;
 }
 
 const StudentsView: React.FC<StudentsViewProps> = ({
@@ -32,6 +47,8 @@ const StudentsView: React.FC<StudentsViewProps> = ({
   onApproveGraduationRequest,
   onUpdateStudentBeltGrade,
   onSetStudentAttendanceBonus,
+  onAdminUpdateStudentProfile,
+  onAdminUpdateStudentTimeline,
 }) => {
   return (
     <StudentRoster
@@ -47,6 +64,8 @@ const StudentsView: React.FC<StudentsViewProps> = ({
       onApproveGraduationRequest={onApproveGraduationRequest}
       onUpdateStudentBeltGrade={onUpdateStudentBeltGrade}
       onSetStudentAttendanceBonus={onSetStudentAttendanceBonus}
+      onAdminUpdateStudentProfile={onAdminUpdateStudentProfile}
+      onAdminUpdateStudentTimeline={onAdminUpdateStudentTimeline}
     />
   );
 };

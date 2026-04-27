@@ -51,7 +51,7 @@ export type FightVideoSourceKind = 'youtube' | 'external' | 'upload';
 export type FightVideoSubmissionStatus = 'pending' | 'approved' | 'rejected';
 export type LearningContentStatus = 'draft' | 'published';
 export type LearningLessonBlockType = 'youtube' | 'uploaded_video' | 'pdf' | 'image';
-export type KidsCategory = 'level_kids' | 'level_infanto_juvenil' | 'level_juvenil';
+export type KidsCategory = 'level_infantil';
 
 export interface ProgressionMilestone {
   belt: string;
@@ -136,6 +136,9 @@ export interface UserDoc {
   lastAttendanceAt?: FirebaseFirestore.Timestamp;
   lastLoginAt?: FirebaseFirestore.Timestamp;
   fcmTokens?: string[];
+  trainingStartDate?: FirebaseFirestore.Timestamp;
+  lastGraduationDateOverride?: FirebaseFirestore.Timestamp;
+  lastStripeDateOverride?: FirebaseFirestore.Timestamp;
   createdAt: FirebaseFirestore.Timestamp;
   updatedAt: FirebaseFirestore.Timestamp;
 }
@@ -507,15 +510,7 @@ export const DEFAULT_PROGRESSION_RULES: ProgressionRules = {
     ],
   },
   kids: {
-    level_kids: {
-      belts: [
-        { belt: 'white', stripeEvery: 12, maxStripes: 4 },
-        { belt: 'gray-white', stripeEvery: 12, maxStripes: 4 },
-        { belt: 'gray', stripeEvery: 12, maxStripes: 4 },
-        { belt: 'gray-black', stripeEvery: 12, maxStripes: 4 },
-      ],
-    },
-    level_infanto_juvenil: {
+    level_infantil: {
       belts: [
         { belt: 'white', stripeEvery: 15, maxStripes: 4 },
         { belt: 'gray-white', stripeEvery: 15, maxStripes: 4 },
@@ -527,20 +522,6 @@ export const DEFAULT_PROGRESSION_RULES: ProgressionRules = {
         { belt: 'orange-white', stripeEvery: 20, maxStripes: 4 },
         { belt: 'orange', stripeEvery: 20, maxStripes: 4 },
         { belt: 'orange-black', stripeEvery: 20, maxStripes: 4 },
-      ],
-    },
-    level_juvenil: {
-      belts: [
-        { belt: 'white', stripeEvery: 20, maxStripes: 4 },
-        { belt: 'gray-white', stripeEvery: 20, maxStripes: 4 },
-        { belt: 'gray', stripeEvery: 20, maxStripes: 4 },
-        { belt: 'gray-black', stripeEvery: 20, maxStripes: 4 },
-        { belt: 'yellow-white', stripeEvery: 22, maxStripes: 4 },
-        { belt: 'yellow', stripeEvery: 22, maxStripes: 4 },
-        { belt: 'yellow-black', stripeEvery: 22, maxStripes: 4 },
-        { belt: 'orange-white', stripeEvery: 22, maxStripes: 4 },
-        { belt: 'orange', stripeEvery: 22, maxStripes: 4 },
-        { belt: 'orange-black', stripeEvery: 22, maxStripes: 4 },
         { belt: 'green-white', stripeEvery: 25, maxStripes: 4 },
         { belt: 'green', stripeEvery: 25, maxStripes: 4 },
         { belt: 'green-black', stripeEvery: 25, maxStripes: 4 },

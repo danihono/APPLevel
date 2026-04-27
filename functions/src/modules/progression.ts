@@ -73,14 +73,8 @@ function parseRulesPayload(data: unknown, version: number): ProgressionRulesV2 {
       belts: parseBeltRules(payload.adult, 'adult'),
     },
     kids: {
-      level_kids: {
-        belts: parseBeltRules(kids.level_kids, 'kids.level_kids'),
-      },
-      level_infanto_juvenil: {
-        belts: parseBeltRules(kids.level_infanto_juvenil, 'kids.level_infanto_juvenil'),
-      },
-      level_juvenil: {
-        belts: parseBeltRules(kids.level_juvenil, 'kids.level_juvenil'),
+      level_infantil: {
+        belts: parseBeltRules(kids.level_infantil, 'kids.level_infantil'),
       },
     },
   });

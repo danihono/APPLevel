@@ -1,5 +1,7 @@
 import { setGlobalOptions } from 'firebase-functions/v2';
 import {
+  adminUpdateStudentProfile,
+  adminUpdateStudentTimeline,
   approveGraduationRequest,
   approveJoinRequest,
   assignUserToAcademy,
@@ -123,6 +125,8 @@ export {
   syncUserMissionProgress,
   toggleClassRsvp,
   updateRecurringClassSeries,
+  adminUpdateStudentProfile,
+  adminUpdateStudentTimeline,
   updateOwnStudentProfile,
   updateStudentBeltGrade,
   upsertAcademyProgressionRules,

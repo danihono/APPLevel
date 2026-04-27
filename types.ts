@@ -27,7 +27,7 @@ export const BeltColor = {
 } as const;
 
 export type BeltColor = typeof BeltColor[keyof typeof BeltColor];
-export type KidsCategory = 'level_kids' | 'level_infanto_juvenil' | 'level_juvenil';
+export type KidsCategory = 'level_infantil';
 export type VideoSourceKind = 'youtube' | 'external' | 'upload';
 export type VideoOriginKind = 'fight' | 'submission';
 
@@ -43,6 +43,8 @@ export interface UserVideo {
 export interface User {
   id: string;
   name: string;
+  firstName?: string;
+  lastName?: string;
   email: string;
   cpf?: string;
   role: UserRole;
@@ -61,9 +63,13 @@ export interface User {
   type: 'Adulto' | 'Kids';
   kidsCategory?: KidsCategory;
   isCompetitor?: boolean;
+  phone?: string;
   birthDate?: string;
   startDate?: string;
   lastStripeDate?: string;
+  trainingStartDate?: string;
+  lastGraduationDateOverride?: string;
+  lastStripeDateOverride?: string;
   videos?: UserVideo[];
 }
 

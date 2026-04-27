@@ -970,7 +970,7 @@ export const setStudentAttendanceBonus = onCall(callableOptions, async (request)
   assertProfessorOrSuperadmin(actor.role);
 
   const targetUserId = requiredString(request.data, 'userId');
-  const attendanceCountBonus = Math.max(0, Math.floor(requiredNumber(request.data, 'attendanceCountBonus')));
+  const attendanceCountBonus = Math.floor(requiredNumber(request.data, 'attendanceCountBonus'));
   const targetUser = await getUserDoc(targetUserId);
 
   assertCondition(targetUser.role === 'student', 'invalid-argument', 'Somente alunos podem ter aulas ajustadas.');
@@ -1045,6 +1045,92 @@ export const approveGraduationRequest = onCall(callableOptions, async (request) 
     userId: graduationRequest.userId,
     status: 'approved' as const,
   };
+});
+
+export const adminUpdateStudentProfile = onCall(callableOptions, async (request) => {
+  const actor = await getRequestContext(request, 'professor');
+  assertProfessorOrSuperadmin(actor.role);
+
+  const data = (request.data as Record<string, unknown> | null) ?? {};
+  const targetUserId = requiredString(request.data, 'userId');
+  const targetUser = await getUserDoc(targetUserId);
+
+  assertCondition(targetUser.role === 'student', 'invalid-argument', 'Somente alunos podem ter o perfil editado por esta funcao.');
+  assertCondition(
+    actor.role === 'superadmin' || targetUser.academyId === actor.academyId,
+    'permission-denied',
+    'Voce so pode editar alunos da sua unidade.',
+  );
+
+  const firstName = optionalString(request.data, 'firstName') ?? targetUser.firstName;
+  const lastName = optionalString(request.data, 'lastName') ?? targetUser.lastName;
+  const phone = data.phone === undefined ? targetUser.phone : (optionalString(request.data, 'phone') ?? null);
+  const birthDate = data.birthDate === undefined ? targetUser.birthDate : (optionalString(request.data, 'birthDate') ?? null);
+  const cpf = data.cpf === undefined ? targetUser.cpf : assertValidCpf(requiredString(request.data, 'cpf'));
+  const isCompetitor = optionalBoolean(request.data, 'isCompetitor', targetUser.isCompetitor ?? false);
+  const displayName = `${firstName} ${lastName}`.trim();
+
+  if (cpf !== targetUser.cpf) {
+    await ensureUniqueIdentity({
+      email: targetUser.email,
+      cpf,
+      excludeUserId: targetUserId,
+    });
+  }
+
+  const now = Timestamp.now();
+  await db.collection(COLLECTIONS.users).doc(targetUserId).update({
+    firstName,
+    lastName,
+    displayName,
+    cpf,
+    phone: phone ?? null,
+    birthDate: birthDate ?? null,
+    isCompetitor,
+    updatedAt: now,
+  });
+  await auth.updateUser(targetUserId, { displayName });
+  await syncUserDerivedState(targetUserId, targetUser.academyId);
+
+  return { userId: targetUserId, displayName };
+});
+
+export const adminUpdateStudentTimeline = onCall(callableOptions, async (request) => {
+  const actor = await getRequestContext(request, 'professor');
+  assertProfessorOrSuperadmin(actor.role);
+
+  const targetUserId = requiredString(request.data, 'userId');
+  const targetUser = await getUserDoc(targetUserId);
+
+  assertCondition(targetUser.role === 'student', 'invalid-argument', 'Somente alunos podem ter a linha do tempo editada.');
+  assertCondition(
+    actor.role === 'superadmin' || targetUser.academyId === actor.academyId,
+    'permission-denied',
+    'Voce so pode editar alunos da sua unidade.',
+  );
+
+  const data = (request.data as Record<string, unknown> | null) ?? {};
+  const updateFields: Record<string, unknown> = { updatedAt: Timestamp.now() };
+
+  if (data.trainingStartDate !== undefined) {
+    const raw = optionalString(request.data, 'trainingStartDate');
+    updateFields.trainingStartDate = raw ? Timestamp.fromDate(new Date(raw)) : null;
+  }
+
+  if (data.lastGraduationDateOverride !== undefined) {
+    const raw = optionalString(request.data, 'lastGraduationDateOverride');
+    updateFields.lastGraduationDateOverride = raw ? Timestamp.fromDate(new Date(raw)) : null;
+  }
+
+  if (data.lastStripeDateOverride !== undefined) {
+    const raw = optionalString(request.data, 'lastStripeDateOverride');
+    updateFields.lastStripeDateOverride = raw ? Timestamp.fromDate(new Date(raw)) : null;
+  }
+
+  await db.collection(COLLECTIONS.users).doc(targetUserId).update(updateFields);
+  await syncUserDerivedState(targetUserId, targetUser.academyId);
+
+  return { userId: targetUserId };
 });
 
 export const validateSessionAccess = onCall(callableOptions, async (request) => {

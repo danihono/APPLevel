@@ -43,7 +43,7 @@ const GraduationView: React.FC<GraduationViewProps> = ({
     ? 'Kids'
     : 'Adulto';
   const activeRules = trainingType === 'Kids'
-    ? normalizedRules.kids[inferredKidsCategory ?? 'level_kids'].belts
+    ? normalizedRules.kids[inferredKidsCategory ?? 'level_infantil'].belts
     : normalizedRules.adult.belts;
   const currentRule = activeRules.find((entry) => normalizeBeltId(entry.belt) === currentBeltId) ?? activeRules[0];
 

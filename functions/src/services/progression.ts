@@ -118,7 +118,8 @@ const BELT_ALIASES: Record<string, string> = {
   'green black': 'green-black',
 };
 
-const KIDS_CATEGORY_ORDER: KidsCategory[] = ['level_kids', 'level_infanto_juvenil', 'level_juvenil'];
+const KIDS_CATEGORY_ORDER: KidsCategory[] = ['level_infantil'];
+const LEGACY_KIDS_CATEGORIES = new Set(['level_kids', 'level_infanto_juvenil', 'level_juvenil']);
 
 function normalizeLooseKey(value: string): string {
   return value
@@ -144,6 +145,9 @@ function normalizeKidsCategory(value?: string | null): KidsCategory | undefined 
   }
 
   const normalized = value.trim().toLowerCase();
+  if (LEGACY_KIDS_CATEGORIES.has(normalized)) {
+    return 'level_infantil';
+  }
   return KIDS_CATEGORY_ORDER.find((entry) => entry === normalized);
 }
 
@@ -172,15 +176,7 @@ export function inferKidsCategoryFromBirthDate(birthDate?: string | null): KidsC
     return undefined;
   }
 
-  if (age <= 7) {
-    return 'level_kids';
-  }
-
-  if (age <= 10) {
-    return 'level_infanto_juvenil';
-  }
-
-  return 'level_juvenil';
+  return 'level_infantil';
 }
 
 export function isAdultOnlyBelt(value?: string | null): boolean {
@@ -197,16 +193,8 @@ function categorySupportsBelt(category: KidsCategory, belt: string): boolean {
 }
 
 function deriveKidsCategoryFromBelt(belt: string): KidsCategory | undefined {
-  if (GREEN_FAMILY_BELTS.has(belt)) {
-    return 'level_juvenil';
-  }
-
-  if (YELLOW_ORANGE_FAMILY_BELTS.has(belt)) {
-    return 'level_infanto_juvenil';
-  }
-
-  if (GRAY_FAMILY_BELTS.has(belt)) {
-    return 'level_kids';
+  if (GRAY_FAMILY_BELTS.has(belt) || YELLOW_ORANGE_FAMILY_BELTS.has(belt) || GREEN_FAMILY_BELTS.has(belt)) {
+    return 'level_infantil';
   }
 
   return undefined;
@@ -282,9 +270,7 @@ function convertLegacyRules(input: LegacyProgressionRules): ProgressionRulesV2 {
     schema: 'v2',
     adult: sanitizeSegment({ belts: legacyAdult }, (DEFAULT_PROGRESSION_RULES as ProgressionRulesV2).adult),
     kids: {
-      level_kids: sanitizeSegment(undefined, (DEFAULT_PROGRESSION_RULES as ProgressionRulesV2).kids.level_kids),
-      level_infanto_juvenil: sanitizeSegment(undefined, (DEFAULT_PROGRESSION_RULES as ProgressionRulesV2).kids.level_infanto_juvenil),
-      level_juvenil: sanitizeSegment(undefined, (DEFAULT_PROGRESSION_RULES as ProgressionRulesV2).kids.level_juvenil),
+      level_infantil: sanitizeSegment(undefined, (DEFAULT_PROGRESSION_RULES as ProgressionRulesV2).kids.level_infantil),
     },
   };
 }
@@ -302,9 +288,7 @@ export function normalizeProgressionRules(input?: Partial<ProgressionRules> | nu
       schema: 'v2',
       adult: sanitizeSegment(rules.adult, defaultRules.adult),
       kids: {
-        level_kids: sanitizeSegment(rules.kids?.level_kids, defaultRules.kids.level_kids),
-        level_infanto_juvenil: sanitizeSegment(rules.kids?.level_infanto_juvenil, defaultRules.kids.level_infanto_juvenil),
-        level_juvenil: sanitizeSegment(rules.kids?.level_juvenil, defaultRules.kids.level_juvenil),
+        level_infantil: sanitizeSegment(rules.kids?.level_infantil, defaultRules.kids.level_infantil),
       },
     };
   }
@@ -368,7 +352,7 @@ function resolveKidsCategory(params: {
     return beltDrivenCategory;
   }
 
-  return requestedCategory ?? inferKidsCategoryFromBirthDate(params.birthDate) ?? 'level_kids';
+  return requestedCategory ?? inferKidsCategoryFromBirthDate(params.birthDate) ?? 'level_infantil';
 }
 
 function resolveProgressionContext(
