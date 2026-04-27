@@ -48,6 +48,7 @@ import {
   uploadLearningLessonAsset,
   uploadUserPhoto,
 } from './services/firebase/mutations';
+import { isUnreadNotificationForViewer } from './services/firebase/notifications';
 import type {
   AppRole,
   AcademyRecord,
@@ -505,7 +506,18 @@ const App: React.FC = () => {
   const [academyFights, setAcademyFights] = useState<Array<FirestoreEntity<FightRecord>>>([]);
   const [fightVideoSubmissions, setFightVideoSubmissions] = useState<Array<FirestoreEntity<FightVideoSubmissionRecord>>>([]);
   const [notifications, setNotifications] = useState<Array<FirestoreEntity<NotificationRecord>>>([]);
-  const unreadNotificationsCount = notifications.filter((entry) => entry.status !== 'read').length;
+  const unreadNotificationsCount = useMemo(
+    () => notifications.filter((entry) => isUnreadNotificationForViewer(entry, {
+      viewerRole: profile?.role,
+      actionState: {
+        joinRequests,
+        attendanceRequests,
+        graduationRequests,
+        fightVideoSubmissions,
+      },
+    })).length,
+    [attendanceRequests, fightVideoSubmissions, graduationRequests, joinRequests, notifications, profile?.role],
+  );
   const [learningTracks, setLearningTracks] = useState<Array<FirestoreEntity<LearningTrackRecord>>>([]);
   const [learningCourses, setLearningCourses] = useState<Array<FirestoreEntity<LearningCourseRecord>>>([]);
   const [learningLessons, setLearningLessons] = useState<Array<FirestoreEntity<LearningLessonRecord>>>([]);
@@ -2034,6 +2046,8 @@ const App: React.FC = () => {
               notifications={notifications}
               joinRequests={joinRequests}
               attendanceRequests={attendanceRequests}
+              graduationRequests={graduationRequests}
+              fightVideoSubmissions={fightVideoSubmissions}
               canReviewAllAttendanceRequests={profile.role === 'superadmin'}
             />
           ) : (
@@ -2102,6 +2116,7 @@ const App: React.FC = () => {
         return (
           <StudentsView
             students={students}
+            progressionRules={resolvedAcademy.progressionRules}
             graduationRequests={graduationRequests}
             academyName={hasFocusedAcademy ? (allAcademies.find((entry) => entry.id === selectedAcademyId)?.name ?? resolvedAcademy.name) : undefined}
             academies={allAcademies.map((entry) => ({ id: entry.id, name: entry.name }))}
@@ -2213,6 +2228,7 @@ const App: React.FC = () => {
         return (
           <ProfileView
             user={currentUser}
+            progressionRules={resolvedAcademy.progressionRules}
             profile={profile}
             totalClasses={profile.attendanceCount}
             academyName={isSuperAdmin ? NETWORK_NAME : resolvedAcademy.name}

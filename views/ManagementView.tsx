@@ -469,6 +469,7 @@ const ManagementView: React.FC<ManagementViewProps> = ({
         {managementSection === 'students' ? (
           <StudentRoster
             students={studentRosterUsers}
+            progressionRules={managedAcademy.progressionRules}
             academyName={managedAcademy.name}
             kicker="Alunos da academia"
             title="Todos os alunos da sua unidade com filtros e leitura rapida."
@@ -585,6 +586,7 @@ const ManagementView: React.FC<ManagementViewProps> = ({
         hasManagedAcademy ? (
           <StudentRoster
             students={studentRosterUsers}
+            progressionRules={managedAcademy.progressionRules}
             academyName={managedAcademy.name}
             kicker="Alunos da academia"
             title="Todos os alunos da unidade em uma leitura pronta para operacao."

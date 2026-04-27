@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ALL_BELTS, beltLabel } from '../beltCatalog';
+import { ALL_BELTS, beltLabel, type ProgressionRules } from '../beltCatalog';
 import { ChevronRight, Search } from 'lucide-react';
 import AvatarWithBelt from './AvatarWithBelt';
 import StudentDetailView from '../views/StudentDetailView';
@@ -11,6 +11,7 @@ type SortMode = 'name-asc' | 'name-desc' | 'belt-desc' | 'grade-desc';
 
 export interface StudentRosterProps {
   students: User[];
+  progressionRules?: ProgressionRules | null;
   graduationRequests?: Array<FirestoreEntity<GraduationApprovalRequestRecord>>;
   academyName?: string;
   academies?: Array<{ id: string; name: string }>;
@@ -90,6 +91,7 @@ function sortStudents(students: User[], sortMode: SortMode) {
 
 const StudentRoster: React.FC<StudentRosterProps> = ({
   students,
+  progressionRules,
   graduationRequests = [],
   academyName,
   academies = [],
@@ -167,6 +169,7 @@ const StudentRoster: React.FC<StudentRosterProps> = ({
     return (
       <StudentDetailView
         student={selectedStudent}
+        progressionRules={progressionRules}
         graduationRequest={graduationRequestByUserId.get(selectedStudent.id) ?? null}
         onBack={() => {
           setInternalSelectedStudentId('');

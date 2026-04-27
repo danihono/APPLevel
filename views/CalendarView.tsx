@@ -6,7 +6,7 @@ import ClassSessionCard from '../components/ClassSessionCard';
 import CreateClassModal, { type CreateClassPayload } from '../components/CreateClassModal';
 import DeleteClassModal, { type DeleteClassPayload } from '../components/DeleteClassModal';
 import EditClassModal, { type EditClassPayload } from '../components/EditClassModal';
-import { getMyClassRsvp, subscribeToClassAttendances, type FirestoreEntity } from '../services/firebase/data';
+import { getMyClassRsvp, subscribeToClassAttendances, subscribeToClassRsvps, type FirestoreEntity } from '../services/firebase/data';
 import {
   backendFunctions,
   type ClassScheduleMutationSkippedItem,
@@ -14,7 +14,7 @@ import {
   type DeleteClassScheduleResult,
   type UpdateRecurringClassSeriesResult,
 } from '../services/firebase/functions';
-import type { AttendanceRecord, AttendanceRequestRecord, ClassRecord, UserRecord } from '../services/firebase/models';
+import type { AttendanceRecord, AttendanceRequestRecord, ClassRecord, ClassRsvpRecord, UserRecord } from '../services/firebase/models';
 import { formatDateLabel, formatTimeLabel } from '../services/firebase/adapters';
 import { UserRole, type KidsCategory } from '../types';
 
@@ -245,7 +245,7 @@ const ClassListItem: React.FC<ClassListItemProps> = ({ lesson, onOpen, compact =
         </div>
 
         {isConfirmed ? (
-          <span className="app-badge app-badge--success" style={{ flexShrink: 0, fontSize: '0.65rem' }}>Confirmado</span>
+          <span className="app-badge app-badge--success" style={{ flexShrink: 0, fontSize: '0.65rem' }}>Vou</span>
         ) : null}
 
         <ChevronRight size={18} className="calendar-mobile__class-arrow" aria-hidden="true" />
@@ -289,7 +289,7 @@ const ClassListItem: React.FC<ClassListItemProps> = ({ lesson, onOpen, compact =
               <p style={{ fontSize: '1rem', fontWeight: 700 }}>{lesson.title}</p>
               <span className={statusBadgeClass(lesson.status)}>{statusLabel(lesson.status)}</span>
               {isConfirmed ? (
-                <span className="app-badge app-badge--success" style={{ fontSize: '0.65rem' }}>Confirmado</span>
+                <span className="app-badge app-badge--success" style={{ fontSize: '0.65rem' }}>Vou</span>
               ) : null}
             </div>
 
@@ -532,7 +532,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
-  const [sheetTab, setSheetTab] = useState<'detalhes' | 'historico' | 'presencas'>('detalhes');
+  const [sheetTab, setSheetTab] = useState<'detalhes' | 'confirmados' | 'historico' | 'presencas'>('detalhes');
   const [qrByClass, setQrByClass] = useState<Record<string, QrSessionPayload>>({});
   const [qrCountdowns, setQrCountdowns] = useState<Record<string, string>>({});
   const [qrInputByClass, setQrInputByClass] = useState<Record<string, string>>({});
@@ -548,6 +548,8 @@ const CalendarView: React.FC<CalendarViewProps> = ({
   const [rsvpBusyByClass, setRsvpBusyByClass] = useState<Record<string, boolean>>({});
   const [feedbackToast, setFeedbackToast] = useState<FeedbackToast | null>(null);
   const [classAttendances, setClassAttendances] = useState<Array<FirestoreEntity<AttendanceRecord>>>([]);
+  const [classRsvps, setClassRsvps] = useState<Array<FirestoreEntity<ClassRsvpRecord>>>([]);
+  const [classRsvpsLoading, setClassRsvpsLoading] = useState(false);
 
   const tokenInputRef = useRef<HTMLInputElement>(null);
 
@@ -562,6 +564,30 @@ const CalendarView: React.FC<CalendarViewProps> = ({
       return undefined;
     }
     return subscribeToClassAttendances(selectedClassId, selectedClass.academyId, setClassAttendances);
+  }, [selectedClassId, isStaff, classes]);
+
+  useEffect(() => {
+    const selectedClass = classes.find((c) => c.id === selectedClassId);
+    if (!selectedClassId || !isStaff || !selectedClass) {
+      setClassRsvps([]);
+      setClassRsvpsLoading(false);
+      return undefined;
+    }
+
+    setClassRsvps([]);
+    setClassRsvpsLoading(true);
+
+    return subscribeToClassRsvps(
+      selectedClassId,
+      selectedClass.academyId,
+      (records) => {
+        setClassRsvps(records);
+        setClassRsvpsLoading(false);
+      },
+      () => {
+        setClassRsvpsLoading(false);
+      },
+    );
   }, [selectedClassId, isStaff, classes]);
 
   useEffect(() => {
@@ -797,6 +823,11 @@ const CalendarView: React.FC<CalendarViewProps> = ({
   );
 
   const selectedClass = selectedClassId ? classes.find((entry) => entry.id === selectedClassId) ?? null : null;
+  const selectedClassRsvpCount = selectedClass
+    ? classRsvpsLoading
+      ? (selectedClass.rsvpCount ?? 0)
+      : classRsvps.length
+    : 0;
   const canManageSelected = isStaff
     && selectedClass
     && (userRole === UserRole.PROFESSOR || userRole === UserRole.SUPERADMIN || selectedClass.professorId === currentUserId);
@@ -871,7 +902,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
     } catch (error) {
       setMessageByClass((current) => ({
         ...current,
-        [classId]: error instanceof Error ? error.message : 'Erro ao confirmar presenca.',
+        [classId]: error instanceof Error ? error.message : 'Erro ao confirmar ida.',
       }));
     } finally {
       setRsvpBusyByClass((current) => ({ ...current, [classId]: false }));
@@ -1249,7 +1280,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                         className={`app-button app-button--block ${myRsvpByClass[selectedClass.id] ? 'app-button--ghost' : 'app-button--gold'}`}
                       >
                         <CheckCircle size={14} />
-                        {rsvpBusyByClass[selectedClass.id] ? 'Aguarde...' : myRsvpByClass[selectedClass.id] ? 'Cancelar confirmacao' : 'Confirmar presenca'}
+                        {rsvpBusyByClass[selectedClass.id] ? 'Aguarde...' : myRsvpByClass[selectedClass.id] ? 'Cancelar ida' : 'Confirmar ida'}
                       </button>
                     </>
                   ) : (
@@ -1316,32 +1347,80 @@ const CalendarView: React.FC<CalendarViewProps> = ({
               {canManageSelected ? (
                 <>
                   <div style={{ padding: '4px 20px 12px' }}>
-                    <div className="app-segment">
+                    <div className="app-segment learning-superadmin-tabs">
                       <button
                         type="button"
                         onClick={() => setSheetTab('detalhes')}
-                        className={`app-segment__button ${sheetTab === 'detalhes' ? 'is-active' : ''}`}
+                        className={`app-segment__button learning-superadmin-tabs__button ${sheetTab === 'detalhes' ? 'is-active' : ''}`}
                       >
                         Detalhes
                       </button>
                       <button
                         type="button"
+                        onClick={() => setSheetTab('confirmados')}
+                        className={`app-segment__button learning-superadmin-tabs__button ${sheetTab === 'confirmados' ? 'is-active' : ''}`}
+                      >
+                        Confirmados ({selectedClassRsvpCount})
+                      </button>
+                      <button
+                        type="button"
                         onClick={() => setSheetTab('historico')}
-                        className={`app-segment__button ${sheetTab === 'historico' ? 'is-active' : ''}`}
+                        className={`app-segment__button learning-superadmin-tabs__button ${sheetTab === 'historico' ? 'is-active' : ''}`}
                       >
                         Historico ({myAttendances.length})
                       </button>
                       <button
                         type="button"
                         onClick={() => setSheetTab('presencas')}
-                        className={`app-segment__button ${sheetTab === 'presencas' ? 'is-active' : ''}`}
+                        className={`app-segment__button learning-superadmin-tabs__button ${sheetTab === 'presencas' ? 'is-active' : ''}`}
                       >
                         Presencas ({classAttendances.length})
                       </button>
                     </div>
                   </div>
 
-                  {sheetTab === 'presencas' ? (
+                  {sheetTab === 'confirmados' ? (
+                    <div style={{ padding: '0 20px 16px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+                      <div className="app-stat-card" style={{ padding: '12px 14px' }}>
+                        <p className="app-stat-card__label">Confirmados</p>
+                        <p className="app-stat-card__value" style={{ fontSize: '1.4rem' }}>
+                          {selectedClassRsvpCount}
+                        </p>
+                        <p className="app-stat-card__note">alunos que confirmaram que vao</p>
+                      </div>
+
+                      <p style={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--text-soft)' }}>
+                        Presencas futuras
+                      </p>
+
+                      {classRsvpsLoading ? (
+                        <div style={{ textAlign: 'center', padding: '20px 0', color: 'var(--text-soft)', fontSize: '0.85rem' }}>
+                          Carregando confirmados...
+                        </div>
+                      ) : classRsvps.length === 0 ? (
+                        <div style={{ textAlign: 'center', padding: '20px 0', color: 'var(--text-soft)', fontSize: '0.85rem' }}>
+                          Nenhum aluno confirmou que vai nesta aula ainda
+                        </div>
+                      ) : (
+                        classRsvps.map((rsvp) => (
+                          <div key={rsvp.id} className="app-list-card" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                            <CheckCircle size={16} style={{ color: 'var(--success)', flexShrink: 0 }} />
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <p style={{ fontSize: '0.82rem', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                {rsvp.userDisplayName}
+                              </p>
+                              <p style={{ fontSize: '0.72rem', color: 'var(--text-soft)', marginTop: 2 }}>
+                                Confirmou que vai participar
+                              </p>
+                            </div>
+                            <span className="app-badge app-badge--success" style={{ flexShrink: 0, fontSize: '0.65rem' }}>
+                              Vou
+                            </span>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  ) : sheetTab === 'presencas' ? (
                     <div style={{ padding: '0 20px 16px', display: 'flex', flexDirection: 'column', gap: 12 }}>
                       <p style={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--text-soft)' }}>
                         Alunos

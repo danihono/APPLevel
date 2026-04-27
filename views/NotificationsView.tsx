@@ -22,6 +22,7 @@ import type {
   NotificationRecord,
   UserRecord,
 } from '../services/firebase/models';
+import { isUnreadNotificationForViewer } from '../services/firebase/notifications';
 import { UserRole, type KidsCategory } from '../types';
 
 interface NotificationsViewProps {
@@ -250,7 +251,19 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
       ? (academies.find((entry) => entry.id === selectedAcademyId)?.name ?? 'Academia em foco')
       : 'Toda a rede')
     : academy.name;
-  const unreadCount = notifications.filter((entry) => entry.status !== 'read').length;
+  const notificationActionState = useMemo(
+    () => ({
+      joinRequests,
+      attendanceRequests,
+      graduationRequests,
+      fightVideoSubmissions,
+    }),
+    [attendanceRequests, fightVideoSubmissions, graduationRequests, joinRequests],
+  );
+  const unreadCount = notifications.filter((entry) => isUnreadNotificationForViewer(entry, {
+    viewerRole: userRole,
+    actionState: notificationActionState,
+  })).length;
   const professorNotifications = useMemo(
     () => [...notifications].sort((left, right) => (right.createdAt?.toMillis?.() ?? 0) - (left.createdAt?.toMillis?.() ?? 0)),
     [notifications],
@@ -540,7 +553,10 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
         {activeTab === 'notifications' ? (
           <section className="notice-mobile__list">
             {professorNotifications.map((notification) => {
-              const unread = notification.status !== 'read';
+              const unread = isUnreadNotificationForViewer(notification, {
+                viewerRole: userRole,
+                actionState: notificationActionState,
+              });
 
               return (
                 <button
@@ -785,7 +801,10 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
       {isStudent ? (
         <section className="app-list">
           {studentNotifications.map((notification) => {
-            const unread = notification.status !== 'read';
+            const unread = isUnreadNotificationForViewer(notification, {
+              viewerRole: userRole,
+              actionState: notificationActionState,
+            });
 
             return (
               <article key={notification.id} className="app-panel app-panel-pad">
@@ -830,7 +849,10 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
         <>
           <section className="app-list">
             {notifications.map((notification) => {
-              const unread = notification.status !== 'read';
+              const unread = isUnreadNotificationForViewer(notification, {
+                viewerRole: userRole,
+                actionState: notificationActionState,
+              });
 
               return (
                 <article key={notification.id} className="app-panel app-panel-pad">

@@ -10,7 +10,7 @@ const callableOptions = { region: 'southamerica-east1', invoker: 'public' as con
 
 export const toggleClassRsvp = onCall(callableOptions, async (request) => {
   const actor = await getRequestContext(request, 'student');
-  assertCondition(actor.role === 'student', 'permission-denied', 'Somente alunos podem confirmar presenca antecipada.');
+  assertCondition(actor.role === 'student', 'permission-denied', 'Somente alunos podem confirmar ida antecipada.');
 
   const classId = requiredString(request.data, 'classId');
   const classSnap = await db.collection(COLLECTIONS.classes).doc(classId).get();

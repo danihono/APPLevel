@@ -1,5 +1,10 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { beltLabel } from '../beltCatalog';
+import {
+  beltLabel,
+  getClassesToNextBelt,
+  getProgressionRuleForUser,
+  type ProgressionRules,
+} from '../beltCatalog';
 import {
   Award,
   Bell,
@@ -24,6 +29,7 @@ import type { User } from '../types';
 
 interface ProfileViewProps {
   user: User;
+  progressionRules?: ProgressionRules | null;
   profile: FirestoreEntity<UserRecord>;
   totalClasses: number;
   academyName?: string;
@@ -62,6 +68,7 @@ function roleLabel(role: UserRecord['role']) {
 
 const ProfileView: React.FC<ProfileViewProps> = ({
   user,
+  progressionRules,
   profile,
   totalClasses,
   academyName,
@@ -97,12 +104,29 @@ const ProfileView: React.FC<ProfileViewProps> = ({
   const [emailError, setEmailError] = useState('');
 
   const recentAttendances = useMemo(() => attendances.slice(0, 6), [attendances]);
-  const nextStripeRemaining = Math.max(user.classesToNextStripe - user.currentStripeProgress, 0);
-  const nextBeltRemaining = Math.max(user.totalClassesToNextBelt - user.currentBeltProgress, 0);
+  const progressionRule = useMemo(
+    () => getProgressionRuleForUser({
+      belt: user.belt,
+      type: user.type,
+      kidsCategory: user.kidsCategory,
+      birthDate: user.birthDate,
+    }, progressionRules),
+    [progressionRules, user.belt, user.birthDate, user.kidsCategory, user.type],
+  );
+  const stripeTotal = progressionRule && progressionRule.stripeEvery > 0
+    ? progressionRule.stripeEvery
+    : user.classesToNextStripe;
+  const beltTotal = progressionRule && progressionRule.stripeEvery > 0
+    ? getClassesToNextBelt(progressionRule)
+    : user.totalClassesToNextBelt;
+  const stripeProgress = Math.max(0, Math.min(user.currentStripeProgress, stripeTotal || user.currentStripeProgress));
+  const beltProgress = Math.max(0, Math.min(user.currentBeltProgress, beltTotal || user.currentBeltProgress));
+  const nextStripeRemaining = Math.max(stripeTotal - stripeProgress, 0);
+  const nextBeltRemaining = Math.max(beltTotal - beltProgress, 0);
   const canEditProfile = profile.role === 'student';
   const isStaffMobileProfile = profile.role !== 'student';
   const currentThemeLabel = isDarkMode ? 'Escuro' : 'Claro';
-  const nextMilestoneCurrent = user.stripes >= 4 ? user.currentBeltProgress : user.currentStripeProgress;
+  const nextMilestoneCurrent = user.stripes >= 4 ? beltProgress : stripeProgress;
   const nextMilestoneRemaining = user.stripes >= 4 ? nextBeltRemaining : nextStripeRemaining;
   const nextMilestoneGoal = Math.max(nextMilestoneCurrent + nextMilestoneRemaining, 1);
   const nextMilestonePercent = Math.round((nextMilestoneCurrent / nextMilestoneGoal) * 100);

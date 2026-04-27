@@ -355,6 +355,9 @@ export const KIDS_CATEGORIES: Array<{ value: KidsCategory; label: string }> = [
   { value: 'level_infantil', label: 'Infantil' },
 ];
 
+const LEGACY_TWENTY_CLASS_STRIPE_GOAL = 20;
+const STANDARD_THIRTY_CLASS_STRIPE_GOAL = 30;
+
 export const DEFAULT_PROGRESSION_RULES: ProgressionRulesV2 = {
   version: 2,
   schema: 'v2',
@@ -374,12 +377,12 @@ export const DEFAULT_PROGRESSION_RULES: ProgressionRulesV2 = {
         { belt: BeltColor.CINZA_BRANCA, stripeEvery: 15, maxStripes: 4 },
         { belt: BeltColor.CINZA, stripeEvery: 15, maxStripes: 4 },
         { belt: BeltColor.CINZA_PRETA, stripeEvery: 15, maxStripes: 4 },
-        { belt: BeltColor.AMARELA_BRANCA, stripeEvery: 20, maxStripes: 4 },
-        { belt: BeltColor.AMARELA, stripeEvery: 20, maxStripes: 4 },
-        { belt: BeltColor.AMARELA_PRETA, stripeEvery: 20, maxStripes: 4 },
-        { belt: BeltColor.LARANJA_BRANCA, stripeEvery: 20, maxStripes: 4 },
-        { belt: BeltColor.LARANJA, stripeEvery: 20, maxStripes: 4 },
-        { belt: BeltColor.LARANJA_PRETA, stripeEvery: 20, maxStripes: 4 },
+        { belt: BeltColor.AMARELA_BRANCA, stripeEvery: 30, maxStripes: 4 },
+        { belt: BeltColor.AMARELA, stripeEvery: 30, maxStripes: 4 },
+        { belt: BeltColor.AMARELA_PRETA, stripeEvery: 30, maxStripes: 4 },
+        { belt: BeltColor.LARANJA_BRANCA, stripeEvery: 30, maxStripes: 4 },
+        { belt: BeltColor.LARANJA, stripeEvery: 30, maxStripes: 4 },
+        { belt: BeltColor.LARANJA_PRETA, stripeEvery: 30, maxStripes: 4 },
         { belt: BeltColor.VERDE_BRANCA, stripeEvery: 25, maxStripes: 4 },
         { belt: BeltColor.VERDE, stripeEvery: 25, maxStripes: 4 },
         { belt: BeltColor.VERDE_PRETA, stripeEvery: 25, maxStripes: 4 },
@@ -397,8 +400,14 @@ export function getClassesToNextBelt(rule: Pick<ProgressionBeltRule, 'stripeEver
   return stripeEvery * (maxStripes + beltPromotionOffset);
 }
 
+function normalizeStripeEvery(value: number): number {
+  return value === LEGACY_TWENTY_CLASS_STRIPE_GOAL
+    ? STANDARD_THIRTY_CLASS_STRIPE_GOAL
+    : value;
+}
+
 function sanitizeBeltRule(entry: Partial<ProgressionBeltRule> | undefined, fallback?: ProgressionBeltRule): ProgressionBeltRule {
-  const stripeEvery = typeof entry?.stripeEvery === 'number'
+  const rawStripeEvery = typeof entry?.stripeEvery === 'number'
     ? Math.max(0, Math.floor(entry.stripeEvery))
     : Math.max(0, Math.floor(fallback?.stripeEvery ?? 0));
   const maxStripes = typeof entry?.maxStripes === 'number'
@@ -407,7 +416,7 @@ function sanitizeBeltRule(entry: Partial<ProgressionBeltRule> | undefined, fallb
 
   return {
     belt: normalizeBeltId(entry?.belt ?? fallback?.belt),
-    stripeEvery,
+    stripeEvery: normalizeStripeEvery(rawStripeEvery),
     maxStripes,
     beltPromotionOffset: typeof entry?.beltPromotionOffset === 'number'
       ? Math.max(0, Math.floor(entry.beltPromotionOffset))
@@ -498,6 +507,24 @@ export function normalizeProgressionRules(input?: ProgressionRules | null): Prog
     }, DEFAULT_PROGRESSION_RULES.adult),
     kids: DEFAULT_PROGRESSION_RULES.kids,
   };
+}
+
+export function getProgressionRuleForUser(params: {
+  belt?: string | null;
+  type?: TrainingType | null;
+  kidsCategory?: KidsCategory | null;
+  birthDate?: string | null;
+}, rules?: ProgressionRules | null): ProgressionBeltRule | undefined {
+  const normalizedRules = normalizeProgressionRules(rules);
+  const beltId = normalizeBeltId(params.belt);
+  const inferredKidsCategory = inferKidsCategoryFromBirthDate(params.birthDate);
+  const isKidsTrack = isKidsOnlyBelt(beltId) || params.type === 'Kids' || !!params.kidsCategory || !!inferredKidsCategory;
+  const kidsCategory = params.kidsCategory ?? inferredKidsCategory ?? 'level_infantil';
+  const activeRules = isKidsTrack
+    ? (normalizedRules.kids[kidsCategory]?.belts ?? normalizedRules.adult.belts)
+    : normalizedRules.adult.belts;
+
+  return activeRules.find((entry) => normalizeBeltId(entry.belt) === beltId) ?? activeRules[0];
 }
 
 export function getBeltMeta(value?: string | null): BeltMeta {

@@ -87,6 +87,24 @@
       ]
     },
     {
+      "collectionGroup": "class_rsvps",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "academyId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "classId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
       "collectionGroup": "user_missions",
       "queryScope": "COLLECTION",
       "fields": [

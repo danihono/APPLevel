@@ -1820,6 +1820,20 @@ html.dark .app-stat-card {
   align-items: center;
   gap: 0.95rem;
   padding: 1.15rem 1.2rem;
+  width: 100%;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
+}
+
+.staff-home__class-row:hover,
+.staff-home__class-row:focus-visible {
+  transform: translateY(-1px);
+  border-color: rgba(232, 175, 72, 0.28);
+  box-shadow: 0 16px 32px rgba(15, 18, 33, 0.1);
+  outline: none;
 }
 
 .staff-home__class-time {
@@ -1922,6 +1936,161 @@ html.dark .app-stat-card {
   background: linear-gradient(180deg, #48b774, #32975e);
 }
 
+.staff-home__lesson-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 1rem;
+  background: rgba(0, 0, 0, 0.56);
+}
+
+.staff-home__lesson-sheet {
+  width: min(100%, 34rem);
+  max-height: min(90vh, 44rem);
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1.15rem;
+  border-radius: 1.7rem;
+  border: 1px solid var(--border);
+  background: var(--surface-solid);
+  box-shadow: var(--shadow-panel);
+  overflow-y: auto;
+}
+
+.staff-home__lesson-head,
+.staff-home__confirmed-head,
+.staff-home__lesson-summary,
+.staff-home__confirmed-row {
+  display: flex;
+  align-items: center;
+}
+
+.staff-home__lesson-head {
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.staff-home__lesson-title-copy {
+  min-width: 0;
+}
+
+.staff-home__lesson-title {
+  margin: 0.35rem 0 0;
+  color: var(--text-strong);
+  font-size: 1.35rem;
+  line-height: 1.08;
+}
+
+.staff-home__lesson-subtitle {
+  margin: 0.4rem 0 0;
+  color: var(--text-muted);
+  font-size: 0.88rem;
+}
+
+.staff-home__lesson-close {
+  width: 2.7rem;
+  min-width: 2.7rem;
+  height: 2.7rem;
+}
+
+.staff-home__lesson-summary {
+  gap: 0.9rem;
+  padding: 1rem;
+  border-radius: 1.25rem;
+  border: 1px solid rgba(232, 175, 72, 0.2);
+  background: rgba(232, 175, 72, 0.1);
+}
+
+.staff-home__lesson-summary-icon,
+.staff-home__confirmed-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+}
+
+.staff-home__lesson-summary-icon {
+  width: 2.8rem;
+  height: 2.8rem;
+  border-radius: 1rem;
+  background: rgba(232, 175, 72, 0.16);
+  color: var(--gold-mid);
+}
+
+.staff-home__lesson-count {
+  color: var(--text-strong);
+  font-family: var(--font-display);
+  font-size: 1.35rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.staff-home__lesson-count-note {
+  margin-top: 0.35rem;
+  color: var(--text-muted);
+  font-size: 0.86rem;
+}
+
+.staff-home__confirmed-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.staff-home__confirmed-head {
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.staff-home__confirmed-row,
+.staff-home__confirmed-empty {
+  border-radius: 1.15rem;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.54);
+}
+
+.staff-home__confirmed-row {
+  gap: 0.8rem;
+  padding: 0.9rem;
+}
+
+.staff-home__confirmed-avatar {
+  width: 2.35rem;
+  height: 2.35rem;
+  border-radius: 0.85rem;
+  background: rgba(41, 166, 117, 0.12);
+  color: var(--success);
+}
+
+.staff-home__confirmed-copy {
+  min-width: 0;
+}
+
+.staff-home__confirmed-name {
+  color: var(--text-strong);
+  font-size: 0.92rem;
+  font-weight: 800;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.staff-home__confirmed-meta {
+  margin-top: 0.2rem;
+  color: var(--text-soft);
+  font-size: 0.78rem;
+}
+
+.staff-home__confirmed-empty {
+  padding: 1rem;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
 html.dark .staff-home__hero {
   box-shadow: 0 28px 56px rgba(0, 0, 0, 0.44);
 }
@@ -1943,6 +2112,16 @@ html.dark .staff-home__pending-title {
 
 html.dark .staff-home__class-arrow {
   color: rgba(255, 255, 255, 0.22);
+}
+
+html.dark .staff-home__lesson-sheet {
+  border-color: rgba(255, 255, 255, 0.1);
+  background: rgba(18, 18, 24, 0.96);
+}
+
+html.dark .staff-home__confirmed-row,
+html.dark .staff-home__confirmed-empty {
+  background: rgba(255, 255, 255, 0.05);
 }
 
 .academy-mobile {

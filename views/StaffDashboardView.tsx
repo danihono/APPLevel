@@ -1,15 +1,19 @@
-import React, { useMemo } from 'react';
-import { ChevronRight, Layers3 } from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { CalendarCheck, ChevronRight, Layers3, UserCheck, X } from 'lucide-react';
 import { formatTimeLabel } from '../services/firebase/adapters';
-import type { FirestoreEntity } from '../services/firebase/data';
+import { subscribeToClassRsvps, type FirestoreEntity } from '../services/firebase/data';
 import type {
   AcademyRecord,
   AttendanceRequestRecord,
   ClassRecord,
+  ClassRsvpRecord,
+  FightVideoSubmissionRecord,
+  GraduationApprovalRequestRecord,
   JoinRequestRecord,
   NotificationRecord,
   UserRecord,
 } from '../services/firebase/models';
+import { isUnreadNotificationForViewer } from '../services/firebase/notifications';
 import type { User } from '../types';
 
 interface StaffDashboardViewProps {
@@ -20,6 +24,8 @@ interface StaffDashboardViewProps {
   notifications: Array<FirestoreEntity<NotificationRecord>>;
   joinRequests: Array<FirestoreEntity<JoinRequestRecord>>;
   attendanceRequests: Array<FirestoreEntity<AttendanceRequestRecord>>;
+  graduationRequests: Array<FirestoreEntity<GraduationApprovalRequestRecord>>;
+  fightVideoSubmissions: Array<FirestoreEntity<FightVideoSubmissionRecord>>;
   canReviewAllAttendanceRequests?: boolean;
 }
 
@@ -91,6 +97,10 @@ function getPendingCopy(joinCount: number, attendanceCount: number, unreadCount:
   };
 }
 
+function formatConfirmedLabel(count: number) {
+  return `${count} ${count === 1 ? 'confirmado' : 'confirmados'}`;
+}
+
 const StaffDashboardView: React.FC<StaffDashboardViewProps> = ({
   user,
   academy,
@@ -99,15 +109,25 @@ const StaffDashboardView: React.FC<StaffDashboardViewProps> = ({
   notifications,
   joinRequests,
   attendanceRequests,
+  graduationRequests,
+  fightVideoSubmissions,
   canReviewAllAttendanceRequests = false,
 }) => {
   const now = new Date();
+  const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
+  const [selectedClassRsvps, setSelectedClassRsvps] = useState<Array<FirestoreEntity<ClassRsvpRecord>>>([]);
+  const [selectedClassRsvpsLoading, setSelectedClassRsvpsLoading] = useState(false);
+  const [selectedClassRsvpsError, setSelectedClassRsvpsError] = useState('');
 
   const todayClasses = useMemo(
     () => classes
       .filter((lesson) => isSameDay(lesson.scheduledStart?.toDate(), now))
       .sort((left, right) => (left.scheduledStart?.toMillis?.() ?? 0) - (right.scheduledStart?.toMillis?.() ?? 0)),
     [classes, now],
+  );
+  const selectedClass = useMemo(
+    () => (selectedClassId ? classes.find((lesson) => lesson.id === selectedClassId) ?? null : null),
+    [classes, selectedClassId],
   );
 
   const instructors = useMemo(
@@ -147,8 +167,16 @@ const StaffDashboardView: React.FC<StaffDashboardViewProps> = ({
   }, [classes, now]);
 
   const unreadNotifications = useMemo(
-    () => notifications.filter((entry) => entry.status !== 'read').length,
-    [notifications],
+    () => notifications.filter((entry) => isUnreadNotificationForViewer(entry, {
+      viewerRole: user.role,
+      actionState: {
+        joinRequests,
+        attendanceRequests,
+        graduationRequests,
+        fightVideoSubmissions,
+      },
+    })).length,
+    [attendanceRequests, fightVideoSubmissions, graduationRequests, joinRequests, notifications, user.role],
   );
   const pendingJoinRequests = useMemo(
     () => joinRequests.filter((entry) => entry.status === 'pending'),
@@ -167,6 +195,32 @@ const StaffDashboardView: React.FC<StaffDashboardViewProps> = ({
     pendingAttendanceRequests.length,
     unreadNotifications,
   );
+
+  useEffect(() => {
+    if (!selectedClass) {
+      setSelectedClassRsvps([]);
+      setSelectedClassRsvpsLoading(false);
+      setSelectedClassRsvpsError('');
+      return undefined;
+    }
+
+    setSelectedClassRsvps([]);
+    setSelectedClassRsvpsLoading(true);
+    setSelectedClassRsvpsError('');
+
+    return subscribeToClassRsvps(
+      selectedClass.id,
+      selectedClass.academyId,
+      (records) => {
+        setSelectedClassRsvps(records);
+        setSelectedClassRsvpsLoading(false);
+      },
+      () => {
+        setSelectedClassRsvpsError('Nao foi possivel carregar os alunos confirmados.');
+        setSelectedClassRsvpsLoading(false);
+      },
+    );
+  }, [selectedClass]);
 
   return (
     <div className="view-shell staff-home">
@@ -228,12 +282,20 @@ const StaffDashboardView: React.FC<StaffDashboardViewProps> = ({
           {todayClasses.length > 0 ? (
             todayClasses.map((lesson) => {
               const professorName = lesson.professorName || 'Equipe tecnica';
-              const classMeta = lesson.currentAttendanceCount > 0
-                ? `${lesson.currentAttendanceCount} alunos - ${professorName}`
-                : `Professor: ${professorName}`;
+              const plannedCount = lesson.rsvpCount ?? 0;
+              const classMeta = lesson.status === 'scheduled'
+                ? `${formatConfirmedLabel(plannedCount)} para esta aula - ${professorName}`
+                : lesson.currentAttendanceCount > 0
+                  ? `${lesson.currentAttendanceCount} presencas registradas - ${professorName}`
+                  : `Professor: ${professorName}`;
 
               return (
-                <article key={lesson.id} className="staff-home__class-row">
+                <button
+                  key={lesson.id}
+                  type="button"
+                  onClick={() => setSelectedClassId(lesson.id)}
+                  className="staff-home__class-row"
+                >
                   <p className="staff-home__class-time">{formatTimeLabel(lesson.scheduledStart)}</p>
                   <span className="staff-home__class-divider" aria-hidden="true" />
 
@@ -243,7 +305,7 @@ const StaffDashboardView: React.FC<StaffDashboardViewProps> = ({
                   </div>
 
                   <ChevronRight size={18} className="staff-home__class-arrow" aria-hidden="true" />
-                </article>
+                </button>
               );
             })
           ) : (
@@ -270,6 +332,86 @@ const StaffDashboardView: React.FC<StaffDashboardViewProps> = ({
           </span>
         </article>
       </section>
+
+      {selectedClass ? (
+        <div
+          className="staff-home__lesson-backdrop"
+          role="presentation"
+          onClick={() => setSelectedClassId(null)}
+        >
+          <section
+            className="staff-home__lesson-sheet"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="staff-home-lesson-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="staff-home__lesson-head">
+              <div className="staff-home__lesson-title-copy">
+                <p className="staff-home__section-label">Aula selecionada</p>
+                <h2 id="staff-home-lesson-title" className="staff-home__lesson-title">{selectedClass.title}</h2>
+                <p className="staff-home__lesson-subtitle">
+                  {formatTimeLabel(selectedClass.scheduledStart)} - {selectedClass.professorName || 'Equipe tecnica'}
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setSelectedClassId(null)}
+                className="app-button app-button--ghost app-button--icon staff-home__lesson-close"
+                aria-label="Fechar detalhes da aula"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className="staff-home__lesson-summary">
+              <div className="staff-home__lesson-summary-icon" aria-hidden="true">
+                <CalendarCheck size={19} />
+              </div>
+              <div>
+                <p className="staff-home__lesson-count">
+                  {formatConfirmedLabel(selectedClassRsvpsLoading ? (selectedClass.rsvpCount ?? 0) : selectedClassRsvps.length)}
+                </p>
+                <p className="staff-home__lesson-count-note">
+                  Alunos que confirmaram que vao nesta aula.
+                </p>
+              </div>
+            </div>
+
+            <div className="staff-home__confirmed-list">
+              <div className="staff-home__confirmed-head">
+                <p className="staff-home__section-label">Quem confirmou</p>
+                {selectedClass.capacity ? (
+                  <span className="app-badge app-badge--muted">Capacidade {selectedClass.capacity}</span>
+                ) : null}
+              </div>
+
+              {selectedClassRsvpsError ? (
+                <div className="staff-home__confirmed-empty">{selectedClassRsvpsError}</div>
+              ) : selectedClassRsvpsLoading ? (
+                <div className="staff-home__confirmed-empty">Carregando confirmados...</div>
+              ) : selectedClassRsvps.length > 0 ? (
+                selectedClassRsvps.map((rsvp) => (
+                  <div key={rsvp.id} className="staff-home__confirmed-row">
+                    <div className="staff-home__confirmed-avatar" aria-hidden="true">
+                      <UserCheck size={16} />
+                    </div>
+                    <div className="staff-home__confirmed-copy">
+                      <p className="staff-home__confirmed-name">{rsvp.userDisplayName}</p>
+                      <p className="staff-home__confirmed-meta">Presenca futura confirmada</p>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="staff-home__confirmed-empty">
+                  Nenhum aluno confirmou que vai nesta aula ainda.
+                </div>
+              )}
+            </div>
+          </section>
+        </div>
+      ) : null}
     </div>
   );
 };

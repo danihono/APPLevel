@@ -1,12 +1,15 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   beltLabel,
+  getClassesToNextBelt,
   getBeltOptions,
+  getProgressionRuleForUser,
   inferKidsCategoryFromBirthDate,
   inferTrainingTypeFromBirthDate,
   isKidsOnlyBelt,
   kidsCategoryLabel,
   KIDS_CATEGORIES,
+  type ProgressionRules,
 } from '../beltCatalog';
 import { ArrowLeft, Award, Calendar, CheckCircle2, Clock, Edit, Mail, Save, TrendingUp, Video, BookOpen } from 'lucide-react';
 import AppVideoContent from '../components/AppVideoContent';
@@ -19,6 +22,7 @@ import type { KidsCategory, User } from '../types';
 
 interface StudentDetailViewProps {
   student: User;
+  progressionRules?: ProgressionRules | null;
   graduationRequest?: FirestoreEntity<GraduationApprovalRequestRecord> | null;
   onBack: () => void;
   onApproveGraduationRequest?: (requestId: string) => Promise<void>;
@@ -62,6 +66,7 @@ function graduationTargetLabel(request: FirestoreEntity<GraduationApprovalReques
 
 const StudentDetailView: React.FC<StudentDetailViewProps> = ({
   student,
+  progressionRules,
   graduationRequest = null,
   onBack,
   onApproveGraduationRequest,
@@ -112,6 +117,23 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
 
     return [...baseOptions, { value: studentBelt, label: beltLabel(studentBelt) }];
   }, [studentBelt, studentKidsCategory, studentTrack]);
+  const progressionRule = useMemo(
+    () => getProgressionRuleForUser({
+      belt: student.belt,
+      type: student.type,
+      kidsCategory: student.kidsCategory,
+      birthDate: student.birthDate,
+    }, progressionRules),
+    [progressionRules, student.belt, student.birthDate, student.kidsCategory, student.type],
+  );
+  const stripeTotal = progressionRule && progressionRule.stripeEvery > 0
+    ? progressionRule.stripeEvery
+    : student.classesToNextStripe;
+  const beltTotal = progressionRule && progressionRule.stripeEvery > 0
+    ? getClassesToNextBelt(progressionRule)
+    : student.totalClassesToNextBelt;
+  const stripeProgress = Math.max(0, Math.min(student.currentStripeProgress, stripeTotal || student.currentStripeProgress));
+  const beltProgress = Math.max(0, Math.min(student.currentBeltProgress, beltTotal || student.currentBeltProgress));
 
   useEffect(() => {
     if (!studentBeltOptions.length) {
@@ -424,15 +446,15 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
 
         <div className="mt-6 space-y-6">
           <div>
-            <ProgressBar current={student.currentStripeProgress} total={student.classesToNextStripe} />
+            <ProgressBar current={stripeProgress} total={stripeTotal} />
             <p className="mt-3 text-sm text-[color:var(--text-muted)]">
-              Proximo grau: {student.currentStripeProgress}/{student.classesToNextStripe} aulas
+              Proximo grau: {stripeProgress}/{stripeTotal} aulas
             </p>
           </div>
           <div>
-            <ProgressBar current={student.currentBeltProgress} total={student.totalClassesToNextBelt} color="bg-gold" />
+            <ProgressBar current={beltProgress} total={beltTotal} color="bg-gold" />
             <p className="mt-3 text-sm text-[color:var(--text-muted)]">
-              Proxima faixa: {student.currentBeltProgress}/{student.totalClassesToNextBelt} aulas
+              Proxima faixa: {beltProgress}/{beltTotal} aulas
             </p>
           </div>
         </div>

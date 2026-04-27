@@ -120,6 +120,8 @@ const BELT_ALIASES: Record<string, string> = {
 
 const KIDS_CATEGORY_ORDER: KidsCategory[] = ['level_infantil'];
 const LEGACY_KIDS_CATEGORIES = new Set(['level_kids', 'level_infanto_juvenil', 'level_juvenil']);
+const LEGACY_TWENTY_CLASS_STRIPE_GOAL = 20;
+const STANDARD_THIRTY_CLASS_STRIPE_GOAL = 30;
 
 function normalizeLooseKey(value: string): string {
   return value
@@ -149,6 +151,12 @@ function normalizeKidsCategory(value?: string | null): KidsCategory | undefined 
     return 'level_infantil';
   }
   return KIDS_CATEGORY_ORDER.find((entry) => entry === normalized);
+}
+
+function normalizeStripeEvery(value: number): number {
+  return value === LEGACY_TWENTY_CLASS_STRIPE_GOAL
+    ? STANDARD_THIRTY_CLASS_STRIPE_GOAL
+    : value;
 }
 
 function calculateAge(birthDate?: string | null): number | null {
@@ -201,7 +209,7 @@ function deriveKidsCategoryFromBelt(belt: string): KidsCategory | undefined {
 }
 
 function sanitizeBeltRule(rule: Partial<ProgressionBeltRule> | undefined, fallback?: ProgressionBeltRule): ProgressionBeltRule {
-  const stripeEvery = typeof rule?.stripeEvery === 'number'
+  const rawStripeEvery = typeof rule?.stripeEvery === 'number'
     ? Math.max(0, Math.floor(rule.stripeEvery))
     : Math.max(0, Math.floor(fallback?.stripeEvery ?? 0));
   const maxStripes = typeof rule?.maxStripes === 'number'
@@ -210,7 +218,7 @@ function sanitizeBeltRule(rule: Partial<ProgressionBeltRule> | undefined, fallba
 
   return {
     belt: normalizeBeltId(rule?.belt ?? fallback?.belt),
-    stripeEvery,
+    stripeEvery: normalizeStripeEvery(rawStripeEvery),
     maxStripes,
     beltPromotionOffset: typeof rule?.beltPromotionOffset === 'number'
       ? Math.max(0, Math.floor(rule.beltPromotionOffset))

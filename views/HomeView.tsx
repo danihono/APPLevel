@@ -106,7 +106,7 @@ const HomeView: React.FC<HomeViewProps> = ({
           </div>
         </div>
         <p className="app-section-copy mt-4">
-          Ultima graduacao em {new Date(user.lastGraduation).toLocaleDateString('pt-BR')}.
+          Última graduação em {new Date(user.lastGraduation).toLocaleDateString('pt-BR')}.
         </p>
 
         <div className="mt-6">

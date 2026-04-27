@@ -32,6 +32,7 @@ import type {
   StoreItemRecord,
   UserRecord,
 } from './models';
+import { isNotificationInViewerInbox } from './notifications';
 
 export type FirestoreEntity<T> = T & { id: string };
 
@@ -439,6 +440,7 @@ export function subscribeToNotifications(
     (snapshot) => {
       const records = snapshot.docs
         .map((item) => mapDoc<NotificationRecord>(item))
+        .filter((item) => isNotificationInViewerInbox(item, params.userId, params.includeAcademyFeed))
         .filter((item) => item.kind !== 'join_request' || item.recipientUserId === params.userId)
         .sort((left, right) => toMillis(right.createdAt) - toMillis(left.createdAt));
       listener(records);

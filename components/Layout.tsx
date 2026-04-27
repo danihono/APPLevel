@@ -44,22 +44,22 @@ const SUPERADMIN_SIDEBAR_STORAGE_KEY = 'applevel:superadmin-sidebar-collapsed';
 const pageMeta: Record<string, { kicker: string; title: string; description: string }> = {
   home: {
     kicker: 'Dashboard',
-    title: 'Inicio',
+    title: 'Início',
     description: 'Acompanhe equipe, alunos, aulas do dia e pendencias sem sair do fluxo principal.',
   },
   calendar: {
-    kicker: 'Calendario',
-    title: 'Calendario',
+    kicker: 'Calendário',
+    title: 'Calendário',
     description: 'Navegue no tempo, filtre entre minhas aulas e todas, e mantenha a operacao organizada no mobile.',
   },
   competition: {
     kicker: 'Fight mode',
-    title: 'Competicao',
+    title: 'Competição',
     description: 'Competicao ficou mais editorial, com areas claras para calendario, resultados e video.',
   },
   graduation: {
-    kicker: 'Graduacao',
-    title: 'Graduacao',
+    kicker: 'Graduação',
+    title: 'Graduação',
     description: 'Acompanhe progresso, proximos marcos e o historico oficial de graduacoes da academia.',
   },
   students: {
