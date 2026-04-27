@@ -82,7 +82,7 @@ function buildSkippedNote(skipped: ClassScheduleMutationSkippedItem[]): string |
   }
 
   const [firstItem] = skipped;
-  const extra = skipped.length > 1 ? ` Mais ${skipped.length - 1} ocorrencia${skipped.length - 1 === 1 ? '' : 's'}.` : '';
+  const extra = skipped.length > 1 ? ` Mais ${skipped.length - 1} ocorrência${skipped.length - 1 === 1 ? '' : 's'}.` : '';
   return `${firstItem.reason}${extra}`;
 }
 
@@ -108,18 +108,18 @@ function buildEditToast(result: UpdateRecurringClassSeriesResult): FeedbackToast
 
 function buildDeleteToast(result: DeleteClassScheduleResult): FeedbackToast {
   if (result.deletedCount === 1 && result.requestedCount === 1 && result.skippedCount === 0) {
-    return { title: 'Aula excluida.' };
+    return { title: 'Aula excluída.' };
   }
 
   if (result.deletedCount === 0) {
     return {
-      title: 'Nenhuma aula foi excluida.',
+      title: 'Nenhuma aula foi excluída.',
       note: buildSkippedNote(result.skipped),
     };
   }
 
   return {
-    title: `${result.deletedCount} ${result.deletedCount === 1 ? 'aula excluida' : 'aulas excluidas'}.`,
+    title: `${result.deletedCount} ${result.deletedCount === 1 ? 'aula excluída' : 'aulas excluídas'}.`,
     note: result.skippedCount > 0
       ? `${result.skippedCount} mantida${result.skippedCount === 1 ? '' : 's'}. ${buildSkippedNote(result.skipped) ?? ''}`.trim()
       : undefined,
@@ -153,7 +153,7 @@ function statusLabel(status: ClassRecord['status']) {
     case 'active':
       return 'Ativa';
     case 'finished':
-      return 'Concluida';
+      return 'Concluída';
     case 'cancelled':
       return 'Cancelada';
     default:
@@ -303,7 +303,7 @@ const ClassListItem: React.FC<ClassListItemProps> = ({ lesson, onOpen, compact =
       </div>
 
       <div className="app-meta-row">
-        <span>{lesson.professorName || 'Equipe tecnica'}</span>
+        <span>{lesson.professorName || 'Equipe técnica'}</span>
         <span className="inline-flex items-center gap-2"><MapPin size={14} />{lesson.tatame || 'Tatame principal'}</span>
       </div>
     </button>
@@ -849,10 +849,10 @@ const CalendarView: React.FC<CalendarViewProps> = ({
 
   const isMineView = isStaff && view === 'minhas';
   const selectedDayEmptyMessage = isMineView
-    ? 'Voce nao tem aulas programadas nesta data.'
+    ? 'Você não tem aulas programadas nesta data.'
     : 'Nenhuma aula programada para esta data.';
   const todayEmptyMessage = isMineView
-    ? 'Voce nao tem aulas programadas para hoje.'
+    ? 'Você não tem aulas programadas para hoje.'
     : 'Nenhuma aula programada para hoje.';
 
   async function runClassAction(classId: string, action: () => Promise<void | QrSessionPayload>) {
@@ -864,12 +864,12 @@ const CalendarView: React.FC<CalendarViewProps> = ({
         setQrByClass((current) => ({ ...current, [classId]: result }));
         setMessageByClass((current) => ({ ...current, [classId]: 'QR atualizado.' }));
       } else {
-        setMessageByClass((current) => ({ ...current, [classId]: 'Operacao concluida.' }));
+        setMessageByClass((current) => ({ ...current, [classId]: 'Operação concluída.' }));
       }
     } catch (error) {
       setMessageByClass((current) => ({
         ...current,
-        [classId]: error instanceof Error ? error.message : 'Nao foi possivel concluir.',
+        [classId]: error instanceof Error ? error.message : 'Não foi possível concluir.',
       }));
     } finally {
       setBusyByClass((current) => ({ ...current, [classId]: false }));
@@ -917,7 +917,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
     } catch (error) {
       setMessageByClass((prev) => ({
         ...prev,
-        [classId]: error instanceof Error ? error.message : 'Erro ao marcar presenca.',
+        [classId]: error instanceof Error ? error.message : 'Erro ao marcar presença.',
       }));
     } finally {
       setBusyByClass((prev) => ({ ...prev, [busyKey]: false }));
@@ -1003,11 +1003,11 @@ const CalendarView: React.FC<CalendarViewProps> = ({
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
               <p className="app-section-label">Agenda</p>
-              <h1 className="app-section-title">Calendario de aulas</h1>
+              <h1 className="app-section-title">Calendário de aulas</h1>
               <p className="app-section-copy mt-4">
                 {surfaceTab === 'calendar'
-                  ? 'Use o calendario mensal para localizar as aulas do dia e abrir a agenda logo abaixo.'
-                  : 'Veja as aulas de hoje em lista, com leitura rapida e acesso direto aos detalhes.'}
+                  ? 'Use o calendário mensal para localizar as aulas do dia e abrir a agenda logo abaixo.'
+                  : 'Veja as aulas de hoje em lista, com leitura rápida e acesso direto aos detalhes.'}
               </p>
             </div>
 
@@ -1018,7 +1018,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                   onClick={() => setSurfaceTab('calendar')}
                   className={`app-segment__button ${surfaceTab === 'calendar' ? 'is-active' : ''}`}
                 >
-                  Calendario
+                  Calendário
                 </button>
                 <button
                   type="button"
@@ -1047,15 +1047,15 @@ const CalendarView: React.FC<CalendarViewProps> = ({
               <section className="calendar-mobile__hero">
                 <div className="calendar-mobile__hero-head">
                   <div>
-                    <p className="calendar-mobile__eyebrow">Mes em foco</p>
+                    <p className="calendar-mobile__eyebrow">Mês em foco</p>
                     <h2 className="calendar-mobile__month-title">{capitalize(monthFormatter.format(visibleMonth))}</h2>
                   </div>
 
                   <div className="calendar-mobile__month-nav">
-                    <button type="button" onClick={() => shiftMonth(-1)} className="calendar-mobile__month-button" aria-label="Mes anterior">
+                    <button type="button" onClick={() => shiftMonth(-1)} className="calendar-mobile__month-button" aria-label="Mês anterior">
                       <ChevronLeft size={16} />
                     </button>
-                    <button type="button" onClick={() => shiftMonth(1)} className="calendar-mobile__month-button" aria-label="Proximo mes">
+                    <button type="button" onClick={() => shiftMonth(1)} className="calendar-mobile__month-button" aria-label="Próximo mês">
                       <ChevronRight size={16} />
                     </button>
                   </div>
@@ -1103,10 +1103,10 @@ const CalendarView: React.FC<CalendarViewProps> = ({
               <section className="app-panel app-panel-pad">
                 <div className="flex flex-wrap items-start justify-between gap-4">
                   <div>
-                    <p className="app-section-label">Mes em foco</p>
+                    <p className="app-section-label">Mês em foco</p>
                     <h2 className="text-2xl font-bold capitalize">{capitalize(monthFormatter.format(visibleMonth))}</h2>
                     <p className="mt-3 text-sm text-[color:var(--text-muted)]">
-                      Toque em um dia para listar as aulas abaixo. O filtro atual vale para o calendario inteiro.
+                      Toque em um dia para listar as aulas abaixo. O filtro atual vale para o calendário inteiro.
                     </p>
                   </div>
 
@@ -1121,7 +1121,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                       Hoje
                     </button>
                     <span className={visibleMonthClassCount > 0 ? 'app-badge app-badge--gold' : 'app-badge app-badge--muted'}>
-                      {visibleMonthClassCount} {visibleMonthClassCount === 1 ? 'aula no mes' : 'aulas no mes'}
+                      {visibleMonthClassCount} {visibleMonthClassCount === 1 ? 'aula no mês' : 'aulas no mês'}
                     </span>
                   </div>
                 </div>
@@ -1145,7 +1145,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                     <h2 className="text-2xl font-bold" style={{ textTransform: 'capitalize' }}>{selectedDayLabel}</h2>
                     <p className="app-section-copy mt-4">
                       {selectedDayClasses.length > 0
-                        ? 'Selecione uma aula para abrir detalhes, presenca e QR.'
+                        ? 'Selecione uma aula para abrir detalhes, presença e QR.'
                         : selectedDayEmptyMessage}
                     </p>
                   </div>
@@ -1195,7 +1195,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
               <p className="app-section-label">Aulas de hoje</p>
               <h2 className="text-2xl font-bold" style={{ textTransform: 'capitalize' }}>{todayLabel}</h2>
               <p className="app-section-copy mt-4">
-                Visualizacao em lista para acompanhar rapidamente as aulas do dia sem usar o formato de calendario.
+                Visualização em lista para acompanhar rapidamente as aulas do dia sem usar o formato de calendário.
               </p>
             </div>
 
@@ -1287,7 +1287,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                     <>
                       {attendanceRate !== undefined ? (
                         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                          <span className="app-badge app-badge--gold">{attendanceRate}% frequencia</span>
+                          <span className="app-badge app-badge--gold">{attendanceRate}% frequência</span>
                           <span style={{ fontSize: '0.75rem', color: 'var(--text-soft)' }}>no mes atual</span>
                         </div>
                       ) : null}
@@ -1327,7 +1327,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                         className="app-button app-button--gold app-button--block"
                       >
                         <ShieldCheck size={14} />
-                        {busy ? 'Registrando...' : 'Registrar presenca'}
+                        {busy ? 'Registrando...' : 'Registrar presença'}
                       </button>
                       <button
                         type="button"
@@ -1336,7 +1336,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                         className="app-button app-button--ghost app-button--block"
                       >
                         <CheckCircle size={14} />
-                        {pendingRequest ? 'Solicitacao pendente' : 'Solicitar presenca'}
+                        {pendingRequest ? 'Solicitação pendente' : 'Solicitar presença'}
                       </button>
                     </>
                   )}
@@ -1367,14 +1367,14 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                         onClick={() => setSheetTab('historico')}
                         className={`app-segment__button learning-superadmin-tabs__button ${sheetTab === 'historico' ? 'is-active' : ''}`}
                       >
-                        Historico ({myAttendances.length})
+                        Histórico ({myAttendances.length})
                       </button>
                       <button
                         type="button"
                         onClick={() => setSheetTab('presencas')}
                         className={`app-segment__button learning-superadmin-tabs__button ${sheetTab === 'presencas' ? 'is-active' : ''}`}
                       >
-                        Presencas ({classAttendances.length})
+                        Presenças ({classAttendances.length})
                       </button>
                     </div>
                   </div>
@@ -1386,11 +1386,11 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                         <p className="app-stat-card__value" style={{ fontSize: '1.4rem' }}>
                           {selectedClassRsvpCount}
                         </p>
-                        <p className="app-stat-card__note">alunos que confirmaram que vao</p>
+                        <p className="app-stat-card__note">alunos que confirmaram que vão</p>
                       </div>
 
                       <p style={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--text-soft)' }}>
-                        Presencas futuras
+                        Presenças futuras
                       </p>
 
                       {classRsvpsLoading ? (
@@ -1413,9 +1413,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                                 Confirmou que vai participar
                               </p>
                             </div>
-                            <span className="app-badge app-badge--success" style={{ flexShrink: 0, fontSize: '0.65rem' }}>
-                              Vou
-                            </span>
+                            <CheckCircle size={16} style={{ color: 'var(--success)', flexShrink: 0 }} />
                           </div>
                         ))
                       )}
@@ -1516,11 +1514,11 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                   ) : (
                     <div style={{ padding: '0 20px 16px', display: 'flex', flexDirection: 'column', gap: 12 }}>
                       <p style={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--text-soft)' }}>
-                        Ultimas presencas
+                        Últimas presenças
                       </p>
                       {myAttendances.length === 0 ? (
                         <div style={{ textAlign: 'center', padding: '20px 0', color: 'var(--text-soft)', fontSize: '0.85rem' }}>
-                          Nenhuma presenca registrada ainda
+                          Nenhuma presença registrada ainda
                         </div>
                       ) : (
                         myAttendances.slice(0, 30).map((attendance) => (
@@ -1548,24 +1546,24 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                 <div style={{ padding: '0 20px 16px', display: 'flex', flexDirection: 'column', gap: 12 }}>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
                     <div className="app-stat-card" style={{ padding: '12px 14px' }}>
-                      <p className="app-stat-card__label">Frequencia</p>
+                      <p className="app-stat-card__label">Frequência</p>
                       <p className="app-stat-card__value" style={{ fontSize: '1.4rem' }}>{attendanceRate ?? 0}%</p>
                       <p className="app-stat-card__note">no mes atual</p>
                     </div>
                     <div className="app-stat-card" style={{ padding: '12px 14px' }}>
-                      <p className="app-stat-card__label">Presencas</p>
+                      <p className="app-stat-card__label">Presenças</p>
                       <p className="app-stat-card__value" style={{ fontSize: '1.4rem' }}>{myAttendances.length}</p>
                       <p className="app-stat-card__note">confirmadas</p>
                     </div>
                   </div>
 
                   <p style={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--text-soft)' }}>
-                    Ultimas presencas
+                    Últimas presenças
                   </p>
 
                   {myAttendances.length === 0 ? (
                     <div style={{ textAlign: 'center', padding: '20px 0', color: 'var(--text-soft)', fontSize: '0.85rem' }}>
-                      Nenhuma presenca registrada ainda
+                      Nenhuma presença registrada ainda
                     </div>
                   ) : (
                     myAttendances.slice(0, 30).map((attendance) => (
@@ -1700,7 +1698,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
               <span style={{ fontWeight: 700, fontSize: '1rem' }}>Encerrar aula?</span>
             </div>
             <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', textAlign: 'center', lineHeight: 1.5 }}>
-              Mostre este QR para quem ainda nao confirmou presenca
+              Mostre este QR para quem ainda não confirmou presença
             </p>
             <div style={{ background: '#fff', padding: 14, borderRadius: 16 }}>
               <QRCodeSVG

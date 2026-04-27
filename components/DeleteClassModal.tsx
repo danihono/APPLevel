@@ -28,24 +28,24 @@ const DeleteClassModal: React.FC<DeleteClassModalProps> = ({ lesson, onClose, on
   const helperCopy = useMemo(() => {
     if (hasRecurringSeries) {
       if (singleUnavailable) {
-        return 'Esta aula nao esta mais agendada, entao apenas as proximas aulas agendadas da serie podem ser excluidas.';
+        return 'Esta aula não está mais agendada, então apenas as próximas aulas agendadas da série podem ser excluídas.';
       }
 
-      return 'Excluir em serie apaga esta aula e as proximas ocorrencias agendadas da mesma recorrencia.';
+      return 'Excluir em série apaga esta aula e as próximas ocorrências agendadas da mesma recorrência.';
     }
 
     if (singleUnavailable) {
-      return 'Somente aulas agendadas podem ser excluidas.';
+      return 'Somente aulas agendadas podem ser excluídas.';
     }
 
-    return 'Esta exclusao remove a aula e os RSVPs vinculados a ela.';
+    return 'Esta exclusão remove a aula e os RSVPs vinculados a ela.';
   }, [hasRecurringSeries, singleUnavailable]);
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
 
     if (!canSubmit) {
-      setError('Esta aula nao pode ser excluida neste estado.');
+      setError('Esta aula não pode ser excluída neste estado.');
       return;
     }
 
@@ -100,7 +100,7 @@ const DeleteClassModal: React.FC<DeleteClassModalProps> = ({ lesson, onClose, on
                   onClick={() => setScope('future')}
                   className={`app-segment__button ${scope === 'future' ? 'is-active' : ''}`}
                 >
-                  Esta e as proximas
+                  Esta e as próximas
                 </button>
               </div>
             </div>
@@ -119,7 +119,7 @@ const DeleteClassModal: React.FC<DeleteClassModalProps> = ({ lesson, onClose, on
             </button>
             <button type="submit" disabled={submitting || !canSubmit} className="app-button app-button--danger flex-1">
               <Trash2 size={14} />
-              {submitting ? 'Excluindo...' : scope === 'future' ? 'Excluir em serie' : 'Excluir aula'}
+              {submitting ? 'Excluindo...' : scope === 'future' ? 'Excluir em série' : 'Excluir aula'}
             </button>
           </div>
         </form>

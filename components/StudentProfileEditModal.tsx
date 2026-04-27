@@ -91,7 +91,7 @@ const StudentProfileEditModal: React.FC<StudentProfileEditModalProps> = ({
 
       setFeedback('Dados do aluno atualizados com sucesso.');
     } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : 'Nao foi possivel salvar os dados.');
+      setError(submitError instanceof Error ? submitError.message : 'Não foi possível salvar os dados.');
     } finally {
       setBusy(false);
     }
@@ -104,7 +104,7 @@ const StudentProfileEditModal: React.FC<StudentProfileEditModalProps> = ({
           <ArrowLeft size={18} />
         </button>
         <div>
-          <p className="app-section-label">Edicao completa</p>
+          <p className="app-section-label">Edição completa</p>
           <h1 className="text-2xl font-bold">{student.name}</h1>
         </div>
       </div>
@@ -124,7 +124,7 @@ const StudentProfileEditModal: React.FC<StudentProfileEditModalProps> = ({
             </div>
             <div>
               <p className="app-section-label">Dados pessoais</p>
-              <h2 className="text-xl font-bold">Informacoes cadastrais</h2>
+              <h2 className="text-xl font-bold">Informações cadastrais</h2>
             </div>
           </div>
 
@@ -192,7 +192,7 @@ const StudentProfileEditModal: React.FC<StudentProfileEditModalProps> = ({
                 disabled
                 className="app-input opacity-50 cursor-not-allowed"
               />
-              <span className="app-field__hint">Para alterar o e-mail, o aluno deve fazê-lo pelo proprio perfil.</span>
+              <span className="app-field__hint">Para alterar o e-mail, o aluno deve fazê-lo pelo próprio perfil.</span>
             </label>
           </div>
 
@@ -213,7 +213,7 @@ const StudentProfileEditModal: React.FC<StudentProfileEditModalProps> = ({
               <Calendar size={18} />
             </div>
             <div>
-              <p className="app-section-label">Historico</p>
+              <p className="app-section-label">Histórico</p>
               <h2 className="text-xl font-bold">Datas da linha do tempo</h2>
             </div>
           </div>
@@ -224,18 +224,18 @@ const StudentProfileEditModal: React.FC<StudentProfileEditModalProps> = ({
 
           <div className="mt-6 space-y-4">
             <label className="app-field">
-              <span className="app-field__label">Inicio dos treinos</span>
+              <span className="app-field__label">Início dos treinos</span>
               <input
                 type="date"
                 value={trainingStartDate}
                 onChange={(e) => setTrainingStartDate(e.target.value)}
                 className="app-input"
               />
-              <span className="app-field__hint">Data real em que o aluno comeou a treinar na academia</span>
+              <span className="app-field__hint">Data real em que o aluno começou a treinar na academia</span>
             </label>
 
             <label className="app-field">
-              <span className="app-field__label">Ultima graduacao</span>
+              <span className="app-field__label">Última graduação</span>
               <input
                 type="date"
                 value={lastGraduationDate}
@@ -246,7 +246,7 @@ const StudentProfileEditModal: React.FC<StudentProfileEditModalProps> = ({
             </label>
 
             <label className="app-field">
-              <span className="app-field__label">Ultimo grau recebido</span>
+              <span className="app-field__label">Último grau recebido</span>
               <input
                 type="date"
                 value={lastStripeDate}

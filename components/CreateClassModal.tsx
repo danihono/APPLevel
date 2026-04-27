@@ -270,31 +270,31 @@ const CreateClassModal: React.FC<CreateClassModalProps> = ({
     }
 
     if (mode === 'single' && selectedKeys.size === 0) {
-      setError('Selecione pelo menos um dia no calendario.');
+      setError('Selecione pelo menos um dia no calendário.');
       return;
     }
 
     if (mode === 'recurring') {
       if (!recurringStartDate || !recurringEndDate) {
-        setError('Informe a data inicial e a data final do periodo.');
+        setError('Informe a data inicial e a data final do período.');
         return;
       }
 
       if (recurringEndDate.getTime() < recurringStartDate.getTime()) {
-        setError('A data final precisa ser igual ou posterior a data inicial.');
+        setError('A data final precisa ser igual ou posterior à data inicial.');
         return;
       }
 
       if (recurringWeekdays.size === 0) {
-        setError('Selecione pelo menos um dia da semana para a recorrencia.');
+        setError('Selecione pelo menos um dia da semana para a recorrência.');
         return;
       }
     }
 
     if (payloads.length === 0) {
       setError(mode === 'recurring'
-        ? 'Nenhuma aula caiu no periodo com os dias da semana escolhidos.'
-        : 'Selecione pelo menos um dia no calendario.');
+        ? 'Nenhuma aula caiu no período com os dias da semana escolhidos.'
+        : 'Selecione pelo menos um dia no calendário.');
       return;
     }
 
@@ -469,7 +469,7 @@ const CreateClassModal: React.FC<CreateClassModalProps> = ({
                     <div>
                       <p className="app-field__label">Dias da semana</p>
                       <p className="mt-1 text-xs text-[color:var(--text-soft)]">
-                        Toque nos dias que devem repetir automaticamente dentro do periodo.
+                        Toque nos dias que devem repetir automaticamente dentro do período.
                       </p>
                     </div>
                     <span className={recurringWeekdays.size > 0 ? 'app-badge app-badge--gold' : 'app-badge app-badge--muted'}>
@@ -495,7 +495,7 @@ const CreateClassModal: React.FC<CreateClassModalProps> = ({
                             </span>
                           </div>
                           <span className="create-class-modal__weekday-note">
-                            {isSelected ? 'Selecionado' : 'Disponivel'}
+                            {isSelected ? 'Selecionado' : 'Disponível'}
                           </span>
                         </button>
                       );
@@ -507,12 +507,12 @@ const CreateClassModal: React.FC<CreateClassModalProps> = ({
 
             <div className="app-form-grid">
               <label className="app-field">
-                <span className="app-field__label">Horario</span>
+                <span className="app-field__label">Horário</span>
                 <input type="time" value={time} onChange={(event) => setTime(event.target.value)} className="app-input" required />
               </label>
 
               <label className="app-field">
-                <span className="app-field__label">Duracao</span>
+                <span className="app-field__label">Duração</span>
                 <select value={duration} onChange={(event) => setDuration(Number(event.target.value))} className="app-input">
                   {DURATION_OPTIONS.map((option) => (
                     <option key={option.value} value={option.value}>{option.label}</option>
@@ -554,15 +554,15 @@ const CreateClassModal: React.FC<CreateClassModalProps> = ({
                     <p className="mt-1 text-sm font-semibold">{summaryDateTimeFormatter.format(new Date(firstOccurrence.scheduledStart))}</p>
                   </div>
                   <div>
-                    <p className="text-[11px] uppercase tracking-[0.12em] text-[color:var(--text-soft)]">Ultima</p>
+                    <p className="text-[11px] uppercase tracking-[0.12em] text-[color:var(--text-soft)]">Última</p>
                     <p className="mt-1 text-sm font-semibold">{summaryDateTimeFormatter.format(new Date(lastOccurrence.scheduledStart))}</p>
                   </div>
                 </div>
               ) : (
                 <p className="mt-3 text-sm text-[color:var(--text-muted)]">
                   {mode === 'recurring'
-                    ? 'Defina o periodo e os dias da semana para visualizar quantas aulas serao geradas.'
-                    : 'Selecione pelo menos um dia no calendario para montar o lote.'}
+                    ? 'Defina o período e os dias da semana para visualizar quantas aulas serão geradas.'
+                    : 'Selecione pelo menos um dia no calendário para montar o lote.'}
                 </p>
               )}
             </div>
@@ -582,7 +582,7 @@ const CreateClassModal: React.FC<CreateClassModalProps> = ({
                 </div>
 
                 <p className="mt-3 text-sm text-[color:var(--text-muted)]">
-                  As aulas criadas foram gravadas. As ocorrencias abaixo ficaram de fora para voce ajustar depois.
+                  As aulas criadas foram gravadas. As ocorrências abaixo ficaram de fora para você ajustar depois.
                 </p>
 
                 <div className="mt-4 max-h-56 space-y-2 overflow-y-auto pr-1">
@@ -598,7 +598,7 @@ const CreateClassModal: React.FC<CreateClassModalProps> = ({
 
             {mode === 'recurring' && recurringStartDate && recurringEndDate && recurringEndDate.getTime() >= recurringStartDate.getTime() ? (
               <p className="text-xs text-[color:var(--text-soft)]">
-                Periodo de {summaryDateFormatter.format(recurringStartDate)} ate {summaryDateFormatter.format(recurringEndDate)}.
+                Período de {summaryDateFormatter.format(recurringStartDate)} até {summaryDateFormatter.format(recurringEndDate)}.
               </p>
             ) : null}
           </div>

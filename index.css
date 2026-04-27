@@ -1886,6 +1886,22 @@ html.dark .app-stat-card {
   padding: 1rem 1.1rem;
 }
 
+button.staff-home__pending-card {
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  cursor: default;
+}
+
+button.staff-home__pending-card.is-clickable {
+  cursor: pointer;
+}
+
+button.staff-home__pending-card.is-clickable:hover {
+  background: rgba(255, 255, 255, 1);
+  box-shadow: 0 14px 32px rgba(15, 18, 33, 0.13);
+}
+
 .staff-home__pending-icon {
   display: inline-flex;
   align-items: center;

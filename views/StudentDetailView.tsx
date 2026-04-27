@@ -157,9 +157,9 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
 
     try {
       await onApproveGraduationRequest(graduationRequest.id);
-      setFeedback('Graduacao aprovada com sucesso.');
+      setFeedback('Graduação aprovada com sucesso.');
     } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : 'Nao foi possivel aprovar a graduacao.');
+      setError(submitError instanceof Error ? submitError.message : 'Não foi possível aprovar a graduação.');
     } finally {
       setApproveBusy(false);
     }
@@ -187,9 +187,9 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
       if (onSetStudentAttendanceBonus) {
         await onSetStudentAttendanceBonus({ userId: student.id, attendanceCountBonus: attendanceBonus });
       }
-      setFeedback('Graduacao do aluno atualizada com sucesso.');
+      setFeedback('Graduação do aluno atualizada com sucesso.');
     } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : 'Nao foi possivel atualizar a graduacao.');
+      setError(submitError instanceof Error ? submitError.message : 'Não foi possível atualizar a graduação.');
     } finally {
       setSaveBusy(false);
     }
@@ -210,7 +210,7 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
       await onSetStudentAttendanceBonus({ userId: student.id, attendanceCountBonus: attendanceBonus });
       setFeedback('Aulas extras salvas com sucesso.');
     } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : 'Nao foi possivel salvar as aulas extras.');
+      setError(submitError instanceof Error ? submitError.message : 'Não foi possível salvar as aulas extras.');
     } finally {
       setBonusBusy(false);
     }
@@ -276,12 +276,12 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
         <section className="app-panel app-panel-pad">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
-              <p className="app-section-label">Graduacao pendente</p>
-              <h2 className="text-xl font-bold">Aprovacao sugerida pela progressao</h2>
+              <p className="app-section-label">Graduação pendente</p>
+              <h2 className="text-xl font-bold">Aprovação sugerida pela progressão</h2>
               <p className="mt-2 text-sm text-[color:var(--text-muted)]">
                 {graduationRequest.remainingClasses <= 0
-                  ? 'A meta ja foi atingida e o aluno aguarda sua aprovacao.'
-                  : `Falta ${graduationRequest.remainingClasses} presenca para liberar a avaliacao formal.`}
+                  ? 'A meta já foi atingida e o aluno aguarda sua aprovação.'
+                  : `Falta ${graduationRequest.remainingClasses} presença para liberar a avaliação formal.`}
               </p>
             </div>
             <span className="app-badge app-badge--gold">{graduationRequest.targetType === 'belt' ? 'Faixa' : 'Grau'}</span>
@@ -289,8 +289,8 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
 
           <div className="mt-5 flex flex-wrap gap-2">
             <span className="app-badge app-badge--muted">Atual: {beltLabel(graduationRequest.currentBelt)} • {graduationRequest.currentStripes} grau(s)</span>
-            <span className="app-badge app-badge--muted">Proximo passo: {graduationTargetLabel(graduationRequest)}</span>
-            <span className="app-badge app-badge--muted">Meta: {graduationRequest.attendanceTarget} presencas</span>
+            <span className="app-badge app-badge--muted">Próximo passo: {graduationTargetLabel(graduationRequest)}</span>
+            <span className="app-badge app-badge--muted">Meta: {graduationRequest.attendanceTarget} presenças</span>
           </div>
 
           {onApproveGraduationRequest ? (
@@ -302,7 +302,7 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
                 className="app-button app-button--gold"
               >
                 <CheckCircle2 size={16} />
-                {approveBusy ? 'Aprovando...' : 'Aprovar proxima graduacao'}
+                {approveBusy ? 'Aprovando...' : 'Aprovar próxima graduação'}
               </button>
             </div>
           ) : null}
@@ -323,7 +323,7 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
               <Save size={18} />
             </div>
             <div>
-              <p className="app-section-label">Graduacao manual</p>
+              <p className="app-section-label">Graduação manual</p>
               <h2 className="text-xl font-bold">Adiantar ou ajustar faixa e grau</h2>
             </div>
           </div>
@@ -387,51 +387,11 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
 
           <button type="submit" disabled={saveBusy} className="app-button app-button--gold mt-6">
             <Save size={16} />
-            {saveBusy ? 'Salvando...' : 'Salvar graduacao do aluno'}
+            {saveBusy ? 'Salvando...' : 'Salvar graduação do aluno'}
           </button>
         </form>
       ) : null}
 
-      {onSetStudentAttendanceBonus ? (
-        <form onSubmit={handleSaveAttendanceBonus} className="app-panel app-panel-pad">
-          <div className="flex items-center gap-3">
-            <div className="app-icon-shell">
-              <BookOpen size={18} />
-            </div>
-            <div>
-              <p className="app-section-label">Aulas anteriores</p>
-              <h2 className="text-xl font-bold">Aulas antes do cadastro</h2>
-            </div>
-          </div>
-
-          <p className="mt-4 text-sm text-[color:var(--text-muted)]">
-            Informe quantas aulas o aluno ja realizou antes de ser cadastrado no sistema. Esse valor sera somado aos check-ins futuros.
-          </p>
-
-          <div className="mt-6">
-            <label className="app-field">
-              <span className="app-field__label">Aulas anteriores</span>
-              <input
-                type="number"
-                min={0}
-                value={attendanceBonus}
-                onChange={(event) => setAttendanceBonus(Math.max(0, Math.floor(Number(event.target.value) || 0)))}
-                className="app-input"
-              />
-              <span className="app-field__hint">
-                {attendanceBonus > 0
-                  ? `${attendanceBonus} aula(s) anteriores somadas ao total do aluno`
-                  : 'Nenhuma aula anterior registrada'}
-              </span>
-            </label>
-          </div>
-
-          <button type="submit" disabled={bonusBusy} className="app-button app-button--gold mt-6">
-            <Save size={16} />
-            {bonusBusy ? 'Salvando...' : 'Salvar ajuste de aulas'}
-          </button>
-        </form>
-      ) : null}
 
       <section className="app-panel app-panel-pad">
         <div className="flex items-center gap-3">
@@ -440,7 +400,7 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
           </div>
           <div>
             <p className="app-section-label">Progresso</p>
-            <h2 className="text-xl font-bold">Avanco atual</h2>
+            <h2 className="text-xl font-bold">Avanço atual</h2>
           </div>
         </div>
 
@@ -448,13 +408,13 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
           <div>
             <ProgressBar current={stripeProgress} total={stripeTotal} />
             <p className="mt-3 text-sm text-[color:var(--text-muted)]">
-              Proximo grau: {stripeProgress}/{stripeTotal} aulas
+              Próximo grau: {stripeProgress}/{stripeTotal} aulas
             </p>
           </div>
           <div>
             <ProgressBar current={beltProgress} total={beltTotal} color="bg-gold" />
             <p className="mt-3 text-sm text-[color:var(--text-muted)]">
-              Proxima faixa: {beltProgress}/{beltTotal} aulas
+              Próxima faixa: {beltProgress}/{beltTotal} aulas
             </p>
           </div>
         </div>
@@ -467,8 +427,8 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
               <Video size={18} />
             </div>
             <div>
-              <p className="app-section-label">Videos</p>
-              <h2 className="text-xl font-bold">Arquivo de videos</h2>
+              <p className="app-section-label">Vídeos</p>
+              <h2 className="text-xl font-bold">Arquivo de vídeos</h2>
             </div>
           </div>
 
@@ -501,7 +461,7 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
             <Clock size={18} />
           </div>
           <div>
-            <p className="app-section-label">Historico</p>
+            <p className="app-section-label">Histórico</p>
             <h2 className="text-xl font-bold">Linha do tempo</h2>
           </div>
         </div>
@@ -512,7 +472,7 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
               <Calendar size={16} />
             </div>
             <div>
-              <p className="text-sm font-bold">Inicio dos treinos</p>
+              <p className="text-sm font-bold">Início dos treinos</p>
               <p className="mt-1 text-xs text-[color:var(--text-soft)]">{formatDate(student.startDate)}</p>
             </div>
           </div>
@@ -522,7 +482,7 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
               <Award size={16} />
             </div>
             <div>
-              <p className="text-sm font-bold">Ultima graduacao</p>
+              <p className="text-sm font-bold">Última graduação</p>
               <p className="mt-1 text-xs text-[color:var(--text-soft)]">{formatDate(student.lastGraduation)}</p>
             </div>
           </div>
@@ -532,7 +492,7 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
               <TrendingUp size={16} />
             </div>
             <div>
-              <p className="text-sm font-bold">Ultimo grau recebido</p>
+              <p className="text-sm font-bold">Último grau recebido</p>
               <p className="mt-1 text-xs text-[color:var(--text-soft)]">{formatDate(student.lastStripeDate)}</p>
             </div>
           </div>

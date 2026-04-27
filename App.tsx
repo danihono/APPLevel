@@ -109,31 +109,31 @@ function getErrorMessage(error: unknown): string {
     case 'auth/invalid-credential':
     case 'auth/wrong-password':
     case 'auth/user-not-found':
-      return 'E-mail ou senha invalidos.';
+      return 'E-mail ou senha inválidos.';
     case 'auth/user-disabled':
-      return 'Seu cadastro ainda esta aguardando aprovacao do professor da unidade.';
+      return 'Seu cadastro ainda está aguardando aprovação do professor da unidade.';
     case 'auth/invalid-email':
-      return 'Informe um e-mail valido.';
+      return 'Informe um e-mail válido.';
     case 'auth/too-many-requests':
       return 'Muitas tentativas de login. Aguarde alguns minutos e tente de novo.';
     case 'functions/permission-denied':
     case 'permission-denied':
-      return 'Sua sessao nao tem permissao para acessar este recurso.';
+      return 'Sua sessão não tem permissão para acessar este recurso.';
     case 'functions/unauthenticated':
     case 'unauthenticated':
-      return 'Sua sessao expirou. Entre novamente.';
+      return 'Sua sessão expirou. Entre novamente.';
     case 'functions/internal':
     case 'internal':
-      return 'Nao foi possivel concluir a operacao no servidor agora. Atualize a pagina e tente novamente.';
+      return 'Não foi possível concluir a operação no servidor agora. Atualize a página e tente novamente.';
     case 'functions/unavailable':
     case 'unavailable':
-      return 'O servidor nao respondeu agora. Tente novamente em alguns instantes.';
+      return 'O servidor não respondeu agora. Tente novamente em alguns instantes.';
     default:
       if (error instanceof Error && error.message) {
         return error.message;
       }
 
-      return 'Nao foi possivel concluir esta operacao agora.';
+      return 'Não foi possível concluir esta operação agora.';
   }
 }
 
@@ -158,9 +158,9 @@ function shouldResetSession(error: unknown): boolean {
   }
 
   const message = error.message.toLowerCase();
-  return message.includes('usuario nao encontrado')
+  return message.includes('usuário não encontrado')
     || message.includes('usuário não encontrado')
-    || message.includes('cadastro nao foi encontrado')
+    || message.includes('cadastro não foi encontrado')
     || message.includes('cadastro não foi encontrado');
 }
 
@@ -190,7 +190,7 @@ function buildLoadingView(message: string) {
             <p className="app-section-label">Applevel</p>
             <h1 className="app-section-title">Seu dojo agora tem uma cabine premium.</h1>
             <p className="app-section-copy">
-              Estamos preparando a sessao, o tema e os dados da academia para abrir a experiencia completa.
+              Estamos preparando a sessão, o tema e os dados da academia para abrir a experiência completa.
             </p>
           </div>
 
@@ -286,8 +286,8 @@ function buildAcademyAccessIssueView(params: {
 function buildMissingAcademyView(onLogout: () => Promise<void>) {
   return buildAcademyAccessIssueView({
     eyebrow: 'Acesso bloqueado',
-    title: 'Sua unidade nao esta mais disponivel.',
-    description: 'Esta conta ainda existe, mas a unidade vinculada foi removida ou perdeu o contexto necessario para abrir o painel.',
+    title: 'Sua unidade não está mais disponível.',
+    description: 'Esta conta ainda existe, mas a unidade vinculada foi removida ou perdeu o contexto necessário para abrir o painel.',
     note: 'Saia e entre novamente depois que um superadmin da LEVEL corrigir a unidade vinculada ao seu cadastro.',
     onLogout,
   });
@@ -656,7 +656,7 @@ const App: React.FC = () => {
         setProfileLoading(false);
 
         if (!record) {
-          recoverInvalidSession('profile:missing', new Error('Seu cadastro nao foi encontrado. Entre com outra conta.'));
+          recoverInvalidSession('profile:missing', new Error('Seu cadastro não foi encontrado. Entre com outra conta.'));
         }
       },
       (error) => {
@@ -1931,7 +1931,7 @@ const App: React.FC = () => {
 
   if (hasAcademyAccessError) {
     return buildAcademyLoadErrorView(
-      sessionError || 'Sua sessao nao conseguiu confirmar a unidade vinculada a esta conta.',
+      sessionError || 'Sua sessão não conseguiu confirmar a unidade vinculada a esta conta.',
       handleLogout,
     );
   }
@@ -2049,6 +2049,7 @@ const App: React.FC = () => {
               graduationRequests={graduationRequests}
               fightVideoSubmissions={fightVideoSubmissions}
               canReviewAllAttendanceRequests={profile.role === 'superadmin'}
+              onNavigateToPending={() => setActiveTab('notifications')}
             />
           ) : (
             <HomeView

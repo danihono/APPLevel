@@ -131,15 +131,15 @@ const ProfileView: React.FC<ProfileViewProps> = ({
   const nextMilestoneGoal = Math.max(nextMilestoneCurrent + nextMilestoneRemaining, 1);
   const nextMilestonePercent = Math.round((nextMilestoneCurrent / nextMilestoneGoal) * 100);
   const nextMilestoneLabel = user.stripes >= 4
-    ? `Proxima faixa - ${beltLabel(user.belt)}`
+    ? `Próxima faixa - ${beltLabel(user.belt)}`
     : `${user.stripes + 1}o Grau - Faixa ${beltLabel(user.belt)}`;
   const currentGradeLabel = user.stripes > 0 ? `${user.stripes}o Grau` : '0 Grau';
   const [activeSection, setActiveSection] = useState<'settings' | 'history' | 'achievements' | null>(null);
   const [activeStudentSection, setActiveStudentSection] = useState<'dados-pessoais' | 'acesso-email' | 'aparencia' | 'historicos' | null>(null);
   const staffMenuItems = [
-    { id: 'settings' as const, icon: Settings2, label: 'Configuracoes da conta' },
-    { id: 'notifications' as const, icon: Bell, label: 'Notificacoes' },
-    { id: 'history' as const, icon: History, label: 'Historico de aulas' },
+    { id: 'settings' as const, icon: Settings2, label: 'Configurações da conta' },
+    { id: 'notifications' as const, icon: Bell, label: 'Notificações' },
+    { id: 'history' as const, icon: History, label: 'Histórico de aulas' },
     { id: 'achievements' as const, icon: Award, label: 'Conquistas' },
   ];
 
@@ -162,7 +162,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({
       await onSaveProfile({ phone });
       setFeedback('Dados atualizados com sucesso.');
     } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : 'Nao foi possivel salvar.');
+      setError(submitError instanceof Error ? submitError.message : 'Não foi possível salvar.');
     } finally {
       setBusy(false);
     }
@@ -178,7 +178,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({
       await onSaveProfile({ photoFile: file });
       setStaffPhotoFeedback('Foto atualizada com sucesso.');
     } catch (err) {
-      setStaffPhotoError(err instanceof Error ? err.message : 'Nao foi possivel salvar a foto.');
+      setStaffPhotoError(err instanceof Error ? err.message : 'Não foi possível salvar a foto.');
     } finally {
       setStaffPhotoBusy(false);
       event.target.value = '';
@@ -204,7 +204,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({
       setPhotoFile(null);
       setFeedback('Perfil atualizado com sucesso.');
     } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : 'Nao foi possivel salvar o perfil.');
+      setError(submitError instanceof Error ? submitError.message : 'Não foi possível salvar o perfil.');
     } finally {
       setBusy(false);
     }
@@ -221,7 +221,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({
       setCurrentPassword('');
       setEmailFeedback('E-mail atualizado com sucesso.');
     } catch (submitError) {
-      setEmailError(submitError instanceof Error ? submitError.message : 'Nao foi possivel atualizar o e-mail.');
+      setEmailError(submitError instanceof Error ? submitError.message : 'Não foi possível atualizar o e-mail.');
     } finally {
       setEmailBusy(false);
     }
@@ -283,18 +283,18 @@ const ProfileView: React.FC<ProfileViewProps> = ({
           <article className="profile-mobile__kpi-card">
             <p className="profile-mobile__kpi-label">Total de aulas</p>
             <p className="profile-mobile__kpi-value">{totalClasses}</p>
-            <p className="profile-mobile__kpi-note">Presencas registradas</p>
+            <p className="profile-mobile__kpi-note">Presenças registradas</p>
           </article>
 
           <article className="profile-mobile__kpi-card">
-            <p className="profile-mobile__kpi-label">Frequencia</p>
+            <p className="profile-mobile__kpi-label">Frequência</p>
             <p className="profile-mobile__kpi-value">{attendanceRate}%</p>
-            <p className="profile-mobile__kpi-note">No mes atual</p>
+            <p className="profile-mobile__kpi-note">No mês atual</p>
           </article>
         </section>
 
         <section className="profile-mobile__progress-card">
-          <p className="profile-mobile__section-label">Proximo grau</p>
+          <p className="profile-mobile__section-label">Próximo grau</p>
           <h2 className="profile-mobile__progress-title">{nextMilestoneLabel}</h2>
           <p className="profile-mobile__progress-copy">{nextMilestoneRemaining} aulas restantes para elegibilidade</p>
           <div className="profile-mobile__progress-bar">
@@ -364,7 +364,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({
                     </form>
 
                     <div className="pt-3 border-t border-white/10">
-                      <p className="text-[10px] font-bold uppercase tracking-widest text-[color:var(--text-soft)] pb-3">Aparencia</p>
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-[color:var(--text-soft)] pb-3">Aparência</p>
                       <div className="flex gap-2">
                         <button type="button" onClick={() => onSetThemeMode('light')} className={`app-button app-button--small flex-1 ${!isDarkMode ? 'app-button--gold' : 'app-button--ghost'}`}>
                           <Sun size={14} />Claro
@@ -388,7 +388,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({
                           </p>
                         </div>
                       ))}
-                      {attendances.length === 0 ? <div className="app-empty">Nenhuma presenca registrada.</div> : null}
+                      {attendances.length === 0 ? <div className="app-empty">Nenhuma presença registrada.</div> : null}
                     </div>
                   </div>
                 ) : null}
@@ -406,7 +406,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({
                           </p>
                         </div>
                       ))}
-                      {graduations.length === 0 ? <div className="app-empty">Nenhuma graduacao registrada.</div> : null}
+                      {graduations.length === 0 ? <div className="app-empty">Nenhuma graduação registrada.</div> : null}
                     </div>
                   </div>
                 ) : null}
@@ -458,27 +458,27 @@ const ProfileView: React.FC<ProfileViewProps> = ({
         <article className="app-panel app-panel-pad">
           <p className="app-stat-card__label">Total de aulas</p>
           <p className="app-stat-card__value">{totalClasses}</p>
-          <p className="app-stat-card__note">Presencas registradas</p>
+          <p className="app-stat-card__note">Presenças registradas</p>
         </article>
         <article className="app-panel app-panel-pad">
-          <p className="app-stat-card__label">Frequencia</p>
+          <p className="app-stat-card__label">Frequência</p>
           <p className="app-stat-card__value">{attendanceRate}%</p>
-          <p className="app-stat-card__note">No mes atual</p>
+          <p className="app-stat-card__note">No mês atual</p>
         </article>
         <article className="app-panel app-panel-pad">
-          <p className="app-stat-card__label">Proximo grau</p>
+          <p className="app-stat-card__label">Próximo grau</p>
           <p className="app-stat-card__value">{nextStripeRemaining}</p>
           <p className="app-stat-card__note">Aulas restantes</p>
         </article>
         <article className="app-panel app-panel-pad">
-          <p className="app-stat-card__label">Proxima faixa</p>
+          <p className="app-stat-card__label">Próxima faixa</p>
           <p className="app-stat-card__value">{nextBeltRemaining}</p>
           <p className="app-stat-card__note">Aulas para elegibilidade</p>
         </article>
       </section>
 
       {/* Accordion menu */}
-      <section className="app-panel" aria-label="Configuracoes do perfil">
+      <section className="app-panel" aria-label="Configurações do perfil">
         {/* Dados pessoais */}
         <div>
           <button
@@ -529,7 +529,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({
                   <label className="app-field">
                     <span className="app-field__label">Competidor</span>
                     <select value={isCompetitor ? 'yes' : 'no'} onChange={(event) => setIsCompetitor(event.target.value === 'yes')} className="app-select">
-                      <option value="no">Nao</option>
+                      <option value="no">Não</option>
                       <option value="yes">Sim</option>
                     </select>
                   </label>
@@ -547,7 +547,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({
               ) : (
                 <div className="mt-4 app-list">
                   <div className="app-list-card">
-                    <p className="text-[11px] uppercase tracking-[0.16em] text-[color:var(--text-soft)]">Funcao</p>
+                    <p className="text-[11px] uppercase tracking-[0.16em] text-[color:var(--text-soft)]">Função</p>
                     <p className="mt-1 text-sm font-bold">{roleLabel(profile.role)}</p>
                   </div>
                   <div className="app-list-card">
@@ -559,7 +559,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({
                   <div className="app-list-card">
                     <div className="flex items-center gap-2 text-sm font-bold">
                       <Phone size={16} className="text-[color:var(--gold-mid)]" />
-                      {profile.phone || 'Telefone nao informado'}
+                      {profile.phone || 'Telefone não informado'}
                     </div>
                   </div>
                 </div>
@@ -587,7 +587,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({
             <div className="px-4 pb-5 border-t border-white/10">
               <div className="mt-4 app-list">
                 <div className="app-list-card">
-                  <p className="text-sm font-bold">Permissoes</p>
+                  <p className="text-sm font-bold">Permissões</p>
                   <p className="mt-1 text-xs text-[color:var(--text-soft)]">Perfil atual: {roleLabel(profile.role)}</p>
                 </div>
                 <div className="app-list-card">
@@ -596,7 +596,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({
                 </div>
                 <div className="app-list-card">
                   <p className="text-sm font-bold">Faixa e grau</p>
-                  <p className="mt-1 text-xs text-[color:var(--text-soft)]">Alteracao feita apenas por professor ou superadmin.</p>
+                  <p className="mt-1 text-xs text-[color:var(--text-soft)]">Alteração feita apenas por professor ou superadmin.</p>
                 </div>
               </div>
 
@@ -637,7 +637,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({
             <div className="profile-mobile__menu-icon">
               {isDarkMode ? <Moon size={18} /> : <Sun size={18} />}
             </div>
-            <span className="profile-mobile__menu-label">Aparencia</span>
+            <span className="profile-mobile__menu-label">Aparência</span>
             <ChevronRight
               size={18}
               className={`profile-mobile__menu-arrow transition-transform duration-200 ${activeStudentSection === 'aparencia' ? 'rotate-90' : ''}`}
@@ -679,7 +679,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({
             onClick={() => setActiveStudentSection(activeStudentSection === 'historicos' ? null : 'historicos')}
           >
             <div className="profile-mobile__menu-icon"><History size={18} /></div>
-            <span className="profile-mobile__menu-label">Historicos</span>
+            <span className="profile-mobile__menu-label">Históricos</span>
             <ChevronRight
               size={18}
               className={`profile-mobile__menu-arrow transition-transform duration-200 ${activeStudentSection === 'historicos' ? 'rotate-90' : ''}`}
@@ -688,22 +688,22 @@ const ProfileView: React.FC<ProfileViewProps> = ({
 
           {activeStudentSection === 'historicos' ? (
             <div className="px-4 pb-5 border-t border-white/10">
-              <p className="mt-4 text-[10px] font-bold uppercase tracking-widest text-[color:var(--text-soft)]">Presencas recentes</p>
+              <p className="mt-4 text-[10px] font-bold uppercase tracking-widest text-[color:var(--text-soft)]">Presenças recentes</p>
               <div className="mt-2 app-list">
                 {recentAttendances.map((attendance) => (
                   <div key={attendance.id} className="app-list-card">
                     <p className="text-sm font-bold">{classNameById.get(attendance.classId) || 'Aula da academia'}</p>
                     <p className="mt-1 text-xs text-[color:var(--text-soft)]">
-                      {attendance.checkedInAt?.toDate().toLocaleString('pt-BR')} • metodo {attendance.checkInMethod}
+                      {attendance.checkedInAt?.toDate().toLocaleString('pt-BR')} • método {attendance.checkInMethod}
                     </p>
                   </div>
                 ))}
                 {recentAttendances.length === 0 ? (
-                  <div className="app-empty">Ainda nao ha presencas registradas neste perfil.</div>
+                  <div className="app-empty">Ainda não há presenças registradas neste perfil.</div>
                 ) : null}
               </div>
 
-              <p className="mt-4 text-[10px] font-bold uppercase tracking-widest text-[color:var(--text-soft)]">Graduacoes</p>
+              <p className="mt-4 text-[10px] font-bold uppercase tracking-widest text-[color:var(--text-soft)]">Graduações</p>
               <div className="mt-2 app-list">
                 {graduations.slice(0, 5).map((graduation) => (
                   <div key={graduation.id} className="app-list-card">
@@ -716,7 +716,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({
                   </div>
                 ))}
                 {graduations.length === 0 ? (
-                  <div className="app-empty">Ainda nao ha graduacoes registradas para este perfil.</div>
+                  <div className="app-empty">Ainda não há graduações registradas para este perfil.</div>
                 ) : null}
               </div>
             </div>

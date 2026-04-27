@@ -178,7 +178,7 @@ function getActivityLabel(date: Date | null) {
     return 'Atividade ontem';
   }
 
-  return `Atividade ha ${daysSince} dias`;
+  return `Atividade há ${daysSince} dias`;
 }
 
 const SuperadminDashboardView: React.FC<SuperadminDashboardViewProps> = ({

@@ -284,13 +284,13 @@ const ManagementView: React.FC<ManagementViewProps> = ({
     event.preventDefault();
 
     if (!hasManagedAcademy) {
-      setAcademyError('Selecione uma unidade para editar as configuracoes.');
+      setAcademyError('Selecione uma unidade para editar as configurações.');
       setAcademyFeedback('');
       return;
     }
 
     if (academyStatus === 'suspended' && managedAcademy.status !== 'suspended') {
-      if (!window.confirm('Tem certeza que deseja SUSPENDER esta academia? Os alunos serao impedidos de acessar o sistema.')) {
+      if (!window.confirm('Tem certeza que deseja SUSPENDER esta academia? Os alunos serão impedidos de acessar o sistema.')) {
         return;
       }
     } else if (academyStatus === 'inactive' && managedAcademy.status === 'active') {
@@ -314,7 +314,7 @@ const ManagementView: React.FC<ManagementViewProps> = ({
       });
       setAcademyFeedback('Academia atualizada com sucesso.');
     } catch (submitError) {
-      setAcademyError(submitError instanceof Error ? submitError.message : 'Nao foi possivel salvar a academia.');
+      setAcademyError(submitError instanceof Error ? submitError.message : 'Não foi possível salvar a academia.');
     } finally {
       setAcademyBusy(false);
     }
@@ -340,7 +340,7 @@ const ManagementView: React.FC<ManagementViewProps> = ({
       setAcademyCreateMasterBlackLimit(1);
       setAcademyFeedback('Nova academia criada com sucesso.');
     } catch (submitError) {
-      setAcademyError(submitError instanceof Error ? submitError.message : 'Nao foi possivel criar a academia.');
+      setAcademyError(submitError instanceof Error ? submitError.message : 'Não foi possível criar a academia.');
     } finally {
       setCreateAcademyBusy(false);
     }
@@ -389,7 +389,7 @@ const ManagementView: React.FC<ManagementViewProps> = ({
       setGrade(0);
       setUserFeedback('Acesso criado com sucesso.');
     } catch (submitError) {
-      setUserError(submitError instanceof Error ? submitError.message : 'Nao foi possivel criar o acesso.');
+      setUserError(submitError instanceof Error ? submitError.message : 'Não foi possível criar o acesso.');
     } finally {
       setUserBusy(false);
     }
@@ -405,10 +405,10 @@ const ManagementView: React.FC<ManagementViewProps> = ({
       ? 'Selecione uma unidade'
       : managedAcademy.name;
   const focusDescription = isEmptyNetwork
-    ? 'Crie a primeira unidade da LEVEL para liberar a operacao da rede.'
+    ? 'Crie a primeira unidade da LEVEL para liberar a operação da rede.'
     : isAwaitingAcademyFocus
-      ? 'Escolha uma unidade para editar configuracoes, acompanhar alunos e ajustar regras locais.'
-      : 'Ajuste operacao, equipe e regras da unidade em foco.';
+      ? 'Escolha uma unidade para editar configurações, acompanhar alunos e ajustar regras locais.'
+      : 'Ajuste operação, equipe e regras da unidade em foco.';
   const filteredInstructors = useMemo(() => {
     const query = peopleSearch.trim().toLocaleLowerCase('pt-BR');
     if (!query) {
@@ -430,7 +430,7 @@ const ManagementView: React.FC<ManagementViewProps> = ({
   }, [peopleSearch, sortedInstructors]);
 
   const sectionTabs = (
-    <div className="app-segment app-segment--block" role="tablist" aria-label="Secoes da academia">
+    <div className="app-segment app-segment--block" role="tablist" aria-label="Seções da academia">
       <button
         type="button"
         role="tab"
@@ -438,7 +438,7 @@ const ManagementView: React.FC<ManagementViewProps> = ({
         onClick={() => setManagementSection('overview')}
         className={`app-segment__button ${managementSection === 'overview' ? 'is-active' : ''}`}
       >
-        Visao geral
+        Visão geral
       </button>
       <button
         type="button"
@@ -472,7 +472,7 @@ const ManagementView: React.FC<ManagementViewProps> = ({
             progressionRules={managedAcademy.progressionRules}
             academyName={managedAcademy.name}
             kicker="Alunos da academia"
-            title="Todos os alunos da sua unidade com filtros e leitura rapida."
+            title="Todos os alunos da sua unidade com filtros e leitura rápida."
             description="Pesquise por nome, filtre por faixa e grau e abra o detalhe completo de cada aluno."
             emptyResultsMessage={students.length === 0 ? 'Nenhum aluno cadastrado nesta academia.' : 'Nenhum aluno encontrado com os filtros atuais.'}
             onUpdateStudentBeltGrade={onUpdateStudentBeltGrade}
@@ -542,7 +542,7 @@ const ManagementView: React.FC<ManagementViewProps> = ({
         ) : (
           <section className="academy-mobile__section">
             <div className="academy-mobile__empty">
-              Selecione uma unidade para visualizar equipe e operacao local.
+              Selecione uma unidade para visualizar equipe e operação local.
             </div>
           </section>
         )}
@@ -555,7 +555,7 @@ const ManagementView: React.FC<ManagementViewProps> = ({
       <section className="app-panel app-panel-pad">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
-            <p className="app-section-label">{isSuperAdmin ? 'Gestao da rede' : 'Academia em foco'}</p>
+            <p className="app-section-label">{isSuperAdmin ? 'Gestão da rede' : 'Academia em foco'}</p>
             <h2 className="mt-2 text-xl font-bold">{focusLabel}</h2>
             <p className="mt-2 text-sm text-[color:var(--text-muted)]">{focusDescription}</p>
           </div>
@@ -589,8 +589,8 @@ const ManagementView: React.FC<ManagementViewProps> = ({
             progressionRules={managedAcademy.progressionRules}
             academyName={managedAcademy.name}
             kicker="Alunos da academia"
-            title="Todos os alunos da unidade em uma leitura pronta para operacao."
-            description="Use busca, faixa, grau e ordenacao para encontrar rapidamente quem voce precisa."
+            title="Todos os alunos da unidade em uma leitura pronta para operação."
+            description="Use busca, faixa, grau e ordenação para encontrar rapidamente quem você precisa."
             emptyResultsMessage={students.length === 0 ? 'Nenhum aluno cadastrado nesta academia.' : 'Nenhum aluno encontrado com os filtros atuais.'}
             onUpdateStudentBeltGrade={onUpdateStudentBeltGrade}
             onSetStudentAttendanceBonus={onSetStudentAttendanceBonus}
@@ -601,7 +601,7 @@ const ManagementView: React.FC<ManagementViewProps> = ({
           <section className="app-panel app-panel-pad">
             <div className="app-empty">
               {isEmptyNetwork
-                ? 'A rede ainda nao tem nenhuma unidade. Use o formulario abaixo para cadastrar a primeira unidade da LEVEL.'
+                ? 'A rede ainda não tem nenhuma unidade. Use o formulário abaixo para cadastrar a primeira unidade da LEVEL.'
                 : 'Selecione uma unidade para abrir os alunos daquela academia.'}
             </div>
           </section>
@@ -618,7 +618,7 @@ const ManagementView: React.FC<ManagementViewProps> = ({
           <p className="app-stat-card__value">{hasManagedAcademy ? activeStudents.length : networkStudents}</p>
         </article>
         <article className="app-panel app-panel-pad">
-          <p className="app-stat-card__label">{hasManagedAcademy ? 'Master black' : 'Liderancas'}</p>
+          <p className="app-stat-card__label">{hasManagedAcademy ? 'Master black' : 'Lideranças'}</p>
           <p className={`app-stat-card__value ${hasManagedAcademy && masterBlackUsers.length > masterBlackLimit ? 'text-[color:var(--danger)]' : ''}`}>
             {hasManagedAcademy ? `${masterBlackUsers.length}/${masterBlackLimit}` : networkLeaders}
           </p>
@@ -684,7 +684,7 @@ const ManagementView: React.FC<ManagementViewProps> = ({
                   <div>
                     <p className="text-sm font-bold">{entry.displayName}</p>
                     <p className="mt-1 text-xs text-[color:var(--text-soft)]">
-                      {entry.attendanceCount} presencas • faixa {beltLabel(entry.belt)}
+                      {entry.attendanceCount} presenças • faixa {beltLabel(entry.belt)}
                     </p>
                   </div>
                   <span className="app-badge app-badge--muted">{entry.status}</span>
@@ -702,15 +702,15 @@ const ManagementView: React.FC<ManagementViewProps> = ({
         <section className="app-panel app-panel-pad">
           <div className="app-empty">
             {isEmptyNetwork
-              ? 'A rede ainda nao tem nenhuma unidade. Use o formulario abaixo para cadastrar a primeira unidade da LEVEL.'
-              : 'Selecione uma unidade para abrir equipe, alunos e configuracoes locais.'}
+              ? 'A rede ainda não tem nenhuma unidade. Use o formulário abaixo para cadastrar a primeira unidade da LEVEL.'
+              : 'Selecione uma unidade para abrir equipe, alunos e configurações locais.'}
           </div>
         </section>
       )}
 
       {!canManage ? (
         <div className="app-empty">
-          Este perfil tem apenas visualizacao. As configuracoes da academia ficam disponiveis para professores e superadmins.
+          Este perfil tem apenas visualização. As configurações da academia ficam disponíveis para professores e superadmins.
         </div>
       ) : (
         <>
@@ -721,7 +721,7 @@ const ManagementView: React.FC<ManagementViewProps> = ({
                   <Settings2 size={18} />
                 </div>
                 <div>
-                  <p className="app-section-label">Configuracoes</p>
+                  <p className="app-section-label">Configurações</p>
                   <h2 className="text-xl font-bold">Ajustes da academia</h2>
                 </div>
               </div>
@@ -764,7 +764,7 @@ const ManagementView: React.FC<ManagementViewProps> = ({
             </form>
           ) : (
             <section className="app-panel app-panel-pad">
-              <div className="app-empty">As configuracoes locais ficam disponiveis assim que voce selecionar uma unidade.</div>
+              <div className="app-empty">As configurações locais ficam disponíveis assim que você selecionar uma unidade.</div>
             </section>
           )}
 
@@ -814,7 +814,7 @@ const ManagementView: React.FC<ManagementViewProps> = ({
               </div>
               <div>
                 <p className="app-section-label">Acessos</p>
-                <h2 className="text-xl font-bold">Criar usuario</h2>
+                <h2 className="text-xl font-bold">Criar usuário</h2>
               </div>
             </div>
 
@@ -836,7 +836,7 @@ const ManagementView: React.FC<ManagementViewProps> = ({
                 <input type="email" value={email} onChange={(event) => setEmail(event.target.value)} className="app-input" required />
               </label>
               <label className="app-field">
-                <span className="app-field__label">Senha temporaria</span>
+                <span className="app-field__label">Senha temporária</span>
                 <input type="password" value={password} onChange={(event) => setPassword(event.target.value)} className="app-input" required />
               </label>
               <label className="app-field">
@@ -862,7 +862,7 @@ const ManagementView: React.FC<ManagementViewProps> = ({
                     ))}
                   </select>
                   <span className="app-field__hint">
-                    Professores e alunos ficam vinculados a uma unica unidade existente. Para master black, use Professor com faixa preta. Apenas superadmin acessa toda a rede.
+                    Professores e alunos ficam vinculados a uma única unidade existente. Para master black, use Professor com faixa preta. Apenas superadmin acessa toda a rede.
                   </span>
                 </label>
               ) : null}

@@ -27,6 +27,7 @@ interface StaffDashboardViewProps {
   graduationRequests: Array<FirestoreEntity<GraduationApprovalRequestRecord>>;
   fightVideoSubmissions: Array<FirestoreEntity<FightVideoSubmissionRecord>>;
   canReviewAllAttendanceRequests?: boolean;
+  onNavigateToPending?: () => void;
 }
 
 function isSameDay(left?: Date | null, right?: Date | null) {
@@ -65,34 +66,34 @@ function getGreeting(date: Date) {
 function getPendingCopy(joinCount: number, attendanceCount: number, unreadCount: number) {
   if (joinCount > 0 && attendanceCount > 0) {
     return {
-      title: `${joinCount + attendanceCount} pendencias aguardando acao`,
-      note: `${joinCount} pedidos de entrada e ${attendanceCount} solicitacoes de presenca.`,
+      title: `${joinCount + attendanceCount} pendências aguardando ação`,
+      note: `${joinCount} pedidos de entrada e ${attendanceCount} solicitações de presença.`,
     };
   }
 
   if (joinCount > 0) {
     return {
       title: `${joinCount} ${joinCount === 1 ? 'pedido de entrada' : 'pedidos de entrada'}`,
-      note: 'Aguardando aprovacao da unidade.',
+      note: 'Aguardando aprovação da unidade.',
     };
   }
 
   if (attendanceCount > 0) {
     return {
-      title: `${attendanceCount} ${attendanceCount === 1 ? 'solicitacao de presenca' : 'solicitacoes de presenca'}`,
-      note: 'Aguardando analise do professor responsavel.',
+      title: `${attendanceCount} ${attendanceCount === 1 ? 'solicitação de presença' : 'solicitações de presença'}`,
+      note: 'Aguardando análise do professor responsável.',
     };
   }
 
   if (unreadCount > 0) {
     return {
       title: `${unreadCount} ${unreadCount === 1 ? 'aviso recente' : 'avisos recentes'}`,
-      note: 'Abra a aba de avisos para revisar as atualizacoes da unidade.',
+      note: 'Abra a aba de avisos para revisar as atualizações da unidade.',
     };
   }
 
   return {
-    title: 'Nenhuma pendencia agora',
+    title: 'Nenhuma pendência agora',
     note: 'Tudo em dia na rotina da unidade.',
   };
 }
@@ -112,6 +113,7 @@ const StaffDashboardView: React.FC<StaffDashboardViewProps> = ({
   graduationRequests,
   fightVideoSubmissions,
   canReviewAllAttendanceRequests = false,
+  onNavigateToPending,
 }) => {
   const now = new Date();
   const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
@@ -216,7 +218,7 @@ const StaffDashboardView: React.FC<StaffDashboardViewProps> = ({
         setSelectedClassRsvpsLoading(false);
       },
       () => {
-        setSelectedClassRsvpsError('Nao foi possivel carregar os alunos confirmados.');
+        setSelectedClassRsvpsError('Não foi possível carregar os alunos confirmados.');
         setSelectedClassRsvpsLoading(false);
       },
     );
@@ -229,21 +231,21 @@ const StaffDashboardView: React.FC<StaffDashboardViewProps> = ({
           <p className="staff-home__eyebrow">{getGreeting(now)},</p>
           <h1 className="staff-home__greeting">{user.name}</h1>
           <p className="staff-home__summary">
-            Visao do professor com equipe, agenda e pendencias da unidade.
+            Visão do professor com equipe, agenda e pendências da unidade.
           </p>
         </div>
 
         <div className="staff-home__vision">
           <div className="staff-home__vision-dot" aria-hidden="true" />
           <div className="staff-home__vision-copy">
-            <p className="staff-home__vision-label">Visao atual</p>
+            <p className="staff-home__vision-label">Visão atual</p>
             <p className="staff-home__vision-title">{academy.name}</p>
           </div>
         </div>
       </section>
 
       <section className="staff-home__section">
-        <p className="staff-home__section-label">Visao geral</p>
+        <p className="staff-home__section-label">Visão geral</p>
 
         <div className="staff-home__kpi-grid">
           <article className="staff-home__kpi-card">
@@ -265,9 +267,9 @@ const StaffDashboardView: React.FC<StaffDashboardViewProps> = ({
           </article>
 
           <article className="staff-home__kpi-card">
-            <p className="staff-home__kpi-label">Frequencia</p>
+            <p className="staff-home__kpi-label">Frequência</p>
             <p className="staff-home__kpi-value">{monthlyAttendanceRate}%</p>
-            <p className="staff-home__kpi-note">Este mes</p>
+            <p className="staff-home__kpi-note">Este mês</p>
           </article>
         </div>
       </section>
@@ -281,12 +283,12 @@ const StaffDashboardView: React.FC<StaffDashboardViewProps> = ({
         <div className="staff-home__list">
           {todayClasses.length > 0 ? (
             todayClasses.map((lesson) => {
-              const professorName = lesson.professorName || 'Equipe tecnica';
+              const professorName = lesson.professorName || 'Equipe técnica';
               const plannedCount = lesson.rsvpCount ?? 0;
               const classMeta = lesson.status === 'scheduled'
                 ? `${formatConfirmedLabel(plannedCount)} para esta aula - ${professorName}`
                 : lesson.currentAttendanceCount > 0
-                  ? `${lesson.currentAttendanceCount} presencas registradas - ${professorName}`
+                  ? `${lesson.currentAttendanceCount} presenças registradas - ${professorName}`
                   : `Professor: ${professorName}`;
 
               return (
@@ -315,9 +317,14 @@ const StaffDashboardView: React.FC<StaffDashboardViewProps> = ({
       </section>
 
       <section className="staff-home__section">
-        <p className="staff-home__section-label">Pendencias</p>
+        <p className="staff-home__section-label">Pendências</p>
 
-        <article className="staff-home__pending-card">
+        <button
+          type="button"
+          className={`staff-home__pending-card${pendingBadgeCount > 0 ? ' is-clickable' : ''}`}
+          onClick={pendingBadgeCount > 0 ? onNavigateToPending : undefined}
+          disabled={pendingBadgeCount === 0}
+        >
           <div className="staff-home__pending-icon" aria-hidden="true">
             <Layers3 size={18} />
           </div>
@@ -330,7 +337,7 @@ const StaffDashboardView: React.FC<StaffDashboardViewProps> = ({
           <span className={`staff-home__count-badge ${pendingBadgeCount === 0 ? 'is-zero' : ''}`}>
             {pendingBadgeCount}
           </span>
-        </article>
+        </button>
       </section>
 
       {selectedClass ? (
@@ -374,7 +381,7 @@ const StaffDashboardView: React.FC<StaffDashboardViewProps> = ({
                   {formatConfirmedLabel(selectedClassRsvpsLoading ? (selectedClass.rsvpCount ?? 0) : selectedClassRsvps.length)}
                 </p>
                 <p className="staff-home__lesson-count-note">
-                  Alunos que confirmaram que vao nesta aula.
+                  Alunos que confirmaram que vão nesta aula.
                 </p>
               </div>
             </div>
@@ -399,7 +406,7 @@ const StaffDashboardView: React.FC<StaffDashboardViewProps> = ({
                     </div>
                     <div className="staff-home__confirmed-copy">
                       <p className="staff-home__confirmed-name">{rsvp.userDisplayName}</p>
-                      <p className="staff-home__confirmed-meta">Presenca futura confirmada</p>
+                      <p className="staff-home__confirmed-meta">Presença futura confirmada</p>
                     </div>
                   </div>
                 ))

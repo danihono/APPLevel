@@ -97,31 +97,31 @@ const GraduationView: React.FC<GraduationViewProps> = ({
           <div className="mt-6 space-y-6">
             <div>
               <div className="flex items-center justify-between text-sm mb-2">
-                <span className="font-semibold">Proximo grau</span>
+                <span className="font-semibold">Próximo grau</span>
                 <span className="text-[color:var(--text-muted)]">
-                  {stripeTotal > 0 ? `${stripeProgress} / ${stripeTotal} aulas` : 'Progressao manual'}
+                  {stripeTotal > 0 ? `${stripeProgress} / ${stripeTotal} aulas` : 'Progressão manual'}
                 </span>
               </div>
               <ProgressBar current={stripeProgress} total={stripeTotal} />
               <p className="mt-2 text-xs text-[color:var(--text-muted)]">
                 {nextStripeRemaining === null
-                  ? 'Essa faixa nao tem liberacao automatica de grau por aulas.'
-                  : `Restam ${nextStripeRemaining} aula(s) para atingir o proximo grau.`}
+                  ? 'Essa faixa não tem liberação automática de grau por aulas.'
+                  : `Restam ${nextStripeRemaining} aula(s) para atingir o próximo grau.`}
               </p>
             </div>
 
             <div>
               <div className="flex items-center justify-between text-sm mb-2">
-                <span className="font-semibold">Proxima faixa</span>
+                <span className="font-semibold">Próxima faixa</span>
                 <span className="text-[color:var(--text-muted)]">
-                  {beltTotal > 0 ? `${beltProgress} / ${beltTotal} aulas` : 'Progressao manual'}
+                  {beltTotal > 0 ? `${beltProgress} / ${beltTotal} aulas` : 'Progressão manual'}
                 </span>
               </div>
               <ProgressBar current={beltProgress} total={beltTotal} />
               <p className="mt-2 text-xs text-[color:var(--text-muted)]">
                 {nextBeltRemaining === null
-                  ? 'A proxima faixa depende de avaliacao manual.'
-                  : `Restam ${nextBeltRemaining} aula(s) para a proxima faixa.`}
+                  ? 'A próxima faixa depende de avaliação manual.'
+                  : `Restam ${nextBeltRemaining} aula(s) para a próxima faixa.`}
               </p>
             </div>
           </div>
@@ -146,12 +146,12 @@ const GraduationView: React.FC<GraduationViewProps> = ({
           >
             <p className="text-xs uppercase tracking-[0.3em] opacity-70">Status</p>
             <p className="mt-3 text-2xl font-black">
-              {examWindow ? 'Proximo de avaliacao' : 'Em acompanhamento'}
+              {examWindow ? 'Próximo de avaliação' : 'Em acompanhamento'}
             </p>
             <p className="mt-3 text-sm">
               {examWindow
-                ? 'Seu perfil ja esta perto da proxima avaliacao. Vale alinhar a expectativa com o professor responsavel.'
-                : 'Continue registrando presencas e acompanhando os marcos para a proxima graduacao.'}
+                ? 'Seu perfil já está perto da próxima avaliação. Vale alinhar a expectativa com o professor responsável.'
+                : 'Continue registrando presenças e acompanhando os marcos para a próxima graduação.'}
             </p>
           </div>
 
@@ -160,8 +160,8 @@ const GraduationView: React.FC<GraduationViewProps> = ({
               <p className="text-sm font-semibold">Regra atual — Faixa {beltLabel(currentRule.belt)}</p>
               <p className="mt-2 text-xs text-[color:var(--text-muted)]">
                 {currentRule.stripeEvery > 0
-                  ? `Novo grau a cada ${currentRule.stripeEvery} aulas • maximo ${currentRule.maxStripes} graus`
-                  : 'Progressao manual para graus e faixas seguintes.'}
+                  ? `Novo grau a cada ${currentRule.stripeEvery} aulas • máximo ${currentRule.maxStripes} graus`
+                  : 'Progressão manual para graus e faixas seguintes.'}
               </p>
             </div>
           ) : null}
@@ -175,7 +175,7 @@ const GraduationView: React.FC<GraduationViewProps> = ({
           </div>
           <div>
             <p className="app-section-label">Conquistas</p>
-            <h2 className="text-xl font-bold">Historico de graduacoes</h2>
+            <h2 className="text-xl font-bold">Histórico de graduações</h2>
           </div>
         </div>
 
@@ -192,7 +192,7 @@ const GraduationView: React.FC<GraduationViewProps> = ({
                     {beltLabel(entry.previousBelt)} {entry.previousStripes}{' → '}{beltLabel(entry.newBelt)} {entry.newStripes}
                   </p>
                   <p className="mt-1 text-xs text-[color:var(--text-muted)]">
-                    {entry.attendanceCount} presencas • {entry.reason.replaceAll('_', ' ')}
+                    {entry.attendanceCount} presenças • {entry.reason.replaceAll('_', ' ')}
                   </p>
                 </div>
                 <span className="app-badge app-badge--gold">
@@ -203,7 +203,7 @@ const GraduationView: React.FC<GraduationViewProps> = ({
           ))}
 
           {graduations.length === 0 ? (
-            <div className="app-empty">Ainda nao ha graduacoes registradas para este perfil.</div>
+            <div className="app-empty">Ainda não há graduações registradas para este perfil.</div>
           ) : null}
         </div>
       </section>
@@ -214,12 +214,12 @@ const GraduationView: React.FC<GraduationViewProps> = ({
             <BookOpen size={20} />
           </div>
           <div>
-            <p className="app-section-label">Referencia</p>
+            <p className="app-section-label">Referência</p>
             <h2 className="text-xl font-bold">Regras por faixa</h2>
             <p className="mt-1 text-sm text-[color:var(--text-muted)]">
               {trainingType === 'Kids'
-                ? `Configuracao oficial da academia para ${kidsCategoryLabel(inferredKidsCategory)}.`
-                : 'Configuracao oficial da academia para o programa adulto.'}
+                ? `Configuração oficial da academia para ${kidsCategoryLabel(inferredKidsCategory)}.`
+                : 'Configuração oficial da academia para o programa adulto.'}
             </p>
           </div>
         </div>
@@ -232,15 +232,15 @@ const GraduationView: React.FC<GraduationViewProps> = ({
                 <TimerReset size={16} style={{ color: 'var(--gold-mid)' }} />
               </div>
               <p className="mt-2 text-xs text-[color:var(--text-muted)]">
-                {entry.stripeEvery > 0 ? `Grau a cada ${entry.stripeEvery} aulas` : 'Progressao manual'}
+                {entry.stripeEvery > 0 ? `Grau a cada ${entry.stripeEvery} aulas` : 'Progressão manual'}
               </p>
               <p className="mt-1 text-xs text-[color:var(--text-muted)]">
-                {entry.maxStripes > 0 ? `Maximo ${entry.maxStripes} graus` : 'Sem regra automatica de graus'}
+                {entry.maxStripes > 0 ? `Máximo ${entry.maxStripes} graus` : 'Sem regra automática de graus'}
               </p>
               <p className="mt-1 text-xs text-[color:var(--text-muted)]">
                 {entry.stripeEvery > 0 && entry.maxStripes > 0
-                  ? `Proxima faixa em ${getClassesToNextBelt(entry)} aulas`
-                  : 'Avaliacao definida manualmente'}
+                  ? `Próxima faixa em ${getClassesToNextBelt(entry)} aulas`
+                  : 'Avaliação definida manualmente'}
               </p>
             </div>
           ))}

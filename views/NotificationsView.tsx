@@ -154,9 +154,9 @@ function notificationType(notification: FirestoreEntity<NotificationRecord>) {
     case 'join_request':
       return 'Pedido de acesso';
     case 'attendance_request':
-      return 'Solicitacao de presenca';
+      return 'Solicitação de presença';
     case 'graduation':
-      return 'Graduacao';
+      return 'Graduação';
     case 'fight_video_submission':
       return 'Video';
     default:
@@ -196,8 +196,8 @@ function graduationTargetLabel(request: FirestoreEntity<GraduationApprovalReques
 
 function graduationStatusLabel(request: FirestoreEntity<GraduationApprovalRequestRecord>) {
   return request.remainingClasses <= 0
-    ? 'Meta atingida. Aguardando aprovacao.'
-    : `Falta ${request.remainingClasses} presenca para liberar a avaliacao.`;
+    ? 'Meta atingida. Aguardando aprovação.'
+    : `Falta ${request.remainingClasses} presença para liberar a avaliação.`;
 }
 
 const NotificationsView: React.FC<NotificationsViewProps> = ({
@@ -335,7 +335,7 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
         id: entry.id,
         kind: 'attendance_request' as const,
         title: entry.userDisplayName,
-        body: `${entry.classTitle} | professor ${entry.professorName || 'responsavel da aula'}`,
+        body: `${entry.classTitle} | professor ${entry.professorName || 'responsável da aula'}`,
         meta: `Solicitada em ${formatStamp(entry.requestedAt)}`,
         createdAt: entry.requestedAt,
       }));
@@ -404,7 +404,7 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
       setChannel('academy');
       setFeedback('Aviso enviado com sucesso.');
     } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : 'Nao foi possivel enviar o aviso.');
+      setError(submitError instanceof Error ? submitError.message : 'Não foi possível enviar o aviso.');
     } finally {
       setBusy(false);
     }
@@ -427,7 +427,7 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
       setBody('');
       setFeedback('Comunicado enviado com sucesso.');
     } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : 'Nao foi possivel criar o comunicado.');
+      setError(submitError instanceof Error ? submitError.message : 'Não foi possível criar o comunicado.');
     } finally {
       setBusy(false);
     }
@@ -437,7 +437,7 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
     try {
       await onMarkRead(notificationId);
     } catch (markError) {
-      setError(markError instanceof Error ? markError.message : 'Nao foi possivel marcar a notificacao como lida.');
+      setError(markError instanceof Error ? markError.message : 'Não foi possível marcar a notificação como lida.');
     }
   }
 
@@ -459,7 +459,7 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
         await onApproveAttendanceRequest(item.id);
       }
     } catch (actionError) {
-      setError(actionError instanceof Error ? actionError.message : 'Nao foi possivel aprovar a solicitacao.');
+      setError(actionError instanceof Error ? actionError.message : 'Não foi possível aprovar a solicitação.');
     } finally {
       setProcessingRequestId(null);
     }
@@ -467,11 +467,11 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
 
   async function handleReject(item: RequestItem) {
     const label = item.kind === 'join_request'
-      ? 'solicitacao de cadastro'
+      ? 'solicitação de cadastro'
       : item.kind === 'fight_video_submission'
-        ? 'solicitacao de video'
-        : 'solicitacao de presenca';
-    if (!window.confirm(`Tem certeza que deseja rejeitar esta ${label}? Esta acao nao pode ser desfeita.`)) {
+        ? 'solicitação de vídeo'
+        : 'solicitação de presença';
+    if (!window.confirm(`Tem certeza que deseja rejeitar esta ${label}? Esta ação não pode ser desfeita.`)) {
       return;
     }
 
@@ -487,7 +487,7 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
         await onRejectAttendanceRequest(item.id);
       }
     } catch (actionError) {
-      setError(actionError instanceof Error ? actionError.message : 'Nao foi possivel rejeitar a solicitacao.');
+      setError(actionError instanceof Error ? actionError.message : 'Não foi possível rejeitar a solicitação.');
     } finally {
       setProcessingRequestId(null);
     }
@@ -500,7 +500,7 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
     try {
       await onApproveGraduationRequest(item.id);
     } catch (actionError) {
-      setError(actionError instanceof Error ? actionError.message : 'Nao foi possivel aprovar a graduacao.');
+      setError(actionError instanceof Error ? actionError.message : 'Não foi possível aprovar a graduação.');
     } finally {
       setProcessingRequestId(null);
     }
@@ -518,7 +518,7 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
               onClick={() => setActiveTab('notifications')}
               className={`notice-mobile__tab ${activeTab === 'notifications' ? 'is-active' : ''}`}
             >
-              Notificacoes
+              Notificações
             </button>
             <button
               type="button"
@@ -527,7 +527,7 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
               onClick={() => setActiveTab('requests')}
               className={`notice-mobile__tab ${activeTab === 'requests' ? 'is-active' : ''}`}
             >
-              Solicitacoes
+              Solicitações
             </button>
             <button
               type="button"
@@ -536,7 +536,7 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
               onClick={() => setActiveTab('communication')}
               className={`notice-mobile__tab ${activeTab === 'communication' ? 'is-active' : ''}`}
             >
-              Comunicacao
+              Comunicação
             </button>
             <button
               type="button"
@@ -545,7 +545,7 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
               onClick={() => setActiveTab('graduations')}
               className={`notice-mobile__tab ${activeTab === 'graduations' ? 'is-active' : ''}`}
             >
-              Graduacoes
+              Graduações
             </button>
           </div>
         </section>
@@ -581,7 +581,7 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
             })}
 
             {professorNotifications.length === 0 ? (
-              <div className="notice-mobile__empty">Nenhuma notificacao encontrada para a unidade.</div>
+              <div className="notice-mobile__empty">Nenhuma notificação encontrada para a unidade.</div>
             ) : null}
           </section>
         ) : null}
@@ -629,14 +629,14 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
                       </button>
                     </div>
                   ) : (
-                    <div className="notice-mobile__request-note">Sem permissao para agir sobre esta solicitacao.</div>
+                    <div className="notice-mobile__request-note">Sem permissão para agir sobre esta solicitação.</div>
                   )}
                 </article>
               );
             })}
 
             {requestItems.length === 0 ? (
-              <div className="notice-mobile__empty">Sem solicitacoes pendentes no momento.</div>
+              <div className="notice-mobile__empty">Sem solicitações pendentes no momento.</div>
             ) : null}
           </section>
         ) : null}
@@ -646,16 +646,16 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
             {canBroadcast ? (
               <form onSubmit={handleProfessorCommunicationSubmit} className="notice-mobile__compose-card">
                 <div>
-                  <p className="notice-mobile__compose-label">Comunicacao</p>
+                  <p className="notice-mobile__compose-label">Comunicação</p>
                   <h2 className="notice-mobile__compose-title">Criar comunicado</h2>
-                  <p className="notice-mobile__compose-copy">Envie um aviso rapido para toda a unidade.</p>
+                  <p className="notice-mobile__compose-copy">Envie um aviso rápido para toda a unidade.</p>
                 </div>
 
                 {feedback ? <div className="app-alert app-alert--success">{feedback}</div> : null}
                 {error ? <div className="app-alert app-alert--error">{error}</div> : null}
 
                 <label className="app-field">
-                  <span className="app-field__label">Titulo</span>
+                  <span className="app-field__label">Título</span>
                   <input value={title} onChange={(event) => setTitle(event.target.value)} className="app-input" required />
                 </label>
 
@@ -670,7 +670,7 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
                 </button>
               </form>
             ) : (
-              <div className="notice-mobile__empty">Seu perfil nao pode criar comunicados.</div>
+              <div className="notice-mobile__empty">Seu perfil não pode criar comunicados.</div>
             )}
           </section>
         ) : null}
@@ -693,7 +693,7 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
                         Atual: {beltLabel(item.currentBelt)} • {item.currentStripes} grau(s)
                       </p>
                       <p className="notice-mobile__request-time">
-                        Proximo passo: {graduationTargetLabel(item)}
+                        Próximo passo: {graduationTargetLabel(item)}
                       </p>
                       <p className="notice-mobile__request-time">{graduationStatusLabel(item)}</p>
                     </div>
@@ -722,7 +722,7 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
             })}
 
             {graduationItems.length === 0 ? (
-              <div className="notice-mobile__empty">Nenhuma graduacao pendente na unidade.</div>
+              <div className="notice-mobile__empty">Nenhuma graduação pendente na unidade.</div>
             ) : null}
           </section>
         ) : null}
@@ -739,13 +739,13 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
             <p className="mt-2 text-sm text-[color:var(--text-muted)]">
               {isStudent
                 ? 'Avisos da academia e da equipe em um fluxo mais direto.'
-                : 'Comunicados, solicitacoes e graduacoes do contexto atual.'}
+                : 'Comunicados, solicitações e graduações do contexto atual.'}
             </p>
           </div>
 
           <div className="app-orb">
             <Bell size={16} />
-            {unreadCount} nao lidas
+            {unreadCount} não lidas
           </div>
         </div>
 
@@ -776,7 +776,7 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
               className={`app-segment__button ${activeTab === 'notifications' ? 'is-active' : ''}`}
             >
               <BellRing size={16} />
-              Notificacoes
+              Notificações
             </button>
             <button
               type="button"
@@ -784,7 +784,7 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
               className={`app-segment__button ${activeTab === 'requests' ? 'is-active' : ''}`}
             >
               <ClipboardCheck size={16} />
-              {`Solicitacoes${requestItems.length > 0 ? ` (${requestItems.length})` : ''}`}
+              {`Solicitações${requestItems.length > 0 ? ` (${requestItems.length})` : ''}`}
             </button>
             <button
               type="button"
@@ -792,7 +792,7 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
               className={`app-segment__button ${activeTab === 'graduations' ? 'is-active' : ''}`}
             >
               <GraduationCap size={16} />
-              Graduacoes
+              Graduações
             </button>
           </div>
         )}
@@ -872,21 +872,24 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
                     </div>
                   </div>
 
-                  {(notification.targetRole || notification.targetBelt || unread) ? (
+                  {(notification.targetRole || notification.targetBelt) ? (
                     <div className="mt-5 flex flex-wrap gap-3">
                       <span className="app-badge app-badge--muted">Canal: {notification.channel}</span>
                       {notification.targetRole ? <span className="app-badge app-badge--muted">Perfil: {notification.targetRole}</span> : null}
                       {notification.targetBelt ? <span className="app-badge app-badge--muted">Faixa: {beltLabel(notification.targetBelt)}</span> : null}
-                      {unread ? (
-                        <button
-                          type="button"
-                          onClick={() => void handleMarkRead(notification.id)}
-                          className="app-button app-button--ghost app-button--small"
-                        >
-                          <CheckCircle2 size={15} />
-                          Marcar como lida
-                        </button>
-                      ) : null}
+                    </div>
+                  ) : null}
+
+                  {unread ? (
+                    <div className="mt-5 flex flex-wrap gap-3">
+                      <button
+                        type="button"
+                        onClick={() => void handleMarkRead(notification.id)}
+                        className="app-button app-button--ghost app-button--small"
+                      >
+                        <CheckCircle2 size={15} />
+                        Marcar como lida
+                      </button>
                     </div>
                   ) : null}
                 </article>
@@ -894,7 +897,7 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
             })}
 
             {notifications.length === 0 ? (
-              <div className="app-empty">Nenhuma notificacao encontrada para o contexto atual.</div>
+              <div className="app-empty">Nenhuma notificação encontrada para o contexto atual.</div>
             ) : null}
           </section>
 
@@ -905,7 +908,7 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
                   <Send size={18} />
                 </div>
                 <div>
-                  <p className="app-section-label">Comunicacao</p>
+                  <p className="app-section-label">Comunicação</p>
                   <h2 className="text-xl font-bold">Enviar aviso</h2>
                 </div>
               </div>
@@ -949,7 +952,7 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
                 </label>
 
                 <label className="app-field md:col-span-2">
-                  <span className="app-field__label">Titulo</span>
+                  <span className="app-field__label">Título</span>
                   <input value={title} onChange={(event) => setTitle(event.target.value)} className="app-input" required />
                 </label>
 
@@ -1054,7 +1057,7 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
                           <p className="mt-1 text-sm font-bold">{item.request.isCompetitor ? 'Sim' : 'Nao'}</p>
                         </div>
                         <div className="app-list-card">
-                          <p className="text-[11px] uppercase tracking-[0.16em] text-[color:var(--text-soft)]">Responsavel pela aprovacao</p>
+                          <p className="text-[11px] uppercase tracking-[0.16em] text-[color:var(--text-soft)]">Responsável pela aprovação</p>
                           <p className="mt-1 text-sm font-bold">Professores da unidade</p>
                         </div>
                       </div>
@@ -1066,7 +1069,7 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
                               <div>
                                 <p className="app-section-label">Graduacao de entrada</p>
                                 <p className="mt-2 text-sm text-[color:var(--text-muted)]">
-                                  Ajuste faixa e grau antes de aprovar. O aluno sera criado com essa graduacao.
+                                  Ajuste faixa e grau antes de aprovar. O aluno será criado com essa graduação.
                                 </p>
                               </div>
                             </div>
@@ -1128,7 +1131,7 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
                           </div>
                         </>
                       ) : (
-                        <div className="mt-5 app-empty">Somente professores da unidade podem agir sobre esta solicitacao.</div>
+                        <div className="mt-5 app-empty">Somente professores da unidade podem agir sobre esta solicitação.</div>
                       )}
                     </>
                   ) : null}
@@ -1152,7 +1155,7 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
                           <span className="app-badge app-badge--muted">vs {item.request.opponentName}</span>
                         ) : null}
                         <span className="app-badge app-badge--muted">
-                          {item.request.occurredAt ? item.request.occurredAt.toDate().toLocaleDateString('pt-BR') : 'Data nao informada'}
+                          {item.request.occurredAt ? item.request.occurredAt.toDate().toLocaleDateString('pt-BR') : 'Data não informada'}
                         </span>
                       </div>
                     </div>
@@ -1198,7 +1201,7 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
                       </button>
                     </div>
                   ) : (
-                    <div className="mt-5 app-empty">Somente professor ou superadmin podem agir sobre esta solicitacao.</div>
+                    <div className="mt-5 app-empty">Somente professor ou superadmin podem agir sobre esta solicitação.</div>
                   )}
                 </article>
               );
@@ -1210,7 +1213,7 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
                   <div>
                     <div className="flex flex-wrap items-center gap-3">
                       <h2 className="text-lg font-bold">{item.title}</h2>
-                      <span className="app-badge app-badge--gold">Solicitacao de presenca</span>
+                      <span className="app-badge app-badge--gold">Solicitação de presença</span>
                     </div>
                     <p className="mt-3 text-sm leading-7 text-[color:var(--text-muted)]">{item.body}</p>
                     <p className="mt-2 text-xs text-[color:var(--text-soft)]">{item.meta}</p>
@@ -1242,14 +1245,14 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
                     </button>
                   </div>
                 ) : (
-                  <div className="mt-5 app-empty">Somente professor ou superadmin podem agir sobre esta solicitacao.</div>
+                  <div className="mt-5 app-empty">Somente professor ou superadmin podem agir sobre esta solicitação.</div>
                 )}
               </article>
             );
           })}
 
           {requestItems.length === 0 ? (
-            <div className="app-empty">Sem solicitacoes pendentes no momento.</div>
+            <div className="app-empty">Sem solicitações pendentes no momento.</div>
           ) : null}
         </section>
       ) : null}
@@ -1273,12 +1276,12 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
                   <p className="mt-3 text-sm leading-7 text-[color:var(--text-muted)]">{graduationStatusLabel(item)}</p>
                   <div className="mt-4 flex flex-wrap gap-2">
                     <span className="app-badge app-badge--muted">Atual: {item.currentStripes} grau(s)</span>
-                    <span className="app-badge app-badge--muted">Proximo passo: {graduationTargetLabel(item)}</span>
-                    <span className="app-badge app-badge--muted">Meta: {item.attendanceTarget} presencas</span>
+                    <span className="app-badge app-badge--muted">Próximo passo: {graduationTargetLabel(item)}</span>
+                    <span className="app-badge app-badge--muted">Meta: {item.attendanceTarget} presenças</span>
                   </div>
                 </div>
                 <div className="app-orb">
-                  {item.attendanceCount} presencas
+                  {item.attendanceCount} presenças
                 </div>
               </div>
 
@@ -1290,7 +1293,7 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
                   className="app-button app-button--gold app-button--small"
                 >
                   <CheckCircle2 size={15} />
-                  {isProcessing ? 'Processando...' : 'Aprovar proxima graduacao'}
+                  {isProcessing ? 'Processando...' : 'Aprovar próxima graduação'}
                 </button>
                 <button
                   type="button"
@@ -1305,7 +1308,7 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
           })}
 
           {graduationItems.length === 0 ? (
-            <div className="app-empty">Nenhuma graduacao pendente no contexto atual.</div>
+            <div className="app-empty">Nenhuma graduação pendente no contexto atual.</div>
           ) : null}
         </section>
       ) : null}

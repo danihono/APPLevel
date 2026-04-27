@@ -305,7 +305,7 @@ const StudentRoster: React.FC<StudentRosterProps> = ({
                   <span className="app-badge app-badge--muted">{student.type}</span>
                   {student.status ? <span className="app-badge app-badge--muted">{student.status}</span> : null}
                   {graduationRequestByUserId.has(student.id) ? (
-                    <span className="app-badge app-badge--gold">Graduacao pendente</span>
+                    <span className="app-badge app-badge--gold">Graduação pendente</span>
                   ) : null}
                 </div>
               </div>

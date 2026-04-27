@@ -56,7 +56,7 @@ const HomeView: React.FC<HomeViewProps> = ({
         }
       } catch {
         if (active) {
-          setAdvice('Mantenha a constancia nos treinos. O segredo esta na repeticao!');
+          setAdvice('Mantenha a constância nos treinos. O segredo está na repetição!');
         }
       }
     }
@@ -83,7 +83,7 @@ const HomeView: React.FC<HomeViewProps> = ({
             <p className="text-sm font-bold">{branch.name}</p>
             <p className="mt-1 text-sm text-[color:var(--text-muted)]">{branch.location}</p>
             <p className="mt-3 text-sm text-[color:var(--text-muted)]">
-              Ola, <strong>{user.name.split(' ')[0]}</strong> — {monthlyAttendanceCount} treinos este mes
+              Olá, <strong>{user.name.split(' ')[0]}</strong> — {monthlyAttendanceCount} treinos este mês
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -115,12 +115,12 @@ const HomeView: React.FC<HomeViewProps> = ({
 
         <div className="mt-6 space-y-5">
           <ProgressBar
-            label="Proximo grau"
+            label="Próximo grau"
             current={user.currentStripeProgress}
             total={classesToNextStripe}
           />
           <ProgressBar
-            label="Proxima faixa"
+            label="Próxima faixa"
             current={user.currentBeltProgress}
             total={totalClassesToNextBelt}
           />
@@ -146,8 +146,8 @@ const HomeView: React.FC<HomeViewProps> = ({
             <CalIcon size={18} />
           </div>
           <div>
-            <p className="app-section-label">Frequencia mensal</p>
-            <h2 className="text-xl font-bold">Mapa de presencas do mes</h2>
+            <p className="app-section-label">Frequência mensal</p>
+            <h2 className="text-xl font-bold">Mapa de presenças do mês</h2>
           </div>
         </div>
 
@@ -170,7 +170,7 @@ const HomeView: React.FC<HomeViewProps> = ({
         </div>
 
         <div className="mt-6 flex items-center justify-between rounded-[1.4rem] border border-white/10 bg-white/10 px-4 py-4">
-          <span className="text-sm text-[color:var(--text-muted)]">Total de treinos no mes</span>
+          <span className="text-sm text-[color:var(--text-muted)]">Total de treinos no mês</span>
           <strong className="text-2xl font-bold text-[color:var(--gold-mid)]">{monthlyAttendanceCount}</strong>
         </div>
       </section>

@@ -45,52 +45,52 @@ const pageMeta: Record<string, { kicker: string; title: string; description: str
   home: {
     kicker: 'Dashboard',
     title: 'Início',
-    description: 'Acompanhe equipe, alunos, aulas do dia e pendencias sem sair do fluxo principal.',
+    description: 'Acompanhe equipe, alunos, aulas do dia e pendências sem sair do fluxo principal.',
   },
   calendar: {
     kicker: 'Calendário',
     title: 'Calendário',
-    description: 'Navegue no tempo, filtre entre minhas aulas e todas, e mantenha a operacao organizada no mobile.',
+    description: 'Navegue no tempo, filtre entre minhas aulas e todas, e mantenha a operação organizada no mobile.',
   },
   competition: {
     kicker: 'Fight mode',
     title: 'Competição',
-    description: 'Competicao ficou mais editorial, com areas claras para calendario, resultados e video.',
+    description: 'Competição ficou mais editorial, com áreas claras para calendário, resultados e vídeo.',
   },
   graduation: {
     kicker: 'Graduação',
     title: 'Graduação',
-    description: 'Acompanhe progresso, proximos marcos e o historico oficial de graduacoes da academia.',
+    description: 'Acompanhe progresso, próximos marcos e o histórico oficial de graduações da academia.',
   },
   students: {
     kicker: 'Roster',
     title: 'Alunos',
-    description: 'Busca, filtros e perfis seguem a mesma estetica glass com acentos metalicos.',
+    description: 'Busca, filtros e perfis seguem a mesma estética glass com acentos metálicos.',
   },
   management: {
     kicker: 'Minha academia',
     title: 'Academia',
-    description: 'Veja instrutores, acompanhe alunos e ajuste graduacoes e regras sem mudar a base do app.',
+    description: 'Veja instrutores, acompanhe alunos e ajuste graduações e regras sem mudar a base do app.',
   },
   notifications: {
     kicker: 'Eventos',
-    title: 'Notificacoes',
-    description: 'Acompanhe comunicados, pedidos pendentes e alunos prontos para avaliacao com leitura rapida.',
+    title: 'Notificações',
+    description: 'Acompanhe comunicados, pedidos pendentes e alunos prontos para avaliação com leitura rápida.',
   },
   learning: {
     kicker: 'Learning hub',
     title: 'Learning Hub',
-    description: 'Uma area de capacitacao pensada para professores assistirem conteudos e validarem aprendizado.',
+    description: 'Uma área de capacitação pensada para professores assistirem conteúdos e validarem aprendizado.',
   },
   store: {
     kicker: 'Merch',
     title: 'Loja',
-    description: 'Produtos, busca e chamadas de acao herdaram o mesmo sistema dourado do resto da experiencia.',
+    description: 'Produtos, busca e chamadas de ação herdaram o mesmo sistema dourado do resto da experiência.',
   },
   profile: {
     kicker: 'Identity',
     title: 'Perfil',
-    description: 'Cartoes, metricas e atalhos seguem a nova base de superficies e transicoes.',
+    description: 'Cartões, métricas e atalhos seguem a nova base de superfícies e transições.',
   },
 };
 
@@ -98,22 +98,22 @@ const superadminPageMeta: Record<string, { kicker: string; title: string; descri
   home: {
     kicker: 'Central da rede',
     title: 'Central',
-    description: 'Acompanhe crescimento, risco operacional e a academia em foco em uma tela pensada para decisao.',
+    description: 'Acompanhe crescimento, risco operacional e a academia em foco em uma tela pensada para decisão.',
   },
   notifications: {
-    kicker: 'Comunicacao',
-    title: 'Comunicacao',
-    description: 'Dispare comunicados para toda a rede ou segmente por academia, perfil e faixa em um fluxo unico.',
+    kicker: 'Comunicação',
+    title: 'Comunicação',
+    description: 'Dispare comunicados para toda a rede ou segmente por academia, perfil e faixa em um fluxo único.',
   },
   students: {
     kicker: 'Base ativa',
     title: 'Alunos',
-    description: 'Veja a base, os filtros e os perfis da unidade que esta no contexto atual da rede.',
+    description: 'Veja a base, os filtros e os perfis da unidade que está no contexto atual da rede.',
   },
   management: {
-    kicker: 'Governanca',
-    title: 'Gestao',
-    description: 'Crie unidades, ajuste limites e organize permissoes sem perder a visao consolidada da operacao.',
+    kicker: 'Governança',
+    title: 'Gestão',
+    description: 'Crie unidades, ajuste limites e organize permissões sem perder a visão consolidada da operação.',
   },
   learning: {
     kicker: 'Learning hub',
@@ -123,7 +123,7 @@ const superadminPageMeta: Record<string, { kicker: string; title: string; descri
   profile: {
     kicker: 'Conta',
     title: 'Perfil',
-    description: 'Sessao, acesso e identidade do superadmin em um espaco mais direto e coerente com o restante da rede.',
+    description: 'Sessão, acesso e identidade do superadmin em um espaço mais direto e coerente com o restante da rede.',
   },
 };
 
@@ -177,16 +177,16 @@ const Layout: React.FC<LayoutProps> = ({
     navigationRole === UserRole.SUPERADMIN
       ? [
         { id: 'home', icon: Home, label: 'Central' },
-        { id: 'notifications', icon: Bell, label: 'Comunicacao' },
+        { id: 'notifications', icon: Bell, label: 'Comunicação' },
         { id: 'students', icon: Users, label: 'Alunos' },
-        { id: 'management', icon: Shield, label: 'Gestao' },
+        { id: 'management', icon: Shield, label: 'Gestão' },
         { id: 'learning', icon: BookOpen, label: 'Learning' },
         { id: 'profile', icon: UserIcon, label: 'Perfil' },
       ]
       : navigationRole === UserRole.PROFESSOR
         ? [
-          { id: 'home', icon: Home, label: 'Inicio' },
-          { id: 'calendar', icon: Calendar, label: 'Calendario' },
+          { id: 'home', icon: Home, label: 'Início' },
+          { id: 'calendar', icon: Calendar, label: 'Calendário' },
           { id: 'management', icon: Building2, label: 'Academia' },
           { id: 'notifications', icon: Bell, label: 'Avisos' },
           { id: 'learning', icon: BookOpen, label: 'Learning' },
@@ -194,17 +194,17 @@ const Layout: React.FC<LayoutProps> = ({
         ]
         : isStaff
           ? [
-            { id: 'home', icon: Home, label: 'Inicio' },
-            { id: 'calendar', icon: Calendar, label: 'Calendario' },
+            { id: 'home', icon: Home, label: 'Início' },
+            { id: 'calendar', icon: Calendar, label: 'Calendário' },
             { id: 'management', icon: Building2, label: 'Academia' },
             { id: 'notifications', icon: Bell, label: 'Avisos' },
             { id: 'learning', icon: BookOpen, label: 'Learning' },
             { id: 'profile', icon: UserIcon, label: 'Perfil' },
           ]
         : [
-        { id: 'home', icon: Home, label: 'Inicio' },
+        { id: 'home', icon: Home, label: 'Início' },
         { id: 'calendar', icon: Calendar, label: 'Aulas' },
-        { id: 'graduation', icon: Award, label: 'Graduacao' },
+        { id: 'graduation', icon: Award, label: 'Graduação' },
         { id: 'competition', icon: Trophy, label: 'Compete' },
         { id: 'notifications', icon: Bell, label: 'Avisos' },
         { id: 'profile', icon: UserIcon, label: 'Perfil' },
@@ -220,13 +220,13 @@ const Layout: React.FC<LayoutProps> = ({
   const professorVisionDisabled = superadminAcademies.length === 0;
 
   const renderVisionSwitch = () => (
-    <div className="app-vision-switch" role="group" aria-label="Trocar visao">
+    <div className="app-vision-switch" role="group" aria-label="Trocar visão">
       <button
         type="button"
         onClick={() => onSetSuperadminViewMode?.('superadmin')}
         className={`app-vision-switch__button ${!isProfessorVision ? 'is-active' : ''}`}
         aria-pressed={!isProfessorVision}
-        title="Visao da rede"
+        title="Visão da rede"
       >
         <Shield size={13} strokeWidth={2} />
         <span>Rede</span>
@@ -237,7 +237,7 @@ const Layout: React.FC<LayoutProps> = ({
         disabled={professorVisionDisabled}
         className={`app-vision-switch__button ${isProfessorVision ? 'is-active' : ''}`}
         aria-pressed={isProfessorVision}
-        title="Visao professor"
+        title="Visão professor"
       >
         <Building2 size={13} strokeWidth={2} />
         <span>Professor</span>
@@ -309,9 +309,9 @@ const Layout: React.FC<LayoutProps> = ({
           <img src="/logo3.png" alt="APPLevel" className="h-20 w-20 object-contain flex-shrink-0" />
           <div className="app-sidebar__brand-copy" aria-hidden={sidebarCollapsed}>
             <p className="app-kicker">Plataforma APPLevel</p>
-            <h2 className="app-sidebar__title">{isProfessorVision ? 'Visao professor' : 'Superadmin'}</h2>
+            <h2 className="app-sidebar__title">{isProfessorVision ? 'Visão professor' : 'Superadmin'}</h2>
             <p className="mt-1 text-xs text-[color:var(--text-soft)]">
-              {isProfessorVision ? 'Operacao por unidade' : 'Controle da rede'}
+              {isProfessorVision ? 'Operação por unidade' : 'Controle da rede'}
             </p>
           </div>
         </div>
@@ -328,7 +328,7 @@ const Layout: React.FC<LayoutProps> = ({
         </button>
       </div>
 
-      <nav className="app-sidebar__nav" aria-label="Navegacao do superadmin">
+      <nav className="app-sidebar__nav" aria-label="Navegação do superadmin">
         {navItems.map((item) => {
           const Icon = item.icon;
           const isActive = activeTab === item.id;
@@ -386,7 +386,7 @@ const Layout: React.FC<LayoutProps> = ({
 
                 <div className="app-mobile-header__title-row">
                   <div className="app-mobile-header__title-copy">
-                    <span className="app-mobile-header__eyebrow">Visao atual</span>
+                    <span className="app-mobile-header__eyebrow">Visão atual</span>
                     <p className="app-mobile-header__title">{currentPage.title}</p>
                   </div>
 
@@ -445,7 +445,7 @@ const Layout: React.FC<LayoutProps> = ({
         </div>
       </div>
 
-      <nav className={`app-toolbar safe-area-bottom ${isSuperAdmin ? 'app-toolbar--superadmin' : ''}`} aria-label="Navegacao principal">
+      <nav className={`app-toolbar safe-area-bottom ${isSuperAdmin ? 'app-toolbar--superadmin' : ''}`} aria-label="Navegação principal">
         <div className="app-toolbar__surface">
           <div className="app-toolbar__track" ref={navTrackRef}>
             <div

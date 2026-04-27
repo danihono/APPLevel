@@ -39,7 +39,7 @@ function toRules(lesson: FirestoreEntity<ClassRecord>) {
       ? 'Kids'
       : 'Livre';
   const grade = source.includes('advanced') || source.includes('avanc')
-    ? 'Intermediario/Avancado'
+    ? 'Intermediário/Avançado'
     : 'Todos os graus';
 
   return { sex, belt, grade };
@@ -108,7 +108,7 @@ const ClassSessionCard: React.FC<ClassSessionCardProps> = ({
             </div>
             <div>
               <p className="text-xs uppercase tracking-[0.18em] text-[color:var(--text-soft)]">Instrutor</p>
-              <p className="text-sm font-bold">{lesson.professorName || 'Equipe tecnica'}</p>
+              <p className="text-sm font-bold">{lesson.professorName || 'Equipe técnica'}</p>
             </div>
           </div>
         </div>

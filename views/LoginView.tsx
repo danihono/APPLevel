@@ -15,11 +15,11 @@ interface LoginViewProps {
 
 function getSignupPasswordError(password: string): string {
   if (password.length < 8) {
-    return 'A senha deve ter no minimo 8 caracteres.';
+    return 'A senha deve ter no mínimo 8 caracteres.';
   }
 
   if (!/[0-9]/.test(password)) {
-    return 'A senha deve conter pelo menos um numero.';
+    return 'A senha deve conter pelo menos um número.';
   }
 
   return '';
@@ -79,12 +79,12 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, initialError = '' }) => 
       setAcademyId((current) => current || records[0]?.academyId || '');
 
       if (records.length === 0) {
-        setSignupError('Nenhuma unidade ativa esta disponivel no momento.');
+        setSignupError('Nenhuma unidade ativa está disponível no momento.');
       }
     };
 
     const applyAcademyError = (fetchError: unknown) => {
-      setSignupError(fetchError instanceof Error ? fetchError.message : 'Nao foi possivel carregar as unidades.');
+      setSignupError(fetchError instanceof Error ? fetchError.message : 'Não foi possível carregar as unidades.');
     };
 
     const loadAcademies = async () => {
@@ -156,7 +156,7 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, initialError = '' }) => 
     try {
       await onLogin(email, password);
     } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : 'Nao foi possivel entrar agora.');
+      setError(submitError instanceof Error ? submitError.message : 'Não foi possível entrar agora.');
     } finally {
       setIsLoading(false);
     }
@@ -189,7 +189,7 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, initialError = '' }) => 
       });
       setMode('success');
     } catch (submitError) {
-      setSignupError(submitError instanceof Error ? submitError.message : 'Nao foi possivel enviar o cadastro.');
+      setSignupError(submitError instanceof Error ? submitError.message : 'Não foi possível enviar o cadastro.');
     } finally {
       setSignupLoading(false);
     }
@@ -232,7 +232,7 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, initialError = '' }) => 
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     className="lv-field__input"
-                    placeholder="voce@academia.com"
+                    placeholder="você@academia.com"
                     required
                   />
                 </div>
@@ -336,7 +336,7 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, initialError = '' }) => 
           {mode === 'signup' ? (
             <>
               <p className="app-note mt-4">
-                Seu cadastro fica pendente ate aprovacao do professor da unidade.
+                Seu cadastro fica pendente até aprovação do professor da unidade.
               </p>
 
               <form className="mt-6 app-form-grid" onSubmit={handleSignup}>
@@ -368,11 +368,11 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, initialError = '' }) => 
                     className="app-input"
                     minLength={8}
                     pattern="(?=.*[0-9]).{8,}"
-                    title="A senha deve ter no minimo 8 caracteres e conter pelo menos um numero."
+                    title="A senha deve ter no mínimo 8 caracteres e conter pelo menos um número."
                     autoComplete="new-password"
                     required
                   />
-                  <span className="app-field__hint">Use pelo menos 8 caracteres e 1 numero.</span>
+                  <span className="app-field__hint">Use pelo menos 8 caracteres e 1 número.</span>
                 </label>
 
                 <label className="app-field">
@@ -401,7 +401,7 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, initialError = '' }) => 
                     {academyLoading ? (
                       <option value="">Carregando unidades...</option>
                     ) : academyOptions.length === 0 ? (
-                      <option value="">Nenhuma unidade disponivel</option>
+                      <option value="">Nenhuma unidade disponível</option>
                     ) : (
                       academyOptions.map((academyOption) => (
                         <option key={academyOption.academyId} value={academyOption.academyId}>
@@ -429,7 +429,7 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, initialError = '' }) => 
                       required
                     />
                     <span className="app-field__hint">
-                      Se a lista nao carregar, voce ainda pode entrar com o ID da academia manualmente.
+                      Se a lista não carregar, você ainda pode entrar com o ID da academia manualmente.
                     </span>
                   </label>
                 ) : null}
@@ -461,7 +461,7 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, initialError = '' }) => 
                 <label className="app-field">
                   <span className="app-field__label">Competidor</span>
                   <select value={isCompetitor ? 'yes' : 'no'} onChange={(event) => setIsCompetitor(event.target.value === 'yes')} className="app-select">
-                    <option value="no">Nao</option>
+                    <option value="no">Não</option>
                     <option value="yes">Sim</option>
                   </select>
                 </label>
@@ -479,7 +479,7 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, initialError = '' }) => 
                 }}
                 className="mt-6 w-full text-sm font-semibold text-[color:var(--gold-mid)]"
               >
-                Ja tem login? Entrar
+                Já tem login? Entrar
               </button>
             </>
           ) : null}
@@ -487,7 +487,7 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, initialError = '' }) => 
           {mode === 'success' ? (
             <div className="mt-6 app-form-grid">
               <div className="app-alert app-alert--success">
-                Cadastro enviado com sucesso. Agora aguarde a aprovacao do professor da unidade antes de tentar entrar.
+                Cadastro enviado com sucesso. Agora aguarde a aprovação do professor da unidade antes de tentar entrar.
               </div>
 
               <button
