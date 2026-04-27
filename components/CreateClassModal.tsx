@@ -582,7 +582,7 @@ const CreateClassModal: React.FC<CreateClassModalProps> = ({
                 </div>
 
                 <p className="mt-3 text-sm text-[color:var(--text-muted)]">
-                  As aulas sem conflito foram gravadas. As ocorrencias abaixo ficaram de fora para voce ajustar depois.
+                  As aulas criadas foram gravadas. As ocorrencias abaixo ficaram de fora para voce ajustar depois.
                 </p>
 
                 <div className="mt-4 max-h-56 space-y-2 overflow-y-auto pr-1">

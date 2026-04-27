@@ -16,15 +16,6 @@ interface BatchOccurrence {
   scheduledEnd: Timestamp;
 }
 
-interface ExistingClassWindow {
-  id: string;
-  professorId: string;
-  tatame: string;
-  status: ClassDoc['status'];
-  scheduledStart: Timestamp;
-  scheduledEnd: Timestamp;
-}
-
 interface StoredClassEntry {
   id: string;
   data: ClassDoc;
@@ -88,14 +79,6 @@ function buildQrResponse(classId: string, academyId: string, token: string, expi
     }),
     qrToken: token,
   };
-}
-
-function normalizeTatame(value: string): string {
-  return value.trim().toLowerCase();
-}
-
-function overlaps(leftStart: Timestamp, leftEnd: Timestamp, rightStart: Timestamp, rightEnd: Timestamp): boolean {
-  return leftStart.toMillis() < rightEnd.toMillis() && leftEnd.toMillis() > rightStart.toMillis();
 }
 
 function parseOccurrences(data: unknown): BatchOccurrence[] {
@@ -162,36 +145,6 @@ function parseUpdateScope(data: unknown): 'future' {
   const scope = optionalString(data, 'scope') ?? 'future';
   assertCondition(scope === 'future', 'invalid-argument', 'scope precisa ser "future".');
   return scope;
-}
-
-function resolveConflictReason(
-  professorId: string,
-  tatameKey: string,
-  existingClass: ExistingClassWindow,
-): string {
-  const professorConflict = existingClass.professorId === professorId;
-  const tatameConflict = normalizeTatame(existingClass.tatame) === tatameKey;
-
-  if (professorConflict && tatameConflict) {
-    return 'Conflito de horario com professor e tatame.';
-  }
-
-  if (professorConflict) {
-    return 'Conflito de horario para o professor.';
-  }
-
-  return 'Conflito de horario para o tatame.';
-}
-
-function toClassWindow(entry: StoredClassEntry): ExistingClassWindow {
-  return {
-    id: entry.id,
-    professorId: entry.data.professorId,
-    tatame: entry.data.tatame,
-    status: entry.data.status,
-    scheduledStart: entry.data.scheduledStart,
-    scheduledEnd: entry.data.scheduledEnd,
-  };
 }
 
 function buildSkippedItem(entry: StoredClassEntry, reason: string): ClassMutationSkippedItem {
@@ -271,38 +224,6 @@ async function deleteClassesAndRsvps(classIds: string[]): Promise<void> {
   }));
 
   await commitWriteOperations(operations);
-}
-
-async function listConflictingClasses(params: {
-  academyId: string;
-  firstStart: Timestamp;
-  lastEnd: Timestamp;
-  ignoredIds?: Set<string>;
-}): Promise<ExistingClassWindow[]> {
-  const snapshot = await db.collection(COLLECTIONS.classes)
-    .where('academyId', '==', params.academyId)
-    .where('scheduledStart', '<=', params.lastEnd)
-    .orderBy('scheduledStart', 'asc')
-    .get();
-
-  return snapshot.docs
-    .map((doc) => ({
-      id: doc.id,
-      ...(doc.data() as ClassDoc),
-    }))
-    .filter((entry) =>
-      !params.ignoredIds?.has(entry.id)
-      && entry.status !== 'cancelled'
-      && entry.scheduledEnd.toMillis() > params.firstStart.toMillis(),
-    )
-    .map((entry) => ({
-      id: entry.id,
-      professorId: entry.professorId,
-      tatame: entry.tatame,
-      status: entry.status,
-      scheduledStart: entry.scheduledStart,
-      scheduledEnd: entry.scheduledEnd,
-    }));
 }
 
 export const upsertClassSchedule = onCall(callableOptions, async (request) => {
@@ -404,47 +325,12 @@ export const createClassScheduleBatch = onCall(callableOptions, async (request) 
     'Voce so pode criar aulas na propria unidade.',
   );
 
-  const firstStart = occurrences[0].scheduledStart;
-  const lastEnd = occurrences[occurrences.length - 1].scheduledEnd;
-  const tatameKey = normalizeTatame(tatame);
   const recurrenceSeriesId = seriesMode === 'recurring' ? db.collection(COLLECTIONS.classes).doc().id : undefined;
-  const existingClasses = await listConflictingClasses({
-    academyId,
-    firstStart,
-    lastEnd,
-  });
 
   const now = Timestamp.now();
   const batch = db.batch();
-  const acceptedOccurrences: BatchOccurrence[] = [];
-  const skipped: Array<{ scheduledStart: string; reason: string }> = [];
 
   for (const occurrence of occurrences) {
-    const conflictWithExisting = existingClasses.find((entry) =>
-      overlaps(occurrence.scheduledStart, occurrence.scheduledEnd, entry.scheduledStart, entry.scheduledEnd)
-      && (entry.professorId === professorId || normalizeTatame(entry.tatame) === tatameKey),
-    );
-
-    if (conflictWithExisting) {
-      skipped.push({
-        scheduledStart: occurrence.scheduledStart.toDate().toISOString(),
-        reason: resolveConflictReason(professorId, tatameKey, conflictWithExisting),
-      });
-      continue;
-    }
-
-    const conflictWithAccepted = acceptedOccurrences.find((entry) =>
-      overlaps(occurrence.scheduledStart, occurrence.scheduledEnd, entry.scheduledStart, entry.scheduledEnd),
-    );
-
-    if (conflictWithAccepted) {
-      skipped.push({
-        scheduledStart: occurrence.scheduledStart.toDate().toISOString(),
-        reason: 'Conflito de horario com professor e tatame.',
-      });
-      continue;
-    }
-
     const classRef = db.collection(COLLECTIONS.classes).doc();
     const payload: ClassDoc = {
       academyId,
@@ -470,18 +356,15 @@ export const createClassScheduleBatch = onCall(callableOptions, async (request) 
     };
 
     batch.set(classRef, payload);
-    acceptedOccurrences.push(occurrence);
   }
 
-  if (acceptedOccurrences.length > 0) {
-    await batch.commit();
-  }
+  await batch.commit();
 
   return {
     requestedCount: occurrences.length,
-    createdCount: acceptedOccurrences.length,
-    skippedCount: skipped.length,
-    skipped,
+    createdCount: occurrences.length,
+    skippedCount: 0,
+    skipped: [],
   };
 });
 
@@ -540,63 +423,16 @@ export const updateRecurringClassSeries = onCall(callableOptions, async (request
 
   const deltaStartMillis = scheduledStart.toMillis() - anchorData.scheduledStart.toMillis();
   const deltaEndMillis = scheduledEnd.toMillis() - anchorData.scheduledEnd.toMillis();
-  const tatameKey = normalizeTatame(tatame);
-  const scheduledTargetIds = new Set(scheduledTargets.map((entry) => entry.id));
   const scheduledTargetWindows = scheduledTargets.map((entry) => ({
     entry,
     nextStart: Timestamp.fromMillis(entry.data.scheduledStart.toMillis() + deltaStartMillis),
     nextEnd: Timestamp.fromMillis(entry.data.scheduledEnd.toMillis() + deltaEndMillis),
   }));
-  const firstNextStart = scheduledTargetWindows.reduce(
-    (current, item) => (item.nextStart.toMillis() < current.toMillis() ? item.nextStart : current),
-    scheduledTargetWindows[0].nextStart,
-  );
-  const lastNextEnd = scheduledTargetWindows.reduce(
-    (current, item) => (item.nextEnd.toMillis() > current.toMillis() ? item.nextEnd : current),
-    scheduledTargetWindows[0].nextEnd,
-  );
-  const stationaryWindows = await listConflictingClasses({
-    academyId: anchorData.academyId,
-    firstStart: firstNextStart,
-    lastEnd: lastNextEnd,
-    ignoredIds: scheduledTargetIds,
-  });
-  const acceptedUpdates: ScheduledClassUpdate[] = [];
-  const acceptedWindows: ExistingClassWindow[] = [];
-  const skippedStationaryWindows: ExistingClassWindow[] = [];
-  const orderedTargets = [...scheduledTargetWindows].sort((left, right) => (
-    deltaStartMillis >= 0
-      ? right.entry.data.scheduledStart.toMillis() - left.entry.data.scheduledStart.toMillis()
-      : left.entry.data.scheduledStart.toMillis() - right.entry.data.scheduledStart.toMillis()
-  ));
-
-  for (const item of orderedTargets) {
-    const conflictPool = [...stationaryWindows, ...acceptedWindows, ...skippedStationaryWindows];
-    const conflict = conflictPool.find((entry) =>
-      overlaps(item.nextStart, item.nextEnd, entry.scheduledStart, entry.scheduledEnd)
-      && (entry.professorId === professorId || normalizeTatame(entry.tatame) === tatameKey),
-    );
-
-    if (conflict) {
-      skipped.push(buildSkippedItem(item.entry, resolveConflictReason(professorId, tatameKey, conflict)));
-      skippedStationaryWindows.push(toClassWindow(item.entry));
-      continue;
-    }
-
-    acceptedUpdates.push({
-      classId: item.entry.id,
-      scheduledStart: item.nextStart,
-      scheduledEnd: item.nextEnd,
-    });
-    acceptedWindows.push({
-      id: item.entry.id,
-      professorId,
-      tatame,
-      status: 'scheduled',
-      scheduledStart: item.nextStart,
-      scheduledEnd: item.nextEnd,
-    });
-  }
+  const acceptedUpdates: ScheduledClassUpdate[] = scheduledTargetWindows.map((item) => ({
+    classId: item.entry.id,
+    scheduledStart: item.nextStart,
+    scheduledEnd: item.nextEnd,
+  }));
 
   const now = Timestamp.now();
   const operations: WriteOperation[] = acceptedUpdates.map((entry) => ({
