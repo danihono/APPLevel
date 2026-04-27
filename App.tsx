@@ -2042,6 +2042,7 @@ const App: React.FC = () => {
               branch={branch}
               monthlyAttendanceCount={attendanceThisMonth.length}
               attendanceDays={attendanceDays}
+              progressionRules={resolvedAcademy.progressionRules}
             />
           );
       case 'calendar': {
@@ -2234,6 +2235,7 @@ const App: React.FC = () => {
             branch={branch}
             monthlyAttendanceCount={attendanceThisMonth.length}
             attendanceDays={attendanceDays}
+            progressionRules={resolvedAcademy.progressionRules}
           />
         );
     }

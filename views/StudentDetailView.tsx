@@ -162,6 +162,9 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
         stripes: studentGrade,
         kidsCategory: studentTrack === 'Kids' ? studentKidsCategory : '',
       });
+      if (onSetStudentAttendanceBonus) {
+        await onSetStudentAttendanceBonus({ userId: student.id, attendanceCountBonus: attendanceBonus });
+      }
       setFeedback('Graduacao do aluno atualizada com sucesso.');
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : 'Nao foi possivel atualizar a graduacao.');
@@ -198,6 +201,7 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
         onClose={() => setShowEditModal(false)}
         onAdminUpdateStudentProfile={onAdminUpdateStudentProfile}
         onAdminUpdateStudentTimeline={onAdminUpdateStudentTimeline}
+        onSetStudentAttendanceBonus={onSetStudentAttendanceBonus}
       />
     );
   }
@@ -323,6 +327,20 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
               />
             </label>
 
+            {onSetStudentAttendanceBonus ? (
+              <label className="app-field">
+                <span className="app-field__label">Aulas anteriores</span>
+                <input
+                  type="number"
+                  min={0}
+                  value={attendanceBonus}
+                  onChange={(event) => setAttendanceBonus(Math.max(0, Math.floor(Number(event.target.value) || 0)))}
+                  className="app-input"
+                />
+                <span className="app-field__hint">Aulas realizadas antes do cadastro no sistema</span>
+              </label>
+            ) : null}
+
             {studentTrack === 'Kids' ? (
               <label className="app-field md:col-span-2">
                 <span className="app-field__label">Categoria kids</span>
@@ -359,30 +377,29 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
               <BookOpen size={18} />
             </div>
             <div>
-              <p className="app-section-label">Aulas nao contabilizadas</p>
-              <h2 className="text-xl font-bold">Ajuste de presencas</h2>
+              <p className="app-section-label">Aulas anteriores</p>
+              <h2 className="text-xl font-bold">Aulas antes do cadastro</h2>
             </div>
           </div>
 
           <p className="mt-4 text-sm text-[color:var(--text-muted)]">
-            Informe quantas aulas devem ser somadas ou removidas do contador deste aluno. Use valores positivos para adicionar e negativos para remover presencas.
+            Informe quantas aulas o aluno ja realizou antes de ser cadastrado no sistema. Esse valor sera somado aos check-ins futuros.
           </p>
 
           <div className="mt-6">
             <label className="app-field">
-              <span className="app-field__label">Ajuste de aulas (positivo ou negativo)</span>
+              <span className="app-field__label">Aulas anteriores</span>
               <input
                 type="number"
+                min={0}
                 value={attendanceBonus}
-                onChange={(event) => setAttendanceBonus(Math.floor(Number(event.target.value) || 0))}
+                onChange={(event) => setAttendanceBonus(Math.max(0, Math.floor(Number(event.target.value) || 0)))}
                 className="app-input"
               />
               <span className="app-field__hint">
                 {attendanceBonus > 0
-                  ? `${attendanceBonus} aula(s) serao somadas ao total do aluno`
-                  : attendanceBonus < 0
-                    ? `${Math.abs(attendanceBonus)} aula(s) serao removidas do total do aluno`
-                    : 'Nenhum ajuste aplicado'}
+                  ? `${attendanceBonus} aula(s) anteriores somadas ao total do aluno`
+                  : 'Nenhuma aula anterior registrada'}
               </span>
             </label>
           </div>

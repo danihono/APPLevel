@@ -1,5 +1,13 @@
-import React, { useEffect, useState } from 'react';
-import { beltLabel } from '../beltCatalog';
+import React, { useEffect, useMemo, useState } from 'react';
+import {
+  beltLabel,
+  getClassesToNextBelt,
+  inferKidsCategoryFromBirthDate,
+  isKidsOnlyBelt,
+  normalizeBeltId,
+  normalizeProgressionRules,
+  type ProgressionRules,
+} from '../beltCatalog';
 import { Calendar as CalIcon, Sparkles, Trophy } from 'lucide-react';
 import BjjBelt from '../components/BjjBelt';
 import ProgressBar from '../components/ProgressBar';
@@ -10,6 +18,7 @@ interface HomeViewProps {
   branch: Branch;
   monthlyAttendanceCount: number;
   attendanceDays: number[];
+  progressionRules?: ProgressionRules | null;
 }
 
 const HomeView: React.FC<HomeViewProps> = ({
@@ -17,9 +26,21 @@ const HomeView: React.FC<HomeViewProps> = ({
   branch,
   monthlyAttendanceCount,
   attendanceDays,
+  progressionRules,
 }) => {
   const [advice, setAdvice] = useState<string>('Carregando dica do mestre...');
   const today = new Date();
+
+  const normalizedRules = useMemo(() => normalizeProgressionRules(progressionRules), [progressionRules]);
+  const beltId = normalizeBeltId(user.belt);
+  const isKids = isKidsOnlyBelt(beltId) || user.type === 'Kids';
+  const kidsCategory = user.kidsCategory ?? inferKidsCategoryFromBirthDate(user.birthDate) ?? 'level_infantil';
+  const activeRules = isKids
+    ? (normalizedRules.kids[kidsCategory as keyof typeof normalizedRules.kids]?.belts ?? normalizedRules.adult.belts)
+    : normalizedRules.adult.belts;
+  const currentRule = activeRules.find((r) => normalizeBeltId(r.belt) === beltId) ?? activeRules[0];
+  const classesToNextStripe = currentRule && currentRule.stripeEvery > 0 ? currentRule.stripeEvery : user.classesToNextStripe;
+  const totalClassesToNextBelt = currentRule && currentRule.stripeEvery > 0 ? getClassesToNextBelt(currentRule) : user.totalClassesToNextBelt;
   const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
   const attendedDays = new Set(attendanceDays);
 
@@ -96,12 +117,12 @@ const HomeView: React.FC<HomeViewProps> = ({
           <ProgressBar
             label="Proximo grau"
             current={user.currentStripeProgress}
-            total={user.classesToNextStripe}
+            total={classesToNextStripe}
           />
           <ProgressBar
             label="Proxima faixa"
             current={user.currentBeltProgress}
-            total={user.totalClassesToNextBelt}
+            total={totalClassesToNextBelt}
           />
         </div>
       </section>

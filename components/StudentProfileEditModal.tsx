@@ -20,6 +20,7 @@ interface StudentProfileEditModalProps {
     lastGraduationDateOverride?: string;
     lastStripeDateOverride?: string;
   }) => Promise<void>;
+  onSetStudentAttendanceBonus?: (payload: { userId: string; attendanceCountBonus: number }) => Promise<void>;
 }
 
 function toInputDate(isoOrFormatted?: string): string {
@@ -34,6 +35,7 @@ const StudentProfileEditModal: React.FC<StudentProfileEditModalProps> = ({
   onClose,
   onAdminUpdateStudentProfile,
   onAdminUpdateStudentTimeline,
+  onSetStudentAttendanceBonus,
 }) => {
   const [firstName, setFirstName] = useState(student.firstName ?? student.name.split(' ')[0] ?? '');
   const [lastName, setLastName] = useState(
@@ -47,6 +49,7 @@ const StudentProfileEditModal: React.FC<StudentProfileEditModalProps> = ({
   const [trainingStartDate, setTrainingStartDate] = useState(toInputDate(student.trainingStartDate ?? student.startDate));
   const [lastGraduationDate, setLastGraduationDate] = useState(toInputDate(student.lastGraduationDateOverride ?? student.lastGraduation));
   const [lastStripeDate, setLastStripeDate] = useState(toInputDate(student.lastStripeDateOverride ?? student.lastStripeDate));
+  const [attendanceBonus, setAttendanceBonus] = useState(student.attendanceCountBonus ?? 0);
 
   const [busy, setBusy] = useState(false);
   const [feedback, setFeedback] = useState('');
@@ -80,6 +83,10 @@ const StudentProfileEditModal: React.FC<StudentProfileEditModalProps> = ({
           lastGraduationDateOverride: lastGraduationDate || undefined,
           lastStripeDateOverride: lastStripeDate || undefined,
         });
+      }
+
+      if (onSetStudentAttendanceBonus) {
+        await onSetStudentAttendanceBonus({ userId: student.id, attendanceCountBonus: attendanceBonus });
       }
 
       setFeedback('Dados do aluno atualizados com sucesso.');
@@ -248,6 +255,20 @@ const StudentProfileEditModal: React.FC<StudentProfileEditModalProps> = ({
               />
               <span className="app-field__hint">Substitui a data calculada automaticamente pelo sistema</span>
             </label>
+
+            {onSetStudentAttendanceBonus ? (
+              <label className="app-field">
+                <span className="app-field__label">Aulas anteriores</span>
+                <input
+                  type="number"
+                  min={0}
+                  value={attendanceBonus}
+                  onChange={(e) => setAttendanceBonus(Math.max(0, Math.floor(Number(e.target.value) || 0)))}
+                  className="app-input"
+                />
+                <span className="app-field__hint">Aulas realizadas antes do cadastro no sistema</span>
+              </label>
+            ) : null}
           </div>
         </section>
 

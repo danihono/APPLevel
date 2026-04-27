@@ -48,9 +48,9 @@ const GraduationView: React.FC<GraduationViewProps> = ({
   const currentRule = activeRules.find((entry) => normalizeBeltId(entry.belt) === currentBeltId) ?? activeRules[0];
 
   const stripeProgress = Math.max(0, user.currentStripeProgress ?? 0);
-  const stripeTotal = Math.max(0, user.classesToNextStripe ?? 0);
+  const stripeTotal = currentRule.stripeEvery > 0 ? currentRule.stripeEvery : Math.max(0, user.classesToNextStripe ?? 0);
   const beltProgress = Math.max(0, user.currentBeltProgress ?? 0);
-  const beltTotal = Math.max(0, user.totalClassesToNextBelt ?? 0);
+  const beltTotal = currentRule.stripeEvery > 0 ? getClassesToNextBelt(currentRule) : Math.max(0, user.totalClassesToNextBelt ?? 0);
   const nextStripeRemaining = stripeTotal > 0 ? Math.max(stripeTotal - stripeProgress, 0) : null;
   const nextBeltRemaining = beltTotal > 0 ? Math.max(beltTotal - beltProgress, 0) : null;
   const examWindow = (nextBeltRemaining !== null && nextBeltRemaining <= 5)
