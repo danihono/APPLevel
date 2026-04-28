@@ -63,8 +63,7 @@ function isKnownStaleAdultSegment(segment: ProgressionRuleSegment): boolean {
     const entry = byBelt.get(belt);
     return !!entry
       && Math.max(0, Math.floor(entry.stripeEvery)) === 30
-      && Math.max(0, Math.floor(entry.maxStripes)) === 4
-      && getClassesToNextBelt(entry) === 150;
+      && Math.max(0, Math.floor(entry.maxStripes)) === 4;
   });
 }
 

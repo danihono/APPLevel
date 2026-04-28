@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
+  ADULT_BELTS,
   beltLabel,
   getUserProgressionSummary,
   type ProgressionRules,
@@ -47,6 +48,7 @@ interface ProfileViewProps {
     isCompetitor?: boolean;
     photoFile?: File | null;
   }) => Promise<void>;
+  onSaveBeltGrade?: (payload: { belt: string; grade: number; stripes: number; attendanceCountBonus: number }) => Promise<void>;
   onChangeEmail: (nextEmail: string, currentPassword: string) => Promise<void>;
   onOpenNotifications?: () => void;
   onLogout: () => void | Promise<void>;
@@ -78,6 +80,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({
   isDarkMode,
   onSetThemeMode,
   onSaveProfile,
+  onSaveBeltGrade,
   onChangeEmail,
   onOpenNotifications,
   onLogout,
@@ -94,6 +97,12 @@ const ProfileView: React.FC<ProfileViewProps> = ({
   const [staffPhotoBusy, setStaffPhotoBusy] = useState(false);
   const [staffPhotoFeedback, setStaffPhotoFeedback] = useState('');
   const [staffPhotoError, setStaffPhotoError] = useState('');
+  const [staffBelt, setStaffBelt] = useState(profile.belt);
+  const [staffStripes, setStaffStripes] = useState(profile.stripes);
+  const [staffAttendanceCountBonus, setStaffAttendanceCountBonus] = useState(profile.attendanceCountBonus ?? 0);
+  const [beltGradeBusy, setBeltGradeBusy] = useState(false);
+  const [beltGradeFeedback, setBeltGradeFeedback] = useState('');
+  const [beltGradeError, setBeltGradeError] = useState('');
   const [feedback, setFeedback] = useState('');
   const [error, setError] = useState('');
   const [newEmail, setNewEmail] = useState(user.email);
@@ -142,7 +151,25 @@ const ProfileView: React.FC<ProfileViewProps> = ({
     setBirthDate(profile.birthDate || '');
     setIsCompetitor(profile.isCompetitor ?? false);
     setNewEmail(profile.email);
-  }, [profile.birthDate, profile.cpf, profile.email, profile.firstName, profile.isCompetitor, profile.lastName, profile.phone]);
+    setStaffBelt(profile.belt);
+    setStaffStripes(profile.stripes);
+    setStaffAttendanceCountBonus(profile.attendanceCountBonus ?? 0);
+  }, [profile.attendanceCountBonus, profile.belt, profile.birthDate, profile.cpf, profile.email, profile.firstName, profile.isCompetitor, profile.lastName, profile.phone, profile.stripes]);
+
+  async function handleBeltGradeSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setBeltGradeBusy(true);
+    setBeltGradeFeedback('');
+    setBeltGradeError('');
+    try {
+      await onSaveBeltGrade!({ belt: staffBelt, grade: staffStripes, stripes: staffStripes, attendanceCountBonus: staffAttendanceCountBonus });
+      setBeltGradeFeedback('Faixa e grau atualizados com sucesso.');
+    } catch (err) {
+      setBeltGradeError(err instanceof Error ? err.message : 'Não foi possível salvar.');
+    } finally {
+      setBeltGradeBusy(false);
+    }
+  }
 
   async function handleStaffSettingsSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -342,6 +369,44 @@ const ProfileView: React.FC<ProfileViewProps> = ({
                         {busy ? 'Salvando...' : 'Salvar telefone'}
                       </button>
                     </form>
+
+                    {onSaveBeltGrade ? (
+                      <form onSubmit={(e) => void handleBeltGradeSubmit(e)} className="space-y-3 pt-3 border-t border-white/10">
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-[color:var(--text-soft)] pt-1">Faixa e Grau</p>
+                        {beltGradeFeedback ? <div className="app-alert app-alert--success">{beltGradeFeedback}</div> : null}
+                        {beltGradeError ? <div className="app-alert app-alert--error">{beltGradeError}</div> : null}
+                        <label className="app-field">
+                          <span className="app-field__label">Faixa</span>
+                          <select value={staffBelt} onChange={(e) => setStaffBelt(e.target.value)} className="app-select">
+                            {ADULT_BELTS.map((b) => (
+                              <option key={b} value={b}>{beltLabel(b)}</option>
+                            ))}
+                          </select>
+                        </label>
+                        <label className="app-field">
+                          <span className="app-field__label">Grau</span>
+                          <select value={staffStripes} onChange={(e) => setStaffStripes(Number(e.target.value))} className="app-select">
+                            {[0, 1, 2, 3, 4].map((g) => (
+                              <option key={g} value={g}>{g}º grau</option>
+                            ))}
+                          </select>
+                        </label>
+                        <label className="app-field">
+                          <span className="app-field__label">Aulas bônus</span>
+                          <input
+                            type="number"
+                            min="0"
+                            value={staffAttendanceCountBonus}
+                            onChange={(e) => setStaffAttendanceCountBonus(Math.max(0, Number(e.target.value)))}
+                            className="app-input"
+                          />
+                        </label>
+                        <button type="submit" disabled={beltGradeBusy} className="app-button app-button--gold app-button--block app-button--small">
+                          <Save size={14} />
+                          {beltGradeBusy ? 'Salvando...' : 'Salvar faixa e grau'}
+                        </button>
+                      </form>
+                    ) : null}
 
                     <form onSubmit={(e) => void handleEmailSubmit(e)} className="space-y-3 pt-3 border-t border-white/10">
                       <p className="text-[10px] font-bold uppercase tracking-widest text-[color:var(--text-soft)] pt-1">Alterar e-mail</p>

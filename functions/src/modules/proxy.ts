@@ -58,6 +58,7 @@ const ALLOWED_CALLABLES = new Set([
   'startLessonQuiz',
   'submitLessonQuiz',
   'setStudentAttendanceBonus',
+  'updateOwnStaffBeltGrade',
   'adminUpdateStudentProfile',
   'adminUpdateStudentTimeline',
   'toggleClassRsvp',

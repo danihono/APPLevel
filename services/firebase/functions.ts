@@ -130,6 +130,9 @@ export const backendFunctions = {
   setStudentAttendanceBonus: (payload: { userId: string; attendanceCountBonus: number }) =>
     callFunction<{ userId: string; attendanceCountBonus: number }>('setStudentAttendanceBonus', payload),
 
+  updateOwnStaffBeltGrade: (payload: { belt: string; grade: number; stripes?: number; attendanceCountBonus?: number }) =>
+    callFunction<{ userId: string; belt: string; grade: number; stripes: number; attendanceCountBonus: number }>('updateOwnStaffBeltGrade', payload),
+
   adminUpdateStudentProfile: (payload: {
     userId: string;
     firstName?: string;

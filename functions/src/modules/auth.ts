@@ -991,6 +991,37 @@ export const setStudentAttendanceBonus = onCall(callableOptions, async (request)
   return { userId: targetUserId, attendanceCountBonus };
 });
 
+export const updateOwnStaffBeltGrade = onCall(callableOptions, async (request) => {
+  const actor = await getRequestContext(request, 'professor');
+  assertProfessorOrSuperadmin(actor.role);
+
+  const data = (request.data as Record<string, unknown> | null) ?? {};
+  const belt = normalizeBeltId(requiredString(request.data, 'belt'));
+  const grade = Math.max(0, Math.floor(requiredNumber(request.data, 'grade')));
+  const stripes = Math.max(0, Math.floor(optionalNumber(request.data, 'stripes') ?? grade));
+  const attendanceCountBonus = Object.prototype.hasOwnProperty.call(data, 'attendanceCountBonus')
+    ? Math.max(0, Math.floor(requiredNumber(request.data, 'attendanceCountBonus')))
+    : (actor.user.attendanceCountBonus ?? 0);
+
+  await applyStudentBeltGradeUpdate({
+    targetUserId: actor.uid,
+    targetUser: actor.user,
+    belt,
+    grade,
+    stripes,
+    hasKidsCategoryField: false,
+  });
+
+  await db.collection(COLLECTIONS.users).doc(actor.uid).update({
+    attendanceCountBonus,
+    updatedAt: Timestamp.now(),
+  });
+
+  await syncUserDerivedState(actor.uid, actor.user.academyId);
+
+  return { userId: actor.uid, belt, grade, stripes, attendanceCountBonus };
+});
+
 export const approveGraduationRequest = onCall(callableOptions, async (request) => {
   const actor = await getRequestContext(request, 'professor');
   assertProfessorOrSuperadmin(actor.role);

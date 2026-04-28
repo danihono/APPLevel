@@ -15,6 +15,7 @@ import {
   syncOwnUserEmail,
   submitStudentSignup,
   updateOwnStudentProfile,
+  updateOwnStaffBeltGrade,
   updateStudentBeltGrade,
   validateSessionAccess,
 } from './modules/auth';
@@ -132,6 +133,7 @@ export {
   adminUpdateStudentProfile,
   adminUpdateStudentTimeline,
   updateOwnStudentProfile,
+  updateOwnStaffBeltGrade,
   updateStudentBeltGrade,
   upsertAcademyProgressionRules,
   upsertClassSchedule,

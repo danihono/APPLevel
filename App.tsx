@@ -1745,6 +1745,15 @@ const App: React.FC = () => {
     }
   }
 
+  async function handleSaveOwnBeltGrade(payload: { belt: string; grade: number; stripes: number; attendanceCountBonus: number }) {
+    if (!authUser) throw new Error('Sessao invalida.');
+    try {
+      await backendFunctions.updateOwnStaffBeltGrade(payload);
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
+  }
+
   async function handleChangeOwnEmail(nextEmail: string, currentPassword: string) {
     try {
       await updateSignedInEmail(currentPassword, nextEmail);
@@ -2249,6 +2258,7 @@ const App: React.FC = () => {
             isDarkMode={isDarkMode}
             onSetThemeMode={setThemeMode}
             onSaveProfile={handleSaveOwnProfile}
+            onSaveBeltGrade={profile?.role !== 'student' ? handleSaveOwnBeltGrade : undefined}
             onChangeEmail={handleChangeOwnEmail}
             onOpenNotifications={() => setActiveTab('notifications')}
             onLogout={handleLogout}
