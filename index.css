@@ -2927,6 +2927,17 @@ html.dark .app-button--ghost {
   background: linear-gradient(180deg, rgba(215, 75, 75, 0.16), rgba(215, 75, 75, 0.08));
 }
 
+.app-button--solid-danger {
+  color: #fff;
+  background: var(--danger, #e05252);
+  border-color: transparent;
+  box-shadow: 0 4px 14px rgba(215, 75, 75, 0.35);
+}
+
+.app-button--solid-danger::after {
+  opacity: 0;
+}
+
 .app-button--chip {
   min-height: 2.85rem;
   padding-inline: 0.95rem;

@@ -187,6 +187,32 @@ export const registerAttendance = onCall(callableOptions, async (request) => {
   };
 });
 
+export const removeAttendance = onCall(callableOptions, async (request) => {
+  const actor = await getRequestContext(request, 'professor');
+  assertCondition(
+    actor.role === 'professor' || actor.role === 'superadmin',
+    'permission-denied',
+    'Somente professores ou superadmin podem remover presenças.',
+  );
+
+  const classId = requiredString(request.data, 'classId');
+  const targetUserId = requiredString(request.data, 'targetUserId');
+
+  const snapshot = await db
+    .collection(COLLECTIONS.attendances)
+    .where('academyId', '==', actor.academyId)
+    .where('classId', '==', classId)
+    .where('userId', '==', targetUserId)
+    .limit(1)
+    .get();
+
+  assertCondition(!snapshot.empty, 'not-found', 'Presença não encontrada.');
+
+  await snapshot.docs[0].ref.delete();
+
+  return { classId, userId: targetUserId };
+});
+
 export const submitAttendanceRequest = onCall(callableOptions, async (request) => {
   const actor = await getRequestContext(request, 'student');
   assertCondition(actor.role === 'student', 'permission-denied', 'Somente alunos podem solicitar presenca.');

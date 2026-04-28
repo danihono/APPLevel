@@ -233,6 +233,9 @@ export const backendFunctions = {
     targetUserId?: string;
   }) => callFunction<{ attendanceId: string; classId: string; userId: string; method: string }>('registerAttendance', payload),
 
+  removeAttendance: (payload: { classId: string; targetUserId: string }) =>
+    callFunction<{ classId: string; userId: string }>('removeAttendance', payload),
+
   submitAttendanceRequest: (payload: { classId: string }) =>
     callFunction<{ requestId: string; classId: string; status: AttendanceRequestStatus }>('submitAttendanceRequest', payload),
 

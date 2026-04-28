@@ -49,6 +49,7 @@ interface CalendarViewProps {
   onRegisterAttendance: (classId: string, qrToken?: string) => Promise<void>;
   onSubmitAttendanceRequest: (classId: string) => Promise<void>;
   onMarkStudentPresent?: (classId: string, targetUserId: string) => Promise<void>;
+  onRemoveStudentPresent?: (classId: string, targetUserId: string) => Promise<void>;
 }
 
 type CalendarSurface = 'calendar' | 'today';
@@ -517,6 +518,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
   onRegisterAttendance,
   onSubmitAttendanceRequest,
   onMarkStudentPresent,
+  onRemoveStudentPresent,
 }) => {
   const isStaff = userRole === UserRole.PROFESSOR || userRole === UserRole.SUPERADMIN;
   const today = useMemo(() => stripDate(new Date()), []);
@@ -936,6 +938,21 @@ const CalendarView: React.FC<CalendarViewProps> = ({
       setMessageByClass((prev) => ({
         ...prev,
         [classId]: error instanceof Error ? error.message : 'Erro ao marcar presença.',
+      }));
+    } finally {
+      setBusyByClass((prev) => ({ ...prev, [busyKey]: false }));
+    }
+  }
+
+  async function handleRemoveStudentPresent(classId: string, studentId: string) {
+    const busyKey = `remove_${studentId}`;
+    setBusyByClass((prev) => ({ ...prev, [busyKey]: true }));
+    try {
+      await onRemoveStudentPresent?.(classId, studentId);
+    } catch (error) {
+      setMessageByClass((prev) => ({
+        ...prev,
+        [classId]: error instanceof Error ? error.message : 'Erro ao remover presença.',
       }));
     } finally {
       setBusyByClass((prev) => ({ ...prev, [busyKey]: false }));
@@ -1500,6 +1517,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                         filteredPresencaStudents.map((student) => {
                           const record = classAttendances.find((a) => a.userId === student.id);
                           const markBusy = !!busyByClass[`manual_${student.id}`];
+                          const removeBusy = !!busyByClass[`remove_${student.id}`];
                           return (
                             <div key={student.id} className="app-list-card" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                               {record ? (
@@ -1513,14 +1531,20 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                                 </p>
                                 {record ? (
                                   <p style={{ fontSize: '0.72rem', color: 'var(--text-soft)', marginTop: 2 }}>
-                                    {record.checkedInAt ? formatTimeLabel(record.checkedInAt) : '-'}
+                                    {record.checkedInAt ? formatTimeLabel(record.checkedInAt) : '-'} · {methodLabel(record.checkInMethod)}
                                   </p>
                                 ) : null}
                               </div>
                               {record ? (
-                                <span className={methodBadgeClass(record.checkInMethod)} style={{ flexShrink: 0, fontSize: '0.65rem' }}>
-                                  {methodLabel(record.checkInMethod)}
-                                </span>
+                                <button
+                                  type="button"
+                                  disabled={removeBusy}
+                                  onClick={() => void handleRemoveStudentPresent(selectedClass.id, student.id)}
+                                  className="app-button app-button--solid-danger app-button--small"
+                                  style={{ fontSize: '0.7rem', padding: '4px 10px', flexShrink: 0 }}
+                                >
+                                  {removeBusy ? '...' : 'Desmarcar'}
+                                </button>
                               ) : (
                                 <button
                                   type="button"

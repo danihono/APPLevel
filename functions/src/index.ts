@@ -33,6 +33,7 @@ import {
   onAttendanceDeleted,
   rejectAttendanceRequest,
   registerAttendance,
+  removeAttendance,
   submitAttendanceRequest,
 } from './modules/attendance';
 import {
@@ -110,6 +111,7 @@ export {
   rejectJoinRequest,
   rebuildUserDerivedState,
   registerAttendance,
+  removeAttendance,
   registerDeviceToken,
   replaceLearningLessonBlocks,
   sendSegmentedNotification,

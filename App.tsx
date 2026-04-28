@@ -1368,6 +1368,14 @@ const App: React.FC = () => {
     }
   }
 
+  async function handleRemoveStudentFromClass(classId: string, targetUserId: string) {
+    try {
+      await backendFunctions.removeAttendance({ classId, targetUserId });
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
+  }
+
   async function handleApproveAttendanceRequest(requestId: string) {
     try {
       await backendFunctions.approveAttendanceRequest({ requestId });
@@ -2089,6 +2097,7 @@ const App: React.FC = () => {
             onRegisterAttendance={handleRegisterAttendance}
             onSubmitAttendanceRequest={handleSubmitAttendanceRequest}
             onMarkStudentPresent={handleMarkStudentForClass}
+            onRemoveStudentPresent={handleRemoveStudentFromClass}
           />
         );
       }
