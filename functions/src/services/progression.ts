@@ -54,6 +54,26 @@ function getClassesToNextBelt(rule: Pick<ProgressionBeltRule, 'stripeEvery' | 'm
   const beltPromotionOffset = Math.max(0, Math.floor(rule.beltPromotionOffset ?? 0));
   return stripeEvery * (maxStripes + beltPromotionOffset);
 }
+
+function isKnownStaleAdultSegment(segment: ProgressionRuleSegment): boolean {
+  const byBelt = new Map(segment.belts.map((entry) => [normalizeBeltId(entry.belt), entry]));
+  const staleAdultBelts = ['white', 'blue', 'purple', 'brown'];
+
+  return staleAdultBelts.every((belt) => {
+    const entry = byBelt.get(belt);
+    return !!entry
+      && Math.max(0, Math.floor(entry.stripeEvery)) === 30
+      && Math.max(0, Math.floor(entry.maxStripes)) === 4
+      && getClassesToNextBelt(entry) === 150;
+  });
+}
+
+function normalizeAdultSegment(segment: ProgressionRuleSegment): ProgressionRuleSegment {
+  return isKnownStaleAdultSegment(segment)
+    ? (DEFAULT_PROGRESSION_RULES as ProgressionRulesV2).adult
+    : segment;
+}
+
 const GRAY_FAMILY_BELTS = new Set(['white', 'gray-white', 'gray', 'gray-black']);
 const YELLOW_ORANGE_FAMILY_BELTS = new Set([
   'yellow-white',
@@ -302,7 +322,7 @@ function convertLegacyRules(input: LegacyProgressionRules): ProgressionRulesV2 {
   return {
     version: typeof input.version === 'number' ? input.version : (DEFAULT_PROGRESSION_RULES as ProgressionRulesV2).version,
     schema: 'v2',
-    adult: sanitizeSegment({ belts: legacyAdult }, (DEFAULT_PROGRESSION_RULES as ProgressionRulesV2).adult),
+    adult: normalizeAdultSegment(sanitizeSegment({ belts: legacyAdult }, (DEFAULT_PROGRESSION_RULES as ProgressionRulesV2).adult)),
     kids: {
       level_infantil: sanitizeSegment(undefined, (DEFAULT_PROGRESSION_RULES as ProgressionRulesV2).kids.level_infantil),
     },
@@ -317,10 +337,12 @@ export function normalizeProgressionRules(input?: Partial<ProgressionRules> | nu
 
   if ('schema' in input || 'adult' in input || 'kids' in input) {
     const rules = input as Partial<ProgressionRulesV2>;
+    const adult = sanitizeSegment(rules.adult, defaultRules.adult);
+
     return {
       version: typeof rules.version === 'number' ? rules.version : defaultRules.version,
       schema: 'v2',
-      adult: sanitizeSegment(rules.adult, defaultRules.adult),
+      adult: normalizeAdultSegment(adult),
       kids: {
         level_infantil: sanitizeSegment(rules.kids?.level_infantil, defaultRules.kids.level_infantil),
       },

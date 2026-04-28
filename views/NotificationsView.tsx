@@ -1277,7 +1277,9 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
                   <div className="mt-4 flex flex-wrap gap-2">
                     <span className="app-badge app-badge--muted">Atual: {item.currentStripes} grau(s)</span>
                     <span className="app-badge app-badge--muted">Próximo passo: {graduationTargetLabel(item)}</span>
-                    <span className="app-badge app-badge--muted">Meta: {item.attendanceTarget} presenças</span>
+                    <span className="app-badge app-badge--muted">
+                      {item.remainingClasses <= 0 ? 'Meta atingida' : `Restam ${item.remainingClasses} aula(s)`}
+                    </span>
                   </div>
                 </div>
                 <div className="app-orb">

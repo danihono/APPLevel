@@ -1,6 +1,7 @@
 import { Timestamp } from 'firebase-admin/firestore';
 import { onCall } from 'firebase-functions/v2/https';
 import {
+  AcademyDoc,
   COLLECTIONS,
   DEFAULT_PROGRESSION_RULES,
   ProgressionBeltRule,
@@ -108,6 +109,70 @@ export const upsertAcademyProgressionRules = onCall(callableOptions, async (requ
     academyId,
     rules: normalized,
     totalProcessed,
+  };
+});
+
+async function repairSingleAcademyProgressionRules(academyId: string): Promise<{
+  academyId: string;
+  rulesUpdated: boolean;
+  totalProcessed: number;
+}> {
+  const academyRef = db.collection(COLLECTIONS.academies).doc(academyId);
+  const academySnap = await academyRef.get();
+  assertCondition(academySnap.exists, 'not-found', 'Academia nao encontrada.');
+
+  const academy = academySnap.data() as AcademyDoc;
+  const currentRules = academy.progressionRules ?? DEFAULT_PROGRESSION_RULES;
+  const normalized = normalizeProgressionRules(currentRules);
+  const rulesUpdated = JSON.stringify(currentRules) !== JSON.stringify(normalized);
+
+  if (rulesUpdated) {
+    await academyRef.update({
+      progressionRules: normalized,
+      updatedAt: Timestamp.now(),
+    });
+  }
+
+  const totalProcessed = await syncAllUsersInAcademy(academyId);
+
+  return {
+    academyId,
+    rulesUpdated,
+    totalProcessed,
+  };
+}
+
+export const repairAcademyProgressionRules = onCall(callableOptions, async (request) => {
+  const actor = await getRequestContext(request, 'professor');
+  const requestedAcademyId = optionalString(request.data, 'academyId');
+
+  if (actor.role !== 'superadmin') {
+    const academyId = requestedAcademyId ?? actor.academyId;
+    assertCondition(
+      academyId === actor.academyId,
+      'permission-denied',
+      'Professor so pode reparar regras da propria academia.',
+    );
+
+    const result = await repairSingleAcademyProgressionRules(academyId);
+    return {
+      totalAcademies: 1,
+      results: [result],
+    };
+  }
+
+  const academyIds = requestedAcademyId
+    ? [requestedAcademyId]
+    : (await db.collection(COLLECTIONS.academies).get()).docs.map((doc) => doc.id);
+
+  const results = [];
+  for (const academyId of academyIds) {
+    results.push(await repairSingleAcademyProgressionRules(academyId));
+  }
+
+  return {
+    totalAcademies: results.length,
+    results,
   };
 });
 

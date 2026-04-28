@@ -57,6 +57,7 @@ export interface User {
   totalClassesToNextBelt: number;
   currentStripeProgress: number;
   currentBeltProgress: number;
+  attendanceCount: number;
   attendanceCountBonus?: number;
   lastGraduation: string;
   branchId: string;

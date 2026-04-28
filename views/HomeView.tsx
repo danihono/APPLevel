@@ -1,11 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   beltLabel,
-  getClassesToNextBelt,
-  inferKidsCategoryFromBirthDate,
-  isKidsOnlyBelt,
-  normalizeBeltId,
-  normalizeProgressionRules,
+  getUserProgressionSummary,
   type ProgressionRules,
 } from '../beltCatalog';
 import { Calendar as CalIcon, Sparkles, Trophy } from 'lucide-react';
@@ -31,16 +27,10 @@ const HomeView: React.FC<HomeViewProps> = ({
   const [advice, setAdvice] = useState<string>('Carregando dica do mestre...');
   const today = new Date();
 
-  const normalizedRules = useMemo(() => normalizeProgressionRules(progressionRules), [progressionRules]);
-  const beltId = normalizeBeltId(user.belt);
-  const isKids = isKidsOnlyBelt(beltId) || user.type === 'Kids';
-  const kidsCategory = user.kidsCategory ?? inferKidsCategoryFromBirthDate(user.birthDate) ?? 'level_infantil';
-  const activeRules = isKids
-    ? (normalizedRules.kids[kidsCategory as keyof typeof normalizedRules.kids]?.belts ?? normalizedRules.adult.belts)
-    : normalizedRules.adult.belts;
-  const currentRule = activeRules.find((r) => normalizeBeltId(r.belt) === beltId) ?? activeRules[0];
-  const classesToNextStripe = currentRule && currentRule.stripeEvery > 0 ? currentRule.stripeEvery : user.classesToNextStripe;
-  const totalClassesToNextBelt = currentRule && currentRule.stripeEvery > 0 ? getClassesToNextBelt(currentRule) : user.totalClassesToNextBelt;
+  const progression = useMemo(
+    () => getUserProgressionSummary(user, progressionRules),
+    [progressionRules, user],
+  );
   const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
   const attendedDays = new Set(attendanceDays);
 
@@ -71,6 +61,7 @@ const HomeView: React.FC<HomeViewProps> = ({
     user.name,
     user.belt,
     user.stripes,
+    user.attendanceCount,
     user.currentStripeProgress,
     user.currentBeltProgress,
   ]);
@@ -116,13 +107,13 @@ const HomeView: React.FC<HomeViewProps> = ({
         <div className="mt-6 space-y-5">
           <ProgressBar
             label="Próximo grau"
-            current={user.currentStripeProgress}
-            total={classesToNextStripe}
+            current={progression.stripeProgress}
+            total={progression.stripeTotal}
           />
           <ProgressBar
             label="Próxima faixa"
-            current={user.currentBeltProgress}
-            total={totalClassesToNextBelt}
+            current={progression.beltProgress}
+            total={progression.beltTotal}
           />
         </div>
       </section>

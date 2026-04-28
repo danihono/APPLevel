@@ -294,6 +294,12 @@ export const backendFunctions = {
     };
   }) => callFunction<{ academyId: string; rules: unknown; totalProcessed: number }>('upsertAcademyProgressionRules', payload),
 
+  repairAcademyProgressionRules: (payload: { academyId?: string }) =>
+    callFunction<{
+      totalAcademies: number;
+      results: Array<{ academyId: string; rulesUpdated: boolean; totalProcessed: number }>;
+    }>('repairAcademyProgressionRules', payload),
+
   evaluateUserProgression: (payload: { userId?: string }) =>
     callFunction('evaluateUserProgression', payload),
 

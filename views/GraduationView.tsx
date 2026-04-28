@@ -3,11 +3,8 @@ import { Award, BellRing, BookOpen, Medal, TimerReset } from 'lucide-react';
 import {
   beltLabel,
   getClassesToNextBelt,
-  inferKidsCategoryFromBirthDate,
-  inferTrainingTypeFromBirthDate,
-  isKidsOnlyBelt,
+  getUserProgressionSummary,
   kidsCategoryLabel,
-  normalizeBeltId,
   normalizeProgressionRules,
 } from '../beltCatalog';
 import BjjBelt from '../components/BjjBelt';
@@ -35,24 +32,43 @@ const GraduationView: React.FC<GraduationViewProps> = ({
   );
 
   const birthDate = profile.birthDate ?? user.birthDate;
-  const inferredKidsCategory = profile.kidsCategory ?? user.kidsCategory ?? inferKidsCategoryFromBirthDate(birthDate);
-  const currentBeltId = normalizeBeltId(profile.belt);
-  const trainingType = isKidsOnlyBelt(currentBeltId)
-    || Boolean(profile.kidsCategory ?? user.kidsCategory)
-    || inferTrainingTypeFromBirthDate(birthDate) === 'Kids'
-    ? 'Kids'
-    : 'Adulto';
-  const activeRules = trainingType === 'Kids'
-    ? normalizedRules.kids[inferredKidsCategory ?? 'level_infantil'].belts
-    : normalizedRules.adult.belts;
-  const currentRule = activeRules.find((entry) => normalizeBeltId(entry.belt) === currentBeltId) ?? activeRules[0];
+  const progression = useMemo(
+    () => getUserProgressionSummary({
+      belt: profile.belt,
+      grade: profile.grade,
+      stripes: profile.stripes,
+      type: user.type,
+      kidsCategory: profile.kidsCategory ?? user.kidsCategory,
+      birthDate,
+      attendanceCount: profile.attendanceCount,
+      currentStripeProgress: user.currentStripeProgress,
+      currentBeltProgress: user.currentBeltProgress,
+    }, academy.progressionRules),
+    [
+      academy.progressionRules,
+      birthDate,
+      profile.attendanceCount,
+      profile.belt,
+      profile.grade,
+      profile.kidsCategory,
+      profile.stripes,
+      user.currentBeltProgress,
+      user.currentStripeProgress,
+      user.kidsCategory,
+      user.type,
+    ],
+  );
+  const inferredKidsCategory = progression.kidsCategory ?? profile.kidsCategory ?? user.kidsCategory;
+  const trainingType = progression.track;
+  const activeRules = progression.activeRules;
+  const currentRule = progression.currentRule;
 
-  const stripeProgress = Math.max(0, user.currentStripeProgress ?? 0);
-  const stripeTotal = currentRule.stripeEvery > 0 ? currentRule.stripeEvery : Math.max(0, user.classesToNextStripe ?? 0);
-  const beltProgress = Math.max(0, user.currentBeltProgress ?? 0);
-  const beltTotal = currentRule.stripeEvery > 0 ? getClassesToNextBelt(currentRule) : Math.max(0, user.totalClassesToNextBelt ?? 0);
-  const nextStripeRemaining = stripeTotal > 0 ? Math.max(stripeTotal - stripeProgress, 0) : null;
-  const nextBeltRemaining = beltTotal > 0 ? Math.max(beltTotal - beltProgress, 0) : null;
+  const stripeProgress = progression.stripeProgress;
+  const stripeTotal = progression.stripeTotal;
+  const beltProgress = progression.beltProgress;
+  const beltTotal = progression.beltTotal;
+  const nextStripeRemaining = progression.stripeRemaining;
+  const nextBeltRemaining = progression.beltRemaining;
   const examWindow = (nextBeltRemaining !== null && nextBeltRemaining <= 5)
     || (nextStripeRemaining !== null && nextStripeRemaining <= 2);
 
@@ -78,7 +94,7 @@ const GraduationView: React.FC<GraduationViewProps> = ({
         </div>
 
         <div className="mt-5">
-          <BjjBelt color={normalizeBeltId(profile.belt)} stripes={profile.stripes} />
+          <BjjBelt color={progression.currentBelt} stripes={profile.stripes} />
         </div>
       </section>
 

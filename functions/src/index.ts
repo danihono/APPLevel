@@ -44,6 +44,7 @@ import {
 import {
   evaluateUserProgression,
   rebuildUserDerivedState,
+  repairAcademyProgressionRules,
   upsertAcademyProgressionRules,
 } from './modules/progression';
 import {
@@ -110,6 +111,7 @@ export {
   rejectFightVideoSubmission,
   rejectJoinRequest,
   rebuildUserDerivedState,
+  repairAcademyProgressionRules,
   registerAttendance,
   removeAttendance,
   registerDeviceToken,

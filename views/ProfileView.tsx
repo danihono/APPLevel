@@ -1,8 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   beltLabel,
-  getClassesToNextBelt,
-  getProgressionRuleForUser,
+  getUserProgressionSummary,
   type ProgressionRules,
 } from '../beltCatalog';
 import {
@@ -104,33 +103,25 @@ const ProfileView: React.FC<ProfileViewProps> = ({
   const [emailError, setEmailError] = useState('');
 
   const recentAttendances = useMemo(() => attendances.slice(0, 6), [attendances]);
-  const progressionRule = useMemo(
-    () => getProgressionRuleForUser({
-      belt: user.belt,
-      type: user.type,
-      kidsCategory: user.kidsCategory,
-      birthDate: user.birthDate,
-    }, progressionRules),
-    [progressionRules, user.belt, user.birthDate, user.kidsCategory, user.type],
+  const progression = useMemo(
+    () => getUserProgressionSummary(user, progressionRules),
+    [progressionRules, user],
   );
-  const stripeTotal = progressionRule && progressionRule.stripeEvery > 0
-    ? progressionRule.stripeEvery
-    : user.classesToNextStripe;
-  const beltTotal = progressionRule && progressionRule.stripeEvery > 0
-    ? getClassesToNextBelt(progressionRule)
-    : user.totalClassesToNextBelt;
-  const stripeProgress = Math.max(0, Math.min(user.currentStripeProgress, stripeTotal || user.currentStripeProgress));
-  const beltProgress = Math.max(0, Math.min(user.currentBeltProgress, beltTotal || user.currentBeltProgress));
-  const nextStripeRemaining = Math.max(stripeTotal - stripeProgress, 0);
-  const nextBeltRemaining = Math.max(beltTotal - beltProgress, 0);
+  const stripeTotal = progression.stripeTotal;
+  const beltTotal = progression.beltTotal;
+  const stripeProgress = progression.stripeProgress;
+  const beltProgress = progression.beltProgress;
+  const nextStripeRemaining = progression.stripeRemaining ?? 0;
+  const nextBeltRemaining = progression.beltRemaining ?? 0;
   const canEditProfile = profile.role === 'student';
   const isStaffMobileProfile = profile.role !== 'student';
   const currentThemeLabel = isDarkMode ? 'Escuro' : 'Claro';
-  const nextMilestoneCurrent = user.stripes >= 4 ? beltProgress : stripeProgress;
-  const nextMilestoneRemaining = user.stripes >= 4 ? nextBeltRemaining : nextStripeRemaining;
+  const isNextBeltMilestone = progression.stripeRemaining === null;
+  const nextMilestoneCurrent = isNextBeltMilestone ? beltProgress : stripeProgress;
+  const nextMilestoneRemaining = isNextBeltMilestone ? nextBeltRemaining : nextStripeRemaining;
   const nextMilestoneGoal = Math.max(nextMilestoneCurrent + nextMilestoneRemaining, 1);
   const nextMilestonePercent = Math.round((nextMilestoneCurrent / nextMilestoneGoal) * 100);
-  const nextMilestoneLabel = user.stripes >= 4
+  const nextMilestoneLabel = isNextBeltMilestone
     ? `Próxima faixa - ${beltLabel(user.belt)}`
     : `${user.stripes + 1}o Grau - Faixa ${beltLabel(user.belt)}`;
   const currentGradeLabel = user.stripes > 0 ? `${user.stripes}o Grau` : '0 Grau';
@@ -294,13 +285,20 @@ const ProfileView: React.FC<ProfileViewProps> = ({
         </section>
 
         <section className="profile-mobile__progress-card">
-          <p className="profile-mobile__section-label">Próximo grau</p>
+          <p className="profile-mobile__section-label">{isNextBeltMilestone ? 'Próxima faixa' : 'Próximo grau'}</p>
           <h2 className="profile-mobile__progress-title">{nextMilestoneLabel}</h2>
-          <p className="profile-mobile__progress-copy">{nextMilestoneRemaining} aulas restantes para elegibilidade</p>
+          <p className="profile-mobile__progress-copy">
+            {nextMilestoneRemaining > 0 ? `${nextMilestoneRemaining} aulas restantes para elegibilidade` : 'Progressão manual ou meta atingida'}
+          </p>
           <div className="profile-mobile__progress-bar">
             <ProgressBar current={nextMilestoneCurrent} total={nextMilestoneGoal} />
           </div>
           <p className="profile-mobile__progress-caption">{nextMilestonePercent}% do objetivo</p>
+          <p className="profile-mobile__progress-caption">
+            {progression.classesPerStripe > 0
+              ? `Regra da faixa: ${progression.classesPerStripe} aulas por grau${progression.beltTotal > 0 ? ` / ${progression.beltTotal} aulas para a próxima faixa` : ''}.`
+              : 'Regra da faixa: progressão manual.'}
+          </p>
         </section>
 
         <section className="profile-mobile__menu-card" aria-label="Menu do perfil">

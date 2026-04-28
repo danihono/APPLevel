@@ -37,6 +37,7 @@ const ALLOWED_CALLABLES = new Set([
   'syncOwnUserEmail',
   'submitFightVideoSubmission',
   'upsertAcademyProgressionRules',
+  'repairAcademyProgressionRules',
   'evaluateUserProgression',
   'rebuildUserDerivedState',
   'recalculateUserRanking',

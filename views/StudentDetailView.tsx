@@ -1,9 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   beltLabel,
-  getClassesToNextBelt,
   getBeltOptions,
-  getProgressionRuleForUser,
+  getUserProgressionSummary,
   inferKidsCategoryFromBirthDate,
   inferTrainingTypeFromBirthDate,
   isKidsOnlyBelt,
@@ -130,23 +129,14 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
       setStudentKidsCategory('');
     }
   }
-  const progressionRule = useMemo(
-    () => getProgressionRuleForUser({
-      belt: student.belt,
-      type: student.type,
-      kidsCategory: student.kidsCategory,
-      birthDate: student.birthDate,
-    }, progressionRules),
-    [progressionRules, student.belt, student.birthDate, student.kidsCategory, student.type],
+  const progression = useMemo(
+    () => getUserProgressionSummary(student, progressionRules),
+    [progressionRules, student],
   );
-  const stripeTotal = progressionRule && progressionRule.stripeEvery > 0
-    ? progressionRule.stripeEvery
-    : student.classesToNextStripe;
-  const beltTotal = progressionRule && progressionRule.stripeEvery > 0
-    ? getClassesToNextBelt(progressionRule)
-    : student.totalClassesToNextBelt;
-  const stripeProgress = Math.max(0, Math.min(student.currentStripeProgress, stripeTotal || student.currentStripeProgress));
-  const beltProgress = Math.max(0, Math.min(student.currentBeltProgress, beltTotal || student.currentBeltProgress));
+  const stripeTotal = progression.stripeTotal;
+  const beltTotal = progression.beltTotal;
+  const stripeProgress = progression.stripeProgress;
+  const beltProgress = progression.beltProgress;
 
   useEffect(() => {
     if (!studentBeltOptions.length) {
@@ -303,7 +293,9 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
           <div className="mt-5 flex flex-wrap gap-2">
             <span className="app-badge app-badge--muted">Atual: {beltLabel(graduationRequest.currentBelt)} • {graduationRequest.currentStripes} grau(s)</span>
             <span className="app-badge app-badge--muted">Próximo passo: {graduationTargetLabel(graduationRequest)}</span>
-            <span className="app-badge app-badge--muted">Meta: {graduationRequest.attendanceTarget} presenças</span>
+            <span className="app-badge app-badge--muted">
+              {graduationRequest.remainingClasses <= 0 ? 'Meta atingida' : `Restam ${graduationRequest.remainingClasses} aula(s)`}
+            </span>
           </div>
 
           {onApproveGraduationRequest ? (
@@ -424,15 +416,24 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
           <div>
             <ProgressBar current={stripeProgress} total={stripeTotal} />
             <p className="mt-3 text-sm text-[color:var(--text-muted)]">
-              Próximo grau: {stripeProgress}/{stripeTotal} aulas
+              {stripeTotal > 0
+                ? `Próximo grau: ${stripeProgress}/${stripeTotal} aulas`
+                : 'Próximo grau: progressão manual'}
             </p>
           </div>
           <div>
             <ProgressBar current={beltProgress} total={beltTotal} color="bg-gold" />
             <p className="mt-3 text-sm text-[color:var(--text-muted)]">
-              Próxima faixa: {beltProgress}/{beltTotal} aulas
+              {beltTotal > 0
+                ? `Próxima faixa: ${beltProgress}/${beltTotal} aulas`
+                : 'Próxima faixa: progressão manual'}
             </p>
           </div>
+          <p className="text-xs text-[color:var(--text-soft)]">
+            {progression.classesPerStripe > 0
+              ? `Regra da faixa: ${progression.classesPerStripe} aulas por grau${progression.beltTotal > 0 ? ` / ${progression.beltTotal} aulas para a próxima faixa` : ''}.`
+              : 'Regra da faixa: progressão manual.'}
+          </p>
         </div>
       </section>
 
