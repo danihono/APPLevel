@@ -3021,6 +3021,24 @@ html.dark .app-segment__button.is-active {
   padding-inline: 1.05rem;
 }
 
+.class-detail-tabs {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  width: 100%;
+  gap: 0.3rem;
+}
+
+.class-detail-tabs__button {
+  flex: 1 1 0;
+  min-width: 0;
+  white-space: normal;
+  text-align: center;
+  font-size: 0.68rem;
+  padding-inline: 0.25rem;
+  padding-block: 0.5rem;
+  line-height: 1.3;
+}
+
 .learning-superadmin-panel {
   display: flex;
   flex-direction: column;

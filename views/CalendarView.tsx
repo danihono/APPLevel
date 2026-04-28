@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Camera, CheckCircle, ChevronLeft, ChevronRight, MapPin, Pencil, Play, Plus, QrCode, RefreshCw, ShieldCheck, Trash2, X } from 'lucide-react';
+import { Camera, CheckCircle, ChevronLeft, ChevronRight, MapPin, Pencil, Play, Plus, QrCode, RefreshCw, ShieldCheck, StopCircle, Trash2, UserCheck, X } from 'lucide-react';
 import QRCodeSVG from 'react-qr-code';
 import { buildMonthGrid, MONTH_WEEK_HEADER, sameCalendarDay, sameCalendarMonth, stripDate, toDateKey } from '../calendarUtils';
 import ClassSessionCard from '../components/ClassSessionCard';
@@ -550,11 +550,15 @@ const CalendarView: React.FC<CalendarViewProps> = ({
   const [classAttendances, setClassAttendances] = useState<Array<FirestoreEntity<AttendanceRecord>>>([]);
   const [classRsvps, setClassRsvps] = useState<Array<FirestoreEntity<ClassRsvpRecord>>>([]);
   const [classRsvpsLoading, setClassRsvpsLoading] = useState(false);
+  const [presencaSearch, setPresencaSearch] = useState('');
+  const [presencaBeltFilter, setPresencaBeltFilter] = useState('all');
 
   const tokenInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     setSheetTab('detalhes');
+    setPresencaSearch('');
+    setPresencaBeltFilter('all');
   }, [selectedClassId]);
 
   useEffect(() => {
@@ -847,6 +851,20 @@ const CalendarView: React.FC<CalendarViewProps> = ({
     [attendances, currentUserId],
   );
 
+  const filteredPresencaStudents = useMemo(() => {
+    let list = [...academyStudents].sort((a, b) =>
+      (a.displayName ?? '').localeCompare(b.displayName ?? '', 'pt-BR'),
+    );
+    if (presencaSearch.trim()) {
+      const q = presencaSearch.toLowerCase().trim();
+      list = list.filter((s) => s.displayName?.toLowerCase().includes(q));
+    }
+    if (presencaBeltFilter !== 'all') {
+      list = list.filter((s) => s.belt === presencaBeltFilter);
+    }
+    return list;
+  }, [academyStudents, presencaSearch, presencaBeltFilter]);
+
   const isMineView = isStaff && view === 'minhas';
   const selectedDayEmptyMessage = isMineView
     ? 'Você não tem aulas programadas nesta data.'
@@ -941,7 +959,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
       setFinishBusy(false);
       setFinishConfirmClassId(null);
       setFinishQrData(null);
-      setSelectedClassId(null);
+      setSheetTab('presencas');
     }
   }
 
@@ -1347,32 +1365,32 @@ const CalendarView: React.FC<CalendarViewProps> = ({
               {canManageSelected ? (
                 <>
                   <div style={{ padding: '4px 20px 12px' }}>
-                    <div className="app-segment learning-superadmin-tabs">
+                    <div className="app-segment class-detail-tabs">
                       <button
                         type="button"
                         onClick={() => setSheetTab('detalhes')}
-                        className={`app-segment__button learning-superadmin-tabs__button ${sheetTab === 'detalhes' ? 'is-active' : ''}`}
+                        className={`app-segment__button class-detail-tabs__button ${sheetTab === 'detalhes' ? 'is-active' : ''}`}
                       >
                         Detalhes
                       </button>
                       <button
                         type="button"
                         onClick={() => setSheetTab('confirmados')}
-                        className={`app-segment__button learning-superadmin-tabs__button ${sheetTab === 'confirmados' ? 'is-active' : ''}`}
+                        className={`app-segment__button class-detail-tabs__button ${sheetTab === 'confirmados' ? 'is-active' : ''}`}
                       >
-                        Confirmados ({selectedClassRsvpCount})
+                        Confirm. ({selectedClassRsvpCount})
                       </button>
                       <button
                         type="button"
                         onClick={() => setSheetTab('historico')}
-                        className={`app-segment__button learning-superadmin-tabs__button ${sheetTab === 'historico' ? 'is-active' : ''}`}
+                        className={`app-segment__button class-detail-tabs__button ${sheetTab === 'historico' ? 'is-active' : ''}`}
                       >
-                        Histórico ({myAttendances.length})
+                        Histórico
                       </button>
                       <button
                         type="button"
                         onClick={() => setSheetTab('presencas')}
-                        className={`app-segment__button learning-superadmin-tabs__button ${sheetTab === 'presencas' ? 'is-active' : ''}`}
+                        className={`app-segment__button class-detail-tabs__button ${sheetTab === 'presencas' ? 'is-active' : ''}`}
                       >
                         Presenças ({classAttendances.length})
                       </button>
@@ -1420,15 +1438,66 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                     </div>
                   ) : sheetTab === 'presencas' ? (
                     <div style={{ padding: '0 20px 16px', display: 'flex', flexDirection: 'column', gap: 12 }}>
-                      <p style={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--text-soft)' }}>
-                        Alunos
-                      </p>
+                      {/* Filtros */}
+                      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                        <input
+                          type="search"
+                          value={presencaSearch}
+                          onChange={(e) => setPresencaSearch(e.target.value)}
+                          placeholder="Buscar aluno..."
+                          className="app-input"
+                          style={{ flex: '1 1 120px', fontSize: '0.82rem' }}
+                        />
+                        <select
+                          value={presencaBeltFilter}
+                          onChange={(e) => setPresencaBeltFilter(e.target.value)}
+                          className="app-input"
+                          style={{ flex: '0 0 auto', fontSize: '0.82rem' }}
+                        >
+                          <option value="all">Todas as faixas</option>
+                          <option value="white">Branca</option>
+                          <option value="blue">Azul</option>
+                          <option value="purple">Roxa</option>
+                          <option value="brown">Marrom</option>
+                          <option value="black">Preta</option>
+                          <option value="gray">Cinza</option>
+                          <option value="yellow">Amarela</option>
+                          <option value="orange">Laranja</option>
+                          <option value="green">Verde</option>
+                        </select>
+                      </div>
+
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <p style={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--text-soft)' }}>
+                          Alunos
+                        </p>
+                        <p style={{ fontSize: '0.72rem', color: 'var(--text-soft)' }}>
+                          {filteredPresencaStudents.length !== academyStudents.length
+                            ? `${filteredPresencaStudents.length} de ${academyStudents.length}`
+                            : academyStudents.length}
+                          {' '}· {classAttendances.length} presentes
+                        </p>
+                      </div>
+
+                      {selectedClass.status === 'finished' ? (
+                        <div className="app-panel app-panel--tint" style={{ padding: '10px 14px', display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+                          <UserCheck size={15} style={{ color: 'var(--gold-mid)', flexShrink: 0, marginTop: 1 }} />
+                          <p style={{ fontSize: '0.78rem', color: 'var(--text-soft)', lineHeight: 1.5 }}>
+                            Aula encerrada. Você ainda pode marcar presenças manualmente.
+                          </p>
+                        </div>
+                      ) : null}
+
                       {academyStudents.length === 0 ? (
                         <div style={{ textAlign: 'center', padding: '20px 0', color: 'var(--text-soft)', fontSize: '0.85rem' }}>
                           Nenhum aluno cadastrado
                         </div>
+                      ) : filteredPresencaStudents.length === 0 ? (
+                        <div style={{ textAlign: 'center', padding: '20px 0', color: 'var(--text-soft)', fontSize: '0.85rem' }}>
+                          Nenhum aluno encontrado
+                        </div>
                       ) : (
-                        academyStudents.map((student) => {
+                        filteredPresencaStudents.map((student) => {
                           const record = classAttendances.find((a) => a.userId === student.id);
                           const markBusy = !!busyByClass[`manual_${student.id}`];
                           return (
@@ -1457,10 +1526,10 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                                   type="button"
                                   disabled={markBusy || selectedClass.status === 'cancelled'}
                                   onClick={() => void handleMarkStudentPresent(selectedClass.id, student.id)}
-                                  className="app-button app-button--ghost app-button--small"
+                                  className="app-button app-button--gold app-button--small"
                                   style={{ fontSize: '0.7rem', padding: '4px 10px', flexShrink: 0 }}
                                 >
-                                  {markBusy ? '...' : 'Marcar presente'}
+                                  {markBusy ? '...' : 'Marcar'}
                                 </button>
                               )}
                             </div>
@@ -1652,7 +1721,15 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                     ) : null}
 
                     {selectedClass.status === 'finished' ? (
-                      <span className="text-sm text-[color:var(--text-soft)]">Aula encerrada.</span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                        <span className="app-badge app-badge--success" style={{ fontSize: '0.72rem', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                          <CheckCircle size={11} />
+                          Aula encerrada
+                        </span>
+                        <span style={{ fontSize: '0.75rem', color: 'var(--text-soft)' }}>
+                          {classAttendances.length} presente{classAttendances.length !== 1 ? 's' : ''} · use a aba Presenças para ajustes
+                        </span>
+                      </div>
                     ) : null}
                   </div>
                 </>
@@ -1694,11 +1771,25 @@ const CalendarView: React.FC<CalendarViewProps> = ({
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <CheckCircle size={20} style={{ color: 'var(--gold-mid)' }} />
+              <StopCircle size={20} style={{ color: 'var(--danger, #e05252)' }} />
               <span style={{ fontWeight: 700, fontSize: '1rem' }}>Encerrar aula?</span>
             </div>
+
+            {/* Resumo de presença */}
+            <div style={{ display: 'flex', gap: 12, width: '100%', justifyContent: 'center' }}>
+              <div style={{ textAlign: 'center' }}>
+                <p style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--text-strong)' }}>{classAttendances.length}</p>
+                <p style={{ fontSize: '0.7rem', color: 'var(--text-soft)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>marcados</p>
+              </div>
+              <div style={{ width: 1, background: 'var(--border)', alignSelf: 'stretch' }} />
+              <div style={{ textAlign: 'center' }}>
+                <p style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--text-strong)' }}>{selectedClassRsvpCount}</p>
+                <p style={{ fontSize: '0.7rem', color: 'var(--text-soft)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>confirmaram ida</p>
+              </div>
+            </div>
+
             <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', textAlign: 'center', lineHeight: 1.5 }}>
-              Mostre este QR para quem ainda não confirmou presença
+              Mostre este QR para quem ainda não marcou presença
             </p>
             <div style={{ background: '#fff', padding: 14, borderRadius: 16 }}>
               <QRCodeSVG
@@ -1711,8 +1802,8 @@ const CalendarView: React.FC<CalendarViewProps> = ({
               {finishCountdown && finishCountdown !== '00:00' ? `Expira em ${finishCountdown}` : 'Renovando QR...'}
             </p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10, width: '100%' }}>
-              <button type="button" onClick={() => void handleConfirmFinish()} disabled={finishBusy} className="app-button app-button--gold app-button--block">
-                <CheckCircle size={14} />
+              <button type="button" onClick={() => void handleConfirmFinish()} disabled={finishBusy} className="app-button app-button--danger app-button--block">
+                <StopCircle size={14} />
                 {finishBusy ? 'Encerrando...' : 'Confirmar encerramento'}
               </button>
               <button
@@ -1724,9 +1815,12 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                 disabled={finishBusy}
                 className="app-button app-button--ghost app-button--block"
               >
-                Cancelar
+                Continuar aula
               </button>
             </div>
+            <p style={{ fontSize: '0.72rem', color: 'var(--text-soft)', textAlign: 'center', lineHeight: 1.5 }}>
+              Após encerrar, você ainda poderá marcar presenças manualmente.
+            </p>
           </div>
         </div>
       ) : null}
