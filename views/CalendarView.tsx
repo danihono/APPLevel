@@ -552,6 +552,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
   const [classAttendances, setClassAttendances] = useState<Array<FirestoreEntity<AttendanceRecord>>>([]);
   const [classRsvps, setClassRsvps] = useState<Array<FirestoreEntity<ClassRsvpRecord>>>([]);
   const [classRsvpsLoading, setClassRsvpsLoading] = useState(false);
+  const [studentErrorById, setStudentErrorById] = useState<Record<string, string>>({});
   const [presencaSearch, setPresencaSearch] = useState('');
   const [presencaBeltFilter, setPresencaBeltFilter] = useState('all');
 
@@ -561,6 +562,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
     setSheetTab('detalhes');
     setPresencaSearch('');
     setPresencaBeltFilter('all');
+    setStudentErrorById({});
   }, [selectedClassId]);
 
   useEffect(() => {
@@ -569,7 +571,12 @@ const CalendarView: React.FC<CalendarViewProps> = ({
       setClassAttendances([]);
       return undefined;
     }
-    return subscribeToClassAttendances(selectedClassId, selectedClass.academyId, setClassAttendances);
+    return subscribeToClassAttendances(
+      selectedClassId,
+      selectedClass.academyId,
+      setClassAttendances,
+      () => setClassAttendances([]),
+    );
   }, [selectedClassId, isStaff, classes]);
 
   useEffect(() => {
@@ -931,14 +938,13 @@ const CalendarView: React.FC<CalendarViewProps> = ({
 
   async function handleMarkStudentPresent(classId: string, studentId: string) {
     const busyKey = `manual_${studentId}`;
+    setStudentErrorById((prev) => ({ ...prev, [studentId]: '' }));
     setBusyByClass((prev) => ({ ...prev, [busyKey]: true }));
     try {
       await onMarkStudentPresent?.(classId, studentId);
     } catch (error) {
-      setMessageByClass((prev) => ({
-        ...prev,
-        [classId]: error instanceof Error ? error.message : 'Erro ao marcar presença.',
-      }));
+      const msg = error instanceof Error ? error.message : 'Erro ao marcar presença.';
+      setStudentErrorById((prev) => ({ ...prev, [studentId]: msg }));
     } finally {
       setBusyByClass((prev) => ({ ...prev, [busyKey]: false }));
     }
@@ -946,14 +952,18 @@ const CalendarView: React.FC<CalendarViewProps> = ({
 
   async function handleRemoveStudentPresent(classId: string, studentId: string) {
     const busyKey = `remove_${studentId}`;
+    const removedRecord = classAttendances.find((a) => a.userId === studentId);
+    setStudentErrorById((prev) => ({ ...prev, [studentId]: '' }));
+    setClassAttendances((prev) => prev.filter((a) => a.userId !== studentId));
     setBusyByClass((prev) => ({ ...prev, [busyKey]: true }));
     try {
       await onRemoveStudentPresent?.(classId, studentId);
     } catch (error) {
-      setMessageByClass((prev) => ({
-        ...prev,
-        [classId]: error instanceof Error ? error.message : 'Erro ao remover presença.',
-      }));
+      if (removedRecord) {
+        setClassAttendances((prev) => [...prev, removedRecord]);
+      }
+      const msg = error instanceof Error ? error.message : 'Erro ao remover presença.';
+      setStudentErrorById((prev) => ({ ...prev, [studentId]: msg }));
     } finally {
       setBusyByClass((prev) => ({ ...prev, [busyKey]: false }));
     }
@@ -1518,6 +1528,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                           const record = classAttendances.find((a) => a.userId === student.id);
                           const markBusy = !!busyByClass[`manual_${student.id}`];
                           const removeBusy = !!busyByClass[`remove_${student.id}`];
+                          const studentError = studentErrorById[student.id] ?? '';
                           return (
                             <div key={student.id} className="app-list-card" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                               {record ? (
@@ -1533,6 +1544,9 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                                   <p style={{ fontSize: '0.72rem', color: 'var(--text-soft)', marginTop: 2 }}>
                                     {record.checkedInAt ? formatTimeLabel(record.checkedInAt) : '-'} · {methodLabel(record.checkInMethod)}
                                   </p>
+                                ) : null}
+                                {studentError ? (
+                                  <p style={{ fontSize: '0.7rem', color: 'var(--danger)', marginTop: 2 }}>{studentError}</p>
                                 ) : null}
                               </div>
                               {record ? (

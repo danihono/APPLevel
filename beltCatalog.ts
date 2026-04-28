@@ -456,7 +456,8 @@ export function normalizeBeltId(value?: string | null): BeltColor {
 
   const loose = normalizeLooseKey(value);
   const slashNormalized = loose.replace(/\s*\/\s*/g, '/');
-  return BELT_ALIASES[slashNormalized] ?? BELT_ALIASES[loose] ?? BeltColor.BRANCA;
+  const hyphenAsSlash = loose.replace(/-/g, '/');
+  return BELT_ALIASES[slashNormalized] ?? BELT_ALIASES[loose] ?? BELT_ALIASES[hyphenAsSlash] ?? BeltColor.BRANCA;
 }
 
 export function normalizeProgressionRules(input?: ProgressionRules | null): ProgressionRulesV2 {
@@ -535,24 +536,52 @@ export function beltLabel(value?: string | null): string {
   return getBeltMeta(value).label;
 }
 
-export function inferTrainingTypeFromBirthDate(birthDate?: string | null): TrainingType {
+function getBirthYear(birthDate?: string | null): number | null {
   if (!birthDate) {
-    return 'Adulto';
+    return null;
   }
 
-  const birthday = new Date(birthDate);
+  const value = birthDate.trim();
+  if (!value) {
+    return null;
+  }
+
+  const dateOnlyMatch = /^(\d{4})-(\d{2})-(\d{2})(?:$|[T\s])/.exec(value);
+  if (dateOnlyMatch) {
+    const year = Number(dateOnlyMatch[1]);
+    const month = Number(dateOnlyMatch[2]);
+    const day = Number(dateOnlyMatch[3]);
+    const parsedDate = new Date(Date.UTC(year, month - 1, day));
+
+    if (
+      parsedDate.getUTCFullYear() !== year
+      || parsedDate.getUTCMonth() !== month - 1
+      || parsedDate.getUTCDate() !== day
+    ) {
+      return null;
+    }
+
+    return year;
+  }
+
+  const birthday = new Date(value);
   if (Number.isNaN(birthday.valueOf())) {
+    return null;
+  }
+
+  return birthday.getFullYear();
+}
+
+export function inferTrainingTypeFromBirthDate(birthDate?: string | null): TrainingType {
+  const birthYear = getBirthYear(birthDate);
+  if (birthYear == null) {
     return 'Adulto';
   }
 
   const today = new Date();
-  let age = today.getFullYear() - birthday.getFullYear();
-  const monthDelta = today.getMonth() - birthday.getMonth();
-  if (monthDelta < 0 || (monthDelta === 0 && today.getDate() < birthday.getDate())) {
-    age -= 1;
-  }
+  const ageByBirthYear = today.getFullYear() - birthYear;
 
-  return age < 16 ? 'Kids' : 'Adulto';
+  return ageByBirthYear < 16 ? 'Kids' : 'Adulto';
 }
 
 export function inferKidsCategoryFromBirthDate(birthDate?: string | null): KidsCategory | undefined {

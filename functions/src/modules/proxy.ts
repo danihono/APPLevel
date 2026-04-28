@@ -24,6 +24,7 @@ const ALLOWED_CALLABLES = new Set([
   'finishClassSession',
   'generateClassQrCode',
   'registerAttendance',
+  'removeAttendance',
   'submitAttendanceRequest',
   'approveAttendanceRequest',
   'rejectAttendanceRequest',

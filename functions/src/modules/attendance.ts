@@ -198,9 +198,26 @@ export const removeAttendance = onCall(callableOptions, async (request) => {
   const classId = requiredString(request.data, 'classId');
   const targetUserId = requiredString(request.data, 'targetUserId');
 
+  const classSnap = await db.collection(COLLECTIONS.classes).doc(classId).get();
+  assertCondition(classSnap.exists, 'not-found', 'Aula não encontrada.');
+  const classData = classSnap.data() as ClassDoc;
+
+  assertCondition(
+    classData.academyId === actor.academyId || actor.role === 'superadmin',
+    'permission-denied',
+    'Aula fora da sua academia.',
+  );
+
+  const targetUser = await getUserDoc(targetUserId);
+  assertCondition(
+    targetUser.academyId === classData.academyId,
+    'permission-denied',
+    'Aluno e aula precisam pertencer à mesma academia.',
+  );
+
   const snapshot = await db
     .collection(COLLECTIONS.attendances)
-    .where('academyId', '==', actor.academyId)
+    .where('academyId', '==', classData.academyId)
     .where('classId', '==', classId)
     .where('userId', '==', targetUserId)
     .limit(1)

@@ -159,27 +159,53 @@ function normalizeStripeEvery(value: number): number {
     : value;
 }
 
-function calculateAge(birthDate?: string | null): number | null {
+function getBirthYear(birthDate?: string | null): number | null {
   if (!birthDate) {
     return null;
   }
 
-  const birthday = new Date(birthDate);
+  const value = birthDate.trim();
+  if (!value) {
+    return null;
+  }
+
+  const dateOnlyMatch = /^(\d{4})-(\d{2})-(\d{2})(?:$|[T\s])/.exec(value);
+  if (dateOnlyMatch) {
+    const year = Number(dateOnlyMatch[1]);
+    const month = Number(dateOnlyMatch[2]);
+    const day = Number(dateOnlyMatch[3]);
+    const parsedDate = new Date(Date.UTC(year, month - 1, day));
+
+    if (
+      parsedDate.getUTCFullYear() !== year
+      || parsedDate.getUTCMonth() !== month - 1
+      || parsedDate.getUTCDate() !== day
+    ) {
+      return null;
+    }
+
+    return year;
+  }
+
+  const birthday = new Date(value);
   if (Number.isNaN(birthday.valueOf())) {
     return null;
   }
 
-  const today = new Date();
-  let age = today.getFullYear() - birthday.getFullYear();
-  const monthDelta = today.getMonth() - birthday.getMonth();
-  if (monthDelta < 0 || (monthDelta === 0 && today.getDate() < birthday.getDate())) {
-    age -= 1;
+  return birthday.getFullYear();
+}
+
+function calculateAgeByBirthYear(birthDate?: string | null): number | null {
+  const birthYear = getBirthYear(birthDate);
+  if (birthYear == null) {
+    return null;
   }
-  return age;
+
+  return new Date().getFullYear() - birthYear;
 }
 
 export function inferKidsCategoryFromBirthDate(birthDate?: string | null): KidsCategory | undefined {
-  const age = calculateAge(birthDate);
+  const age = calculateAgeByBirthYear(birthDate);
   if (age == null || age >= 16) {
     return undefined;
   }

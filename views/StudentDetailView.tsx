@@ -80,6 +80,8 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
     ? new Date().getFullYear() - new Date(student.birthDate).getFullYear()
     : 28;
   const inferredKidsCategory = inferKidsCategoryFromBirthDate(student.birthDate);
+  const inferredTrainingType = inferTrainingTypeFromBirthDate(student.birthDate);
+  const canUseAdultGraduation = inferredTrainingType === 'Adulto';
   const [studentBelt, setStudentBelt] = useState(student.belt);
   const [studentGrade, setStudentGrade] = useState(student.stripes);
   const [studentKidsCategory, setStudentKidsCategory] = useState<KidsCategory | ''>(student.kidsCategory ?? inferredKidsCategory ?? '');
@@ -102,21 +104,32 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
       return 'Kids';
     }
 
-    if (studentKidsCategory) {
+    if (!canUseAdultGraduation && studentKidsCategory) {
       return 'Kids';
     }
 
-    return inferTrainingTypeFromBirthDate(student.birthDate);
-  }, [student.birthDate, studentBelt, studentKidsCategory]);
+    return inferredTrainingType;
+  }, [canUseAdultGraduation, inferredTrainingType, studentBelt, studentKidsCategory]);
 
   const studentBeltOptions = useMemo(() => {
-    const baseOptions = getBeltOptions(studentTrack, studentKidsCategory || undefined);
+    const baseOptions = canUseAdultGraduation
+      ? getBeltOptions('Adulto')
+      : getBeltOptions(studentTrack, studentKidsCategory || undefined);
     if (baseOptions.some((entry) => entry.value === studentBelt)) {
       return baseOptions;
     }
 
     return [...baseOptions, { value: studentBelt, label: beltLabel(studentBelt) }];
-  }, [studentBelt, studentKidsCategory, studentTrack]);
+  }, [canUseAdultGraduation, studentBelt, studentKidsCategory, studentTrack]);
+
+  function handleStudentBeltChange(value: string) {
+    const nextBelt = value as typeof student.belt;
+    setStudentBelt(nextBelt);
+
+    if (canUseAdultGraduation && !isKidsOnlyBelt(nextBelt)) {
+      setStudentKidsCategory('');
+    }
+  }
   const progressionRule = useMemo(
     () => getProgressionRuleForUser({
       belt: student.belt,
@@ -331,11 +344,14 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
           <div className="mt-6 app-grid-2">
             <label className="app-field">
               <span className="app-field__label">Faixa</span>
-              <select value={studentBelt} onChange={(event) => setStudentBelt(event.target.value as typeof student.belt)} className="app-select">
+              <select value={studentBelt} onChange={(event) => handleStudentBeltChange(event.target.value)} className="app-select">
                 {studentBeltOptions.map((entry) => (
                   <option key={entry.value} value={entry.value}>{entry.label}</option>
                 ))}
               </select>
+              {canUseAdultGraduation ? (
+                <span className="app-field__hint">Aluno liberado para faixas adultas pelo ano em que completa 16.</span>
+              ) : null}
             </label>
 
             <label className="app-field">
