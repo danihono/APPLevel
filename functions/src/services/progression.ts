@@ -55,22 +55,33 @@ function getClassesToNextBelt(rule: Pick<ProgressionBeltRule, 'stripeEvery' | 'm
   return stripeEvery * (maxStripes + beltPromotionOffset);
 }
 
-function isKnownStaleAdultSegment(segment: ProgressionRuleSegment): boolean {
-  const byBelt = new Map(segment.belts.map((entry) => [normalizeBeltId(entry.belt), entry]));
-  const staleAdultBelts = ['white', 'blue', 'purple', 'brown'];
+function isKnownStaleAdultRule(rule: ProgressionBeltRule): boolean {
+  const staleAdultBelts = new Set(['blue', 'purple', 'brown']);
+  const belt = normalizeBeltId(rule.belt);
 
-  return staleAdultBelts.every((belt) => {
-    const entry = byBelt.get(belt);
-    return !!entry
-      && Math.max(0, Math.floor(entry.stripeEvery)) === 30
-      && Math.max(0, Math.floor(entry.maxStripes)) === 4;
-  });
+  return staleAdultBelts.has(belt)
+    && Math.max(0, Math.floor(rule.stripeEvery)) === 30
+    && Math.max(0, Math.floor(rule.maxStripes)) === 4;
 }
 
+type ProgressionContextOptions = {
+  birthDate?: string | null;
+  kidsCategory?: KidsCategory | null;
+  attendanceCountBonus?: number | null;
+};
+
 function normalizeAdultSegment(segment: ProgressionRuleSegment): ProgressionRuleSegment {
-  return isKnownStaleAdultSegment(segment)
-    ? (DEFAULT_PROGRESSION_RULES as ProgressionRulesV2).adult
-    : segment;
+  const defaultAdultRules = (DEFAULT_PROGRESSION_RULES as ProgressionRulesV2).adult;
+  const defaultRuleByBelt = new Map(defaultAdultRules.belts.map((entry) => [entry.belt, entry]));
+
+  return {
+    belts: segment.belts.map((entry) => {
+      const defaultRule = defaultRuleByBelt.get(normalizeBeltId(entry.belt));
+      return defaultRule && isKnownStaleAdultRule(entry)
+        ? { ...defaultRule }
+        : entry;
+    }),
+  };
 }
 
 const GRAY_FAMILY_BELTS = new Set(['white', 'gray-white', 'gray', 'gray-black']);
@@ -398,6 +409,31 @@ function getMilestoneByBelt(belt: string, milestones: ProgressionMilestone[]): P
   return milestones.find((item) => item.belt === normalizeBeltId(belt));
 }
 
+function getEffectiveMilestoneStart(
+  totalAttendances: number,
+  milestone: ProgressionMilestone,
+  options?: Pick<ProgressionContextOptions, 'attendanceCountBonus'>,
+): number {
+  const bonus = Math.max(0, Math.floor(options?.attendanceCountBonus ?? 0));
+  const usesCurrentBeltBonus = milestone.minAttendances > 0 && bonus > 0 && bonus < milestone.minAttendances;
+
+  return totalAttendances >= milestone.minAttendances && !usesCurrentBeltBonus
+    ? milestone.minAttendances
+    : 0;
+}
+
+function getNextMilestoneTarget(
+  currentMilestoneStart: number,
+  currentMilestone: ProgressionMilestone,
+  nextMilestone?: ProgressionMilestone,
+): number | null {
+  if (!nextMilestone) {
+    return null;
+  }
+
+  return currentMilestoneStart + Math.max(0, nextMilestone.minAttendances - currentMilestone.minAttendances);
+}
+
 function resolveKidsCategory(params: {
   currentBelt: string;
   birthDate?: string | null;
@@ -421,7 +457,7 @@ function resolveKidsCategory(params: {
 function resolveProgressionContext(
   currentBelt: string,
   rules: ProgressionRulesV2,
-  options?: { birthDate?: string | null; kidsCategory?: KidsCategory | null },
+  options?: ProgressionContextOptions,
 ): {
   track: 'adult' | 'kids';
   kidsCategory?: KidsCategory;
@@ -474,7 +510,7 @@ export function resolveProgressionTargets(
   currentStripes: number,
   totalAttendances: number,
   rules?: Partial<ProgressionRules> | null,
-  options?: { birthDate?: string | null; kidsCategory?: KidsCategory | null },
+  options?: ProgressionContextOptions,
 ): ProgressionSnapshot {
   const normalizedRules = normalizeProgressionRules(rules);
   const context = resolveProgressionContext(currentBelt, normalizedRules, options);
@@ -485,23 +521,24 @@ export function resolveProgressionTargets(
     currentMilestone.maxStripes,
     Math.max(0, Math.floor(currentStripes)),
   );
+  const currentMilestoneStart = getEffectiveMilestoneStart(totalAttendances, currentMilestone, options);
 
   const nextStripeAttendanceTarget =
     stripes < currentMilestone.maxStripes && currentMilestone.stripeEvery > 0
-      ? currentMilestone.minAttendances + (stripes + 1) * currentMilestone.stripeEvery
+      ? currentMilestoneStart + (stripes + 1) * currentMilestone.stripeEvery
       : null;
-  const nextBeltAttendanceTarget = nextMilestone?.minAttendances ?? null;
+  const nextBeltAttendanceTarget = getNextMilestoneTarget(currentMilestoneStart, currentMilestone, nextMilestone);
   const classesToNextStripe = nextStripeAttendanceTarget == null ? 0 : currentMilestone.stripeEvery;
-  const currentStripeFloor = currentMilestone.minAttendances + stripes * currentMilestone.stripeEvery;
+  const currentStripeFloor = currentMilestoneStart + stripes * currentMilestone.stripeEvery;
   const currentStripeProgress = classesToNextStripe === 0
     ? 0
     : Math.max(0, Math.min(totalAttendances - currentStripeFloor, classesToNextStripe));
   const totalClassesToNextBelt = nextBeltAttendanceTarget == null
     ? 0
-    : Math.max(0, nextBeltAttendanceTarget - currentMilestone.minAttendances);
+    : Math.max(0, nextBeltAttendanceTarget - currentMilestoneStart);
   const currentBeltProgress = totalClassesToNextBelt === 0
     ? 0
-    : Math.max(0, Math.min(totalAttendances - currentMilestone.minAttendances, totalClassesToNextBelt));
+    : Math.max(0, Math.min(totalAttendances - currentMilestoneStart, totalClassesToNextBelt));
 
   return {
     belt: currentMilestone.belt,
@@ -523,7 +560,7 @@ export function resolveNextProgressionStep(
   currentStripes: number,
   totalAttendances: number,
   rules?: Partial<ProgressionRules> | null,
-  options?: { birthDate?: string | null; kidsCategory?: KidsCategory | null },
+  options?: ProgressionContextOptions,
 ): ProgressionNextStep | null {
   const normalizedRules = normalizeProgressionRules(rules);
   const context = resolveProgressionContext(currentBelt, normalizedRules, options);
@@ -534,9 +571,10 @@ export function resolveNextProgressionStep(
     currentMilestone.maxStripes,
     Math.max(0, Math.floor(currentStripes)),
   );
+  const currentMilestoneStart = getEffectiveMilestoneStart(totalAttendances, currentMilestone, options);
 
   if (stripes < currentMilestone.maxStripes && currentMilestone.stripeEvery > 0) {
-    const attendanceTarget = currentMilestone.minAttendances + (stripes + 1) * currentMilestone.stripeEvery;
+    const attendanceTarget = currentMilestoneStart + (stripes + 1) * currentMilestone.stripeEvery;
     return {
       targetType: 'stripe',
       targetBelt: currentMilestone.belt,
@@ -550,13 +588,14 @@ export function resolveNextProgressionStep(
   if (!nextMilestone) {
     return null;
   }
+  const nextBeltAttendanceTarget = getNextMilestoneTarget(currentMilestoneStart, currentMilestone, nextMilestone) ?? 0;
 
   return {
     targetType: 'belt',
     targetBelt: nextMilestone.belt,
     targetStripes: 0,
-    attendanceTarget: nextMilestone.minAttendances,
-    remainingClasses: Math.max(nextMilestone.minAttendances - totalAttendances, 0),
+    attendanceTarget: nextBeltAttendanceTarget,
+    remainingClasses: Math.max(nextBeltAttendanceTarget - totalAttendances, 0),
     ruleVersion: normalizedRules.version,
   };
 }
@@ -564,7 +603,7 @@ export function resolveNextProgressionStep(
 export function resolveProgression(
   totalAttendances: number,
   rules?: Partial<ProgressionRules> | null,
-  options?: { birthDate?: string | null; kidsCategory?: KidsCategory | null; currentBelt?: string | null },
+  options?: ProgressionContextOptions & { currentBelt?: string | null },
 ): ProgressionSnapshot {
   const normalizedRules = normalizeProgressionRules(rules);
   const currentBelt = normalizeBeltId(options?.currentBelt);

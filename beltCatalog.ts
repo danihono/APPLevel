@@ -417,22 +417,26 @@ export function getClassesToNextBelt(rule: Pick<ProgressionBeltRule, 'stripeEver
   return stripeEvery * (maxStripes + beltPromotionOffset);
 }
 
-function isKnownStaleAdultSegment(segment: ProgressionRuleSegment): boolean {
-  const byBelt = new Map(segment.belts.map((entry) => [normalizeBeltId(entry.belt), entry]));
-  const staleAdultBelts = [BeltColor.BRANCA, BeltColor.AZUL, BeltColor.ROXA, BeltColor.MARROM];
+function isKnownStaleAdultRule(rule: ProgressionBeltRule): boolean {
+  const staleAdultBelts: ReadonlySet<BeltColor> = new Set([BeltColor.AZUL, BeltColor.ROXA, BeltColor.MARROM]);
+  const belt = normalizeBeltId(rule.belt);
 
-  return staleAdultBelts.every((belt) => {
-    const entry = byBelt.get(belt);
-    return !!entry
-      && Math.max(0, Math.floor(entry.stripeEvery)) === 30
-      && Math.max(0, Math.floor(entry.maxStripes)) === 4;
-  });
+  return staleAdultBelts.has(belt)
+    && Math.max(0, Math.floor(rule.stripeEvery)) === 30
+    && Math.max(0, Math.floor(rule.maxStripes)) === 4;
 }
 
 function normalizeAdultSegment(segment: ProgressionRuleSegment): ProgressionRuleSegment {
-  return isKnownStaleAdultSegment(segment)
-    ? DEFAULT_PROGRESSION_RULES.adult
-    : segment;
+  const defaultRuleByBelt = new Map(DEFAULT_PROGRESSION_RULES.adult.belts.map((entry) => [entry.belt, entry]));
+
+  return {
+    belts: segment.belts.map((entry) => {
+      const defaultRule = defaultRuleByBelt.get(normalizeBeltId(entry.belt));
+      return defaultRule && isKnownStaleAdultRule(entry)
+        ? { ...defaultRule }
+        : entry;
+    }),
+  };
 }
 
 function normalizeStripeEvery(value: number): number {
@@ -630,6 +634,21 @@ function getBeltStartAttendances(activeRules: ProgressionBeltRule[], currentInde
     .reduce((total, rule) => total + getClassesToNextBelt(rule), 0);
 }
 
+function getEffectiveBeltStartAttendances(
+  attendanceCount: number | null,
+  beltStartAttendances: number,
+  attendanceCountBonus?: number | null,
+): number {
+  const bonus = Math.max(0, Math.floor(attendanceCountBonus ?? 0));
+  const usesCurrentBeltBonus = beltStartAttendances > 0 && bonus > 0 && bonus < beltStartAttendances;
+
+  if (attendanceCount == null || (attendanceCount >= beltStartAttendances && !usesCurrentBeltBonus)) {
+    return beltStartAttendances;
+  }
+
+  return 0;
+}
+
 export function getUserProgressionSummary(params: {
   belt?: string | null;
   grade?: number | null;
@@ -638,6 +657,7 @@ export function getUserProgressionSummary(params: {
   kidsCategory?: KidsCategory | null;
   birthDate?: string | null;
   attendanceCount?: number | null;
+  attendanceCountBonus?: number | null;
   currentStripeProgress?: number | null;
   currentBeltProgress?: number | null;
 }, rules?: ProgressionRules | null): UserProgressionSummary {
@@ -661,13 +681,18 @@ export function getUserProgressionSummary(params: {
     ? Math.max(0, Math.floor(params.attendanceCount))
     : null;
   const beltStartAttendances = getBeltStartAttendances(activeRules, currentIndex);
-  const stripeStartAttendances = beltStartAttendances + currentStripes * classesPerStripe;
+  const effectiveBeltStartAttendances = getEffectiveBeltStartAttendances(
+    attendanceCount,
+    beltStartAttendances,
+    params.attendanceCountBonus,
+  );
+  const stripeStartAttendances = effectiveBeltStartAttendances + currentStripes * classesPerStripe;
   const stripeProgress = attendanceCount == null
     ? clampProgress(params.currentStripeProgress ?? 0, stripeTotal)
     : clampProgress(attendanceCount - stripeStartAttendances, stripeTotal);
   const beltProgress = attendanceCount == null
     ? clampProgress(params.currentBeltProgress ?? 0, beltTotal)
-    : clampProgress(attendanceCount - beltStartAttendances, beltTotal);
+    : clampProgress(attendanceCount - effectiveBeltStartAttendances, beltTotal);
 
   return {
     track,

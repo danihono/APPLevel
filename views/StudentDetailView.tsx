@@ -129,13 +129,20 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
       setStudentKidsCategory('');
     }
   }
+  const registeredAttendanceCount = Math.max(
+    0,
+    Math.floor((student.attendanceCount ?? 0) - (student.attendanceCountBonus ?? 0)),
+  );
+  const previewAttendanceCount = registeredAttendanceCount + attendanceBonus;
   const progression = useMemo(
     () => getUserProgressionSummary({
       ...student,
       belt: studentBelt,
       stripes: studentGrade,
+      attendanceCount: previewAttendanceCount,
+      attendanceCountBonus: attendanceBonus,
     }, progressionRules),
-    [progressionRules, student, studentBelt, studentGrade],
+    [progressionRules, previewAttendanceCount, student, studentBelt, studentGrade],
   );
   const stripeTotal = progression.stripeTotal;
   const beltTotal = progression.beltTotal;

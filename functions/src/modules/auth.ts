@@ -1028,6 +1028,7 @@ export const updateOwnStaffBeltGrade = onCall(callableOptions, async (request) =
     const progression = resolveProgressionTargets(belt, stripes, attendanceCount, DEFAULT_PROGRESSION_RULES, {
       birthDate: actor.user.birthDate,
       kidsCategory: actor.user.kidsCategory,
+      attendanceCountBonus,
     });
 
     await db.collection(COLLECTIONS.users).doc(actor.uid).update({

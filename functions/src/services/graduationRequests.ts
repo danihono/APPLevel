@@ -201,6 +201,7 @@ export async function syncGraduationApprovalRequest(
     {
       birthDate: params.user.birthDate,
       kidsCategory: params.user.kidsCategory,
+      attendanceCountBonus: params.user.attendanceCountBonus,
     },
   );
   const pendingRequest = await findPendingGraduationRequest(params.academyId, params.userId);

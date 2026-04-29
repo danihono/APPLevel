@@ -340,6 +340,7 @@ export async function syncUserDerivedState(
   const progression = resolveProgressionTargets(user.belt, user.stripes, metrics.attendanceCount, rules, {
     birthDate: user.birthDate,
     kidsCategory: user.kidsCategory,
+    attendanceCountBonus: bonus,
   });
   const missionPoints = await syncUserMissions(userId, user.role, normalizedAcademyId, metrics);
   const ranking = calculateRanking(metrics, missionPoints);

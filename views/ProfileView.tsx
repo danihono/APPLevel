@@ -386,7 +386,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({
                         <label className="app-field">
                           <span className="app-field__label">Grau</span>
                           <select value={staffStripes} onChange={(e) => setStaffStripes(Number(e.target.value))} className="app-select">
-                            {[0, 1, 2, 3, 4].map((g) => (
+                            {[1, 2, 3, 4, 5, 6].map((g) => (
                               <option key={g} value={g}>{g}º grau</option>
                             ))}
                           </select>
