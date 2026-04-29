@@ -176,7 +176,7 @@ const GraduationView: React.FC<GraduationViewProps> = ({
               <p className="text-sm font-semibold">Regra atual — Faixa {beltLabel(currentRule.belt)}</p>
               <p className="mt-2 text-xs text-[color:var(--text-muted)]">
                 {currentRule.stripeEvery > 0
-                  ? `Novo grau a cada ${currentRule.stripeEvery} aulas • máximo ${currentRule.maxStripes} graus`
+                  ? `Novo grau a cada ${currentRule.stripeEvery} aulas • máximo ${currentRule.maxStripes} graus${beltTotal > 0 ? ` • ${beltTotal} aulas para a próxima faixa` : ''}`
                   : 'Progressão manual para graus e faixas seguintes.'}
               </p>
             </div>
@@ -231,7 +231,7 @@ const GraduationView: React.FC<GraduationViewProps> = ({
           </div>
           <div>
             <p className="app-section-label">Referência</p>
-            <h2 className="text-xl font-bold">Regras por faixa</h2>
+            <h2 className="text-xl font-bold">Regra da faixa atual</h2>
             <p className="mt-1 text-sm text-[color:var(--text-muted)]">
               {trainingType === 'Kids'
                 ? `Configuração oficial da academia para ${kidsCategoryLabel(inferredKidsCategory)}.`
@@ -241,7 +241,7 @@ const GraduationView: React.FC<GraduationViewProps> = ({
         </div>
 
         <div className="mt-6 grid gap-3 md:grid-cols-2">
-          {activeRules.map((entry, index) => (
+          {[currentRule].map((entry, index) => (
             <div key={`${entry.belt}-${index}`} className="app-list-card">
               <div className="flex items-center justify-between gap-3">
                 <p className="text-sm font-bold">{beltLabel(entry.belt)}</p>

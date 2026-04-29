@@ -130,8 +130,12 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
     }
   }
   const progression = useMemo(
-    () => getUserProgressionSummary(student, progressionRules),
-    [progressionRules, student],
+    () => getUserProgressionSummary({
+      ...student,
+      belt: studentBelt,
+      stripes: studentGrade,
+    }, progressionRules),
+    [progressionRules, student, studentBelt, studentGrade],
   );
   const stripeTotal = progression.stripeTotal;
   const beltTotal = progression.beltTotal;

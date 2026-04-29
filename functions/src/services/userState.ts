@@ -13,6 +13,7 @@ import {
 } from '../domain/models';
 import { db } from '../lib/firebase';
 import { findSingleByFields, getUserDoc } from '../lib/context';
+import { assertCondition } from '../lib/errors';
 import { syncGraduationApprovalRequest } from './graduationRequests';
 import { resolveProgressionTargets } from './progression';
 
@@ -324,16 +325,23 @@ export async function syncUserDerivedState(
   academyId: string,
   options?: { recalculatePositions?: boolean },
 ): Promise<UserSyncResult> {
+  const normalizedAcademyId = academyId.trim();
+  assertCondition(
+    normalizedAcademyId.length > 0,
+    'failed-precondition',
+    'Usuario precisa estar vinculado a uma academia antes de sincronizar estado derivado.',
+  );
+
   const user = await getUserDoc(userId);
-  const rawMetrics = await computeEngagementMetrics(userId, academyId);
+  const rawMetrics = await computeEngagementMetrics(userId, normalizedAcademyId);
   const bonus = Math.max(0, Math.floor(user.attendanceCountBonus ?? 0));
   const metrics = bonus > 0 ? { ...rawMetrics, attendanceCount: rawMetrics.attendanceCount + bonus } : rawMetrics;
-  const rules = await loadAcademyRules(academyId);
+  const rules = await loadAcademyRules(normalizedAcademyId);
   const progression = resolveProgressionTargets(user.belt, user.stripes, metrics.attendanceCount, rules, {
     birthDate: user.birthDate,
     kidsCategory: user.kidsCategory,
   });
-  const missionPoints = await syncUserMissions(userId, user.role, academyId, metrics);
+  const missionPoints = await syncUserMissions(userId, user.role, normalizedAcademyId, metrics);
   const ranking = calculateRanking(metrics, missionPoints);
   const now = Timestamp.now();
   const batch = db.batch();
@@ -359,7 +367,7 @@ export async function syncUserDerivedState(
 
   await batch.commit();
   await syncGraduationApprovalRequest({
-    academyId,
+    academyId: normalizedAcademyId,
     userId,
     user,
     attendanceCount: metrics.attendanceCount,
@@ -367,7 +375,7 @@ export async function syncUserDerivedState(
   });
   await upsertRanking(
     userId,
-    academyId,
+    normalizedAcademyId,
     {
       ...user,
       missionPoints,
@@ -377,11 +385,11 @@ export async function syncUserDerivedState(
   );
 
   if (options?.recalculatePositions !== false) {
-    await recalculateAcademyRankingPositions(academyId);
+    await recalculateAcademyRankingPositions(normalizedAcademyId);
   }
 
   return {
-    academyId,
+    academyId: normalizedAcademyId,
     attendanceCount: metrics.attendanceCount,
     belt: user.belt,
     stripes: user.stripes,

@@ -261,13 +261,21 @@ function sanitizeBeltRule(rule: Partial<ProgressionBeltRule> | undefined, fallba
     ? Math.max(0, Math.floor(rule.maxStripes))
     : Math.max(0, Math.floor(fallback?.maxStripes ?? 0));
 
+  const stripeEvery = normalizeStripeEvery(rawStripeEvery);
+  const isNonTerminal = stripeEvery > 0 && maxStripes > 0;
+  const entryOffset = typeof rule?.beltPromotionOffset === 'number'
+    ? Math.max(0, Math.floor(rule.beltPromotionOffset))
+    : null;
+  const fallbackOffset = Math.max(0, Math.floor(fallback?.beltPromotionOffset ?? 0));
+  const beltPromotionOffset = (entryOffset !== null && (entryOffset > 0 || !isNonTerminal))
+    ? entryOffset
+    : fallbackOffset;
+
   return {
     belt: normalizeBeltId(rule?.belt ?? fallback?.belt),
-    stripeEvery: normalizeStripeEvery(rawStripeEvery),
+    stripeEvery,
     maxStripes,
-    beltPromotionOffset: typeof rule?.beltPromotionOffset === 'number'
-      ? Math.max(0, Math.floor(rule.beltPromotionOffset))
-      : Math.max(0, Math.floor(fallback?.beltPromotionOffset ?? 0)),
+    beltPromotionOffset,
   };
 }
 

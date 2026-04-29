@@ -390,19 +390,19 @@ export const DEFAULT_PROGRESSION_RULES: ProgressionRulesV2 = {
   kids: {
     level_infantil: {
       belts: [
-        { belt: BeltColor.BRANCA, stripeEvery: 15, maxStripes: 4 },
-        { belt: BeltColor.CINZA_BRANCA, stripeEvery: 15, maxStripes: 4 },
-        { belt: BeltColor.CINZA, stripeEvery: 15, maxStripes: 4 },
-        { belt: BeltColor.CINZA_PRETA, stripeEvery: 15, maxStripes: 4 },
-        { belt: BeltColor.AMARELA_BRANCA, stripeEvery: 30, maxStripes: 4 },
-        { belt: BeltColor.AMARELA, stripeEvery: 30, maxStripes: 4 },
-        { belt: BeltColor.AMARELA_PRETA, stripeEvery: 30, maxStripes: 4 },
-        { belt: BeltColor.LARANJA_BRANCA, stripeEvery: 30, maxStripes: 4 },
-        { belt: BeltColor.LARANJA, stripeEvery: 30, maxStripes: 4 },
-        { belt: BeltColor.LARANJA_PRETA, stripeEvery: 30, maxStripes: 4 },
-        { belt: BeltColor.VERDE_BRANCA, stripeEvery: 25, maxStripes: 4 },
-        { belt: BeltColor.VERDE, stripeEvery: 25, maxStripes: 4 },
-        { belt: BeltColor.VERDE_PRETA, stripeEvery: 25, maxStripes: 4 },
+        { belt: BeltColor.BRANCA, stripeEvery: 15, maxStripes: 4, beltPromotionOffset: 1 },
+        { belt: BeltColor.CINZA_BRANCA, stripeEvery: 15, maxStripes: 4, beltPromotionOffset: 1 },
+        { belt: BeltColor.CINZA, stripeEvery: 15, maxStripes: 4, beltPromotionOffset: 1 },
+        { belt: BeltColor.CINZA_PRETA, stripeEvery: 15, maxStripes: 4, beltPromotionOffset: 1 },
+        { belt: BeltColor.AMARELA_BRANCA, stripeEvery: 30, maxStripes: 4, beltPromotionOffset: 1 },
+        { belt: BeltColor.AMARELA, stripeEvery: 30, maxStripes: 4, beltPromotionOffset: 1 },
+        { belt: BeltColor.AMARELA_PRETA, stripeEvery: 30, maxStripes: 4, beltPromotionOffset: 1 },
+        { belt: BeltColor.LARANJA_BRANCA, stripeEvery: 30, maxStripes: 4, beltPromotionOffset: 1 },
+        { belt: BeltColor.LARANJA, stripeEvery: 30, maxStripes: 4, beltPromotionOffset: 1 },
+        { belt: BeltColor.LARANJA_PRETA, stripeEvery: 30, maxStripes: 4, beltPromotionOffset: 1 },
+        { belt: BeltColor.VERDE_BRANCA, stripeEvery: 25, maxStripes: 4, beltPromotionOffset: 1 },
+        { belt: BeltColor.VERDE, stripeEvery: 25, maxStripes: 4, beltPromotionOffset: 1 },
+        { belt: BeltColor.VERDE_PRETA, stripeEvery: 25, maxStripes: 4, beltPromotionOffset: 1 },
       ],
     },
   },
@@ -449,13 +449,21 @@ function sanitizeBeltRule(entry: Partial<ProgressionBeltRule> | undefined, fallb
     ? Math.max(0, Math.floor(entry.maxStripes))
     : Math.max(0, Math.floor(fallback?.maxStripes ?? 0));
 
+  const stripeEvery = normalizeStripeEvery(rawStripeEvery);
+  const isNonTerminal = stripeEvery > 0 && maxStripes > 0;
+  const entryOffset = typeof entry?.beltPromotionOffset === 'number'
+    ? Math.max(0, Math.floor(entry.beltPromotionOffset))
+    : null;
+  const fallbackOffset = Math.max(0, Math.floor(fallback?.beltPromotionOffset ?? 0));
+  const beltPromotionOffset = (entryOffset !== null && (entryOffset > 0 || !isNonTerminal))
+    ? entryOffset
+    : fallbackOffset;
+
   return {
     belt: normalizeBeltId(entry?.belt ?? fallback?.belt),
-    stripeEvery: normalizeStripeEvery(rawStripeEvery),
+    stripeEvery,
     maxStripes,
-    beltPromotionOffset: typeof entry?.beltPromotionOffset === 'number'
-      ? Math.max(0, Math.floor(entry.beltPromotionOffset))
-      : Math.max(0, Math.floor(fallback?.beltPromotionOffset ?? 0)),
+    beltPromotionOffset,
   };
 }
 

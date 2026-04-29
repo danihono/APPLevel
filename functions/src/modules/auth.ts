@@ -28,6 +28,7 @@ import {
   isAdultOnlyBelt,
   isKidsOnlyBelt,
   normalizeBeltId,
+  resolveProgressionTargets,
 } from '../services/progression';
 import { syncUserDerivedState } from '../services/userState';
 
@@ -1002,22 +1003,48 @@ export const updateOwnStaffBeltGrade = onCall(callableOptions, async (request) =
   const attendanceCountBonus = Object.prototype.hasOwnProperty.call(data, 'attendanceCountBonus')
     ? Math.max(0, Math.floor(requiredNumber(request.data, 'attendanceCountBonus')))
     : (actor.user.attendanceCountBonus ?? 0);
+  const academyId = actor.user.academyId.trim();
 
-  await applyStudentBeltGradeUpdate({
-    targetUserId: actor.uid,
-    targetUser: actor.user,
-    belt,
-    grade,
-    stripes,
-    hasKidsCategoryField: false,
-  });
+  if (academyId.length > 0) {
+    await applyStudentBeltGradeUpdate({
+      targetUserId: actor.uid,
+      targetUser: actor.user,
+      belt,
+      grade,
+      stripes,
+      hasKidsCategoryField: false,
+    });
 
-  await db.collection(COLLECTIONS.users).doc(actor.uid).update({
-    attendanceCountBonus,
-    updatedAt: Timestamp.now(),
-  });
+    await db.collection(COLLECTIONS.users).doc(actor.uid).update({
+      attendanceCountBonus,
+      updatedAt: Timestamp.now(),
+    });
 
-  await syncUserDerivedState(actor.uid, actor.user.academyId);
+    await syncUserDerivedState(actor.uid, academyId);
+  } else {
+    const previousAttendanceCount = Math.max(0, Math.floor(actor.user.attendanceCount ?? 0));
+    const previousAttendanceCountBonus = Math.max(0, Math.floor(actor.user.attendanceCountBonus ?? 0));
+    const attendanceCount = Math.max(0, previousAttendanceCount - previousAttendanceCountBonus) + attendanceCountBonus;
+    const progression = resolveProgressionTargets(belt, stripes, attendanceCount, DEFAULT_PROGRESSION_RULES, {
+      birthDate: actor.user.birthDate,
+      kidsCategory: actor.user.kidsCategory,
+    });
+
+    await db.collection(COLLECTIONS.users).doc(actor.uid).update({
+      belt,
+      grade,
+      stripes,
+      attendanceCountBonus,
+      attendanceCount,
+      nextStripeAttendanceTarget: progression.nextStripeAttendanceTarget,
+      nextBeltAttendanceTarget: progression.nextBeltAttendanceTarget,
+      currentStripeProgress: progression.currentStripeProgress,
+      classesToNextStripe: progression.classesToNextStripe,
+      currentBeltProgress: progression.currentBeltProgress,
+      totalClassesToNextBelt: progression.totalClassesToNextBelt,
+      updatedAt: Timestamp.now(),
+    });
+  }
 
   return { userId: actor.uid, belt, grade, stripes, attendanceCountBonus };
 });
