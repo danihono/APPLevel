@@ -991,6 +991,26 @@ html.dark .app-panel--tint {
   color: rgba(255, 255, 255, 0.42);
 }
 
+.calendar-mobile__surface-tabs {
+  margin: -0.2rem 0 0.75rem;
+}
+
+.calendar-mobile__surface-tabs + .calendar-mobile__hero {
+  margin-top: 0;
+}
+
+.calendar-mobile__surface-tabs .app-segment {
+  width: 100%;
+}
+
+.calendar-mobile__surface-tabs .app-segment__button {
+  min-height: 2.55rem;
+  padding: 0.6rem 0.45rem;
+  font-size: 0.78rem;
+  line-height: 1.15;
+  white-space: normal;
+}
+
 .calendar-mobile__day-section {
   padding: 1.2rem 1rem 1rem;
   border-radius: 2rem;

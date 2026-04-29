@@ -52,7 +52,7 @@ interface CalendarViewProps {
   onRemoveStudentPresent?: (classId: string, targetUserId: string) => Promise<void>;
 }
 
-type CalendarSurface = 'calendar' | 'today';
+type CalendarSurface = 'calendar' | 'today' | 'unfinished';
 type StaffFilter = 'minhas' | 'todas';
 type FeedbackToast = {
   title: string;
@@ -549,6 +549,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
   const [myRsvpByClass, setMyRsvpByClass] = useState<Record<string, boolean>>({});
   const [rsvpBusyByClass, setRsvpBusyByClass] = useState<Record<string, boolean>>({});
   const [feedbackToast, setFeedbackToast] = useState<FeedbackToast | null>(null);
+  const [nowMs, setNowMs] = useState(() => Date.now());
   const [classAttendances, setClassAttendances] = useState<Array<FirestoreEntity<AttendanceRecord>>>([]);
   const [classRsvps, setClassRsvps] = useState<Array<FirestoreEntity<ClassRsvpRecord>>>([]);
   const [classRsvpsLoading, setClassRsvpsLoading] = useState(false);
@@ -647,6 +648,12 @@ const CalendarView: React.FC<CalendarViewProps> = ({
   }, [classes, currentUserId, isStaff]);
 
   useEffect(() => {
+    if (!isStaff && surfaceTab === 'unfinished') {
+      setSurfaceTab('calendar');
+    }
+  }, [isStaff, surfaceTab]);
+
+  useEffect(() => {
     if (typeof window === 'undefined') {
       return undefined;
     }
@@ -674,6 +681,11 @@ const CalendarView: React.FC<CalendarViewProps> = ({
     }, 1000);
     return () => clearInterval(id);
   }, [qrByClass]);
+
+  useEffect(() => {
+    const id = window.setInterval(() => setNowMs(Date.now()), 60_000);
+    return () => window.clearInterval(id);
+  }, []);
 
   useEffect(() => {
     if (!finishQrData) {
@@ -777,6 +789,30 @@ const CalendarView: React.FC<CalendarViewProps> = ({
     [classes, currentUserId, currentUserBelt, currentUserKidsCategory, currentUserStripes, isStaff, userRole, view],
   );
 
+  const unfinishedClasses = useMemo(
+    () => {
+      if (!isStaff) {
+        return [];
+      }
+
+      return [...classes]
+        .filter((entry) => {
+          if (entry.professorId !== currentUserId) {
+            return false;
+          }
+
+          if (entry.status !== 'scheduled' && entry.status !== 'active') {
+            return false;
+          }
+
+          const deadline = entry.scheduledEnd ?? entry.scheduledStart;
+          return !!deadline && deadline.toDate().getTime() < nowMs;
+        })
+        .sort(sortClasses);
+    },
+    [classes, currentUserId, isStaff, nowMs],
+  );
+
   const classesByDay = useMemo(() => {
     const grouped = new Map<string, Array<FirestoreEntity<ClassRecord>>>();
 
@@ -834,6 +870,11 @@ const CalendarView: React.FC<CalendarViewProps> = ({
     () => `${selectedDayClasses.length} ${selectedDayClasses.length === 1 ? 'aula' : 'aulas'} em ${formatDateLabel(selectedDay)}`,
     [selectedDay, selectedDayClasses.length],
   );
+  const surfaceCopy = surfaceTab === 'calendar'
+    ? 'Use o calendário mensal para localizar as aulas do dia e abrir a agenda logo abaixo.'
+    : surfaceTab === 'unfinished'
+      ? 'Acompanhe as suas aulas que já passaram do horário e ainda precisam ser finalizadas.'
+      : 'Veja as aulas de hoje em lista, com leitura rápida e acesso direto aos detalhes.';
 
   const selectedClass = selectedClassId ? classes.find((entry) => entry.id === selectedClassId) ?? null : null;
   const selectedClassRsvpCount = selectedClass
@@ -881,6 +922,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
   const todayEmptyMessage = isMineView
     ? 'Você não tem aulas programadas para hoje.'
     : 'Nenhuma aula programada para hoje.';
+  const unfinishedEmptyMessage = 'Nenhuma aula não finalizada para você.';
 
   async function runClassAction(classId: string, action: () => Promise<void | QrSessionPayload>) {
     setBusyByClass((current) => ({ ...current, [classId]: true }));
@@ -1032,6 +1074,34 @@ const CalendarView: React.FC<CalendarViewProps> = ({
     setSelectedDay((current) => new Date(nextMonth.getFullYear(), nextMonth.getMonth(), Math.min(current.getDate(), lastDay)));
   }, [visibleMonth]);
 
+  const renderSurfaceTabs = (block = false) => (
+    <div className={`app-segment${block ? ' app-segment--block' : ''}`}>
+      <button
+        type="button"
+        onClick={() => setSurfaceTab('calendar')}
+        className={`app-segment__button ${surfaceTab === 'calendar' ? 'is-active' : ''}`}
+      >
+        Calendário
+      </button>
+      <button
+        type="button"
+        onClick={() => setSurfaceTab('today')}
+        className={`app-segment__button ${surfaceTab === 'today' ? 'is-active' : ''}`}
+      >
+        Hoje
+      </button>
+      {isStaff ? (
+        <button
+          type="button"
+          onClick={() => setSurfaceTab('unfinished')}
+          className={`app-segment__button ${surfaceTab === 'unfinished' ? 'is-active' : ''}`}
+        >
+          Não finalizadas
+        </button>
+      ) : null}
+    </div>
+  );
+
   return (
     <div className="view-shell">
       {feedbackToast ? (
@@ -1050,29 +1120,12 @@ const CalendarView: React.FC<CalendarViewProps> = ({
               <p className="app-section-label">Agenda</p>
               <h1 className="app-section-title">Calendário de aulas</h1>
               <p className="app-section-copy mt-4">
-                {surfaceTab === 'calendar'
-                  ? 'Use o calendário mensal para localizar as aulas do dia e abrir a agenda logo abaixo.'
-                  : 'Veja as aulas de hoje em lista, com leitura rápida e acesso direto aos detalhes.'}
+                {surfaceCopy}
               </p>
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
-              <div className="app-segment">
-                <button
-                  type="button"
-                  onClick={() => setSurfaceTab('calendar')}
-                  className={`app-segment__button ${surfaceTab === 'calendar' ? 'is-active' : ''}`}
-                >
-                  Calendário
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setSurfaceTab('today')}
-                  className={`app-segment__button ${surfaceTab === 'today' ? 'is-active' : ''}`}
-                >
-                  Hoje
-                </button>
-              </div>
+              {renderSurfaceTabs()}
 
               {isStaff ? (
                 <button type="button" onClick={() => setCreateModalOpen(true)} className="app-button app-button--dark">
@@ -1085,7 +1138,13 @@ const CalendarView: React.FC<CalendarViewProps> = ({
         </section>
       ) : null}
 
-      {surfaceTab === 'calendar' || isCompactMonthGrid ? (
+      {isCompactMonthGrid ? (
+        <section className="calendar-mobile__surface-tabs">
+          {renderSurfaceTabs(true)}
+        </section>
+      ) : null}
+
+      {surfaceTab === 'calendar' ? (
         <>
           {isCompactMonthGrid ? (
             <>
@@ -1233,13 +1292,47 @@ const CalendarView: React.FC<CalendarViewProps> = ({
             </>
           )}
         </>
-      ) : (
-        <section className="app-panel app-panel-pad">
+      ) : surfaceTab === 'unfinished' ? (
+        <section className={isCompactMonthGrid ? 'calendar-mobile__day-section' : 'app-panel app-panel-pad'}>
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
-              <p className="app-section-label">Aulas de hoje</p>
-              <h2 className="text-2xl font-bold" style={{ textTransform: 'capitalize' }}>{todayLabel}</h2>
-              <p className="app-section-copy mt-4">
+              <p className={isCompactMonthGrid ? 'calendar-mobile__day-label' : 'app-section-label'}>Não finalizadas</p>
+              <h2 className={isCompactMonthGrid ? 'calendar-mobile__day-title' : 'text-2xl font-bold'}>
+                Aulas pendentes
+              </h2>
+              <p className={isCompactMonthGrid ? 'mt-3 text-sm text-[color:var(--text-muted)]' : 'app-section-copy mt-4'}>
+                Aulas suas que já passaram do horário e ainda estão agendadas ou ativas.
+              </p>
+            </div>
+
+            <span className={unfinishedClasses.length > 0 ? 'app-badge app-badge--gold' : 'app-badge app-badge--muted'}>
+              {unfinishedClasses.length} {unfinishedClasses.length === 1 ? 'aula' : 'aulas'}
+            </span>
+          </div>
+
+          <div className={isCompactMonthGrid ? 'calendar-mobile__day-list' : 'mt-6 app-list'}>
+            {unfinishedClasses.length > 0 ? (
+              unfinishedClasses.map((lesson) => (
+                <ClassListItem
+                  key={lesson.id}
+                  lesson={lesson}
+                  onOpen={openClassDetails}
+                  compact={isCompactMonthGrid}
+                  isConfirmed={!!myRsvpByClass[lesson.id]}
+                />
+              ))
+            ) : (
+              <div className={isCompactMonthGrid ? 'calendar-mobile__empty' : 'app-empty'}>{unfinishedEmptyMessage}</div>
+            )}
+          </div>
+        </section>
+      ) : (
+        <section className={isCompactMonthGrid ? 'calendar-mobile__day-section' : 'app-panel app-panel-pad'}>
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <p className={isCompactMonthGrid ? 'calendar-mobile__day-label' : 'app-section-label'}>Aulas de hoje</p>
+              <h2 className={isCompactMonthGrid ? 'calendar-mobile__day-title' : 'text-2xl font-bold'} style={{ textTransform: 'capitalize' }}>{todayLabel}</h2>
+              <p className={isCompactMonthGrid ? 'mt-3 text-sm text-[color:var(--text-muted)]' : 'app-section-copy mt-4'}>
                 Visualização em lista para acompanhar rapidamente as aulas do dia sem usar o formato de calendário.
               </p>
             </div>
@@ -1269,13 +1362,13 @@ const CalendarView: React.FC<CalendarViewProps> = ({
             </div>
           </div>
 
-          <div className="mt-6 app-list">
+          <div className={isCompactMonthGrid ? 'calendar-mobile__day-list' : 'mt-6 app-list'}>
             {todayClasses.length > 0 ? (
               todayClasses.map((lesson) => (
-                <ClassListItem key={lesson.id} lesson={lesson} onOpen={openClassDetails} isConfirmed={!!myRsvpByClass[lesson.id]} />
+                <ClassListItem key={lesson.id} lesson={lesson} onOpen={openClassDetails} compact={isCompactMonthGrid} isConfirmed={!!myRsvpByClass[lesson.id]} />
               ))
             ) : (
-              <div className="app-empty">{todayEmptyMessage}</div>
+              <div className={isCompactMonthGrid ? 'calendar-mobile__empty' : 'app-empty'}>{todayEmptyMessage}</div>
             )}
           </div>
         </section>
