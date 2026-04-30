@@ -372,9 +372,6 @@ export const KIDS_CATEGORIES: Array<{ value: KidsCategory; label: string }> = [
   { value: 'level_infantil', label: 'Infantil' },
 ];
 
-const LEGACY_TWENTY_CLASS_STRIPE_GOAL = 20;
-const STANDARD_THIRTY_CLASS_STRIPE_GOAL = 30;
-
 export const DEFAULT_PROGRESSION_RULES: ProgressionRulesV2 = {
   version: 2,
   schema: 'v2',
@@ -417,77 +414,6 @@ export function getClassesToNextBelt(rule: Pick<ProgressionBeltRule, 'stripeEver
   return stripeEvery * (maxStripes + beltPromotionOffset);
 }
 
-function isKnownStaleAdultRule(rule: ProgressionBeltRule): boolean {
-  const staleAdultBelts: ReadonlySet<BeltColor> = new Set([BeltColor.AZUL, BeltColor.ROXA, BeltColor.MARROM]);
-  const belt = normalizeBeltId(rule.belt);
-
-  return staleAdultBelts.has(belt)
-    && Math.max(0, Math.floor(rule.stripeEvery)) === 30
-    && Math.max(0, Math.floor(rule.maxStripes)) === 4;
-}
-
-function normalizeAdultSegment(segment: ProgressionRuleSegment): ProgressionRuleSegment {
-  const defaultRuleByBelt = new Map(DEFAULT_PROGRESSION_RULES.adult.belts.map((entry) => [entry.belt, entry]));
-
-  return {
-    belts: segment.belts.map((entry) => {
-      const defaultRule = defaultRuleByBelt.get(normalizeBeltId(entry.belt));
-      return defaultRule && isKnownStaleAdultRule(entry)
-        ? { ...defaultRule }
-        : entry;
-    }),
-  };
-}
-
-function normalizeStripeEvery(value: number): number {
-  return value === LEGACY_TWENTY_CLASS_STRIPE_GOAL
-    ? STANDARD_THIRTY_CLASS_STRIPE_GOAL
-    : value;
-}
-
-function sanitizeBeltRule(entry: Partial<ProgressionBeltRule> | undefined, fallback?: ProgressionBeltRule): ProgressionBeltRule {
-  const rawStripeEvery = typeof entry?.stripeEvery === 'number'
-    ? Math.max(0, Math.floor(entry.stripeEvery))
-    : Math.max(0, Math.floor(fallback?.stripeEvery ?? 0));
-  const maxStripes = typeof entry?.maxStripes === 'number'
-    ? Math.max(0, Math.floor(entry.maxStripes))
-    : Math.max(0, Math.floor(fallback?.maxStripes ?? 0));
-
-  const stripeEvery = normalizeStripeEvery(rawStripeEvery);
-  const isNonTerminal = stripeEvery > 0 && maxStripes > 0;
-  const entryOffset = typeof entry?.beltPromotionOffset === 'number'
-    ? Math.max(0, Math.floor(entry.beltPromotionOffset))
-    : null;
-  const fallbackOffset = Math.max(0, Math.floor(fallback?.beltPromotionOffset ?? 0));
-  const beltPromotionOffset = (entryOffset !== null && (entryOffset > 0 || !isNonTerminal))
-    ? entryOffset
-    : fallbackOffset;
-
-  return {
-    belt: normalizeBeltId(entry?.belt ?? fallback?.belt),
-    stripeEvery,
-    maxStripes,
-    beltPromotionOffset,
-  };
-}
-
-function sanitizeSegment(input: ProgressionRuleSegment | undefined, fallback: ProgressionRuleSegment): ProgressionRuleSegment {
-  const fallbackRules = fallback.belts.map((entry) => sanitizeBeltRule(entry));
-  const customByBelt = new Map<string, ProgressionBeltRule>();
-
-  for (const entry of input?.belts ?? []) {
-    customByBelt.set(normalizeBeltId(entry.belt), entry);
-  }
-
-  const belts = fallbackRules.map((fallbackRule) => sanitizeBeltRule(customByBelt.get(fallbackRule.belt), fallbackRule));
-  const knownBelts = new Set(belts.map((entry) => entry.belt));
-  const extras = [...customByBelt.entries()]
-    .filter(([belt]) => !knownBelts.has(belt))
-    .map(([, entry]) => sanitizeBeltRule(entry));
-
-  return { belts: [...belts, ...extras] };
-}
-
 function normalizeLooseKey(value: string): string {
   return value
     .trim()
@@ -507,56 +433,23 @@ export function normalizeBeltId(value?: string | null): BeltColor {
   return BELT_ALIASES[slashNormalized] ?? BELT_ALIASES[loose] ?? BELT_ALIASES[hyphenAsSlash] ?? BeltColor.BRANCA;
 }
 
-export function normalizeProgressionRules(input?: ProgressionRules | null): ProgressionRulesV2 {
-  if (!input) {
-    return DEFAULT_PROGRESSION_RULES;
-  }
-
-  if ('schema' in input || 'adult' in input || 'kids' in input) {
-    const v2 = input as Partial<ProgressionRulesV2>;
-    const adult = sanitizeSegment(v2.adult, DEFAULT_PROGRESSION_RULES.adult);
-
-    return {
-      version: typeof v2.version === 'number' ? v2.version : DEFAULT_PROGRESSION_RULES.version,
-      schema: 'v2',
-      adult: normalizeAdultSegment(adult),
-      kids: {
-        level_infantil: sanitizeSegment(v2.kids?.level_infantil, DEFAULT_PROGRESSION_RULES.kids.level_infantil),
-      },
-    };
-  }
-
-  const legacy = [...(input.milestones ?? [])]
-    .map((entry) => ({
-      belt: entry.belt,
-      minAttendances: Math.max(0, Math.floor(entry.minAttendances)),
-      stripeEvery: Math.max(0, Math.floor(entry.stripeEvery)),
-      maxStripes: Math.max(0, Math.floor(entry.maxStripes)),
-    }))
-    .sort((left, right) => left.minAttendances - right.minAttendances);
-
+function cloneOfficialProgressionRules(): ProgressionRulesV2 {
   return {
-    version: typeof input.version === 'number' ? input.version : DEFAULT_PROGRESSION_RULES.version,
+    version: DEFAULT_PROGRESSION_RULES.version,
     schema: 'v2',
-    adult: normalizeAdultSegment(sanitizeSegment({
-      belts: legacy.map((entry, index) => {
-        const nextEntry = legacy[index + 1];
-        const totalClassesToNextBelt = nextEntry == null
-          ? entry.stripeEvery * entry.maxStripes
-          : Math.max(0, nextEntry.minAttendances - entry.minAttendances);
-
-        return {
-          belt: entry.belt,
-          stripeEvery: entry.stripeEvery,
-          maxStripes: entry.maxStripes,
-          beltPromotionOffset: entry.stripeEvery > 0
-            ? Math.max(0, Math.floor(totalClassesToNextBelt / entry.stripeEvery) - entry.maxStripes)
-            : 0,
-        };
-      }),
-    }, DEFAULT_PROGRESSION_RULES.adult)),
-    kids: DEFAULT_PROGRESSION_RULES.kids,
+    adult: {
+      belts: DEFAULT_PROGRESSION_RULES.adult.belts.map((entry) => ({ ...entry })),
+    },
+    kids: {
+      level_infantil: {
+        belts: DEFAULT_PROGRESSION_RULES.kids.level_infantil.belts.map((entry) => ({ ...entry })),
+      },
+    },
   };
+}
+
+export function normalizeProgressionRules(_input?: ProgressionRules | null): ProgressionRulesV2 {
+  return cloneOfficialProgressionRules();
 }
 
 export function isAdultOnlyBelt(value?: string | null): boolean {

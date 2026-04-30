@@ -428,7 +428,7 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
             <ProgressBar current={stripeProgress} total={stripeTotal} />
             <p className="mt-3 text-sm text-[color:var(--text-muted)]">
               {stripeTotal > 0
-                ? `Próximo grau: ${stripeProgress}/${stripeTotal} aulas`
+                ? `Progresso real para o próximo grau: ${stripeProgress}/${stripeTotal} aulas`
                 : 'Próximo grau: progressão manual'}
             </p>
           </div>
@@ -436,14 +436,14 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
             <ProgressBar current={beltProgress} total={beltTotal} color="bg-gold" />
             <p className="mt-3 text-sm text-[color:var(--text-muted)]">
               {beltTotal > 0
-                ? `Próxima faixa: ${beltProgress}/${beltTotal} aulas`
+                ? `Progresso real para a próxima faixa: ${beltProgress}/${beltTotal} aulas`
                 : 'Próxima faixa: progressão manual'}
             </p>
           </div>
           <p className="text-xs text-[color:var(--text-soft)]">
             {progression.classesPerStripe > 0
-              ? `Regra da faixa: ${progression.classesPerStripe} aulas por grau${progression.beltTotal > 0 ? ` / ${progression.beltTotal} aulas para a próxima faixa` : ''}.`
-              : 'Regra da faixa: progressão manual.'}
+              ? `Regra oficial da faixa ${beltLabel(progression.currentBelt)}: ${progression.classesPerStripe} aulas por grau${progression.beltTotal > 0 ? ` / ${progression.beltTotal} aulas para a próxima faixa` : ''}.`
+              : `Regra oficial da faixa ${beltLabel(progression.currentBelt)}: progressão manual.`}
           </p>
         </div>
       </section>

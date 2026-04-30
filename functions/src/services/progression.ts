@@ -1,7 +1,6 @@
 import {
   DEFAULT_PROGRESSION_RULES,
   KidsCategory,
-  LegacyProgressionRules,
   ProgressionBeltRule,
   ProgressionMilestone,
   ProgressionRuleSegment,
@@ -55,34 +54,11 @@ function getClassesToNextBelt(rule: Pick<ProgressionBeltRule, 'stripeEvery' | 'm
   return stripeEvery * (maxStripes + beltPromotionOffset);
 }
 
-function isKnownStaleAdultRule(rule: ProgressionBeltRule): boolean {
-  const staleAdultBelts = new Set(['blue', 'purple', 'brown']);
-  const belt = normalizeBeltId(rule.belt);
-
-  return staleAdultBelts.has(belt)
-    && Math.max(0, Math.floor(rule.stripeEvery)) === 30
-    && Math.max(0, Math.floor(rule.maxStripes)) === 4;
-}
-
 type ProgressionContextOptions = {
   birthDate?: string | null;
   kidsCategory?: KidsCategory | null;
   attendanceCountBonus?: number | null;
 };
-
-function normalizeAdultSegment(segment: ProgressionRuleSegment): ProgressionRuleSegment {
-  const defaultAdultRules = (DEFAULT_PROGRESSION_RULES as ProgressionRulesV2).adult;
-  const defaultRuleByBelt = new Map(defaultAdultRules.belts.map((entry) => [entry.belt, entry]));
-
-  return {
-    belts: segment.belts.map((entry) => {
-      const defaultRule = defaultRuleByBelt.get(normalizeBeltId(entry.belt));
-      return defaultRule && isKnownStaleAdultRule(entry)
-        ? { ...defaultRule }
-        : entry;
-    }),
-  };
-}
 
 const GRAY_FAMILY_BELTS = new Set(['white', 'gray-white', 'gray', 'gray-black']);
 const YELLOW_ORANGE_FAMILY_BELTS = new Set([
@@ -150,8 +126,6 @@ const BELT_ALIASES: Record<string, string> = {
 
 const KIDS_CATEGORY_ORDER: KidsCategory[] = ['level_infantil'];
 const LEGACY_KIDS_CATEGORIES = new Set(['level_kids', 'level_infanto_juvenil', 'level_juvenil']);
-const LEGACY_TWENTY_CLASS_STRIPE_GOAL = 20;
-const STANDARD_THIRTY_CLASS_STRIPE_GOAL = 30;
 
 function normalizeLooseKey(value: string): string {
   return value
@@ -181,12 +155,6 @@ function normalizeKidsCategory(value?: string | null): KidsCategory | undefined 
     return 'level_infantil';
   }
   return KIDS_CATEGORY_ORDER.find((entry) => entry === normalized);
-}
-
-function normalizeStripeEvery(value: number): number {
-  return value === LEGACY_TWENTY_CLASS_STRIPE_GOAL
-    ? STANDARD_THIRTY_CLASS_STRIPE_GOAL
-    : value;
 }
 
 function getBirthYear(birthDate?: string | null): number | null {
@@ -265,14 +233,13 @@ function deriveKidsCategoryFromBelt(belt: string): KidsCategory | undefined {
 }
 
 function sanitizeBeltRule(rule: Partial<ProgressionBeltRule> | undefined, fallback?: ProgressionBeltRule): ProgressionBeltRule {
-  const rawStripeEvery = typeof rule?.stripeEvery === 'number'
+  const stripeEvery = typeof rule?.stripeEvery === 'number'
     ? Math.max(0, Math.floor(rule.stripeEvery))
     : Math.max(0, Math.floor(fallback?.stripeEvery ?? 0));
   const maxStripes = typeof rule?.maxStripes === 'number'
     ? Math.max(0, Math.floor(rule.maxStripes))
     : Math.max(0, Math.floor(fallback?.maxStripes ?? 0));
 
-  const stripeEvery = normalizeStripeEvery(rawStripeEvery);
   const isNonTerminal = stripeEvery > 0 && maxStripes > 0;
   const entryOffset = typeof rule?.beltPromotionOffset === 'number'
     ? Math.max(0, Math.floor(rule.beltPromotionOffset))
@@ -290,88 +257,21 @@ function sanitizeBeltRule(rule: Partial<ProgressionBeltRule> | undefined, fallba
   };
 }
 
-function sanitizeSegment(
-  input: ProgressionRuleSegment | undefined,
-  fallback: ProgressionRuleSegment,
-): ProgressionRuleSegment {
-  const fallbackRules = fallback.belts.map((entry) => sanitizeBeltRule(entry));
-  const customByBelt = new Map<string, ProgressionBeltRule>();
-
-  for (const entry of input?.belts ?? []) {
-    customByBelt.set(normalizeBeltId(entry.belt), entry);
-  }
-
-  const belts = fallbackRules.map((fallbackRule) => sanitizeBeltRule(customByBelt.get(fallbackRule.belt), fallbackRule));
-  const knownBelts = new Set(belts.map((entry) => entry.belt));
-  const extras = [...customByBelt.entries()]
-    .filter(([belt]) => !knownBelts.has(belt))
-    .map(([, entry]) => sanitizeBeltRule(entry));
+export function normalizeProgressionRules(_input?: Partial<ProgressionRules> | null): ProgressionRulesV2 {
+  const defaultRules = DEFAULT_PROGRESSION_RULES as ProgressionRulesV2;
 
   return {
-    belts: [...belts, ...extras],
-  };
-}
-
-function convertLegacyRules(input: LegacyProgressionRules): ProgressionRulesV2 {
-  const legacyAdult = [...input.milestones]
-    .map((entry) => ({
-      belt: normalizeBeltId(entry.belt),
-      minAttendances: Math.max(0, Math.floor(entry.minAttendances)),
-      stripeEvery: Math.max(0, Math.floor(entry.stripeEvery)),
-      maxStripes: Math.max(0, Math.floor(entry.maxStripes)),
-    }))
-    .sort((left, right) => left.minAttendances - right.minAttendances)
-    .map((entry, index, entries) => {
-      const nextEntry = entries[index + 1];
-      const totalClassesToNextBelt = nextEntry == null
-        ? entry.stripeEvery * entry.maxStripes
-        : Math.max(0, nextEntry.minAttendances - entry.minAttendances);
-
-      return {
-        belt: entry.belt,
-        stripeEvery: entry.stripeEvery,
-        maxStripes: entry.maxStripes,
-        beltPromotionOffset: entry.stripeEvery > 0
-          ? Math.max(0, Math.floor(totalClassesToNextBelt / entry.stripeEvery) - entry.maxStripes)
-          : 0,
-      };
-    });
-
-  return {
-    version: typeof input.version === 'number' ? input.version : (DEFAULT_PROGRESSION_RULES as ProgressionRulesV2).version,
+    version: defaultRules.version,
     schema: 'v2',
-    adult: normalizeAdultSegment(sanitizeSegment({ belts: legacyAdult }, (DEFAULT_PROGRESSION_RULES as ProgressionRulesV2).adult)),
+    adult: {
+      belts: defaultRules.adult.belts.map((entry) => ({ ...entry })),
+    },
     kids: {
-      level_infantil: sanitizeSegment(undefined, (DEFAULT_PROGRESSION_RULES as ProgressionRulesV2).kids.level_infantil),
+      level_infantil: {
+        belts: defaultRules.kids.level_infantil.belts.map((entry) => ({ ...entry })),
+      },
     },
   };
-}
-
-export function normalizeProgressionRules(input?: Partial<ProgressionRules> | null): ProgressionRulesV2 {
-  const defaultRules = DEFAULT_PROGRESSION_RULES as ProgressionRulesV2;
-  if (!input) {
-    return defaultRules;
-  }
-
-  if ('schema' in input || 'adult' in input || 'kids' in input) {
-    const rules = input as Partial<ProgressionRulesV2>;
-    const adult = sanitizeSegment(rules.adult, defaultRules.adult);
-
-    return {
-      version: typeof rules.version === 'number' ? rules.version : defaultRules.version,
-      schema: 'v2',
-      adult: normalizeAdultSegment(adult),
-      kids: {
-        level_infantil: sanitizeSegment(rules.kids?.level_infantil, defaultRules.kids.level_infantil),
-      },
-    };
-  }
-
-  if ('milestones' in input && Array.isArray(input.milestones) && input.milestones.length > 0) {
-    return convertLegacyRules(input as LegacyProgressionRules);
-  }
-
-  return defaultRules;
 }
 
 function buildMilestones(segment: ProgressionRuleSegment): ProgressionMilestone[] {
