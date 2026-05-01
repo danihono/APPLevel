@@ -140,6 +140,13 @@ function normalizeBelt(belt: string) {
   }
 }
 
+function safeToDate(value: { toDate?: () => Date; seconds?: number } | null | undefined): Date | undefined {
+  if (!value) return undefined;
+  if (typeof value.toDate === 'function') return value.toDate();
+  if (typeof value.seconds === 'number') return new Date(value.seconds * 1000);
+  return undefined;
+}
+
 function getLatestDate(candidates: Array<Date | null | undefined>) {
   return candidates.reduce<Date | null>((latest, candidate) => {
     if (!candidate) {
@@ -219,11 +226,11 @@ const SuperadminDashboardView: React.FC<SuperadminDashboardViewProps> = ({
       ? Math.round(activeStudents.reduce((sum, entry) => sum + (entry.attendanceCount ?? 0), 0) / activeStudents.length)
       : 0;
     const lastActivityAt = getLatestDate([
-      academyEntry.updatedAt?.toDate(),
-      academyEntry.createdAt?.toDate(),
+      safeToDate(academyEntry.updatedAt),
+      safeToDate(academyEntry.createdAt),
       ...academyScopedUsers.flatMap((entry) => [
-        entry.lastAttendanceAt?.toDate(),
-        entry.lastLoginAt?.toDate(),
+        safeToDate(entry.lastAttendanceAt),
+        safeToDate(entry.lastLoginAt),
       ]),
     ]);
 
