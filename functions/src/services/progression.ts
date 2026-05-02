@@ -430,15 +430,23 @@ export function resolveProgressionTargets(
   const nextBeltAttendanceTarget = getNextMilestoneTarget(currentMilestoneStart, currentMilestone, nextMilestone);
   const classesToNextStripe = nextStripeAttendanceTarget == null ? 0 : currentMilestone.stripeEvery;
   const currentStripeFloor = currentMilestoneStart + stripes * currentMilestone.stripeEvery;
+  const isManuallyPlaced = totalAttendances < currentStripeFloor;
+  const gradeProgressForBelt = currentMilestone.stripeEvery > 0
+    ? Math.min(totalAttendances, currentMilestone.stripeEvery)
+    : 0;
   const currentStripeProgress = classesToNextStripe === 0
     ? 0
-    : Math.max(0, Math.min(totalAttendances - currentStripeFloor, classesToNextStripe));
+    : isManuallyPlaced
+      ? Math.min(totalAttendances, classesToNextStripe)
+      : Math.max(0, Math.min(totalAttendances - currentStripeFloor, classesToNextStripe));
   const totalClassesToNextBelt = nextBeltAttendanceTarget == null
     ? 0
     : Math.max(0, nextBeltAttendanceTarget - currentMilestoneStart);
   const currentBeltProgress = totalClassesToNextBelt === 0
     ? 0
-    : Math.max(0, Math.min(totalAttendances - currentMilestoneStart, totalClassesToNextBelt));
+    : isManuallyPlaced
+      ? Math.min(stripes * currentMilestone.stripeEvery + gradeProgressForBelt, totalClassesToNextBelt)
+      : Math.max(0, Math.min(totalAttendances - currentMilestoneStart, totalClassesToNextBelt));
 
   return {
     belt: currentMilestone.belt,

@@ -311,6 +311,86 @@ const ClassListItem: React.FC<ClassListItemProps> = ({ lesson, onOpen, compact =
   );
 };
 
+interface DayOverflowModalProps {
+  date: Date;
+  dayClasses: Array<FirestoreEntity<ClassRecord>>;
+  onOpenClass: (classId: string, day: Date) => void;
+  onClose: () => void;
+}
+
+const DayOverflowModal: React.FC<DayOverflowModalProps> = ({ date, dayClasses, onOpenClass, onClose }) => {
+  const DAYS = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
+  const MONTHS = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
+  const title = `${DAYS[date.getDay()]}, ${date.getDate()} de ${MONTHS[date.getMonth()]}`;
+
+  return (
+    <div
+      className="fixed inset-0 z-[90] flex items-end justify-center bg-black/60 sm:items-center"
+      onClick={onClose}
+    >
+      <div
+        className="app-panel app-panel-pad app-sheet-modal w-full max-w-lg rounded-b-none sm:rounded-[1.8rem]"
+        onClick={e => e.stopPropagation()}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.2rem' }}>
+          <div>
+            <p style={{ fontSize: '0.7rem', fontWeight: 800, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-soft)' }}>
+              Aulas do dia
+            </p>
+            <p style={{ fontSize: '1.05rem', fontWeight: 700, marginTop: 2 }}>{title}</p>
+          </div>
+          <button type="button" onClick={onClose} className="app-icon-btn" aria-label="Fechar">
+            <X size={20} />
+          </button>
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: '60vh', overflowY: 'auto' }}>
+          {dayClasses.map(lesson => {
+            const colors = statusColors(lesson.status);
+            return (
+              <button
+                key={lesson.id}
+                type="button"
+                onClick={() => { onOpenClass(lesson.id, date); onClose(); }}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 12,
+                  padding: '0.75rem 1rem',
+                  borderRadius: 12,
+                  border: `1px solid ${colors.border}`,
+                  background: colors.bg,
+                  textAlign: 'left',
+                  width: '100%',
+                }}
+              >
+                <span style={{ width: 3, minHeight: 36, borderRadius: 2, background: colors.accent, flexShrink: 0 }} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p style={{ fontSize: '0.78rem', fontWeight: 700, color: colors.accent }}>
+                    {formatTimeLabel(lesson.scheduledStart)}
+                  </p>
+                  <p style={{ fontSize: '0.9rem', fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {lesson.title}
+                  </p>
+                  {lesson.professorName ? (
+                    <p style={{ fontSize: '0.75rem', color: 'var(--text-soft)', marginTop: 2 }}>
+                      {lesson.professorName}
+                    </p>
+                  ) : null}
+                </div>
+                <span className={statusBadgeClass(lesson.status)} style={{ flexShrink: 0, fontSize: '0.65rem' }}>
+                  {statusLabel(lesson.status)}
+                </span>
+                <ChevronRight size={16} style={{ color: 'var(--text-soft)', flexShrink: 0 }} />
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+};
+
 interface MonthGridProps {
   monthCells: Array<Date | null>;
   classesByDay: Map<string, Array<FirestoreEntity<ClassRecord>>>;
@@ -328,7 +408,10 @@ const DesktopMonthGrid: React.FC<MonthGridProps> = React.memo(function DesktopMo
   onSelectDay,
   onOpenClass,
 }) {
+  const [overflowDay, setOverflowDay] = useState<{ date: Date; classes: Array<FirestoreEntity<ClassRecord>> } | null>(null);
+
   return (
+  <>
   <div className="app-calendar-month-grid">
     {MONTH_WEEK_HEADER.map((day) => (
       <div key={day} className="app-calendar-month-header">
@@ -407,15 +490,32 @@ const DesktopMonthGrid: React.FC<MonthGridProps> = React.memo(function DesktopMo
             ) : null}
 
             {remainingCount > 0 ? (
-              <span className="app-calendar-month-day__more">
+              <button
+                type="button"
+                className="app-calendar-month-day__more"
+                onClick={e => {
+                  e.stopPropagation();
+                  setOverflowDay({ date: cell, classes: dayClasses });
+                }}
+              >
                 +{remainingCount} {remainingCount === 1 ? 'aula' : 'aulas'}
-              </span>
+              </button>
             ) : null}
           </div>
         </div>
       );
     })}
   </div>
+
+  {overflowDay && (
+    <DayOverflowModal
+      date={overflowDay.date}
+      dayClasses={overflowDay.classes}
+      onOpenClass={(id, day) => { onOpenClass(id, day); setOverflowDay(null); }}
+      onClose={() => setOverflowDay(null)}
+    />
+  )}
+  </>
   );
 });
 
@@ -490,6 +590,10 @@ function isClassVisibleForStudent(
 
   if (belt === 'white' && stripes <= 1) {
     return d === 'iniciante' || !ADULT_CLASS_TYPES.has(d);
+  }
+
+  if (belt === 'white') {
+    return d === 'iniciante' || d === 'sport' || !ADULT_CLASS_TYPES.has(d);
   }
 
   return true;

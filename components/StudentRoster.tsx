@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ALL_BELTS, beltLabel, type ProgressionRules } from '../beltCatalog';
+import { ALL_BELTS, beltLabel, getUserProgressionSummary, type ProgressionRules } from '../beltCatalog';
 import { ChevronRight, Search } from 'lucide-react';
 import AvatarWithBelt from './AvatarWithBelt';
 import StudentDetailView from '../views/StudentDetailView';
@@ -49,6 +49,18 @@ const beltOrder = new Map(ALL_BELTS.map((belt, index) => [belt, index]));
 
 function getStudentGrade(student: User) {
   return Number(student.grade ?? student.stripes ?? 0);
+}
+
+function getProgressionHint(student: User, rules?: ProgressionRules | null): string | null {
+  const prog = getUserProgressionSummary(student, rules);
+  const parts: string[] = [];
+  if (prog.stripeTotal > 0) {
+    parts.push(`${prog.stripeProgress}/${prog.stripeTotal} grau`);
+  }
+  if (prog.beltTotal > 0) {
+    parts.push(`${prog.beltProgress}/${prog.beltTotal} faixa`);
+  }
+  return parts.length > 0 ? parts.join(' · ') : null;
 }
 
 function sortStudents(students: User[], sortMode: SortMode) {
@@ -308,6 +320,12 @@ const StudentRoster: React.FC<StudentRosterProps> = ({
                     <span className="app-badge app-badge--gold">Graduação pendente</span>
                   ) : null}
                 </div>
+                {(() => {
+                  const hint = getProgressionHint(student, progressionRules);
+                  return hint ? (
+                    <p className="mt-1 text-xs text-[color:var(--text-soft)]">{hint}</p>
+                  ) : null;
+                })()}
               </div>
 
               <ChevronRight size={18} className="student-roster__arrow" />

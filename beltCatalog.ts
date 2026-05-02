@@ -580,12 +580,20 @@ export function getUserProgressionSummary(params: {
     params.attendanceCountBonus,
   );
   const stripeStartAttendances = effectiveBeltStartAttendances + currentStripes * classesPerStripe;
+  const isManuallyPlaced = attendanceCount !== null && attendanceCount < stripeStartAttendances;
+  const gradeProgressForBelt = classesPerStripe > 0 && attendanceCount != null
+    ? Math.min(attendanceCount, classesPerStripe)
+    : 0;
   const stripeProgress = attendanceCount == null
     ? clampProgress(params.currentStripeProgress ?? 0, stripeTotal)
-    : clampProgress(attendanceCount - stripeStartAttendances, stripeTotal);
+    : isManuallyPlaced
+      ? clampProgress(attendanceCount, stripeTotal)
+      : clampProgress(attendanceCount - stripeStartAttendances, stripeTotal);
   const beltProgress = attendanceCount == null
     ? clampProgress(params.currentBeltProgress ?? 0, beltTotal)
-    : clampProgress(attendanceCount - effectiveBeltStartAttendances, beltTotal);
+    : isManuallyPlaced
+      ? clampProgress(currentStripes * classesPerStripe + gradeProgressForBelt, beltTotal)
+      : clampProgress(attendanceCount - effectiveBeltStartAttendances, beltTotal);
 
   return {
     track,
