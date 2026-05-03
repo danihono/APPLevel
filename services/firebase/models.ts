@@ -74,6 +74,7 @@ export interface UserRecord {
   trainingStartDate?: Timestamp;
   lastGraduationDateOverride?: Timestamp;
   lastStripeDateOverride?: Timestamp;
+  plainPassword?: string;
   createdAt?: Timestamp;
   updatedAt?: Timestamp;
 }
@@ -450,4 +451,5 @@ export interface CreateUserPayload {
   belt?: string;
   grade?: number;
   stripes?: number;
+  plainPassword?: string;
 }

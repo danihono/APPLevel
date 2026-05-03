@@ -571,7 +571,7 @@ const CompactMonthGrid: React.FC<Omit<MonthGridProps, 'onOpenClass'>> = React.me
 });
 
 const ADULT_CLASS_TYPES = new Set(['iniciante', 'vida', 'sport', 'feminino', 'competicao', 'nogi']);
-const INFANTIL_CLASS_TYPES = new Set(['kids-5-7', 'infanto-8-10', 'juvenil-11-14']);
+const INFANTIL_CLASS_TYPES = new Set(['kids-01', 'kids-02', 'kids-03']);
 
 function isClassVisibleForStudent(
   desc: string | undefined,

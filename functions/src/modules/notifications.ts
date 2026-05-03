@@ -182,3 +182,34 @@ export const markNotificationRead = onCall(callableOptions, async (request) => {
     status: 'read',
   };
 });
+
+export const clearNotifications = onCall(callableOptions, async (request) => {
+  const actor = await getRequestContext(request, 'student');
+  const academyId = optionalString(request.data, 'academyId') ?? actor.academyId;
+
+  assertCondition(
+    actor.role === 'superadmin' || academyId === actor.academyId,
+    'permission-denied',
+    'Você só pode limpar notificações da própria academia.',
+  );
+
+  let notifQuery: FirebaseFirestore.Query = db
+    .collection(COLLECTIONS.notifications)
+    .where('academyId', '==', academyId);
+
+  if (actor.role === 'student' || actor.role === 'admin') {
+    notifQuery = notifQuery.where('recipientUserId', '==', actor.uid);
+  }
+
+  const snapshot = await notifQuery.get();
+
+  for (const batchChunk of chunk(snapshot.docs, 500)) {
+    const writeBatch = db.batch();
+    for (const doc of batchChunk) {
+      writeBatch.delete(doc.ref);
+    }
+    await writeBatch.commit();
+  }
+
+  return { deleted: snapshot.docs.length };
+});

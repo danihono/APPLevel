@@ -1,5 +1,6 @@
 import { setGlobalOptions } from 'firebase-functions/v2';
 import {
+  adminUpdateInstructorProfile,
   adminUpdateStudentProfile,
   adminUpdateStudentTimeline,
   approveGraduationRequest,
@@ -71,6 +72,7 @@ import {
 } from './modules/learning';
 import { callableProxy } from './modules/proxy';
 import {
+  clearNotifications,
   markNotificationRead,
   registerDeviceToken,
   sendSegmentedNotification,
@@ -83,7 +85,9 @@ setGlobalOptions({
 });
 
 export {
+  adminUpdateInstructorProfile,
   approveGraduationRequest,
+  clearNotifications,
   approveJoinRequest,
   approveAttendanceRequest,
   approveFightVideoSubmission,

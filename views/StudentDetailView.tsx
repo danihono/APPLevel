@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   beltLabel,
   getBeltOptions,
@@ -10,7 +10,7 @@ import {
   KIDS_CATEGORIES,
   type ProgressionRules,
 } from '../beltCatalog';
-import { ArrowLeft, Award, Calendar, CheckCircle2, Clock, Edit, Mail, Save, TrendingUp, Video, BookOpen } from 'lucide-react';
+import { ArrowLeft, Award, Calendar, Camera, CheckCircle2, Clock, Edit, Mail, Save, TrendingUp, Video, BookOpen } from 'lucide-react';
 import AppVideoContent from '../components/AppVideoContent';
 import AvatarWithBelt from '../components/AvatarWithBelt';
 import ProgressBar from '../components/ProgressBar';
@@ -42,6 +42,7 @@ interface StudentDetailViewProps {
     lastGraduationDateOverride?: string;
     lastStripeDateOverride?: string;
   }) => Promise<void>;
+  onAdminUpdateStudentPhoto?: (payload: { userId: string; photoFile: File }) => Promise<void>;
 }
 
 function formatDate(value?: string) {
@@ -73,8 +74,13 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
   onSetStudentAttendanceBonus,
   onAdminUpdateStudentProfile,
   onAdminUpdateStudentTimeline,
+  onAdminUpdateStudentPhoto,
 }) => {
   const [showEditModal, setShowEditModal] = useState(false);
+  const photoInputRef = useRef<HTMLInputElement>(null);
+  const [photoBusy, setPhotoBusy] = useState(false);
+  const [photoFeedback, setPhotoFeedback] = useState('');
+  const [photoError, setPhotoError] = useState('');
   const age = student.birthDate
     ? new Date().getFullYear() - new Date(student.birthDate).getFullYear()
     : 28;
@@ -209,6 +215,23 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
     }
   }
 
+  async function handlePhotoUpload(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0] ?? null;
+    if (!file || !onAdminUpdateStudentPhoto) return;
+    setPhotoBusy(true);
+    setPhotoFeedback('');
+    setPhotoError('');
+    try {
+      await onAdminUpdateStudentPhoto({ userId: student.id, photoFile: file });
+      setPhotoFeedback('Foto atualizada com sucesso.');
+    } catch (err) {
+      setPhotoError(err instanceof Error ? err.message : 'Não foi possível salvar a foto.');
+    } finally {
+      setPhotoBusy(false);
+      event.target.value = '';
+    }
+  }
+
   async function handleSaveAttendanceBonus(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
@@ -264,6 +287,32 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
             size="lg"
           />
         </div>
+        {onAdminUpdateStudentPhoto ? (
+          <>
+            <button
+              type="button"
+              onClick={() => photoInputRef.current?.click()}
+              disabled={photoBusy}
+              className="app-button app-button--ghost mt-4"
+            >
+              {photoBusy ? (
+                <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+              ) : (
+                <Camera size={16} />
+              )}
+              {photoBusy ? 'Enviando...' : 'Alterar foto'}
+            </button>
+            <input
+              ref={photoInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handlePhotoUpload}
+            />
+          </>
+        ) : null}
+        {photoFeedback ? <p className="mt-2 text-xs text-green-500">{photoFeedback}</p> : null}
+        {photoError ? <p className="mt-2 text-xs text-red-500">{photoError}</p> : null}
         <h2 className="mt-4 text-3xl font-bold">{student.name}</h2>
         <p className="mt-2 text-sm text-[color:var(--text-muted)]">{student.type} - {age} anos</p>
 

@@ -139,6 +139,7 @@ export interface UserDoc {
   trainingStartDate?: FirebaseFirestore.Timestamp;
   lastGraduationDateOverride?: FirebaseFirestore.Timestamp;
   lastStripeDateOverride?: FirebaseFirestore.Timestamp;
+  plainPassword?: string;
   createdAt: FirebaseFirestore.Timestamp;
   updatedAt: FirebaseFirestore.Timestamp;
 }

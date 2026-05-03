@@ -34,6 +34,7 @@ interface StudentsViewProps {
     lastGraduationDateOverride?: string;
     lastStripeDateOverride?: string;
   }) => Promise<void>;
+  onAdminUpdateStudentPhoto?: (payload: { userId: string; photoFile: File }) => Promise<void>;
 }
 
 const StudentsView: React.FC<StudentsViewProps> = ({
@@ -52,6 +53,7 @@ const StudentsView: React.FC<StudentsViewProps> = ({
   onSetStudentAttendanceBonus,
   onAdminUpdateStudentProfile,
   onAdminUpdateStudentTimeline,
+  onAdminUpdateStudentPhoto,
 }) => {
   return (
     <StudentRoster
@@ -70,6 +72,7 @@ const StudentsView: React.FC<StudentsViewProps> = ({
       onSetStudentAttendanceBonus={onSetStudentAttendanceBonus}
       onAdminUpdateStudentProfile={onAdminUpdateStudentProfile}
       onAdminUpdateStudentTimeline={onAdminUpdateStudentTimeline}
+      onAdminUpdateStudentPhoto={onAdminUpdateStudentPhoto}
     />
   );
 };

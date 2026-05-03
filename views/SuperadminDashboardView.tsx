@@ -17,6 +17,7 @@ import type {
   CompetitionRecord,
   UserRecord,
 } from '../services/firebase/models';
+import InstructorEditModal from '../components/InstructorEditModal';
 
 interface SuperadminDashboardViewProps {
   academies: Array<FirestoreEntity<AcademyRecord>>;
@@ -28,6 +29,17 @@ interface SuperadminDashboardViewProps {
   selectedAcademyId: string;
   onEnterAcademy: (academyId: string) => void;
   onClearFocus: () => void;
+  onUpdateInstructor: (payload: {
+    userId: string;
+    firstName?: string;
+    lastName?: string;
+    email?: string;
+    newPassword?: string;
+    plainPassword?: string;
+    phone?: string;
+    belt?: string;
+    grade?: number;
+  }) => Promise<void>;
 }
 
 type SortMode = 'attention' | 'students' | 'attendance';
@@ -198,10 +210,12 @@ const SuperadminDashboardView: React.FC<SuperadminDashboardViewProps> = ({
   selectedAcademyId,
   onEnterAcademy,
   onClearFocus,
+  onUpdateInstructor,
 }) => {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [sortMode, setSortMode] = useState<SortMode>('attention');
+  const [editingInstructor, setEditingInstructor] = useState<FirestoreEntity<UserRecord> | null>(null);
 
   const usersByAcademyId = useMemo(() => {
     const grouped = new Map<string, Array<FirestoreEntity<UserRecord>>>();
@@ -390,6 +404,10 @@ const SuperadminDashboardView: React.FC<SuperadminDashboardViewProps> = ({
 
   const focusActiveStudents = academyUsers.filter((user) => user.role === 'student' && user.status === 'active').length;
   const focusLeaders = academyUsers.filter((user) => user.role !== 'student' && user.status === 'active').length;
+  const focusInstructors = useMemo(
+    () => academyUsers.filter((user) => (user.role === 'professor' || user.role === 'superadmin') && user.status === 'active'),
+    [academyUsers],
+  );
   const focusActiveClasses = classes.filter((item) => item.status === 'active').length;
   const focusScheduledClasses = classes.filter((item) => item.status === 'scheduled').length;
   const focusOpenCompetitions = competitions.filter((item) => item.status === 'published').length;
@@ -501,6 +519,19 @@ const SuperadminDashboardView: React.FC<SuperadminDashboardViewProps> = ({
       toneClass: 'superadmin-status-card--danger',
     },
   ];
+
+  if (editingInstructor) {
+    return (
+      <InstructorEditModal
+        instructor={editingInstructor}
+        onClose={() => setEditingInstructor(null)}
+        onSave={async (payload) => {
+          await onUpdateInstructor(payload);
+          setEditingInstructor(null);
+        }}
+      />
+    );
+  }
 
   return (
     <div className="view-shell superadmin-dashboard">
@@ -907,6 +938,39 @@ const SuperadminDashboardView: React.FC<SuperadminDashboardViewProps> = ({
                       </div>
                     ))}
                   </div>
+                </div>
+
+                <div className="superadmin-subsection">
+                  <div className="superadmin-subsection__header">
+                    <div className="flex items-center gap-2">
+                      <ShieldCheck size={16} />
+                      <strong>Instrutores da unidade</strong>
+                    </div>
+                    <span>{focusInstructors.length}</span>
+                  </div>
+
+                  {focusInstructors.length > 0 ? (
+                    <div className="superadmin-detail-list">
+                      {focusInstructors.map((instructor) => (
+                        <div
+                          key={instructor.id}
+                          className="superadmin-detail-row superadmin-detail-row--clickable"
+                          role="button"
+                          tabIndex={0}
+                          onClick={() => setEditingInstructor(instructor)}
+                          onKeyDown={(e) => e.key === 'Enter' && setEditingInstructor(instructor)}
+                        >
+                          <div>
+                            <p className="text-sm font-bold">{instructor.displayName}</p>
+                            <p className="text-xs text-[color:var(--text-soft)]">{instructor.email}</p>
+                          </div>
+                          <span className="app-badge app-badge--gold">Instrutor</span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="app-empty">Nenhum instrutor ativo nesta unidade.</div>
+                  )}
                 </div>
               </div>
             </>

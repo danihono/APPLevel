@@ -28,9 +28,9 @@ const TYPE_OPTIONS = [
   { group: 'DESENVOLVIMENTO', label: 'LEVEL Feminino',               value: 'feminino' },
   { group: 'PERFORMANCE',     label: 'LEVEL Competicao',             value: 'competicao' },
   { group: 'PERFORMANCE',     label: 'LEVEL Nogi',                   value: 'nogi' },
-  { group: 'INFANTIL',        label: 'LEVEL Kids (5-7)',             value: 'kids-5-7' },
-  { group: 'INFANTIL',        label: 'LEVEL Infanto Juvenil (8-10)', value: 'infanto-8-10' },
-  { group: 'INFANTIL',        label: 'LEVEL Juvenil (11-14)',        value: 'juvenil-11-14' },
+  { group: 'KIDS',             label: 'Kids 01',                      value: 'kids-01' },
+  { group: 'KIDS',             label: 'Kids 02',                      value: 'kids-02' },
+  { group: 'KIDS',             label: 'Kids 03',                      value: 'kids-03' },
 ];
 
 function toHHMM(date: Date) {

@@ -150,6 +150,18 @@ export const backendFunctions = {
     lastStripeDateOverride?: string;
   }) => callFunction<{ userId: string }>('adminUpdateStudentTimeline', payload),
 
+  adminUpdateInstructorProfile: (payload: {
+    userId: string;
+    firstName?: string;
+    lastName?: string;
+    email?: string;
+    newPassword?: string;
+    plainPassword?: string;
+    phone?: string;
+    belt?: string;
+    grade?: number;
+  }) => callFunction<{ userId: string; displayName: string }>('adminUpdateInstructorProfile', payload),
+
   approveGraduationRequest: (payload: { requestId: string }) =>
     callFunction<{ requestId: string; userId: string; status: string }>('approveGraduationRequest', payload),
 
@@ -331,6 +343,9 @@ export const backendFunctions = {
 
   markNotificationRead: (payload: { notificationId: string }) =>
     callFunction<{ notificationId: string; status: string }>('markNotificationRead', payload),
+
+  clearNotifications: (payload: { academyId?: string }) =>
+    callFunction<{ deleted: number }>('clearNotifications', payload),
 
   upsertLearningTrack: (payload: {
     trackId?: string;

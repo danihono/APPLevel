@@ -666,7 +666,7 @@ export function inferTrainingTypeFromBirthDate(birthDate?: string | null): Train
   const today = new Date();
   const ageByBirthYear = today.getFullYear() - birthYear;
 
-  return ageByBirthYear < 16 ? 'Kids' : 'Adulto';
+  return ageByBirthYear < 13 ? 'Kids' : 'Adulto';
 }
 
 export function inferKidsCategoryFromBirthDate(birthDate?: string | null): KidsCategory | undefined {

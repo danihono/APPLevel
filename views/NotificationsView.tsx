@@ -8,7 +8,7 @@ import {
   isKidsOnlyBelt,
   kidsCategoryLabel,
 } from '../beltCatalog';
-import { Bell, BellRing, CheckCircle2, ChevronDown, ChevronUp, ClipboardCheck, GraduationCap, Send, XCircle } from 'lucide-react';
+import { Bell, BellRing, CheckCircle2, ChevronDown, ChevronUp, ClipboardCheck, GraduationCap, Send, Trash2, XCircle } from 'lucide-react';
 import AppVideoContent from '../components/AppVideoContent';
 import type { FirestoreEntity } from '../services/firebase/data';
 import type {
@@ -49,6 +49,7 @@ interface NotificationsViewProps {
     targetBelt?: string;
   }) => Promise<void>;
   onMarkRead: (notificationId: string) => Promise<void>;
+  onClearNotifications: (academyId?: string) => Promise<void>;
   onApproveJoinRequest: (payload: { requestId: string; belt?: string; grade?: number }) => Promise<void>;
   onRejectJoinRequest: (requestId: string) => Promise<void>;
   onApproveAttendanceRequest: (requestId: string) => Promise<void>;
@@ -217,6 +218,7 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
   onSelectAcademy,
   onSendNotification,
   onMarkRead,
+  onClearNotifications,
   onApproveJoinRequest,
   onRejectJoinRequest,
   onApproveAttendanceRequest,
@@ -242,6 +244,9 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
   const [processingRequestId, setProcessingRequestId] = useState<string | null>(null);
   const [joinRequestDrafts, setJoinRequestDrafts] = useState<Record<string, JoinRequestDraft>>({});
   const [expandedRequestId, setExpandedRequestId] = useState<string | null>(null);
+  const [showAllStudent, setShowAllStudent] = useState(false);
+  const [showAllStaff, setShowAllStaff] = useState(false);
+  const [clearing, setClearing] = useState(false);
 
   const canBroadcast =
     userRole === UserRole.PROFESSOR ||
@@ -438,6 +443,20 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
       await onMarkRead(notificationId);
     } catch (markError) {
       setError(markError instanceof Error ? markError.message : 'Não foi possível marcar a notificação como lida.');
+    }
+  }
+
+  async function handleClear() {
+    setClearing(true);
+    setError('');
+    try {
+      await onClearNotifications(isSuperAdmin ? selectedAcademyId || undefined : undefined);
+      setShowAllStudent(false);
+      setShowAllStaff(false);
+    } catch (clearError) {
+      setError(clearError instanceof Error ? clearError.message : 'Não foi possível limpar as notificações.');
+    } finally {
+      setClearing(false);
     }
   }
 
@@ -800,7 +819,21 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
 
       {isStudent ? (
         <section className="app-list">
-          {studentNotifications.map((notification) => {
+          {studentNotifications.length > 0 ? (
+            <div className="flex justify-end px-1">
+              <button
+                type="button"
+                disabled={clearing}
+                onClick={() => void handleClear()}
+                className="app-button app-button--ghost app-button--small"
+              >
+                <Trash2 size={14} />
+                {clearing ? 'Limpando...' : 'Limpar tudo'}
+              </button>
+            </div>
+          ) : null}
+
+          {studentNotifications.slice(0, showAllStudent ? undefined : 5).map((notification) => {
             const unread = isUnreadNotificationForViewer(notification, {
               viewerRole: userRole,
               actionState: notificationActionState,
@@ -839,6 +872,16 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
             );
           })}
 
+          {studentNotifications.length > 5 && !showAllStudent ? (
+            <button
+              type="button"
+              onClick={() => setShowAllStudent(true)}
+              className="app-button app-button--ghost w-full"
+            >
+              Ver mais ({studentNotifications.length - 5} restantes)
+            </button>
+          ) : null}
+
           {studentNotifications.length === 0 ? (
             <div className="app-empty">Nenhum aviso encontrado para este canal.</div>
           ) : null}
@@ -848,7 +891,21 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
       {!isStudent && activeTab === 'notifications' ? (
         <>
           <section className="app-list">
-            {notifications.map((notification) => {
+            {professorNotifications.length > 0 ? (
+              <div className="flex justify-end px-1">
+                <button
+                  type="button"
+                  disabled={clearing}
+                  onClick={() => void handleClear()}
+                  className="app-button app-button--ghost app-button--small"
+                >
+                  <Trash2 size={14} />
+                  {clearing ? 'Limpando...' : 'Limpar tudo'}
+                </button>
+              </div>
+            ) : null}
+
+            {professorNotifications.slice(0, showAllStaff ? undefined : 5).map((notification) => {
               const unread = isUnreadNotificationForViewer(notification, {
                 viewerRole: userRole,
                 actionState: notificationActionState,
@@ -896,7 +953,17 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
               );
             })}
 
-            {notifications.length === 0 ? (
+            {professorNotifications.length > 5 && !showAllStaff ? (
+              <button
+                type="button"
+                onClick={() => setShowAllStaff(true)}
+                className="app-button app-button--ghost w-full"
+              >
+                Ver mais ({professorNotifications.length - 5} restantes)
+              </button>
+            ) : null}
+
+            {professorNotifications.length === 0 ? (
               <div className="app-empty">Nenhuma notificação encontrada para o contexto atual.</div>
             ) : null}
           </section>

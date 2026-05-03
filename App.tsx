@@ -1459,9 +1459,28 @@ const App: React.FC = () => {
     belt?: string;
     grade?: number;
     stripes?: number;
+    plainPassword?: string;
   }) {
     try {
       await backendFunctions.createUserWithRole(payload);
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
+  }
+
+  async function handleUpdateInstructor(payload: {
+    userId: string;
+    firstName?: string;
+    lastName?: string;
+    email?: string;
+    newPassword?: string;
+    plainPassword?: string;
+    phone?: string;
+    belt?: string;
+    grade?: number;
+  }) {
+    try {
+      await backendFunctions.adminUpdateInstructorProfile(payload);
     } catch (error) {
       throw new Error(getErrorMessage(error));
     }
@@ -1527,6 +1546,15 @@ const App: React.FC = () => {
     }
   }
 
+  async function handleAdminUpdateStudentPhoto(payload: { userId: string; photoFile: File }) {
+    try {
+      const photoPath = await uploadUserPhoto(payload.userId, payload.photoFile);
+      await updateUserProfile(payload.userId, { photoPath });
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
+  }
+
   async function handleAdminUpdateStudentTimeline(payload: {
     userId: string;
     trainingStartDate?: string;
@@ -1558,6 +1586,14 @@ const App: React.FC = () => {
   async function handleMarkNotificationRead(notificationId: string) {
     try {
       await backendFunctions.markNotificationRead({ notificationId });
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
+  }
+
+  async function handleClearNotifications(academyId?: string) {
+    try {
+      await backendFunctions.clearNotifications({ academyId });
     } catch (error) {
       throw new Error(getErrorMessage(error));
     }
@@ -2052,6 +2088,7 @@ const App: React.FC = () => {
               selectedAcademyId={selectedAcademyId}
               onEnterAcademy={setSelectedAcademyId}
               onClearFocus={() => setSelectedAcademyId('')}
+              onUpdateInstructor={handleUpdateInstructor}
             />
           )
           : isStaff ? (
@@ -2149,6 +2186,7 @@ const App: React.FC = () => {
             onSetStudentAttendanceBonus={handleSetStudentAttendanceBonus}
             onAdminUpdateStudentProfile={handleAdminUpdateStudentProfile}
             onAdminUpdateStudentTimeline={handleAdminUpdateStudentTimeline}
+            onAdminUpdateStudentPhoto={handleAdminUpdateStudentPhoto}
           />
         );
       case 'management':
@@ -2172,6 +2210,7 @@ const App: React.FC = () => {
             onSetStudentAttendanceBonus={handleSetStudentAttendanceBonus}
             onAdminUpdateStudentProfile={handleAdminUpdateStudentProfile}
             onAdminUpdateStudentTimeline={handleAdminUpdateStudentTimeline}
+            onAdminUpdateStudentPhoto={handleAdminUpdateStudentPhoto}
           />
         );
       case 'notifications':
@@ -2193,6 +2232,7 @@ const App: React.FC = () => {
             onSelectAcademy={setSelectedAcademyId}
             onSendNotification={handleSendNotification}
             onMarkRead={handleMarkNotificationRead}
+            onClearNotifications={handleClearNotifications}
             onApproveJoinRequest={handleApproveJoinRequest}
             onRejectJoinRequest={handleRejectJoinRequest}
             onApproveAttendanceRequest={handleApproveAttendanceRequest}

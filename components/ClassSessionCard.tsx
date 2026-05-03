@@ -12,7 +12,7 @@ interface ClassSessionCardProps {
   showStatus?: boolean;
 }
 
-const INFANTIL_TYPES = new Set(['kids-5-7', 'infanto-8-10', 'juvenil-11-14']);
+const INFANTIL_TYPES = new Set(['kids-01', 'kids-02', 'kids-03']);
 const PERFORMANCE_TYPES = new Set(['competicao', 'nogi']);
 const DESENVOLVIMENTO_TYPES = new Set(['iniciante', 'vida', 'sport', 'feminino']);
 const ALL_TYPE_CODES = new Set([...INFANTIL_TYPES, ...PERFORMANCE_TYPES, ...DESENVOLVIMENTO_TYPES, 'kids', 'advanced', 'no-gi']);

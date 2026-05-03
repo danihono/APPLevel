@@ -4404,6 +4404,23 @@ html.dark .superadmin-status-card {
   color: var(--text-strong);
 }
 
+.superadmin-detail-row--clickable {
+  cursor: pointer;
+  border-radius: 0.4rem;
+  padding: 0.45rem 0.5rem;
+  margin: 0 -0.5rem;
+  transition: background 0.15s ease;
+}
+
+.superadmin-detail-row--clickable:hover {
+  background: var(--surface-hover, rgba(255, 255, 255, 0.06));
+}
+
+.superadmin-detail-row--clickable:focus-visible {
+  outline: 2px solid var(--accent, #c49748);
+  outline-offset: 1px;
+}
+
 .superadmin-ranking-row,
 .superadmin-card-footnote,
 .superadmin-card-alert,

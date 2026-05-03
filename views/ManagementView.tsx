@@ -47,6 +47,7 @@ interface ManagementViewProps {
     belt?: string;
     grade?: number;
     stripes?: number;
+    plainPassword?: string;
   }) => Promise<void>;
   onUpdateStudentBeltGrade?: (payload: { userId: string; belt: string; grade: number; stripes?: number; kidsCategory?: string }) => Promise<void>;
   onSetStudentAttendanceBonus?: (payload: { userId: string; attendanceCountBonus: number }) => Promise<void>;
@@ -65,6 +66,7 @@ interface ManagementViewProps {
     lastGraduationDateOverride?: string;
     lastStripeDateOverride?: string;
   }) => Promise<void>;
+  onAdminUpdateStudentPhoto?: (payload: { userId: string; photoFile: File }) => Promise<void>;
 }
 
 const staffBeltPresets = ADULT_BELTS;
@@ -138,6 +140,7 @@ const ManagementView: React.FC<ManagementViewProps> = ({
   onSetStudentAttendanceBonus,
   onAdminUpdateStudentProfile,
   onAdminUpdateStudentTimeline,
+  onAdminUpdateStudentPhoto,
 }) => {
   const canManage = userRole === UserRole.PROFESSOR || userRole === UserRole.SUPERADMIN;
   const isSuperAdmin = userRole === UserRole.SUPERADMIN;
@@ -375,6 +378,7 @@ const ManagementView: React.FC<ManagementViewProps> = ({
         phone: phone || undefined,
         belt,
         grade,
+        plainPassword: password || undefined,
       });
       setFirstName('');
       setLastName('');
@@ -479,6 +483,7 @@ const ManagementView: React.FC<ManagementViewProps> = ({
             onSetStudentAttendanceBonus={onSetStudentAttendanceBonus}
             onAdminUpdateStudentProfile={onAdminUpdateStudentProfile}
             onAdminUpdateStudentTimeline={onAdminUpdateStudentTimeline}
+            onAdminUpdateStudentPhoto={onAdminUpdateStudentPhoto}
           />
         ) : hasManagedAcademy ? (
           <>
@@ -596,6 +601,7 @@ const ManagementView: React.FC<ManagementViewProps> = ({
             onSetStudentAttendanceBonus={onSetStudentAttendanceBonus}
             onAdminUpdateStudentProfile={onAdminUpdateStudentProfile}
             onAdminUpdateStudentTimeline={onAdminUpdateStudentTimeline}
+            onAdminUpdateStudentPhoto={onAdminUpdateStudentPhoto}
           />
         ) : (
           <section className="app-panel app-panel-pad">

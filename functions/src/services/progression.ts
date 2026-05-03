@@ -204,7 +204,7 @@ function calculateAgeByBirthYear(birthDate?: string | null): number | null {
 
 export function inferKidsCategoryFromBirthDate(birthDate?: string | null): KidsCategory | undefined {
   const age = calculateAgeByBirthYear(birthDate);
-  if (age == null || age >= 16) {
+  if (age == null || age >= 13) {
     return undefined;
   }
 

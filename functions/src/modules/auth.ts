@@ -591,6 +591,7 @@ export const createUserWithRole = onCall(callableOptions, async (request) => {
   const belt = optionalString(request.data, 'belt') ?? 'white';
   const grade = optionalNumber(request.data, 'grade') ?? 0;
   const stripes = optionalNumber(request.data, 'stripes') ?? grade;
+  const plainPassword = optionalString(request.data, 'plainPassword');
 
   assertCondition(ROLE_ORDER.includes(requestedRole), 'invalid-argument', 'Role invalida.');
   assertCondition(requestedRole !== 'student', 'invalid-argument', 'Cadastros de aluno devem usar o fluxo de solicitacao.');
@@ -642,6 +643,7 @@ export const createUserWithRole = onCall(callableOptions, async (request) => {
     nextStripeAttendanceTarget: null,
     nextBeltAttendanceTarget: null,
     fcmTokens: [],
+    ...(plainPassword ? { plainPassword } : {}),
     createdAt: now,
     updatedAt: now,
   };
@@ -1226,4 +1228,51 @@ export const validateSessionAccess = onCall(callableOptions, async (request) => 
     stripes: actor.user.stripes,
     claimsUpdated,
   };
+});
+
+export const adminUpdateInstructorProfile = onCall(callableOptions, async (request) => {
+  await getRequestContext(request, 'superadmin');
+
+  const targetUserId = requiredString(request.data, 'userId');
+  const targetUser = await getUserDoc(targetUserId);
+
+  assertCondition(
+    targetUser.role === 'professor' || targetUser.role === 'superadmin',
+    'invalid-argument',
+    'Esta funcao so edita perfis de instrutores.',
+  );
+
+  const firstName = optionalString(request.data, 'firstName') ?? targetUser.firstName;
+  const lastName = optionalString(request.data, 'lastName') ?? targetUser.lastName;
+  const phone = optionalString(request.data, 'phone');
+  const belt = optionalString(request.data, 'belt') ?? targetUser.belt;
+  const grade = optionalNumber(request.data, 'grade') ?? targetUser.grade;
+  const newEmail = optionalString(request.data, 'email');
+  const newPassword = optionalString(request.data, 'newPassword');
+  const plainPassword = optionalString(request.data, 'plainPassword');
+  const displayName = `${firstName} ${lastName}`.trim();
+
+  const now = Timestamp.now();
+  const firestorePatch: Record<string, unknown> = {
+    firstName,
+    lastName,
+    displayName,
+    belt,
+    grade,
+    updatedAt: now,
+  };
+
+  if (phone !== undefined) firestorePatch.phone = phone || null;
+  if (newEmail) firestorePatch.email = normalizeEmail(newEmail);
+  if (plainPassword !== undefined) firestorePatch.plainPassword = plainPassword || null;
+
+  await db.collection(COLLECTIONS.users).doc(targetUserId).update(firestorePatch);
+
+  const authPatch: { displayName: string; email?: string; password?: string } = { displayName };
+  if (newEmail) authPatch.email = normalizeEmail(newEmail);
+  if (newPassword) authPatch.password = newPassword;
+
+  await auth.updateUser(targetUserId, authPatch);
+
+  return { userId: targetUserId, displayName };
 });

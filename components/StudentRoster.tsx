@@ -38,6 +38,7 @@ export interface StudentRosterProps {
     lastGraduationDateOverride?: string;
     lastStripeDateOverride?: string;
   }) => Promise<void>;
+  onAdminUpdateStudentPhoto?: (payload: { userId: string; photoFile: File }) => Promise<void>;
   kicker?: string;
   title?: string;
   description?: string;
@@ -117,6 +118,7 @@ const StudentRoster: React.FC<StudentRosterProps> = ({
   onSetStudentAttendanceBonus,
   onAdminUpdateStudentProfile,
   onAdminUpdateStudentTimeline,
+  onAdminUpdateStudentPhoto,
   kicker = 'Roster',
   title = 'Alunos com leitura mais limpa e mais forte.',
   description,
@@ -192,6 +194,7 @@ const StudentRoster: React.FC<StudentRosterProps> = ({
         onSetStudentAttendanceBonus={onSetStudentAttendanceBonus}
         onAdminUpdateStudentProfile={onAdminUpdateStudentProfile}
         onAdminUpdateStudentTimeline={onAdminUpdateStudentTimeline}
+        onAdminUpdateStudentPhoto={onAdminUpdateStudentPhoto}
       />
     );
   }
