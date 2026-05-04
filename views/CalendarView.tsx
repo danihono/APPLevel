@@ -62,6 +62,18 @@ type FeedbackToast = {
 const monthFormatter = new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric' });
 const longDayFormatter = new Intl.DateTimeFormat('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' });
 
+const CLASS_TYPE_LABELS: Record<string, string> = {
+  'iniciante': 'Iniciante',
+  'vida': 'Vida',
+  'sport': 'Sport',
+  'feminino': 'Feminino',
+  'competicao': 'Competição',
+  'nogi': 'No-Gi',
+  'kids-01': 'Kids 1',
+  'kids-02': 'Kids 2',
+  'kids-03': 'Kids 3',
+};
+
 function capitalize(value: string) {
   return value.charAt(0).toUpperCase() + value.slice(1);
 }
@@ -660,6 +672,9 @@ const CalendarView: React.FC<CalendarViewProps> = ({
   const [studentErrorById, setStudentErrorById] = useState<Record<string, string>>({});
   const [presencaSearch, setPresencaSearch] = useState('');
   const [presencaBeltFilter, setPresencaBeltFilter] = useState('all');
+  const [filterType, setFilterType] = useState('all');
+  const [filterProfessor, setFilterProfessor] = useState('all');
+  const [filterTatame, setFilterTatame] = useState('all');
 
   const tokenInputRef = useRef<HTMLInputElement>(null);
 
@@ -889,8 +904,11 @@ const CalendarView: React.FC<CalendarViewProps> = ({
           }
           return true;
         })
+        .filter((entry) => filterType === 'all' || (entry.description ?? '') === filterType)
+        .filter((entry) => filterProfessor === 'all' || entry.professorId === filterProfessor)
+        .filter((entry) => filterTatame === 'all' || entry.tatame === filterTatame)
         .sort(sortClasses),
-    [classes, currentUserId, currentUserBelt, currentUserKidsCategory, currentUserStripes, isStaff, userRole, view],
+    [classes, currentUserId, currentUserBelt, currentUserKidsCategory, currentUserStripes, isStaff, userRole, view, filterType, filterProfessor, filterTatame],
   );
 
   const unfinishedClasses = useMemo(
@@ -967,6 +985,18 @@ const CalendarView: React.FC<CalendarViewProps> = ({
     }).length,
     [filteredClasses, visibleMonth],
   );
+
+  const availableClassTypes = useMemo(() => {
+    const seen = new Set<string>();
+    classes.forEach((entry) => { seen.add(entry.description ?? ''); });
+    return Array.from(seen).sort();
+  }, [classes]);
+
+  const availableTatames = useMemo(() => {
+    const seen = new Set<string>();
+    classes.forEach((entry) => { if (entry.tatame) seen.add(entry.tatame); });
+    return Array.from(seen).sort();
+  }, [classes]);
 
   const selectedDayLabel = useMemo(() => capitalize(longDayFormatter.format(selectedDay)), [selectedDay]);
   const todayLabel = useMemo(() => capitalize(longDayFormatter.format(today)), [today]);
@@ -1178,6 +1208,65 @@ const CalendarView: React.FC<CalendarViewProps> = ({
     setSelectedDay((current) => new Date(nextMonth.getFullYear(), nextMonth.getMonth(), Math.min(current.getDate(), lastDay)));
   }, [visibleMonth]);
 
+  const activeFilterCount = [filterType, filterProfessor, filterTatame].filter((f) => f !== 'all').length;
+
+  const clearFilters = () => {
+    setFilterType('all');
+    setFilterProfessor('all');
+    setFilterTatame('all');
+  };
+
+  const renderCalendarFilters = () => (
+    <div className="flex flex-wrap items-center gap-2 mt-4">
+      <select
+        value={filterType}
+        onChange={(e) => setFilterType(e.target.value)}
+        className="app-input"
+        style={{ width: 'auto', minWidth: 140 }}
+      >
+        <option value="all">Todos os tipos</option>
+        {availableClassTypes.map((type) => (
+          <option key={type || '__sem_tipo'} value={type}>
+            {type === '' ? 'Adulto / Geral' : (CLASS_TYPE_LABELS[type] ?? type)}
+          </option>
+        ))}
+      </select>
+
+      <select
+        value={filterProfessor}
+        onChange={(e) => setFilterProfessor(e.target.value)}
+        className="app-input"
+        style={{ width: 'auto', minWidth: 160 }}
+      >
+        <option value="all">Todos os professores</option>
+        {professors.map((prof) => (
+          <option key={prof.id} value={prof.id}>{prof.displayName}</option>
+        ))}
+      </select>
+
+      {availableTatames.length > 0 ? (
+        <select
+          value={filterTatame}
+          onChange={(e) => setFilterTatame(e.target.value)}
+          className="app-input"
+          style={{ width: 'auto', minWidth: 140 }}
+        >
+          <option value="all">Todos os tatames</option>
+          {availableTatames.map((tatame) => (
+            <option key={tatame} value={tatame}>{tatame}</option>
+          ))}
+        </select>
+      ) : null}
+
+      {activeFilterCount > 0 ? (
+        <button type="button" onClick={clearFilters} className="app-button app-button--ghost">
+          Limpar filtros
+          <span className="app-badge app-badge--gold" style={{ marginLeft: 6 }}>{activeFilterCount}</span>
+        </button>
+      ) : null}
+    </div>
+  );
+
   const renderSurfaceTabs = (block = false) => (
     <div className={`app-segment${block ? ' app-segment--block' : ''}`}>
       <button
@@ -1295,6 +1384,10 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                   ) : null}
                 </div>
 
+                <div style={{ padding: '0 16px' }}>
+                  {renderCalendarFilters()}
+                </div>
+
                 <div className="calendar-mobile__day-list">
                   {selectedDayClasses.length > 0 ? (
                     selectedDayClasses.map((lesson) => (
@@ -1333,6 +1426,8 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                     </span>
                   </div>
                 </div>
+
+                {renderCalendarFilters()}
 
                 <div className="mt-6">
                   <DesktopMonthGrid
@@ -1414,6 +1509,8 @@ const CalendarView: React.FC<CalendarViewProps> = ({
             </span>
           </div>
 
+          {renderCalendarFilters()}
+
           <div className={isCompactMonthGrid ? 'calendar-mobile__day-list' : 'mt-6 app-list'}>
             {unfinishedClasses.length > 0 ? (
               unfinishedClasses.map((lesson) => (
@@ -1465,6 +1562,8 @@ const CalendarView: React.FC<CalendarViewProps> = ({
               ) : null}
             </div>
           </div>
+
+          {renderCalendarFilters()}
 
           <div className={isCompactMonthGrid ? 'calendar-mobile__day-list' : 'mt-6 app-list'}>
             {todayClasses.length > 0 ? (

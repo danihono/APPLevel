@@ -7,6 +7,7 @@ import { toUiUser } from '../services/firebase/adapters';
 import { Building2, Save, Settings2, ShieldCheck, UserPlus, Users } from 'lucide-react';
 import type { FirestoreEntity } from '../services/firebase/data';
 import type { AcademyRecord, ClassRecord, UserRecord } from '../services/firebase/models';
+import InstructorEditModal from '../components/InstructorEditModal';
 import StudentRoster from '../components/StudentRoster';
 import { UserRole, type UserVideo } from '../types';
 
@@ -67,6 +68,17 @@ interface ManagementViewProps {
     lastStripeDateOverride?: string;
   }) => Promise<void>;
   onAdminUpdateStudentPhoto?: (payload: { userId: string; photoFile: File }) => Promise<void>;
+  onUpdateInstructor?: (payload: {
+    userId: string;
+    firstName?: string;
+    lastName?: string;
+    email?: string;
+    newPassword?: string;
+    plainPassword?: string;
+    phone?: string;
+    belt?: string;
+    grade?: number;
+  }) => Promise<void>;
 }
 
 const staffBeltPresets = ADULT_BELTS;
@@ -141,6 +153,7 @@ const ManagementView: React.FC<ManagementViewProps> = ({
   onAdminUpdateStudentProfile,
   onAdminUpdateStudentTimeline,
   onAdminUpdateStudentPhoto,
+  onUpdateInstructor,
 }) => {
   const canManage = userRole === UserRole.PROFESSOR || userRole === UserRole.SUPERADMIN;
   const isSuperAdmin = userRole === UserRole.SUPERADMIN;
@@ -230,6 +243,7 @@ const ManagementView: React.FC<ManagementViewProps> = ({
 
   const [peopleSearch, setPeopleSearch] = useState('');
   const [managementSection, setManagementSection] = useState<'overview' | 'students'>('overview');
+  const [editingInstructor, setEditingInstructor] = useState<FirestoreEntity<UserRecord> | null>(null);
 
   useEffect(() => {
     setAcademyName(managedAcademy.name);
@@ -555,6 +569,19 @@ const ManagementView: React.FC<ManagementViewProps> = ({
     );
   }
 
+  if (editingInstructor && onUpdateInstructor) {
+    return (
+      <InstructorEditModal
+        instructor={editingInstructor}
+        onClose={() => setEditingInstructor(null)}
+        onSave={async (payload) => {
+          await onUpdateInstructor(payload);
+          setEditingInstructor(null);
+        }}
+      />
+    );
+  }
+
   return (
     <div className="view-shell">
       <section className="app-panel app-panel-pad">
@@ -649,22 +676,32 @@ const ManagementView: React.FC<ManagementViewProps> = ({
           </div>
 
           <div className="mt-6 app-list">
-            {instructors.map((entry) => (
-              <div key={entry.id} className="app-list-card">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div>
-                    <p className="text-sm font-bold">{entry.displayName}</p>
-                    <p className="mt-1 text-xs text-[color:var(--text-soft)]">
-                      {roleLabel(entry.role)} • {entry.email}
-                    </p>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-	                    <span className="app-badge app-badge--gold">{beltLabel(entry.belt)}</span>
-                    <span className="app-badge app-badge--muted">{entry.status}</span>
+            {instructors.map((entry) => {
+              const clickable = isSuperAdmin && Boolean(onUpdateInstructor);
+              return (
+                <div
+                  key={entry.id}
+                  className={`app-list-card${clickable ? ' superadmin-detail-row--clickable' : ''}`}
+                  role={clickable ? 'button' : undefined}
+                  tabIndex={clickable ? 0 : undefined}
+                  onClick={clickable ? () => setEditingInstructor(entry) : undefined}
+                  onKeyDown={clickable ? (e) => e.key === 'Enter' && setEditingInstructor(entry) : undefined}
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-bold">{entry.displayName}</p>
+                      <p className="mt-1 text-xs text-[color:var(--text-soft)]">
+                        {roleLabel(entry.role)} • {entry.email}
+                      </p>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <span className="app-badge app-badge--gold">{beltLabel(entry.belt)}</span>
+                      <span className="app-badge app-badge--muted">{entry.status}</span>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
 
             {instructors.length === 0 ? (
               <div className="app-empty">Nenhum instrutor vinculado a esta academia ainda.</div>

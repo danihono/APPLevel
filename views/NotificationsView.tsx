@@ -8,7 +8,7 @@ import {
   isKidsOnlyBelt,
   kidsCategoryLabel,
 } from '../beltCatalog';
-import { Bell, BellRing, CheckCircle2, ChevronDown, ChevronUp, ClipboardCheck, GraduationCap, Send, Trash2, XCircle } from 'lucide-react';
+import { Bell, BellRing, CheckCircle2, ChevronDown, ChevronUp, ClipboardCheck, GraduationCap, Send, Trash2, X, XCircle } from 'lucide-react';
 import AppVideoContent from '../components/AppVideoContent';
 import type { FirestoreEntity } from '../services/firebase/data';
 import type {
@@ -49,7 +49,7 @@ interface NotificationsViewProps {
     targetBelt?: string;
   }) => Promise<void>;
   onMarkRead: (notificationId: string) => Promise<void>;
-  onClearNotifications: (academyId?: string) => Promise<void>;
+  onClearNotifications: (academyId?: string, skipUnread?: boolean) => Promise<void>;
   onApproveJoinRequest: (payload: { requestId: string; belt?: string; grade?: number }) => Promise<void>;
   onRejectJoinRequest: (requestId: string) => Promise<void>;
   onApproveAttendanceRequest: (requestId: string) => Promise<void>;
@@ -247,6 +247,7 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
   const [showAllStudent, setShowAllStudent] = useState(false);
   const [showAllStaff, setShowAllStaff] = useState(false);
   const [clearing, setClearing] = useState(false);
+  const [confirmClear, setConfirmClear] = useState(false);
 
   const canBroadcast =
     userRole === UserRole.PROFESSOR ||
@@ -269,6 +270,14 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
     viewerRole: userRole,
     actionState: notificationActionState,
   })).length;
+
+  function countUnread(list: Array<FirestoreEntity<NotificationRecord>>) {
+    return list.filter((entry) => isUnreadNotificationForViewer(entry, {
+      viewerRole: userRole,
+      actionState: notificationActionState,
+    })).length;
+  }
+
   const professorNotifications = useMemo(
     () => [...notifications].sort((left, right) => (right.createdAt?.toMillis?.() ?? 0) - (left.createdAt?.toMillis?.() ?? 0)),
     [notifications],
@@ -448,9 +457,10 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
 
   async function handleClear() {
     setClearing(true);
+    setConfirmClear(false);
     setError('');
     try {
-      await onClearNotifications(isSuperAdmin ? selectedAcademyId || undefined : undefined);
+      await onClearNotifications(isSuperAdmin ? selectedAcademyId || undefined : undefined, true);
       setShowAllStudent(false);
       setShowAllStaff(false);
     } catch (clearError) {
@@ -525,6 +535,96 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
     }
   }
 
+  function renderClearButton(notifList: Array<FirestoreEntity<NotificationRecord>>) {
+    if (notifList.length === 0) return null;
+    return (
+      <div className="flex justify-end px-1">
+        <button
+          type="button"
+          onClick={() => setConfirmClear(true)}
+          className="app-button app-button--ghost app-button--small"
+        >
+          <Trash2 size={14} />
+          Limpar tudo
+        </button>
+      </div>
+    );
+  }
+
+  const clearUnreadCount = isStudent
+    ? countUnread(studentNotifications)
+    : countUnread(professorNotifications);
+
+  function renderClearModal() {
+    if (!confirmClear) return null;
+    return (
+      <div
+        className="fixed inset-0 z-[90] flex items-end justify-center bg-black/60 sm:items-center"
+        onClick={() => setConfirmClear(false)}
+      >
+        <div
+          className="app-panel app-panel-pad app-sheet-modal w-full max-w-sm rounded-b-none sm:rounded-[1.8rem]"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="app-icon-shell" style={{ color: '#ef4444' }}>
+                <Trash2 size={18} />
+              </div>
+              <h2 className="text-xl font-bold">Limpar notificações</h2>
+            </div>
+            <button
+              type="button"
+              onClick={() => setConfirmClear(false)}
+              className="app-button app-button--ghost app-button--icon"
+            >
+              <X size={18} />
+            </button>
+          </div>
+
+          <div className="mt-6 app-list-card">
+            {clearUnreadCount > 0 ? (
+              <>
+                <p className="text-sm font-semibold">
+                  {clearUnreadCount} {clearUnreadCount === 1 ? 'notificação não lida' : 'notificações não lidas'}
+                </p>
+                <p className="mt-2 text-sm text-[color:var(--text-muted)]">
+                  As não lidas serão mantidas. Apenas as já lidas serão removidas permanentemente.
+                </p>
+              </>
+            ) : (
+              <p className="text-sm text-[color:var(--text-muted)]">
+                Todas as notificações serão removidas permanentemente. Esta ação não pode ser desfeita.
+              </p>
+            )}
+          </div>
+
+          {error ? <p className="mt-4 text-sm text-red-400">{error}</p> : null}
+
+          <div className="mt-6 flex gap-3">
+            <button
+              type="button"
+              onClick={() => setConfirmClear(false)}
+              disabled={clearing}
+              className="app-button app-button--ghost flex-1"
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              disabled={clearing}
+              onClick={() => void handleClear()}
+              className="app-button app-button--danger flex-1"
+            >
+              <Trash2 size={14} />
+              {clearing ? 'Limpando...' : 'Confirmar'}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (isProfessorMobileView) {
     return (
       <div className="view-shell notice-mobile">
@@ -571,7 +671,11 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
 
         {activeTab === 'notifications' ? (
           <section className="notice-mobile__list">
-            {professorNotifications.map((notification) => {
+            {error ? <div className="app-alert app-alert--error">{error}</div> : null}
+
+            {renderClearButton(professorNotifications)}
+
+            {professorNotifications.slice(0, showAllStaff ? undefined : 5).map((notification) => {
               const unread = isUnreadNotificationForViewer(notification, {
                 viewerRole: userRole,
                 actionState: notificationActionState,
@@ -598,6 +702,16 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
                 </button>
               );
             })}
+
+            {professorNotifications.length > 5 && !showAllStaff ? (
+              <button
+                type="button"
+                onClick={() => setShowAllStaff(true)}
+                className="app-button app-button--ghost w-full"
+              >
+                Ver mais ({professorNotifications.length - 5} restantes)
+              </button>
+            ) : null}
 
             {professorNotifications.length === 0 ? (
               <div className="notice-mobile__empty">Nenhuma notificação encontrada para a unidade.</div>
@@ -745,6 +859,8 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
             ) : null}
           </section>
         ) : null}
+
+        {renderClearModal()}
       </div>
     );
   }
@@ -819,19 +935,7 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
 
       {isStudent ? (
         <section className="app-list">
-          {studentNotifications.length > 0 ? (
-            <div className="flex justify-end px-1">
-              <button
-                type="button"
-                disabled={clearing}
-                onClick={() => void handleClear()}
-                className="app-button app-button--ghost app-button--small"
-              >
-                <Trash2 size={14} />
-                {clearing ? 'Limpando...' : 'Limpar tudo'}
-              </button>
-            </div>
-          ) : null}
+          {renderClearButton(studentNotifications)}
 
           {studentNotifications.slice(0, showAllStudent ? undefined : 5).map((notification) => {
             const unread = isUnreadNotificationForViewer(notification, {
@@ -891,19 +995,7 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
       {!isStudent && activeTab === 'notifications' ? (
         <>
           <section className="app-list">
-            {professorNotifications.length > 0 ? (
-              <div className="flex justify-end px-1">
-                <button
-                  type="button"
-                  disabled={clearing}
-                  onClick={() => void handleClear()}
-                  className="app-button app-button--ghost app-button--small"
-                >
-                  <Trash2 size={14} />
-                  {clearing ? 'Limpando...' : 'Limpar tudo'}
-                </button>
-              </div>
-            ) : null}
+            {renderClearButton(professorNotifications)}
 
             {professorNotifications.slice(0, showAllStaff ? undefined : 5).map((notification) => {
               const unread = isUnreadNotificationForViewer(notification, {
@@ -1381,6 +1473,8 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
           ) : null}
         </section>
       ) : null}
+
+      {renderClearModal()}
     </div>
   );
 };

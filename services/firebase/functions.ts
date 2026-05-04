@@ -344,7 +344,7 @@ export const backendFunctions = {
   markNotificationRead: (payload: { notificationId: string }) =>
     callFunction<{ notificationId: string; status: string }>('markNotificationRead', payload),
 
-  clearNotifications: (payload: { academyId?: string }) =>
+  clearNotifications: (payload: { academyId?: string; skipUnread?: boolean }) =>
     callFunction<{ deleted: number }>('clearNotifications', payload),
 
   upsertLearningTrack: (payload: {

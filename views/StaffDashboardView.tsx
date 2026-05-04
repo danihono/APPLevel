@@ -316,30 +316,6 @@ const StaffDashboardView: React.FC<StaffDashboardViewProps> = ({
         </div>
       </section>
 
-      <section className="staff-home__section">
-        <p className="staff-home__section-label">Pendências</p>
-
-        <button
-          type="button"
-          className={`staff-home__pending-card${pendingBadgeCount > 0 ? ' is-clickable' : ''}`}
-          onClick={pendingBadgeCount > 0 ? onNavigateToPending : undefined}
-          disabled={pendingBadgeCount === 0}
-        >
-          <div className="staff-home__pending-icon" aria-hidden="true">
-            <Layers3 size={18} />
-          </div>
-
-          <div className="staff-home__pending-copy">
-            <p className="staff-home__pending-title">{pendingCopy.title}</p>
-            <p className="staff-home__pending-note">{pendingCopy.note}</p>
-          </div>
-
-          <span className={`staff-home__count-badge ${pendingBadgeCount === 0 ? 'is-zero' : ''}`}>
-            {pendingBadgeCount}
-          </span>
-        </button>
-      </section>
-
       {selectedClass ? (
         <div
           className="staff-home__lesson-backdrop"

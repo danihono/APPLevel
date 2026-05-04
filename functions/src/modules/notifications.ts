@@ -193,12 +193,18 @@ export const clearNotifications = onCall(callableOptions, async (request) => {
     'Você só pode limpar notificações da própria academia.',
   );
 
+  const skipUnread = request.data?.skipUnread === true;
+
   let notifQuery: FirebaseFirestore.Query = db
     .collection(COLLECTIONS.notifications)
     .where('academyId', '==', academyId);
 
   if (actor.role === 'student' || actor.role === 'admin') {
     notifQuery = notifQuery.where('recipientUserId', '==', actor.uid);
+  }
+
+  if (skipUnread) {
+    notifQuery = notifQuery.where('status', '==', 'read');
   }
 
   const snapshot = await notifQuery.get();

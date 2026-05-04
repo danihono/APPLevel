@@ -1591,9 +1591,9 @@ const App: React.FC = () => {
     }
   }
 
-  async function handleClearNotifications(academyId?: string) {
+  async function handleClearNotifications(academyId?: string, skipUnread?: boolean) {
     try {
-      await backendFunctions.clearNotifications({ academyId });
+      await backendFunctions.clearNotifications({ academyId, skipUnread });
     } catch (error) {
       throw new Error(getErrorMessage(error));
     }
@@ -2070,6 +2070,7 @@ const App: React.FC = () => {
           onUpdateAcademy={handleUpdateAcademy}
           onCreateAcademy={handleCreateAcademy}
           onCreateUser={handleCreateUser}
+          onUpdateInstructor={handleUpdateInstructor}
         />
       );
     }
@@ -2211,6 +2212,7 @@ const App: React.FC = () => {
             onAdminUpdateStudentProfile={handleAdminUpdateStudentProfile}
             onAdminUpdateStudentTimeline={handleAdminUpdateStudentTimeline}
             onAdminUpdateStudentPhoto={handleAdminUpdateStudentPhoto}
+            onUpdateInstructor={handleUpdateInstructor}
           />
         );
       case 'notifications':
