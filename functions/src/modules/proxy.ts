@@ -47,6 +47,7 @@ const ALLOWED_CALLABLES = new Set([
   'registerDeviceToken',
   'sendSegmentedNotification',
   'markNotificationRead',
+  'clearNotifications',
   'upsertLearningTrack',
   'upsertLearningCourse',
   'upsertLearningLesson',
@@ -61,6 +62,7 @@ const ALLOWED_CALLABLES = new Set([
   'updateOwnStaffBeltGrade',
   'adminUpdateStudentProfile',
   'adminUpdateStudentTimeline',
+  'adminUpdateInstructorProfile',
   'toggleClassRsvp',
 ]);
 
