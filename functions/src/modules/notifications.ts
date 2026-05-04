@@ -23,6 +23,41 @@ function chunk<T>(items: T[], size: number): T[][] {
   return chunks;
 }
 
+function canDeleteNotification(
+  actor: { uid: string; role: Role; academyId: string },
+  notification: NotificationDoc,
+) {
+  if (actor.role === 'superadmin') {
+    return true;
+  }
+
+  if (notification.academyId !== actor.academyId) {
+    return false;
+  }
+
+  if (actor.role === 'student') {
+    return notification.recipientUserId === actor.uid;
+  }
+
+  return !notification.recipientUserId || notification.recipientUserId === actor.uid;
+}
+
+async function deleteNotificationSnapshots(
+  snapshots: FirebaseFirestore.DocumentSnapshot[],
+) {
+  const existingSnapshots = snapshots.filter((doc) => doc.exists);
+
+  for (const batchChunk of chunk(existingSnapshots, 500)) {
+    const writeBatch = db.batch();
+    for (const doc of batchChunk) {
+      writeBatch.delete(doc.ref);
+    }
+    await writeBatch.commit();
+  }
+
+  return existingSnapshots.length;
+}
+
 export const registerDeviceToken = onCall(callableOptions, async (request) => {
   const actor = await getRequestContext(request, 'student');
   const token = requiredString(request.data, 'token');
@@ -185,7 +220,9 @@ export const markNotificationRead = onCall(callableOptions, async (request) => {
 
 export const clearNotifications = onCall(callableOptions, async (request) => {
   const actor = await getRequestContext(request, 'student');
-  const academyId = optionalString(request.data, 'academyId') ?? actor.academyId;
+  const requestedNotificationIds = optionalStringArray(request.data, 'notificationIds');
+  const requestedAcademyId = optionalString(request.data, 'academyId');
+  const academyId = requestedAcademyId ?? (actor.role === 'superadmin' ? undefined : actor.academyId);
 
   assertCondition(
     actor.role === 'superadmin' || academyId === actor.academyId,
@@ -195,9 +232,41 @@ export const clearNotifications = onCall(callableOptions, async (request) => {
 
   const skipUnread = request.data?.skipUnread === true;
 
-  let notifQuery: FirebaseFirestore.Query = db
-    .collection(COLLECTIONS.notifications)
-    .where('academyId', '==', academyId);
+  if (requestedNotificationIds) {
+    const notificationIds = [...new Set(requestedNotificationIds.map((id) => id.trim()).filter(Boolean))];
+
+    if (notificationIds.length === 0) {
+      return { deleted: 0 };
+    }
+
+    const snapshots: FirebaseFirestore.DocumentSnapshot[] = [];
+    for (const idChunk of chunk(notificationIds, 300)) {
+      const refs = idChunk.map((id) => db.collection(COLLECTIONS.notifications).doc(id));
+      snapshots.push(...await db.getAll(...refs));
+    }
+
+    const unauthorizedSnapshot = snapshots.find((doc) => {
+      if (!doc.exists) {
+        return false;
+      }
+
+      return !canDeleteNotification(actor, doc.data() as NotificationDoc);
+    });
+
+    assertCondition(
+      !unauthorizedSnapshot,
+      'permission-denied',
+      'Voce nao pode limpar uma ou mais notificacoes selecionadas.',
+    );
+
+    return { deleted: await deleteNotificationSnapshots(snapshots) };
+  }
+
+  let notifQuery: FirebaseFirestore.Query = db.collection(COLLECTIONS.notifications);
+
+  if (academyId) {
+    notifQuery = notifQuery.where('academyId', '==', academyId);
+  }
 
   if (actor.role === 'student' || actor.role === 'admin') {
     notifQuery = notifQuery.where('recipientUserId', '==', actor.uid);
@@ -209,13 +278,5 @@ export const clearNotifications = onCall(callableOptions, async (request) => {
 
   const snapshot = await notifQuery.get();
 
-  for (const batchChunk of chunk(snapshot.docs, 500)) {
-    const writeBatch = db.batch();
-    for (const doc of batchChunk) {
-      writeBatch.delete(doc.ref);
-    }
-    await writeBatch.commit();
-  }
-
-  return { deleted: snapshot.docs.length };
+  return { deleted: await deleteNotificationSnapshots(snapshot.docs) };
 });

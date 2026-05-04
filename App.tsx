@@ -1591,9 +1591,9 @@ const App: React.FC = () => {
     }
   }
 
-  async function handleClearNotifications(academyId?: string, skipUnread?: boolean) {
+  async function handleClearNotifications(academyId?: string, skipUnread?: boolean, notificationIds?: string[]) {
     try {
-      await backendFunctions.clearNotifications({ academyId, skipUnread });
+      return await backendFunctions.clearNotifications({ academyId, skipUnread, notificationIds });
     } catch (error) {
       throw new Error(getErrorMessage(error));
     }

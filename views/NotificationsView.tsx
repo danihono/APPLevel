@@ -49,7 +49,7 @@ interface NotificationsViewProps {
     targetBelt?: string;
   }) => Promise<void>;
   onMarkRead: (notificationId: string) => Promise<void>;
-  onClearNotifications: (academyId?: string, skipUnread?: boolean) => Promise<void>;
+  onClearNotifications: (academyId?: string, skipUnread?: boolean, notificationIds?: string[]) => Promise<{ deleted: number }>;
   onApproveJoinRequest: (payload: { requestId: string; belt?: string; grade?: number }) => Promise<void>;
   onRejectJoinRequest: (requestId: string) => Promise<void>;
   onApproveAttendanceRequest: (requestId: string) => Promise<void>;
@@ -271,13 +271,6 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
     actionState: notificationActionState,
   })).length;
 
-  function countUnread(list: Array<FirestoreEntity<NotificationRecord>>) {
-    return list.filter((entry) => isUnreadNotificationForViewer(entry, {
-      viewerRole: userRole,
-      actionState: notificationActionState,
-    })).length;
-  }
-
   const professorNotifications = useMemo(
     () => [...notifications].sort((left, right) => (right.createdAt?.toMillis?.() ?? 0) - (left.createdAt?.toMillis?.() ?? 0)),
     [notifications],
@@ -293,6 +286,7 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
     }),
     [notifications, studentChannelTab],
   );
+  const visibleNotifications = isStudent ? studentNotifications : professorNotifications;
 
   useEffect(() => {
     setJoinRequestDrafts((current) => {
@@ -459,10 +453,18 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
     setClearing(true);
     setConfirmClear(false);
     setError('');
+    setFeedback('');
     try {
-      await onClearNotifications(isSuperAdmin ? selectedAcademyId || undefined : undefined, true);
+      const result = await onClearNotifications(
+        selectedAcademyId || undefined,
+        false,
+        visibleNotifications.map((notification) => notification.id),
+      );
       setShowAllStudent(false);
       setShowAllStaff(false);
+      if (result.deleted === 0) {
+        setError('Nenhuma notificação foi removida. Atualize a lista e tente novamente.');
+      }
     } catch (clearError) {
       setError(clearError instanceof Error ? clearError.message : 'Não foi possível limpar as notificações.');
     } finally {
@@ -551,10 +553,6 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
     );
   }
 
-  const clearUnreadCount = isStudent
-    ? countUnread(studentNotifications)
-    : countUnread(professorNotifications);
-
   function renderClearModal() {
     if (!confirmClear) return null;
     return (
@@ -583,20 +581,9 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
           </div>
 
           <div className="mt-6 app-list-card">
-            {clearUnreadCount > 0 ? (
-              <>
-                <p className="text-sm font-semibold">
-                  {clearUnreadCount} {clearUnreadCount === 1 ? 'notificação não lida' : 'notificações não lidas'}
-                </p>
-                <p className="mt-2 text-sm text-[color:var(--text-muted)]">
-                  As não lidas serão mantidas. Apenas as já lidas serão removidas permanentemente.
-                </p>
-              </>
-            ) : (
-              <p className="text-sm text-[color:var(--text-muted)]">
-                Todas as notificações serão removidas permanentemente. Esta ação não pode ser desfeita.
-              </p>
-            )}
+            <p className="text-sm text-[color:var(--text-muted)]">
+              Todas as notificações serão removidas permanentemente, inclusive as não lidas. Esta ação não pode ser desfeita.
+            </p>
           </div>
 
           {error ? <p className="mt-4 text-sm text-red-400">{error}</p> : null}
