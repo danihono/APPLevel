@@ -322,6 +322,14 @@ const StudentRoster: React.FC<StudentRosterProps> = ({
                   {graduationRequestByUserId.has(student.id) ? (
                     <span className="app-badge app-badge--gold">Graduação pendente</span>
                   ) : null}
+                  {(() => {
+                    const remaining = student.totalClassesToNextBelt - student.currentBeltProgress;
+                    return student.totalClassesToNextBelt > 0 && remaining >= 1 && remaining <= 3 ? (
+                      <span className="app-badge app-badge--belt-alert">
+                        {remaining === 1 ? 'Falta 1 aula para nova faixa' : `Faltam ${remaining} aulas para nova faixa`}
+                      </span>
+                    ) : null;
+                  })()}
                 </div>
                 {(() => {
                   const hint = getProgressionHint(student, progressionRules);

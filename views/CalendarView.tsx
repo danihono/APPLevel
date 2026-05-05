@@ -650,7 +650,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
-  const [sheetTab, setSheetTab] = useState<'detalhes' | 'confirmados' | 'historico' | 'presencas'>('detalhes');
+  const [sheetTab, setSheetTab] = useState<'detalhes' | 'agendamento' | 'historico'>('detalhes');
   const [qrByClass, setQrByClass] = useState<Record<string, QrSessionPayload>>({});
   const [qrCountdowns, setQrCountdowns] = useState<Record<string, string>>({});
   const [qrInputByClass, setQrInputByClass] = useState<Record<string, string>>({});
@@ -1162,7 +1162,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
       setFinishBusy(false);
       setFinishConfirmClassId(null);
       setFinishQrData(null);
-      setSheetTab('presencas');
+      setSheetTab('agendamento');
     }
   }
 
@@ -1698,10 +1698,10 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                       </button>
                       <button
                         type="button"
-                        onClick={() => setSheetTab('confirmados')}
-                        className={`app-segment__button class-detail-tabs__button ${sheetTab === 'confirmados' ? 'is-active' : ''}`}
+                        onClick={() => setSheetTab('agendamento')}
+                        className={`app-segment__button class-detail-tabs__button ${sheetTab === 'agendamento' ? 'is-active' : ''}`}
                       >
-                        Confirm. ({selectedClassRsvpCount})
+                        Agendamento/Presenças
                       </button>
                       <button
                         type="button"
@@ -1710,59 +1710,80 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                       >
                         Histórico
                       </button>
-                      <button
-                        type="button"
-                        onClick={() => setSheetTab('presencas')}
-                        className={`app-segment__button class-detail-tabs__button ${sheetTab === 'presencas' ? 'is-active' : ''}`}
-                      >
-                        Presenças ({classAttendances.length})
-                      </button>
                     </div>
                   </div>
 
-                  {sheetTab === 'confirmados' ? (
+                  {sheetTab === 'agendamento' ? (
                     <div style={{ padding: '0 20px 16px', display: 'flex', flexDirection: 'column', gap: 12 }}>
-                      <div className="app-stat-card" style={{ padding: '12px 14px' }}>
-                        <p className="app-stat-card__label">Confirmados</p>
-                        <p className="app-stat-card__value" style={{ fontSize: '1.4rem' }}>
-                          {selectedClassRsvpCount}
-                        </p>
-                        <p className="app-stat-card__note">alunos que confirmaram que vão</p>
-                      </div>
-
+                      {/* Seção confirmados */}
                       <p style={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--text-soft)' }}>
-                        Presenças futuras
+                        Confirmados ({selectedClassRsvpCount})
                       </p>
 
                       {classRsvpsLoading ? (
-                        <div style={{ textAlign: 'center', padding: '20px 0', color: 'var(--text-soft)', fontSize: '0.85rem' }}>
+                        <div style={{ textAlign: 'center', padding: '12px 0', color: 'var(--text-soft)', fontSize: '0.85rem' }}>
                           Carregando confirmados...
                         </div>
                       ) : classRsvps.length === 0 ? (
-                        <div style={{ textAlign: 'center', padding: '20px 0', color: 'var(--text-soft)', fontSize: '0.85rem' }}>
-                          Nenhum aluno confirmou que vai nesta aula ainda
+                        <div style={{ textAlign: 'center', padding: '12px 0', color: 'var(--text-soft)', fontSize: '0.85rem' }}>
+                          Nenhum aluno confirmou presença nesta aula
                         </div>
                       ) : (
-                        classRsvps.map((rsvp) => (
-                          <div key={rsvp.id} className="app-list-card" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                            <CheckCircle size={16} style={{ color: 'var(--success)', flexShrink: 0 }} />
-                            <div style={{ flex: 1, minWidth: 0 }}>
-                              <p style={{ fontSize: '0.82rem', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                {rsvp.userDisplayName}
-                              </p>
-                              <p style={{ fontSize: '0.72rem', color: 'var(--text-soft)', marginTop: 2 }}>
-                                Confirmou que vai participar
-                              </p>
+                        classRsvps.map((rsvp) => {
+                          const record = classAttendances.find((a) => a.userId === rsvp.userId);
+                          const markBusy = !!busyByClass[`manual_${rsvp.userId}`];
+                          const removeBusy = !!busyByClass[`remove_${rsvp.userId}`];
+                          const studentError = studentErrorById[rsvp.userId] ?? '';
+                          return (
+                            <div key={rsvp.id} className="app-list-card" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                              {record ? (
+                                <CheckCircle size={16} style={{ color: methodColor(record.checkInMethod), flexShrink: 0 }} />
+                              ) : (
+                                <span style={{ width: 16, height: 16, border: '2px solid var(--border)', borderRadius: 4, flexShrink: 0, display: 'inline-block' }} />
+                              )}
+                              <div style={{ flex: 1, minWidth: 0 }}>
+                                <p style={{ fontSize: '0.82rem', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                  {rsvp.userDisplayName}
+                                </p>
+                                {record ? (
+                                  <p style={{ fontSize: '0.72rem', color: 'var(--text-soft)', marginTop: 2 }}>
+                                    {record.checkedInAt ? formatTimeLabel(record.checkedInAt) : '-'} · {methodLabel(record.checkInMethod)}
+                                  </p>
+                                ) : (
+                                  <p style={{ fontSize: '0.72rem', color: 'var(--text-soft)', marginTop: 2 }}>Confirmou · não marcado</p>
+                                )}
+                                {studentError ? (
+                                  <p style={{ fontSize: '0.7rem', color: 'var(--danger)', marginTop: 2 }}>{studentError}</p>
+                                ) : null}
+                              </div>
+                              {record ? (
+                                <button
+                                  type="button"
+                                  disabled={removeBusy}
+                                  onClick={() => void handleRemoveStudentPresent(selectedClass.id, rsvp.userId)}
+                                  className="app-button app-button--solid-danger app-button--small"
+                                  style={{ fontSize: '0.7rem', padding: '4px 10px', flexShrink: 0 }}
+                                >
+                                  {removeBusy ? '...' : 'Desmarcar'}
+                                </button>
+                              ) : (
+                                <button
+                                  type="button"
+                                  disabled={markBusy || selectedClass.status === 'cancelled'}
+                                  onClick={() => void handleMarkStudentPresent(selectedClass.id, rsvp.userId)}
+                                  className="app-button app-button--gold app-button--small"
+                                  style={{ fontSize: '0.7rem', padding: '4px 10px', flexShrink: 0 }}
+                                >
+                                  {markBusy ? '...' : 'Marcar'}
+                                </button>
+                              )}
                             </div>
-                            <CheckCircle size={16} style={{ color: 'var(--success)', flexShrink: 0 }} />
-                          </div>
-                        ))
+                          );
+                        })
                       )}
-                    </div>
-                  ) : sheetTab === 'presencas' ? (
-                    <div style={{ padding: '0 20px 16px', display: 'flex', flexDirection: 'column', gap: 12 }}>
-                      {/* Filtros */}
-                      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+
+                      {/* Seção todos os alunos */}
+                      <div style={{ marginTop: 8, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                         <input
                           type="search"
                           value={presencaSearch}
@@ -1792,7 +1813,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
 
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                         <p style={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--text-soft)' }}>
-                          Alunos
+                          Todos os alunos
                         </p>
                         <p style={{ fontSize: '0.72rem', color: 'var(--text-soft)' }}>
                           {filteredPresencaStudents.length !== academyStudents.length
