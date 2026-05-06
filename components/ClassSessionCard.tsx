@@ -37,7 +37,9 @@ function toRules(lesson: FirestoreEntity<ClassRecord>) {
     ? 'Azul+'
     : source.includes('kids')
       ? 'Kids'
-      : 'Livre';
+      : source.includes('iniciante')
+        ? 'Branca até 1º grau'
+        : 'Livre';
   const grade = source.includes('advanced') || source.includes('avanc')
     ? 'Intermediário/Avançado'
     : 'Todos os graus';

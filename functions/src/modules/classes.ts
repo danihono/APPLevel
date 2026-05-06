@@ -259,6 +259,10 @@ export const upsertClassSchedule = onCall(callableOptions, async (request) => {
     ? (current.get('scheduledStart') as FirebaseFirestore.Timestamp | undefined)
     : undefined;
 
+  const isNewClass = !current?.exists;
+  const initialQrToken = isNewClass ? generateQrToken() : null;
+  const initialQrExpiresAt = isNewClass ? Timestamp.fromMillis(scheduledEnd.toMillis() + 60 * 60_000) : null;
+
   const payload: ClassDoc = {
     academyId,
     title,
@@ -276,9 +280,10 @@ export const upsertClassSchedule = onCall(callableOptions, async (request) => {
     currentAttendanceCount: (current?.get('currentAttendanceCount') as number | undefined) ?? 0,
     rsvpCount: current?.get('rsvpCount') as number | undefined,
     checkinWindowMinutes,
-    activeQrHash: current?.get('activeQrHash') as string | undefined,
-    activeQrExpiresAt: current?.get('activeQrExpiresAt') as FirebaseFirestore.Timestamp | undefined,
-    activeQrVersion: current?.get('activeQrVersion') as number | undefined,
+    activeQrHash: (current?.get('activeQrHash') as string | undefined) ?? (initialQrToken ? hashQrToken(initialQrToken) : undefined),
+    activeQrToken: (current?.get('activeQrToken') as string | undefined) ?? initialQrToken ?? undefined,
+    activeQrExpiresAt: (current?.get('activeQrExpiresAt') as FirebaseFirestore.Timestamp | undefined) ?? initialQrExpiresAt ?? undefined,
+    activeQrVersion: (current?.get('activeQrVersion') as number | undefined) ?? (initialQrToken ? 1 : undefined),
     createdAt: (current?.get('createdAt') as FirebaseFirestore.Timestamp | undefined) ?? now,
     updatedAt: now,
   };
@@ -332,6 +337,8 @@ export const createClassScheduleBatch = onCall(callableOptions, async (request) 
 
   for (const occurrence of occurrences) {
     const classRef = db.collection(COLLECTIONS.classes).doc();
+    const batchQrToken = generateQrToken();
+    const batchQrExpiresAt = Timestamp.fromMillis(occurrence.scheduledEnd.toMillis() + 60 * 60_000);
     const payload: ClassDoc = {
       academyId,
       title,
@@ -348,9 +355,10 @@ export const createClassScheduleBatch = onCall(callableOptions, async (request) 
       capacity,
       currentAttendanceCount: 0,
       checkinWindowMinutes,
-      activeQrHash: undefined,
-      activeQrExpiresAt: undefined,
-      activeQrVersion: undefined,
+      activeQrHash: hashQrToken(batchQrToken),
+      activeQrToken: batchQrToken,
+      activeQrExpiresAt: batchQrExpiresAt,
+      activeQrVersion: 1,
       createdAt: now,
       updatedAt: now,
     };
@@ -527,6 +535,20 @@ export const startClassSession = onCall(callableOptions, async (request) => {
   ensureClassManager(actor, classData);
 
   const now = Timestamp.now();
+
+  if (classData.activeQrHash && classData.activeQrToken) {
+    // QR already exists (created at class creation) — keep it, just activate the class
+    const expiresAt = classData.activeQrExpiresAt ?? Timestamp.fromMillis(now.toMillis() + qrDurationMinutes * 60_000);
+    await classSnap.ref.update({
+      status: 'active',
+      startedAt: classData.startedAt ?? now,
+      endedAt: null,
+      updatedAt: now,
+    });
+    return buildQrResponse(classId, classData.academyId, classData.activeQrToken, expiresAt);
+  }
+
+  // No QR yet (old class created before this feature) — generate one now
   const token = generateQrToken();
   const expiresAt = Timestamp.fromMillis(now.toMillis() + qrDurationMinutes * 60_000);
   const nextVersion = (classData.activeQrVersion ?? 0) + 1;
@@ -536,6 +558,7 @@ export const startClassSession = onCall(callableOptions, async (request) => {
     startedAt: classData.startedAt ?? now,
     endedAt: null,
     activeQrHash: hashQrToken(token),
+    activeQrToken: token,
     activeQrExpiresAt: expiresAt,
     activeQrVersion: nextVersion,
     updatedAt: now,
@@ -555,6 +578,7 @@ export const finishClassSession = onCall(callableOptions, async (request) => {
     status: 'finished',
     endedAt: Timestamp.now(),
     activeQrHash: null,
+    activeQrToken: null,
     activeQrExpiresAt: null,
     updatedAt: Timestamp.now(),
   });
@@ -572,7 +596,11 @@ export const generateClassQrCode = onCall(callableOptions, async (request) => {
   const classSnap = await getClassOrThrow(classId);
   const classData = classSnap.data() as ClassDoc;
   ensureClassManager(actor, classData);
-  assertCondition(classData.status === 'active', 'failed-precondition', 'A aula precisa estar ativa para gerar QR Code.');
+  assertCondition(
+    classData.status === 'active' || classData.status === 'scheduled',
+    'failed-precondition',
+    'A aula precisa estar agendada ou ativa para gerar QR Code.',
+  );
 
   const now = Timestamp.now();
   const token = generateQrToken();
@@ -581,6 +609,7 @@ export const generateClassQrCode = onCall(callableOptions, async (request) => {
 
   await classSnap.ref.update({
     activeQrHash: hashQrToken(token),
+    activeQrToken: token,
     activeQrExpiresAt: expiresAt,
     activeQrVersion: nextVersion,
     updatedAt: now,

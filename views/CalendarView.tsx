@@ -1025,6 +1025,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
     : null;
   const qrData = selectedClassId ? qrByClass[selectedClassId] : null;
   const qrCountdown = selectedClassId ? qrCountdowns[selectedClassId] ?? '' : '';
+  const displayQrToken = qrData?.qrToken ?? selectedClass?.activeQrToken ?? null;
   const busy = selectedClassId ? !!busyByClass[selectedClassId] : false;
   const message = selectedClassId ? messageByClass[selectedClassId] : '';
   const myAttendances = useMemo(
@@ -1640,8 +1641,8 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                           onChange={(event) =>
                             setQrInputByClass((current) => ({ ...current, [selectedClass.id]: event.target.value }))
                           }
-                          placeholder={selectedClass.status === 'active' ? 'Cole aqui o token do QR' : 'A aula precisa estar ativa'}
-                          disabled={selectedClass.status !== 'active' || busy}
+                          placeholder="Cole aqui o token do QR"
+                          disabled={(selectedClass.status !== 'active' && selectedClass.status !== 'scheduled') || busy}
                           className="app-input"
                           style={{ flex: 1 }}
                         />
@@ -1651,7 +1652,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                             setScannerClassId(selectedClass.id);
                             setScannerOpen(true);
                           }}
-                          disabled={selectedClass.status !== 'active' || busy}
+                          disabled={(selectedClass.status !== 'active' && selectedClass.status !== 'scheduled') || busy}
                           className="app-button app-button--ghost app-button--icon"
                           title="Escanear QR com camera"
                           style={{ width: 42, height: 42, flexShrink: 0 }}
@@ -1664,7 +1665,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                         onClick={() =>
                           void runClassAction(selectedClass.id, () => onRegisterAttendance(selectedClass.id, qrInputByClass[selectedClass.id]))
                         }
-                        disabled={selectedClass.status !== 'active' || busy}
+                        disabled={(selectedClass.status !== 'active' && selectedClass.status !== 'scheduled') || busy}
                         className="app-button app-button--gold app-button--block"
                       >
                         <ShieldCheck size={14} />
@@ -1701,7 +1702,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                         onClick={() => setSheetTab('agendamento')}
                         className={`app-segment__button class-detail-tabs__button ${sheetTab === 'agendamento' ? 'is-active' : ''}`}
                       >
-                        Agendamento/Presenças
+                        Presenças
                       </button>
                       <button
                         type="button"
@@ -1894,7 +1895,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                     </div>
                   ) : sheetTab === 'detalhes' ? (
                     <div style={{ padding: '0 20px 16px', display: 'flex', flexDirection: 'column', gap: 12 }}>
-                      {qrData ? (
+                      {displayQrToken && (selectedClass.status === 'scheduled' || selectedClass.status === 'active') ? (
                         <div className="app-panel app-panel--tint p-4">
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2 text-sm font-bold text-[color:var(--gold-mid)]">
@@ -1923,14 +1924,16 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                             }}
                           >
                             <QRCodeSVG
-                              value={`${window.location.origin}?checkin=${encodeURIComponent(qrData.qrToken)}&classId=${encodeURIComponent(qrData.classId)}`}
+                              value={`${window.location.origin}?checkin=${encodeURIComponent(displayQrToken)}&classId=${encodeURIComponent(selectedClass.id)}`}
                               size={200}
                               level="M"
                             />
                           </div>
-                          <p className="mt-2 text-center text-xs text-[color:var(--text-soft)]">
-                            {qrCountdown && qrCountdown !== '00:00' ? `Expira em ${qrCountdown}` : 'QR expirado - gere um novo'}
-                          </p>
+                          {qrData && qrCountdown && qrCountdown !== '00:00' ? (
+                            <p className="mt-2 text-center text-xs text-[color:var(--text-soft)]">
+                              Expira em {qrCountdown}
+                            </p>
+                          ) : null}
                         </div>
                       ) : null}
 

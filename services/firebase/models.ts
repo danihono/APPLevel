@@ -96,6 +96,7 @@ export interface ClassRecord {
   currentAttendanceCount: number;
   rsvpCount?: number;
   checkinWindowMinutes: number;
+  activeQrToken?: string | null;
   activeQrExpiresAt?: Timestamp | null;
   activeQrVersion?: number | null;
   createdAt?: Timestamp;

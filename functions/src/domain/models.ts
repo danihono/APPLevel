@@ -162,6 +162,7 @@ export interface ClassDoc {
   rsvpCount?: number;
   checkinWindowMinutes: number;
   activeQrHash?: string;
+  activeQrToken?: string;
   activeQrExpiresAt?: FirebaseFirestore.Timestamp;
   activeQrVersion?: number;
   createdAt: FirebaseFirestore.Timestamp;

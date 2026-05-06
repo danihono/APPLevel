@@ -155,8 +155,11 @@ export const registerAttendance = onCall(callableOptions, async (request) => {
   assertCondition(classData.academyId === actor.academyId || actor.role === 'superadmin', 'permission-denied', 'Aula fora da sua academia.');
   assertCondition(targetUser.academyId === classData.academyId, 'permission-denied', 'Usuario e aula precisam pertencer a mesma academia.');
   const isManualByStaff = checkInMethod === 'manual' && (actor.role === 'professor' || actor.role === 'superadmin');
+  const isQrCheckin = checkInMethod === 'qr';
   assertCondition(
-    classData.status === 'active' || (isManualByStaff && classData.status === 'finished'),
+    (isQrCheckin && (classData.status === 'scheduled' || classData.status === 'active'))
+    || (!isQrCheckin && classData.status === 'active')
+    || (isManualByStaff && classData.status === 'finished'),
     'failed-precondition',
     'A aula precisa estar ativa para registrar presenca.',
   );

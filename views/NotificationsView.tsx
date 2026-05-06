@@ -196,9 +196,12 @@ function graduationTargetLabel(request: FirestoreEntity<GraduationApprovalReques
 }
 
 function graduationStatusLabel(request: FirestoreEntity<GraduationApprovalRequestRecord>) {
-  return request.remainingClasses <= 0
-    ? 'Meta atingida. Aguardando aprovação.'
-    : `Falta ${request.remainingClasses} presença para liberar a avaliação.`;
+  if (request.remainingClasses <= 0) {
+    return 'Meta atingida. Aguardando aprovação.';
+  }
+  const target = request.targetType === 'belt' ? 'mudar de faixa' : 'ganhar um grau';
+  const n = request.remainingClasses;
+  return `${n === 1 ? 'Falta' : 'Faltam'} ${n} ${n === 1 ? 'presença' : 'presenças'} para ${target}.`;
 }
 
 const NotificationsView: React.FC<NotificationsViewProps> = ({
@@ -377,6 +380,13 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
       .filter((entry) => entry.status === 'pending')
       .sort((left, right) => (right.updatedAt?.toMillis?.() ?? 0) - (left.updatedAt?.toMillis?.() ?? 0)),
     [graduationRequests],
+  );
+
+  const beltReadyCount = useMemo(
+    () => graduationItems.filter(
+      (item) => item.targetType === 'belt' && item.remainingClasses <= 0,
+    ).length,
+    [graduationItems],
   );
 
   function getJoinRequestDraft(request: FirestoreEntity<JoinRequestRecord>): JoinRequestDraft {
@@ -651,7 +661,12 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
               onClick={() => setActiveTab('graduations')}
               className={`notice-mobile__tab ${activeTab === 'graduations' ? 'is-active' : ''}`}
             >
-              Graduações
+              <span className="notice-mobile__tab-inner">
+                Graduações
+                {graduationItems.length > 0
+                  ? <span className="notice-mobile__tab-badge">{graduationItems.length}</span>
+                  : null}
+              </span>
             </button>
           </div>
         </section>
@@ -816,6 +831,11 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
                         Próximo passo: {graduationTargetLabel(item)}
                       </p>
                       <p className="notice-mobile__request-time">{graduationStatusLabel(item)}</p>
+                      {item.targetType === 'belt' && item.remainingClasses <= 0 ? (
+                        <p className="notice-mobile__belt-ready-alert">
+                          Esse aluno está apto a mudar de faixa
+                        </p>
+                      ) : null}
                     </div>
                   </div>
 
@@ -914,7 +934,8 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
               className={`app-segment__button ${activeTab === 'graduations' ? 'is-active' : ''}`}
             >
               <GraduationCap size={16} />
-              Graduações
+              {`Graduações${graduationItems.length > 0 ? ` (${graduationItems.length})` : ''}`}
+              {beltReadyCount > 0 ? <span className="app-badge app-badge--gold">{beltReadyCount} faixa</span> : null}
             </button>
           </div>
         )}
@@ -1420,6 +1441,11 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
                     <span className="app-badge app-badge--gold">{item.targetType === 'belt' ? 'Faixa' : 'Grau'}</span>
                   </div>
                   <p className="mt-3 text-sm leading-7 text-[color:var(--text-muted)]">{graduationStatusLabel(item)}</p>
+                  {item.targetType === 'belt' && item.remainingClasses <= 0 ? (
+                    <div className="app-alert app-alert--success mt-3 text-sm">
+                      Esse aluno está apto a mudar de faixa
+                    </div>
+                  ) : null}
                   <div className="mt-4 flex flex-wrap gap-2">
                     <span className="app-badge app-badge--muted">Atual: {item.currentStripes} grau(s)</span>
                     <span className="app-badge app-badge--muted">Próximo passo: {graduationTargetLabel(item)}</span>

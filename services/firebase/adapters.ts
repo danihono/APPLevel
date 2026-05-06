@@ -27,7 +27,17 @@ function normalizeTimestamp(value?: Timestamp | Date | null): Date | null {
     return value;
   }
 
-  return value.toDate();
+  if (typeof (value as Timestamp).toDate === 'function') {
+    return (value as Timestamp).toDate();
+  }
+
+  // plain serialized Timestamp object { seconds, nanoseconds }
+  const v = value as unknown as { seconds?: number; nanoseconds?: number };
+  if (typeof v.seconds === 'number') {
+    return new Date(v.seconds * 1000);
+  }
+
+  return null;
 }
 
 function buildSafeDate(value?: Timestamp | Date | null, fallback?: Date): Date {
