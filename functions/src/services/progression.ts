@@ -480,6 +480,8 @@ export function resolveNextProgressionStep(
     Math.max(0, Math.floor(currentStripes)),
   );
   const currentMilestoneStart = getEffectiveMilestoneStart(totalAttendances, currentMilestone, options);
+  const currentStripeFloor = currentMilestoneStart + stripes * currentMilestone.stripeEvery;
+  const isManuallyPlaced = totalAttendances < currentStripeFloor;
 
   if (stripes < currentMilestone.maxStripes && currentMilestone.stripeEvery > 0) {
     const attendanceTarget = currentMilestoneStart + (stripes + 1) * currentMilestone.stripeEvery;
@@ -498,12 +500,19 @@ export function resolveNextProgressionStep(
   }
   const nextBeltAttendanceTarget = getNextMilestoneTarget(currentMilestoneStart, currentMilestone, nextMilestone) ?? 0;
 
+  const gradeProgressForBelt = currentMilestone.stripeEvery > 0
+    ? Math.min(totalAttendances, currentMilestone.stripeEvery)
+    : 0;
+  const effectiveAttendances = isManuallyPlaced
+    ? currentMilestoneStart + stripes * currentMilestone.stripeEvery + gradeProgressForBelt
+    : totalAttendances;
+
   return {
     targetType: 'belt',
     targetBelt: nextMilestone.belt,
     targetStripes: 0,
     attendanceTarget: nextBeltAttendanceTarget,
-    remainingClasses: Math.max(nextBeltAttendanceTarget - totalAttendances, 0),
+    remainingClasses: Math.max(nextBeltAttendanceTarget - effectiveAttendances, 0),
     ruleVersion: normalizedRules.version,
   };
 }

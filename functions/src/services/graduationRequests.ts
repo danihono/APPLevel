@@ -50,11 +50,11 @@ function buildGraduationNotificationBody(params: {
   user: UserDoc;
   step: ProgressionNextStep;
 }): string {
-  if (params.step.targetType === 'belt') {
-    return `${params.user.displayName} esta a 1 aula da proxima faixa e aguarda avaliacao da equipe.`;
+  const target = params.step.targetType === 'belt' ? 'faixa' : 'grau';
+  if (params.step.remainingClasses === 0) {
+    return `${params.user.displayName} completou as aulas e aguarda avaliacao para o proximo ${target}.`;
   }
-
-  return `${params.user.displayName} esta a 1 aula do proximo grau e aguarda avaliacao da equipe.`;
+  return `${params.user.displayName} esta a 1 aula do proximo ${target} e aguarda avaliacao da equipe.`;
 }
 
 async function findPendingGraduationRequest(
@@ -103,7 +103,7 @@ async function ensureGraduationNotification(params: {
   step: ProgressionNextStep;
   now: Timestamp;
 }): Promise<void> {
-  if (params.step.remainingClasses !== 1) {
+  if (params.step.remainingClasses > 1) {
     return;
   }
 
