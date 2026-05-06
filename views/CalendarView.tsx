@@ -1020,6 +1020,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
     && selectedClass
     && (userRole === UserRole.PROFESSOR || userRole === UserRole.SUPERADMIN || selectedClass.professorId === currentUserId);
   const canDeleteSelected = !!selectedClass && (selectedClass.status === 'scheduled' || !!selectedClass.recurrenceSeriesId);
+  const selectedClassCanUseQr = !!selectedClass && (selectedClass.status === 'active' || selectedClass.status === 'scheduled');
   const pendingRequest = selectedClass
     ? attendanceRequests.find((entry) => entry.classId === selectedClass.id && entry.status === 'pending')
     : null;
@@ -1642,7 +1643,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                             setQrInputByClass((current) => ({ ...current, [selectedClass.id]: event.target.value }))
                           }
                           placeholder="Cole aqui o token do QR"
-                          disabled={(selectedClass.status !== 'active' && selectedClass.status !== 'scheduled') || busy}
+                          disabled={!selectedClassCanUseQr || busy}
                           className="app-input"
                           style={{ flex: 1 }}
                         />
@@ -1652,7 +1653,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                             setScannerClassId(selectedClass.id);
                             setScannerOpen(true);
                           }}
-                          disabled={(selectedClass.status !== 'active' && selectedClass.status !== 'scheduled') || busy}
+                          disabled={!selectedClassCanUseQr || busy}
                           className="app-button app-button--ghost app-button--icon"
                           title="Escanear QR com camera"
                           style={{ width: 42, height: 42, flexShrink: 0 }}
@@ -1665,7 +1666,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                         onClick={() =>
                           void runClassAction(selectedClass.id, () => onRegisterAttendance(selectedClass.id, qrInputByClass[selectedClass.id]))
                         }
-                        disabled={(selectedClass.status !== 'active' && selectedClass.status !== 'scheduled') || busy}
+                        disabled={!selectedClassCanUseQr || busy}
                         className="app-button app-button--gold app-button--block"
                       >
                         <ShieldCheck size={14} />

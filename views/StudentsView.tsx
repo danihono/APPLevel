@@ -2,17 +2,19 @@ import React from 'react';
 import type { ProgressionRules } from '../beltCatalog';
 import StudentRoster from '../components/StudentRoster';
 import type { FirestoreEntity } from '../services/firebase/data';
-import type { GraduationApprovalRequestRecord } from '../services/firebase/models';
+import type { AttendanceRecord, GraduationApprovalRequestRecord } from '../services/firebase/models';
 import type { User } from '../types';
 
 interface StudentsViewProps {
   students: User[];
   progressionRules?: ProgressionRules | null;
   graduationRequests?: Array<FirestoreEntity<GraduationApprovalRequestRecord>>;
+  rankingAttendances?: Array<FirestoreEntity<AttendanceRecord>>;
   academyName?: string;
   academies?: Array<{ id: string; name: string }>;
   selectedAcademyId?: string;
   onSelectAcademy?: (academyId: string) => void;
+  enableAcademyFilter?: boolean;
   requireAcademySelection?: boolean;
   selectedStudentId?: string;
   onSelectStudent?: (studentId: string) => void;
@@ -41,10 +43,12 @@ const StudentsView: React.FC<StudentsViewProps> = ({
   students,
   progressionRules,
   graduationRequests = [],
+  rankingAttendances = [],
   academyName,
   academies = [],
   selectedAcademyId = '',
   onSelectAcademy,
+  enableAcademyFilter = false,
   requireAcademySelection = false,
   selectedStudentId = '',
   onSelectStudent,
@@ -60,10 +64,12 @@ const StudentsView: React.FC<StudentsViewProps> = ({
       students={students}
       progressionRules={progressionRules}
       graduationRequests={graduationRequests}
+      rankingAttendances={rankingAttendances}
       academyName={academyName}
       academies={academies}
       selectedAcademyId={selectedAcademyId}
       onSelectAcademy={onSelectAcademy}
+      enableAcademyFilter={enableAcademyFilter}
       requireAcademySelection={requireAcademySelection}
       selectedStudentId={selectedStudentId}
       onSelectStudent={onSelectStudent}

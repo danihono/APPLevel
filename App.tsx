@@ -4,10 +4,12 @@ import type { User as FirebaseUser } from 'firebase/auth';
 import type { CreateClassPayload } from './components/CreateClassModal';
 import type { DeleteClassPayload } from './components/DeleteClassModal';
 import type { EditClassPayload } from './components/EditClassModal';
+import GraduationCelebrationModal from './components/GraduationCelebrationModal';
 import Layout from './components/Layout';
 import HomeView from './views/HomeView';
 import LoginView from './views/LoginView';
 import StaffDashboardView from './views/StaffDashboardView';
+import { normalizeBeltId } from './beltCatalog';
 import { logout, signInWithEmail, subscribeToAuthState, updateSignedInEmail } from './services/firebase/auth';
 import { toBranch, toUiUser, toUserVideoLibrary } from './services/firebase/adapters';
 import {
@@ -30,6 +32,7 @@ import {
   subscribeToLearningQuizzes,
   subscribeToLearningTracks,
   subscribeToNotifications,
+  subscribeToRankingAttendances,
   subscribeToUserAttendances,
   subscribeToUserFights,
   subscribeToUserGraduations,
@@ -89,6 +92,7 @@ const THEME_STORAGE_PREFIX = 'applevel-theme';
 const NETWORK_NAME = 'LEVEL';
 const AUTH_CLAIM_REFRESH_ATTEMPTS = 4;
 const AUTH_CLAIM_REFRESH_DELAY_MS = 500;
+const GRADUATION_CELEBRATION_STORAGE_PREFIX = 'applevel:graduation-celebrations-seen';
 type SuperadminViewMode = 'superadmin' | 'professor';
 type AcademyContextStatus = 'idle' | 'ready' | 'missing' | 'error';
 type ValidatedSessionSnapshot = {
@@ -99,6 +103,50 @@ type ValidatedSessionSnapshot = {
 
 const SUPERADMIN_NETWORK_TABS = new Set(['home', 'notifications', 'students', 'management', 'learning', 'profile']);
 const SUPERADMIN_PROFESSOR_TABS = new Set(['home', 'calendar', 'management', 'notifications', 'learning', 'profile']);
+const RANKING_START_DATE = new Date('2026-05-06T00:00:00.000-03:00');
+
+function getGraduationCelebrationStorageKey(userId: string): string {
+  return `${GRADUATION_CELEBRATION_STORAGE_PREFIX}:${userId}`;
+}
+
+function readSeenGraduationCelebrationIds(userId: string): Set<string> {
+  if (typeof window === 'undefined') {
+    return new Set();
+  }
+
+  try {
+    const rawValue = window.localStorage.getItem(getGraduationCelebrationStorageKey(userId));
+    const parsed = rawValue ? JSON.parse(rawValue) : [];
+    return new Set(Array.isArray(parsed) ? parsed.filter((entry): entry is string => typeof entry === 'string') : []);
+  } catch {
+    return new Set();
+  }
+}
+
+function rememberSeenGraduationCelebrations(userId: string, ids: string[]): void {
+  if (typeof window === 'undefined' || ids.length === 0) {
+    return;
+  }
+
+  try {
+    const seenIds = readSeenGraduationCelebrationIds(userId);
+    ids.forEach((id) => seenIds.add(id));
+    window.localStorage.setItem(
+      getGraduationCelebrationStorageKey(userId),
+      JSON.stringify(Array.from(seenIds).slice(-80)),
+    );
+  } catch {
+    // Local storage is best-effort; the in-session ref still prevents repeated prompts.
+  }
+}
+
+function isBeltPromotionGraduation(graduation: FirestoreEntity<GraduationRecord>): boolean {
+  return normalizeBeltId(graduation.previousBelt) !== normalizeBeltId(graduation.newBelt);
+}
+
+function graduationPromotionTime(graduation: FirestoreEntity<GraduationRecord>): number {
+  return graduation.promotedAt?.toMillis() ?? 0;
+}
 
 function getErrorMessage(error: unknown): string {
   const code = typeof error === 'object' && error && 'code' in error
@@ -497,10 +545,12 @@ const App: React.FC = () => {
   const [classes, setClasses] = useState<Array<FirestoreEntity<ClassRecord>>>([]);
   const [academyUsers, setAcademyUsers] = useState<Array<FirestoreEntity<UserRecord>>>([]);
   const [attendances, setAttendances] = useState<Array<FirestoreEntity<AttendanceRecord>>>([]);
+  const [rankingAttendances, setRankingAttendances] = useState<Array<FirestoreEntity<AttendanceRecord>>>([]);
   const [attendanceRequests, setAttendanceRequests] = useState<Array<FirestoreEntity<AttendanceRequestRecord>>>([]);
   const [joinRequests, setJoinRequests] = useState<Array<FirestoreEntity<JoinRequestRecord>>>([]);
   const [graduationRequests, setGraduationRequests] = useState<Array<FirestoreEntity<GraduationApprovalRequestRecord>>>([]);
   const [graduations, setGraduations] = useState<Array<FirestoreEntity<GraduationRecord>>>([]);
+  const [graduationCelebration, setGraduationCelebration] = useState<FirestoreEntity<GraduationRecord> | null>(null);
   const [competitions, setCompetitions] = useState<Array<FirestoreEntity<CompetitionRecord>>>([]);
   const [fights, setFights] = useState<Array<FirestoreEntity<FightRecord>>>([]);
   const [academyFights, setAcademyFights] = useState<Array<FirestoreEntity<FightRecord>>>([]);
@@ -536,6 +586,7 @@ const App: React.FC = () => {
   const invalidSessionResetRef = useRef(false);
   const academyAccessRetryRef = useRef(false);
   const validatedSessionRef = useRef<ValidatedSessionSnapshot | null>(null);
+  const graduationCelebrationSessionSeenRef = useRef(new Set<string>());
   const [academyAccessRetryNonce, setAcademyAccessRetryNonce] = useState(0);
 
   const setThemeMode = (mode: 'light' | 'dark') => {
@@ -626,6 +677,7 @@ const App: React.FC = () => {
       setAttendanceRequests([]);
       setJoinRequests([]);
       setGraduations([]);
+      setGraduationCelebration(null);
       setCompetitions([]);
       setFights([]);
       setNotifications([]);
@@ -636,6 +688,7 @@ const App: React.FC = () => {
       setLearningQuizzes([]);
       setLearningProgress([]);
       setSessionValidated(false);
+      graduationCelebrationSessionSeenRef.current.clear();
       clearSessionError();
       return;
     }
@@ -951,10 +1004,14 @@ const App: React.FC = () => {
       return;
     }
 
-    if (!academyUsers.some((entry) => entry.id === selectedStudentId && entry.role === 'student')) {
+    const studentSource = profile?.role === 'superadmin' && superadminViewMode !== 'professor'
+      ? allUsers
+      : academyUsers;
+
+    if (!studentSource.some((entry) => entry.id === selectedStudentId && entry.role === 'student')) {
       setSelectedStudentId('');
     }
-  }, [academyUsers, selectedStudentId]);
+  }, [academyUsers, allUsers, profile?.role, selectedStudentId, superadminViewMode]);
 
   useEffect(() => {
     if (!profile || !sessionValidated) {
@@ -1134,6 +1191,31 @@ const App: React.FC = () => {
   }, [allAcademies, authUser, profile, selectedAcademyId, sessionValidated, superadminDirectoryLoading, academyAccessRetryNonce]);
 
   useEffect(() => {
+    if (!profile || !sessionValidated || profile.role === 'student' || activeTab !== 'students') {
+      setRankingAttendances([]);
+      return;
+    }
+
+    const scopedAcademyId = profile.role === 'superadmin'
+      ? (selectedAcademyId || undefined)
+      : profile.academyId;
+
+    if (profile.role !== 'superadmin' && !scopedAcademyId) {
+      setRankingAttendances([]);
+      return;
+    }
+
+    return subscribeToRankingAttendances(
+      {
+        academyId: scopedAcademyId,
+        startDate: RANKING_START_DATE,
+      },
+      setRankingAttendances,
+      (error) => reportSessionError('data:subscribeToRankingAttendances', error),
+    );
+  }, [activeTab, profile, selectedAcademyId, sessionValidated]);
+
+  useEffect(() => {
     if (!profile || !sessionValidated || activeTab !== 'learning') {
       setLearningTracks([]);
       setLearningCourses([]);
@@ -1215,6 +1297,41 @@ const App: React.FC = () => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profile, sessionValidated]);
 
+  useEffect(() => {
+    if (!profile || profile.role !== 'student') {
+      setGraduationCelebration(null);
+      return;
+    }
+
+    if (pendingCheckin) {
+      return;
+    }
+
+    if (graduationCelebration) {
+      if (graduationCelebration.userId !== profile.id) {
+        setGraduationCelebration(null);
+      }
+      return;
+    }
+
+    const sessionSeenIds = graduationCelebrationSessionSeenRef.current;
+    const seenIds = readSeenGraduationCelebrationIds(profile.id);
+    const unseenPromotions = graduations
+      .filter((entry) => entry.userId === profile.id && isBeltPromotionGraduation(entry))
+      .sort((left, right) => graduationPromotionTime(right) - graduationPromotionTime(left))
+      .filter((entry) => !seenIds.has(entry.id) && !sessionSeenIds.has(entry.id));
+
+    if (unseenPromotions.length === 0) {
+      return;
+    }
+
+    const [nextPromotion, ...olderPromotions] = unseenPromotions;
+    const olderPromotionIds = olderPromotions.map((entry) => entry.id);
+    olderPromotionIds.forEach((id) => sessionSeenIds.add(id));
+    rememberSeenGraduationCelebrations(profile.id, olderPromotionIds);
+    setGraduationCelebration(nextPromotion);
+  }, [graduationCelebration, graduations, pendingCheckin, profile?.id, profile?.role]);
+
   async function handleLogin(email: string, password: string) {
     try {
       setLoginScreenError('');
@@ -1232,6 +1349,30 @@ const App: React.FC = () => {
     } catch (error) {
       reportSessionError('auth:logout', error);
     }
+  }
+
+  function markGraduationCelebrationsSeen(ids: string[]) {
+    if (!profile || ids.length === 0) {
+      return;
+    }
+
+    ids.forEach((id) => graduationCelebrationSessionSeenRef.current.add(id));
+    rememberSeenGraduationCelebrations(profile.id, ids);
+  }
+
+  function handleCloseGraduationCelebration() {
+    if (graduationCelebration) {
+      markGraduationCelebrationsSeen([graduationCelebration.id]);
+    }
+    setGraduationCelebration(null);
+  }
+
+  function handleOpenGraduationCelebration() {
+    if (graduationCelebration) {
+      markGraduationCelebrationsSeen([graduationCelebration.id]);
+    }
+    setGraduationCelebration(null);
+    setActiveTab('graduation');
   }
 
   async function handleCreateClass(classPayloads: CreateClassPayload[]): Promise<CreateClassScheduleBatchResult> {
@@ -1411,6 +1552,14 @@ const App: React.FC = () => {
   async function handleApproveGraduationRequest(requestId: string) {
     try {
       await backendFunctions.approveGraduationRequest({ requestId });
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
+  }
+
+  async function handleRebuildUserDerivedState(userId: string) {
+    try {
+      await backendFunctions.rebuildUserDerivedState({ userId });
     } catch (error) {
       throw new Error(getErrorMessage(error));
     }
@@ -2026,7 +2175,8 @@ const App: React.FC = () => {
   const branch = toBranch(resolvedAcademy);
   const attendanceThisMonth = attendances.filter((attendance) => isSameMonth(attendance.checkedInAt));
   const attendanceDays = [...new Set(attendanceThisMonth.map((attendance) => attendance.checkedInAt?.toDate().getDate()).filter(Boolean))] as number[];
-  const students = academyUsers
+  const studentSourceUsers = isSuperadminNetworkView ? allUsers : academyUsers;
+  const students = studentSourceUsers
     .filter((user) => user.role === 'student')
     .map((user) => toUiUser({
       id: user.id,
@@ -2175,11 +2325,21 @@ const App: React.FC = () => {
             students={students}
             progressionRules={resolvedAcademy.progressionRules}
             graduationRequests={graduationRequests}
-            academyName={hasFocusedAcademy ? (allAcademies.find((entry) => entry.id === selectedAcademyId)?.name ?? resolvedAcademy.name) : undefined}
+            rankingAttendances={rankingAttendances}
+            academyName={
+              isSuperadminNetworkView
+                ? (
+                  hasFocusedAcademy
+                    ? (allAcademies.find((entry) => entry.id === selectedAcademyId)?.name ?? resolvedAcademy.name)
+                    : 'Toda a rede LEVEL'
+                )
+                : resolvedAcademy.name
+            }
             academies={allAcademies.map((entry) => ({ id: entry.id, name: entry.name }))}
             selectedAcademyId={selectedAcademyId}
             onSelectAcademy={setSelectedAcademyId}
-            requireAcademySelection={isSuperAdmin}
+            enableAcademyFilter={isSuperadminNetworkView}
+            requireAcademySelection={false}
             selectedStudentId={selectedStudentId}
             onSelectStudent={setSelectedStudentId}
             onApproveGraduationRequest={handleApproveGraduationRequest}
@@ -2242,6 +2402,7 @@ const App: React.FC = () => {
             onApproveGraduationRequest={handleApproveGraduationRequest}
             onApproveFightVideoSubmission={handleApproveFightVideoSubmission}
             onRejectFightVideoSubmission={handleRejectFightVideoSubmission}
+            onRebuildUserDerivedState={handleRebuildUserDerivedState}
             onOpenStudent={(studentId) => {
               setSelectedStudentId(studentId);
               setActiveTab('students');
@@ -2330,6 +2491,15 @@ const App: React.FC = () => {
             ) : null}
           </div>
         </div>
+      ) : null}
+
+      {graduationCelebration && !pendingCheckin ? (
+        <GraduationCelebrationModal
+          graduation={graduationCelebration}
+          studentName={currentUser.name}
+          onClose={handleCloseGraduationCelebration}
+          onOpenGraduation={handleOpenGraduationCelebration}
+        />
       ) : null}
 
       {pendingCheckin ? (

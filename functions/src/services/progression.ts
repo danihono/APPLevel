@@ -482,6 +482,26 @@ export function resolveNextProgressionStep(
   const currentMilestoneStart = getEffectiveMilestoneStart(totalAttendances, currentMilestone, options);
   const currentStripeFloor = currentMilestoneStart + stripes * currentMilestone.stripeEvery;
   const isManuallyPlaced = totalAttendances < currentStripeFloor;
+  const nextBeltAttendanceTarget = nextMilestone
+    ? getNextMilestoneTarget(currentMilestoneStart, currentMilestone, nextMilestone) ?? 0
+    : null;
+  const gradeProgressForBelt = currentMilestone.stripeEvery > 0
+    ? Math.min(totalAttendances, currentMilestone.stripeEvery)
+    : 0;
+  const effectiveAttendances = isManuallyPlaced
+    ? currentMilestoneStart + stripes * currentMilestone.stripeEvery + gradeProgressForBelt
+    : totalAttendances;
+
+  if (nextMilestone && nextBeltAttendanceTarget !== null && effectiveAttendances >= nextBeltAttendanceTarget) {
+    return {
+      targetType: 'belt',
+      targetBelt: nextMilestone.belt,
+      targetStripes: 0,
+      attendanceTarget: nextBeltAttendanceTarget,
+      remainingClasses: 0,
+      ruleVersion: normalizedRules.version,
+    };
+  }
 
   if (stripes < currentMilestone.maxStripes && currentMilestone.stripeEvery > 0) {
     const attendanceTarget = currentMilestoneStart + (stripes + 1) * currentMilestone.stripeEvery;
@@ -498,21 +518,13 @@ export function resolveNextProgressionStep(
   if (!nextMilestone) {
     return null;
   }
-  const nextBeltAttendanceTarget = getNextMilestoneTarget(currentMilestoneStart, currentMilestone, nextMilestone) ?? 0;
-
-  const gradeProgressForBelt = currentMilestone.stripeEvery > 0
-    ? Math.min(totalAttendances, currentMilestone.stripeEvery)
-    : 0;
-  const effectiveAttendances = isManuallyPlaced
-    ? currentMilestoneStart + stripes * currentMilestone.stripeEvery + gradeProgressForBelt
-    : totalAttendances;
 
   return {
     targetType: 'belt',
     targetBelt: nextMilestone.belt,
     targetStripes: 0,
-    attendanceTarget: nextBeltAttendanceTarget,
-    remainingClasses: Math.max(nextBeltAttendanceTarget - effectiveAttendances, 0),
+    attendanceTarget: nextBeltAttendanceTarget ?? 0,
+    remainingClasses: Math.max((nextBeltAttendanceTarget ?? 0) - effectiveAttendances, 0),
     ruleVersion: normalizedRules.version,
   };
 }

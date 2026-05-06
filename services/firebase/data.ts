@@ -5,8 +5,10 @@ import {
   onSnapshot,
   orderBy,
   query,
+  Timestamp,
   where,
   type DocumentData,
+  type QueryConstraint,
   type QueryDocumentSnapshot,
 } from 'firebase/firestore';
 import { firebaseDb } from './client';
@@ -210,6 +212,41 @@ export function subscribeToClassAttendances(
     ),
     (snapshot) => {
       listener(snapshot.docs.map((item) => mapDoc<AttendanceRecord>(item)));
+    },
+    onError,
+  );
+}
+
+export function subscribeToRankingAttendances(
+  params: {
+    academyId?: string;
+    startDate: Date;
+    endDate?: Date | null;
+  },
+  listener: (records: Array<FirestoreEntity<AttendanceRecord>>) => void,
+  onError?: (error: Error) => void,
+) {
+  const constraints: QueryConstraint[] = [];
+
+  if (params.academyId) {
+    constraints.push(where('academyId', '==', params.academyId));
+  }
+
+  constraints.push(where('checkedInAt', '>=', Timestamp.fromDate(params.startDate)));
+
+  if (params.endDate) {
+    constraints.push(where('checkedInAt', '<=', Timestamp.fromDate(params.endDate)));
+  }
+
+  constraints.push(orderBy('checkedInAt', 'desc'));
+
+  return onSnapshot(
+    query(collection(firebaseDb, 'attendances'), ...constraints),
+    (snapshot) => {
+      const records = snapshot.docs
+        .map((item) => mapDoc<AttendanceRecord>(item))
+        .sort((left, right) => toMillis(right.checkedInAt) - toMillis(left.checkedInAt));
+      listener(records);
     },
     onError,
   );

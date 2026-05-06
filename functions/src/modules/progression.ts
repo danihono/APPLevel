@@ -186,8 +186,9 @@ export const evaluateUserProgression = onCall(callableOptions, async (request) =
     'Voce nao pode recalcular a progressao de outro usuario.',
   );
 
+  const targetUser = targetUserId === actor.uid ? actor.user : await getUserDoc(targetUserId);
+
   if (targetUserId !== actor.uid && actor.role !== 'superadmin') {
-    const targetUser = await getUserDoc(targetUserId);
     assertCondition(
       targetUser.academyId === actor.academyId,
       'permission-denied',
@@ -195,7 +196,7 @@ export const evaluateUserProgression = onCall(callableOptions, async (request) =
     );
   }
 
-  return syncUserDerivedState(targetUserId, actor.academyId);
+  return syncUserDerivedState(targetUserId, targetUser.academyId);
 });
 
 export const rebuildUserDerivedState = onCall(callableOptions, async (request) => {
@@ -208,8 +209,9 @@ export const rebuildUserDerivedState = onCall(callableOptions, async (request) =
     'Voce nao pode reconstruir o estado derivado de outro usuario.',
   );
 
+  const targetUser = targetUserId === actor.uid ? actor.user : await getUserDoc(targetUserId);
+
   if (targetUserId !== actor.uid && actor.role !== 'superadmin') {
-    const targetUser = await getUserDoc(targetUserId);
     assertCondition(
       targetUser.academyId === actor.academyId,
       'permission-denied',
@@ -217,5 +219,5 @@ export const rebuildUserDerivedState = onCall(callableOptions, async (request) =
     );
   }
 
-  return syncUserDerivedState(targetUserId, actor.academyId);
+  return syncUserDerivedState(targetUserId, targetUser.academyId);
 });

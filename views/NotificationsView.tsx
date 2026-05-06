@@ -1,8 +1,9 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ALL_BELTS,
   beltLabel,
   getBeltOptions,
+  getUserProgressionSummary,
   inferKidsCategoryFromBirthDate,
   inferTrainingTypeFromBirthDate,
   isKidsOnlyBelt,
@@ -57,6 +58,7 @@ interface NotificationsViewProps {
   onApproveGraduationRequest: (requestId: string) => Promise<void>;
   onApproveFightVideoSubmission: (requestId: string) => Promise<void>;
   onRejectFightVideoSubmission: (requestId: string) => Promise<void>;
+  onRebuildUserDerivedState?: (userId: string) => Promise<void>;
   onOpenStudent?: (studentId: string) => void;
 }
 
@@ -204,6 +206,27 @@ function graduationStatusLabel(request: FirestoreEntity<GraduationApprovalReques
   return `${n === 1 ? 'Falta' : 'Faltam'} ${n} ${n === 1 ? 'presença' : 'presenças'} para ${target}.`;
 }
 
+function shouldRebuildGraduationState(user: FirestoreEntity<UserRecord>, rules?: AcademyRecord['progressionRules']) {
+  if (user.role !== 'student' || user.status !== 'active') {
+    return false;
+  }
+
+  const progression = getUserProgressionSummary({
+    belt: user.belt,
+    grade: user.grade,
+    stripes: user.stripes,
+    birthDate: user.birthDate,
+    kidsCategory: user.kidsCategory,
+    attendanceCount: user.attendanceCount,
+    attendanceCountBonus: user.attendanceCountBonus,
+    currentStripeProgress: user.currentStripeProgress,
+    currentBeltProgress: user.currentBeltProgress,
+  }, rules);
+
+  return (progression.beltRemaining !== null && progression.beltRemaining <= 1)
+    || (progression.stripeRemaining !== null && progression.stripeRemaining <= 1);
+}
+
 const NotificationsView: React.FC<NotificationsViewProps> = ({
   academy,
   userRole,
@@ -229,6 +252,7 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
   onApproveGraduationRequest,
   onApproveFightVideoSubmission,
   onRejectFightVideoSubmission,
+  onRebuildUserDerivedState,
   onOpenStudent,
 }) => {
   const isSuperAdmin = userRole === UserRole.SUPERADMIN;
@@ -251,6 +275,7 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
   const [showAllStaff, setShowAllStaff] = useState(false);
   const [clearing, setClearing] = useState(false);
   const [confirmClear, setConfirmClear] = useState(false);
+  const rebuildQueuedRef = useRef(new Set<string>());
 
   const canBroadcast =
     userRole === UserRole.PROFESSOR ||
@@ -381,6 +406,48 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
       .sort((left, right) => (right.updatedAt?.toMillis?.() ?? 0) - (left.updatedAt?.toMillis?.() ?? 0)),
     [graduationRequests],
   );
+
+  const pendingGraduationUserIds = useMemo(
+    () => new Set(graduationItems.map((item) => item.userId)),
+    [graduationItems],
+  );
+
+  const missingGraduationSyncUserIds = useMemo(() => {
+    if (isStudent || !onRebuildUserDerivedState) {
+      return [];
+    }
+
+    return academyUsers
+      .filter((entry) => !pendingGraduationUserIds.has(entry.id))
+      .filter((entry) => shouldRebuildGraduationState(entry, academy.progressionRules))
+      .map((entry) => entry.id);
+  }, [academy.progressionRules, academyUsers, isStudent, onRebuildUserDerivedState, pendingGraduationUserIds]);
+
+  useEffect(() => {
+    if (!onRebuildUserDerivedState || missingGraduationSyncUserIds.length === 0) {
+      return;
+    }
+
+    const queuedIds = missingGraduationSyncUserIds
+      .filter((userId) => !rebuildQueuedRef.current.has(userId))
+      .slice(0, 20);
+
+    if (queuedIds.length === 0) {
+      return;
+    }
+
+    queuedIds.forEach((userId) => rebuildQueuedRef.current.add(userId));
+
+    void Promise.all(
+      queuedIds.map(async (userId) => {
+        try {
+          await onRebuildUserDerivedState(userId);
+        } catch {
+          rebuildQueuedRef.current.delete(userId);
+        }
+      }),
+    );
+  }, [missingGraduationSyncUserIds, onRebuildUserDerivedState]);
 
   const beltReadyCount = useMemo(
     () => graduationItems.filter(

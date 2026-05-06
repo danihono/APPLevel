@@ -3368,10 +3368,202 @@ html.dark .app-list-card {
   flex: none;
 }
 
+.student-roster__section-tabs .app-segment__button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+}
+
+.student-roster__period-panel {
+  margin-top: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+
+.student-roster__date-grid {
+  display: grid;
+  gap: 0.9rem;
+}
+
+.student-roster__period-note,
+.student-roster__chart-note {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+
+.student-roster__top-rank {
+  margin-left: 0.55rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2rem;
+  height: 1.35rem;
+  border-radius: 999px;
+  background: rgba(232, 175, 72, 0.16);
+  color: var(--brand-gold);
+  font-size: 0.72rem;
+  font-weight: 900;
+  vertical-align: middle;
+}
+
+.student-roster__ranking-shell {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.student-roster__ranking-kpis {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.student-roster__leader-value {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
+.student-roster__ranking-grid {
+  display: grid;
+  gap: 1rem;
+}
+
+.student-roster__chart-panel {
+  min-width: 0;
+}
+
+.student-roster__panel-heading h2 {
+  margin: 0.25rem 0 0;
+  color: var(--text-strong);
+  font-size: 1.1rem;
+  font-weight: 900;
+}
+
+.student-roster__chart-list {
+  margin-top: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+}
+
+.student-roster__chart-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.38rem;
+}
+
+.student-roster__chart-row-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  color: var(--text-strong);
+  font-size: 0.86rem;
+}
+
+.student-roster__chart-row-head strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.student-roster__chart-row-head span {
+  flex: none;
+  color: var(--text-muted);
+  font-weight: 800;
+}
+
+.student-roster__chart-track {
+  height: 0.55rem;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.08);
+}
+
+html.dark .student-roster__chart-track {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.student-roster__chart-track span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--brand-gold), #f2c76b);
+}
+
+.student-roster__ranking-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+}
+
+.student-roster__ranking-row {
+  width: 100%;
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.9rem;
+  text-align: left;
+}
+
+.student-roster__ranking-position {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.8rem;
+  height: 2.2rem;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.08);
+  color: var(--text-strong);
+  font-weight: 900;
+}
+
+html.dark .student-roster__ranking-position {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.student-roster__ranking-position.is-top {
+  background: rgba(232, 175, 72, 0.16);
+  color: var(--brand-gold);
+}
+
+.student-roster__ranking-copy {
+  min-width: 0;
+}
+
+.student-roster__ranking-copy h3 {
+  margin: 0;
+  color: var(--text-strong);
+  font-size: 0.98rem;
+  font-weight: 900;
+}
+
+.student-roster__ranking-copy p {
+  margin: 0.25rem 0 0;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+
 @media (min-width: 760px) {
   .student-roster__filter-grid {
     grid-template-columns: minmax(0, 1.45fr) repeat(3, minmax(0, 0.72fr));
     align-items: end;
+  }
+
+  .student-roster__date-grid {
+    grid-template-columns: repeat(2, minmax(0, 12rem));
+  }
+
+  .student-roster__ranking-kpis {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 980px) {
+  .student-roster__ranking-grid {
+    grid-template-columns: minmax(0, 1.3fr) minmax(0, 0.9fr);
   }
 }
 
@@ -3392,6 +3584,19 @@ html.dark .app-list-card {
 
   .student-roster__arrow {
     display: none;
+  }
+
+  .student-roster__ranking-row {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .student-roster__ranking-row .relative {
+    display: none;
+  }
+
+  .student-roster__ranking-row .app-badge {
+    grid-column: 1 / -1;
+    justify-self: start;
   }
 }
 
@@ -3876,6 +4081,272 @@ html.dark .app-auth-bullet {
   color: #ffe3e8;
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
+}
+
+.graduation-celebration {
+  position: fixed;
+  inset: 0;
+  z-index: 240;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow-y: auto;
+  padding: max(1rem, env(safe-area-inset-top, 0px)) 1rem max(1rem, env(safe-area-inset-bottom, 0px));
+  background: rgba(7, 7, 10, 0.78);
+  backdrop-filter: blur(22px);
+  -webkit-backdrop-filter: blur(22px);
+}
+
+.graduation-celebration__dialog {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(19rem, 0.95fr);
+  width: min(58rem, 100%);
+  max-height: calc(100vh - 2rem);
+  overflow-x: hidden;
+  overflow-y: auto;
+  border: 1px solid rgba(232, 175, 72, 0.26);
+  border-radius: 1.85rem;
+  background:
+    radial-gradient(circle at 18% 12%, var(--graduation-target-color), transparent 32%),
+    linear-gradient(140deg, rgba(250, 246, 236, 0.98), rgba(240, 232, 214, 0.94));
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.34);
+  color: #17130c;
+  animation: graduation-dialog-in 360ms ease both;
+}
+
+html.dark .graduation-celebration__dialog {
+  background:
+    radial-gradient(circle at 18% 12%, var(--graduation-target-color), transparent 34%),
+    linear-gradient(145deg, rgba(18, 18, 23, 0.98), rgba(8, 8, 12, 0.97));
+  color: #fff8ec;
+}
+
+.graduation-celebration__close {
+  position: absolute;
+  top: 0.9rem;
+  right: 0.9rem;
+  z-index: 3;
+}
+
+.graduation-celebration__media {
+  position: relative;
+  min-height: 25rem;
+  overflow: hidden;
+  background:
+    linear-gradient(135deg, rgba(8, 8, 12, 0.88), rgba(33, 29, 22, 0.72)),
+    var(--graduation-target-surface);
+}
+
+.graduation-celebration__media::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(115deg, transparent 0%, rgba(255, 255, 255, 0.2) 44%, transparent 72%);
+  transform: translateX(-120%);
+  animation: graduation-media-sheen 1600ms ease 180ms both;
+  pointer-events: none;
+}
+
+.graduation-celebration__image {
+  width: 100%;
+  height: 100%;
+  min-height: 25rem;
+  object-fit: cover;
+  display: block;
+}
+
+.graduation-celebration__fallback {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 1rem;
+  padding: 2rem;
+}
+
+.graduation-celebration__belt-card {
+  display: grid;
+  gap: 0.7rem;
+  padding: 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 1.2rem;
+  background: rgba(255, 255, 255, 0.12);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14);
+}
+
+.graduation-celebration__belt-card span {
+  color: rgba(255, 255, 255, 0.82);
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.graduation-celebration__belt-card--new {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.graduation-celebration__arrow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  margin: 0 auto;
+  border-radius: 999px;
+  background: rgba(232, 175, 72, 0.92);
+  color: #17130c;
+  box-shadow: 0 18px 34px rgba(0, 0, 0, 0.22);
+}
+
+.graduation-celebration__body {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 1.15rem;
+  padding: clamp(1.25rem, 3vw, 2.2rem);
+}
+
+.graduation-celebration__badge,
+.graduation-celebration__route {
+  display: inline-flex;
+  width: fit-content;
+  max-width: 100%;
+  align-items: center;
+  gap: 0.45rem;
+  border-radius: 999px;
+}
+
+.graduation-celebration__badge {
+  padding: 0.45rem 0.75rem;
+  background: rgba(232, 175, 72, 0.18);
+  color: var(--gold-dark);
+  font-size: 0.76rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+html.dark .graduation-celebration__badge {
+  color: var(--gold-light);
+}
+
+.graduation-celebration__title {
+  margin-top: 0.55rem;
+  font-family: var(--font-display);
+  font-size: clamp(2rem, 1.48rem + 2vw, 3.7rem);
+  line-height: 0.98;
+}
+
+.graduation-celebration__copy {
+  margin-top: 0.9rem;
+  max-width: 34rem;
+  color: rgba(23, 19, 12, 0.72);
+  font-size: 0.98rem;
+  line-height: 1.7;
+}
+
+html.dark .graduation-celebration__copy {
+  color: rgba(255, 248, 236, 0.72);
+}
+
+.graduation-celebration__route {
+  padding: 0.7rem 0.85rem;
+  border: 1px solid rgba(232, 175, 72, 0.25);
+  background: rgba(255, 255, 255, 0.42);
+  color: inherit;
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+html.dark .graduation-celebration__route {
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.graduation-celebration__route span {
+  color: var(--text-muted);
+}
+
+.graduation-celebration__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 0.3rem;
+}
+
+.graduation-celebration__actions .app-button {
+  min-width: 11rem;
+}
+
+@media (max-width: 760px) {
+  .graduation-celebration {
+    align-items: flex-end;
+    padding: max(0.75rem, env(safe-area-inset-top, 0px)) 0.75rem max(0.75rem, env(safe-area-inset-bottom, 0px));
+  }
+
+  .graduation-celebration__dialog {
+    grid-template-columns: 1fr;
+    width: 100%;
+    max-height: calc(100vh - 1.5rem);
+    border-radius: 1.45rem;
+  }
+
+  .graduation-celebration__close {
+    top: 0.7rem;
+    right: 0.7rem;
+  }
+
+  .graduation-celebration__media,
+  .graduation-celebration__image {
+    min-height: 15rem;
+  }
+
+  .graduation-celebration__fallback {
+    padding: 1rem;
+  }
+
+  .graduation-celebration__body {
+    padding: 1.25rem;
+  }
+
+  .graduation-celebration__actions {
+    flex-direction: column-reverse;
+  }
+
+  .graduation-celebration__actions .app-button {
+    width: 100%;
+    min-width: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .graduation-celebration__dialog,
+  .graduation-celebration__media::after {
+    animation: none !important;
+  }
+}
+
+@keyframes graduation-dialog-in {
+  from {
+    opacity: 0;
+    transform: translateY(1rem) scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes graduation-media-sheen {
+  from {
+    transform: translateX(-120%);
+  }
+
+  to {
+    transform: translateX(120%);
+  }
 }
 
 .app-video-frame {

@@ -204,7 +204,7 @@ export async function syncGraduationApprovalRequest(
       attendanceCountBonus: params.user.attendanceCountBonus,
     },
   );
-  const pendingRequest = await findPendingGraduationRequest(params.academyId, params.userId);
+  let pendingRequest = await findPendingGraduationRequest(params.academyId, params.userId);
 
   if (pendingRequest && currentUserMatchesRequestTarget(params.user, pendingRequest.data)) {
     await approvePendingRequestFromUserState({
@@ -213,7 +213,7 @@ export async function syncGraduationApprovalRequest(
       attendanceCount: params.attendanceCount,
       now,
     });
-    return;
+    pendingRequest = undefined;
   }
 
   if (!nextStep || nextStep.remainingClasses > 1) {
