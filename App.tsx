@@ -2343,6 +2343,7 @@ const App: React.FC = () => {
           <CalendarView
             userRole={viewUserRole}
             currentUserId={currentUser.id}
+            isSuperAdmin={isSuperAdmin}
             currentUserName={profile.displayName}
             currentUserBelt={currentUser.belt}
             currentUserStripes={currentUser.stripes}

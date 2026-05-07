@@ -29,6 +29,7 @@ interface QrSessionPayload {
 interface CalendarViewProps {
   userRole?: UserRole;
   currentUserId: string;
+  isSuperAdmin?: boolean;
   currentUserName: string;
   currentUserBelt?: string;
   currentUserStripes?: number;
@@ -614,6 +615,7 @@ function isClassVisibleForStudent(
 const CalendarView: React.FC<CalendarViewProps> = ({
   userRole,
   currentUserId,
+  isSuperAdmin: isSuperAdminProp,
   currentUserName,
   currentUserBelt,
   currentUserStripes,
@@ -637,7 +639,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
   onRemoveStudentPresent,
 }) => {
   const isStaff = userRole === UserRole.PROFESSOR || userRole === UserRole.SUPERADMIN;
-  const isSuperAdmin = userRole === UserRole.SUPERADMIN;
+  const isSuperAdmin = isSuperAdminProp ?? userRole === UserRole.SUPERADMIN;
   const today = useMemo(() => stripDate(new Date()), []);
   const [isCompactMonthGrid, setIsCompactMonthGrid] = useState(
     () => (typeof window !== 'undefined' ? window.matchMedia('(max-width: 719px)').matches : false),
