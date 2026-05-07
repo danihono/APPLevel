@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { ALL_BELTS, beltLabel, getUserProgressionSummary, type ProgressionRules } from '../beltCatalog';
-import { BarChart3, ChevronRight, List, Search } from 'lucide-react';
+import { BarChart3, ChevronRight, List, Search, UserX } from 'lucide-react';
 import AvatarWithBelt from './AvatarWithBelt';
 import StudentDetailView from '../views/StudentDetailView';
 import type { FirestoreEntity } from '../services/firebase/data';
@@ -8,11 +8,12 @@ import type { AttendanceRecord, GraduationApprovalRequestRecord } from '../servi
 import type { BeltColor, User } from '../types';
 
 type SortMode = 'name-asc' | 'name-desc' | 'belt-desc' | 'grade-desc';
-type RosterSection = 'list' | 'ranking';
+type RosterSection = 'list' | 'ranking' | 'deactivated';
 type RankingPeriodPreset = 'since-start' | 'today' | '7d' | '30d' | 'custom';
 
 export interface StudentRosterProps {
   students: User[];
+  deactivatedStudents?: User[];
   progressionRules?: ProgressionRules | null;
   graduationRequests?: Array<FirestoreEntity<GraduationApprovalRequestRecord>>;
   rankingAttendances?: Array<FirestoreEntity<AttendanceRecord>>;
@@ -43,6 +44,8 @@ export interface StudentRosterProps {
     lastStripeDateOverride?: string;
   }) => Promise<void>;
   onAdminUpdateStudentPhoto?: (payload: { userId: string; photoFile: File }) => Promise<void>;
+  onDeactivateStudent?: (userId: string) => Promise<void>;
+  onActivateStudent?: (userId: string) => Promise<void>;
   kicker?: string;
   title?: string;
   description?: string;
@@ -215,6 +218,7 @@ function formatAverage(value: number): string {
 
 const StudentRoster: React.FC<StudentRosterProps> = ({
   students,
+  deactivatedStudents = [],
   progressionRules,
   graduationRequests = [],
   rankingAttendances = [],
@@ -232,6 +236,8 @@ const StudentRoster: React.FC<StudentRosterProps> = ({
   onAdminUpdateStudentProfile,
   onAdminUpdateStudentTimeline,
   onAdminUpdateStudentPhoto,
+  onDeactivateStudent,
+  onActivateStudent,
   kicker = 'Roster',
   title = 'Alunos com leitura mais limpa e mais forte.',
   description,
@@ -366,25 +372,27 @@ const StudentRoster: React.FC<StudentRosterProps> = ({
   }, [rankingRows]);
   const maxBeltAttendance = Math.max(1, ...beltBreakdown.map((row) => row.attendanceCount));
 
+  const allStudents = useMemo(() => [...students, ...deactivatedStudents], [students, deactivatedStudents]);
+
   useEffect(() => {
     if (!selectedStudentId) {
       return;
     }
 
-    if (students.some((student) => student.id === selectedStudentId)) {
+    if (allStudents.some((student) => student.id === selectedStudentId)) {
       setInternalSelectedStudentId(selectedStudentId);
     }
-  }, [selectedStudentId, students]);
+  }, [selectedStudentId, allStudents]);
 
   useEffect(() => {
-    if (internalSelectedStudentId && students.length > 0 && !students.some((student) => student.id === internalSelectedStudentId)) {
+    if (internalSelectedStudentId && allStudents.length > 0 && !allStudents.some((student) => student.id === internalSelectedStudentId)) {
       setInternalSelectedStudentId('');
       onSelectStudent?.('');
     }
-  }, [internalSelectedStudentId, onSelectStudent, students]);
+  }, [internalSelectedStudentId, onSelectStudent, allStudents]);
 
   const selectedStudent = internalSelectedStudentId
-    ? students.find((student) => student.id === internalSelectedStudentId) ?? null
+    ? allStudents.find((student) => student.id === internalSelectedStudentId) ?? null
     : null;
 
   function openStudent(studentId: string) {
@@ -408,6 +416,8 @@ const StudentRoster: React.FC<StudentRosterProps> = ({
         onAdminUpdateStudentProfile={onAdminUpdateStudentProfile}
         onAdminUpdateStudentTimeline={onAdminUpdateStudentTimeline}
         onAdminUpdateStudentPhoto={onAdminUpdateStudentPhoto}
+        onDeactivateStudent={onDeactivateStudent}
+        onActivateStudent={onActivateStudent}
       />
     );
   }
@@ -446,6 +456,21 @@ const StudentRoster: React.FC<StudentRosterProps> = ({
             <BarChart3 size={16} />
             Ranking
           </button>
+          {(onDeactivateStudent || onActivateStudent) ? (
+            <button
+              type="button"
+              role="tab"
+              aria-selected={activeSection === 'deactivated'}
+              onClick={() => setActiveSection('deactivated')}
+              className={`app-segment__button ${activeSection === 'deactivated' ? 'is-active' : ''}`}
+            >
+              <UserX size={16} />
+              Desativados
+              {deactivatedStudents.length > 0 ? (
+                <span className="app-badge app-badge--muted" style={{ marginLeft: 4 }}>{deactivatedStudents.length}</span>
+              ) : null}
+            </button>
+          ) : null}
         </div>
 
         {showAcademyFilter ? (
@@ -575,6 +600,44 @@ const StudentRoster: React.FC<StudentRosterProps> = ({
       {shouldChooseAcademyFirst ? (
         <section className="app-panel app-panel-pad">
           <div className="app-empty">{emptySelectionMessage}</div>
+        </section>
+      ) : activeSection === 'deactivated' ? (
+        <section className="student-roster__cards">
+          {deactivatedStudents.length === 0 ? (
+            <div className="app-empty">Nenhum aluno desativado.</div>
+          ) : (
+            deactivatedStudents
+              .slice()
+              .sort((left, right) => left.name.localeCompare(right.name, 'pt-BR'))
+              .map((student) => (
+                <button
+                  key={student.id}
+                  type="button"
+                  onClick={() => openStudent(student.id)}
+                  className="app-list-card student-roster__card"
+                >
+                  <div className="student-roster__avatar-column">
+                    <AvatarWithBelt
+                      avatar={student.avatar}
+                      name={student.name}
+                      belt={student.belt}
+                      stripes={student.stripes}
+                      size="md"
+                    />
+                    <p className="student-roster__rank">Faixa {beltLabel(student.belt)}</p>
+                    <p className="student-roster__grade">Grau {getStudentGrade(student)}</p>
+                  </div>
+                  <div className="student-roster__copy">
+                    <h3 className="student-roster__name">{student.name}</h3>
+                    <div className="student-roster__badge-row">
+                      <span className="app-badge app-badge--muted">{student.type}</span>
+                      <span className="app-badge" style={{ color: '#ef4444', background: '#fee2e2' }}>Desativado</span>
+                    </div>
+                  </div>
+                  <ChevronRight size={18} className="student-roster__arrow" />
+                </button>
+              ))
+          )}
         </section>
       ) : activeSection === 'ranking' ? (
         <section className="student-roster__ranking-shell">

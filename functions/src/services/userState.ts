@@ -174,9 +174,10 @@ async function computeEngagementMetrics(userId: string, academyId: string): Prom
     .where('academyId', '==', academyId)
     .where('userId', '==', userId);
 
-  const [attendanceCountSnapshot, qrAttendanceCountSnapshot, attendanceTimelineSnapshot, fightsSnapshot, graduationCountSnapshot] =
+  const [attendanceCountSnapshot, nonCountingSnapshot, qrAttendanceCountSnapshot, attendanceTimelineSnapshot, fightsSnapshot, graduationCountSnapshot] =
     await Promise.all([
       attendanceBaseQuery.count().get(),
+      attendanceBaseQuery.where('countsAsAttendance', '==', false).count().get(),
       attendanceBaseQuery.where('checkInMethod', '==', 'qr').count().get(),
       attendanceBaseQuery.orderBy('checkedInAt', 'desc').limit(180).get(),
       db
@@ -198,7 +199,7 @@ async function computeEngagementMetrics(userId: string, academyId: string): Prom
   const competitionPoints = fightsSnapshot.docs.reduce((total, doc) => total + resolveFightPoints(doc.data() as FightDoc), 0);
 
   return {
-    attendanceCount: attendanceCountSnapshot.data().count,
+    attendanceCount: attendanceCountSnapshot.data().count - nonCountingSnapshot.data().count,
     qrCheckinsCount: qrAttendanceCountSnapshot.data().count,
     competitionPoints,
     beltPromotions: graduationCountSnapshot.data().count,

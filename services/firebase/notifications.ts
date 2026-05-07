@@ -4,6 +4,7 @@ import type {
   GraduationApprovalRequestRecord,
   JoinRequestRecord,
   NotificationRecord,
+  ReactivationRequestRecord,
 } from './models';
 
 type Entity<T> = T & { id: string };
@@ -13,6 +14,7 @@ export type NotificationActionState = {
   attendanceRequests?: Array<Entity<AttendanceRequestRecord>>;
   graduationRequests?: Array<Entity<GraduationApprovalRequestRecord>>;
   fightVideoSubmissions?: Array<Entity<FightVideoSubmissionRecord>>;
+  reactivationRequests?: Array<Entity<ReactivationRequestRecord>>;
 };
 
 function hasPendingRecord<T extends { status: string }>(
@@ -51,6 +53,8 @@ function isResolvedStaffActionNotification(
       return !hasPendingRecord(actionState.graduationRequests, notification.actionRef);
     case 'fight_video_submission':
       return !hasPendingRecord(actionState.fightVideoSubmissions, notification.actionRef);
+    case 'reactivation_request':
+      return !hasPendingRecord(actionState.reactivationRequests, notification.actionRef);
     default:
       return false;
   }

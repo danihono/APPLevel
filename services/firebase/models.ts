@@ -12,7 +12,8 @@ export type MissionMetric =
   | 'competition_points'
   | 'belt_promotions';
 export type NotificationChannel = 'academy' | 'team' | 'system';
-export type NotificationKind = 'notice' | 'join_request' | 'attendance_request' | 'graduation' | 'fight_video_submission';
+export type NotificationKind = 'notice' | 'join_request' | 'attendance_request' | 'graduation' | 'fight_video_submission' | 'reactivation_request';
+export type ReactivationRequestStatus = 'pending' | 'approved' | 'rejected';
 export type GraduationRequestStatus = 'pending' | 'approved' | 'superseded';
 export type GraduationTargetType = 'stripe' | 'belt';
 export type JoinRequestStatus = 'pending' | 'approved' | 'rejected';
@@ -256,6 +257,20 @@ export interface JoinRequestRecord {
   resolvedAt?: Timestamp;
   resolvedBy?: string;
   resolvedByRole?: AppRole;
+}
+
+export interface ReactivationRequestRecord {
+  academyId: string;
+  userId: string;
+  userDisplayName: string;
+  userEmail: string;
+  status: ReactivationRequestStatus;
+  requestedAt?: Timestamp;
+  resolvedAt?: Timestamp;
+  resolvedBy?: string;
+  resolvedByRole?: AppRole;
+  createdAt?: Timestamp;
+  updatedAt?: Timestamp;
 }
 
 export interface CompetitionRecord {

@@ -10,7 +10,7 @@ import {
   KIDS_CATEGORIES,
   type ProgressionRules,
 } from '../beltCatalog';
-import { ArrowLeft, Award, Calendar, Camera, CheckCircle2, Clock, Edit, Mail, Save, TrendingUp, Video, BookOpen } from 'lucide-react';
+import { ArrowLeft, Award, Calendar, Camera, CheckCircle2, Clock, Edit, Mail, Save, TrendingUp, UserX, Video, BookOpen } from 'lucide-react';
 import AppVideoContent from '../components/AppVideoContent';
 import AvatarWithBelt from '../components/AvatarWithBelt';
 import ProgressBar from '../components/ProgressBar';
@@ -43,6 +43,8 @@ interface StudentDetailViewProps {
     lastStripeDateOverride?: string;
   }) => Promise<void>;
   onAdminUpdateStudentPhoto?: (payload: { userId: string; photoFile: File }) => Promise<void>;
+  onDeactivateStudent?: (userId: string) => Promise<void>;
+  onActivateStudent?: (userId: string) => Promise<void>;
 }
 
 function formatDate(value?: string) {
@@ -75,6 +77,8 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
   onAdminUpdateStudentProfile,
   onAdminUpdateStudentTimeline,
   onAdminUpdateStudentPhoto,
+  onDeactivateStudent,
+  onActivateStudent,
 }) => {
   const [showEditModal, setShowEditModal] = useState(false);
   const photoInputRef = useRef<HTMLInputElement>(null);
@@ -94,6 +98,7 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
   const [approveBusy, setApproveBusy] = useState(false);
   const [saveBusy, setSaveBusy] = useState(false);
   const [bonusBusy, setBonusBusy] = useState(false);
+  const [deactivateBusy, setDeactivateBusy] = useState(false);
   const [feedback, setFeedback] = useState('');
   const [error, setError] = useState('');
 
@@ -215,6 +220,37 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
     }
   }
 
+  async function handleDeactivate() {
+    if (!onDeactivateStudent) return;
+    if (!window.confirm(`Desativar ${student.name}? O aluno não poderá mais acessar o aplicativo.`)) return;
+    setDeactivateBusy(true);
+    setFeedback('');
+    setError('');
+    try {
+      await onDeactivateStudent(student.id);
+      setFeedback('Aluno desativado. O acesso foi bloqueado.');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Não foi possível desativar o aluno.');
+    } finally {
+      setDeactivateBusy(false);
+    }
+  }
+
+  async function handleActivate() {
+    if (!onActivateStudent) return;
+    setDeactivateBusy(true);
+    setFeedback('');
+    setError('');
+    try {
+      await onActivateStudent(student.id);
+      setFeedback('Aluno reativado com sucesso.');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Não foi possível reativar o aluno.');
+    } finally {
+      setDeactivateBusy(false);
+    }
+  }
+
   async function handlePhotoUpload(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0] ?? null;
     if (!file || !onAdminUpdateStudentPhoto) return;
@@ -333,6 +369,36 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
             Editar dados completos
           </button>
         ) : null}
+
+        {student.status === 'suspended' ? (
+          <div className="mt-4 space-y-3">
+            <div className="app-alert app-alert--error flex items-center gap-2">
+              <UserX size={16} />
+              Conta desativada — este aluno não pode acessar o aplicativo.
+            </div>
+            {onActivateStudent ? (
+              <button
+                type="button"
+                onClick={() => void handleActivate()}
+                disabled={deactivateBusy}
+                className="app-button app-button--primary w-full"
+              >
+                {deactivateBusy ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" /> : <CheckCircle2 size={16} />}
+                {deactivateBusy ? 'Reativando...' : 'Reativar aluno'}
+              </button>
+            ) : null}
+          </div>
+        ) : (onDeactivateStudent ? (
+          <button
+            type="button"
+            onClick={() => void handleDeactivate()}
+            disabled={deactivateBusy}
+            className="app-button app-button--danger mt-4 w-full"
+          >
+            {deactivateBusy ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" /> : <UserX size={16} />}
+            {deactivateBusy ? 'Desativando...' : 'Desativar aluno'}
+          </button>
+        ) : null)}
       </section>
 
       {graduationRequest ? (

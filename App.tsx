@@ -33,6 +33,7 @@ import {
   subscribeToLearningTracks,
   subscribeToNotifications,
   subscribeToRankingAttendances,
+  subscribeToReactivationRequests,
   subscribeToUserAttendances,
   subscribeToUserFights,
   subscribeToUserGraduations,
@@ -72,6 +73,7 @@ import type {
   LearningTrackRecord,
   NotificationChannel,
   NotificationRecord,
+  ReactivationRequestRecord,
   UserRecord,
 } from './services/firebase/models';
 import { UserRole, type UserVideo } from './types';
@@ -556,6 +558,8 @@ const App: React.FC = () => {
   const [academyFights, setAcademyFights] = useState<Array<FirestoreEntity<FightRecord>>>([]);
   const [fightVideoSubmissions, setFightVideoSubmissions] = useState<Array<FirestoreEntity<FightVideoSubmissionRecord>>>([]);
   const [notifications, setNotifications] = useState<Array<FirestoreEntity<NotificationRecord>>>([]);
+  const [reactivationRequests, setReactivationRequests] = useState<Array<FirestoreEntity<ReactivationRequestRecord>>>([]);
+  const [isSuspended, setIsSuspended] = useState(false);
   const unreadNotificationsCount = useMemo(
     () => notifications.filter((entry) => isUnreadNotificationForViewer(entry, {
       viewerRole: profile?.role,
@@ -564,9 +568,10 @@ const App: React.FC = () => {
         attendanceRequests,
         graduationRequests,
         fightVideoSubmissions,
+        reactivationRequests,
       },
     })).length,
-    [attendanceRequests, fightVideoSubmissions, graduationRequests, joinRequests, notifications, profile?.role],
+    [attendanceRequests, fightVideoSubmissions, graduationRequests, joinRequests, notifications, profile?.role, reactivationRequests],
   );
   const [learningTracks, setLearningTracks] = useState<Array<FirestoreEntity<LearningTrackRecord>>>([]);
   const [learningCourses, setLearningCourses] = useState<Array<FirestoreEntity<LearningCourseRecord>>>([]);
@@ -681,6 +686,8 @@ const App: React.FC = () => {
       setCompetitions([]);
       setFights([]);
       setNotifications([]);
+      setReactivationRequests([]);
+      setIsSuspended(false);
       setLearningTracks([]);
       setLearningCourses([]);
       setLearningLessons([]);
@@ -767,6 +774,12 @@ const App: React.FC = () => {
       })
       .catch((error) => {
         if (!cancelled) {
+          const message = error instanceof Error ? error.message : '';
+          if (message === 'user-suspended') {
+            setIsSuspended(true);
+            return;
+          }
+
           if (shouldResetSession(error)) {
             recoverInvalidSession('session:validateSessionAccess', error);
             return;
@@ -920,6 +933,7 @@ const App: React.FC = () => {
       setGraduationRequests([]);
       setJoinRequests([]);
       setAttendanceRequests([]);
+      setReactivationRequests([]);
       return;
     }
 
@@ -932,6 +946,7 @@ const App: React.FC = () => {
       );
 
       setJoinRequests([]);
+      setReactivationRequests([]);
       return unsubscribe;
     }
 
@@ -958,10 +973,12 @@ const App: React.FC = () => {
     if (isProfessorContext && scopedAcademyId) {
       unsubscribers.unshift(
         subscribeToJoinRequests(scopedAcademyId, setJoinRequests, (error) => reportSessionError('data:subscribeToJoinRequests', error)),
+        subscribeToReactivationRequests(scopedAcademyId, setReactivationRequests, (error) => reportSessionError('data:subscribeToReactivationRequests', error)),
       );
     } else {
       setGraduationRequests([]);
       setJoinRequests([]);
+      setReactivationRequests([]);
     }
 
     return () => {
@@ -1993,6 +2010,38 @@ const App: React.FC = () => {
     }
   }
 
+  async function handleDeactivateStudent(userId: string) {
+    try {
+      await backendFunctions.deactivateStudent({ userId });
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
+  }
+
+  async function handleActivateStudent(userId: string) {
+    try {
+      await backendFunctions.reactivateStudent({ userId });
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
+  }
+
+  async function handleResolveReactivationRequest(requestId: string, approve: boolean) {
+    try {
+      await backendFunctions.resolveReactivationRequest({ requestId, approve });
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
+  }
+
+  async function handleRequestReactivation() {
+    try {
+      await backendFunctions.requestReactivation();
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
+  }
+
   const currentUserFightVideoSubmissions = useMemo(() => {
     if (!profile || profile.role !== 'student') {
       return [];
@@ -2050,6 +2099,17 @@ const App: React.FC = () => {
 
   if (!authUser) {
     return <LoginView onLogin={handleLogin} initialError={loginScreenError} />;
+  }
+
+  if (isSuspended) {
+    return (
+      <LoginView
+        onLogin={handleLogin}
+        initialError={loginScreenError}
+        isSuspended
+        onRequestReactivation={handleRequestReactivation}
+      />
+    );
   }
 
   if (profileLoading || !profile) {
@@ -2177,7 +2237,16 @@ const App: React.FC = () => {
   const attendanceDays = [...new Set(attendanceThisMonth.map((attendance) => attendance.checkedInAt?.toDate().getDate()).filter(Boolean))] as number[];
   const studentSourceUsers = isSuperadminNetworkView ? allUsers : academyUsers;
   const students = studentSourceUsers
-    .filter((user) => user.role === 'student')
+    .filter((user) => user.role === 'student' && user.status !== 'suspended')
+    .map((user) => toUiUser({
+      id: user.id,
+      user,
+      graduations: [],
+      fights: [],
+      videoLibrary: studentVideoLibraryById.get(user.id),
+    }));
+  const deactivatedStudents = studentSourceUsers
+    .filter((user) => user.role === 'student' && user.status === 'suspended')
     .map((user) => toUiUser({
       id: user.id,
       user,
@@ -2323,6 +2392,7 @@ const App: React.FC = () => {
         return (
           <StudentsView
             students={students}
+            deactivatedStudents={deactivatedStudents}
             progressionRules={resolvedAcademy.progressionRules}
             graduationRequests={graduationRequests}
             rankingAttendances={rankingAttendances}
@@ -2348,6 +2418,8 @@ const App: React.FC = () => {
             onAdminUpdateStudentProfile={handleAdminUpdateStudentProfile}
             onAdminUpdateStudentTimeline={handleAdminUpdateStudentTimeline}
             onAdminUpdateStudentPhoto={handleAdminUpdateStudentPhoto}
+            onDeactivateStudent={handleDeactivateStudent}
+            onActivateStudent={handleActivateStudent}
           />
         );
       case 'management':
@@ -2388,6 +2460,7 @@ const App: React.FC = () => {
             attendanceRequests={attendanceRequests}
             graduationRequests={graduationRequests}
             fightVideoSubmissions={fightVideoSubmissions}
+            reactivationRequests={reactivationRequests}
             academies={allAcademies}
             selectedAcademyId={selectedAcademyId}
             canActionRequests={canActionRequests}
@@ -2402,6 +2475,7 @@ const App: React.FC = () => {
             onApproveGraduationRequest={handleApproveGraduationRequest}
             onApproveFightVideoSubmission={handleApproveFightVideoSubmission}
             onRejectFightVideoSubmission={handleRejectFightVideoSubmission}
+            onResolveReactivationRequest={handleResolveReactivationRequest}
             onRebuildUserDerivedState={handleRebuildUserDerivedState}
             onOpenStudent={(studentId) => {
               setSelectedStudentId(studentId);

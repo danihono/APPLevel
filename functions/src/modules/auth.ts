@@ -10,6 +10,7 @@ import {
   NotificationDoc,
   NotificationKind,
   ROLE_ORDER,
+  ReactivationRequestDoc,
   Role,
   UserDoc,
 } from '../domain/models';
@@ -1196,6 +1197,13 @@ export const adminUpdateStudentTimeline = onCall(callableOptions, async (request
 
 export const validateSessionAccess = onCall(callableOptions, async (request) => {
   const actor = await getRequestContext(request, 'student');
+
+  assertCondition(
+    actor.user.status !== 'suspended',
+    'permission-denied',
+    'user-suspended',
+  );
+
   const tokenRole = typeof request.auth?.token?.role === 'string'
     ? request.auth.token.role
     : '';
@@ -1228,6 +1236,183 @@ export const validateSessionAccess = onCall(callableOptions, async (request) => 
     stripes: actor.user.stripes,
     claimsUpdated,
   };
+});
+
+export const deactivateStudent = onCall(callableOptions, async (request) => {
+  const actor = await getRequestContext(request, 'professor');
+  assertProfessorOrSuperadmin(actor.role);
+
+  const targetUserId = requiredString(request.data, 'userId');
+  const targetUser = await getUserDoc(targetUserId);
+
+  assertCondition(targetUser.role === 'student', 'invalid-argument', 'Somente alunos podem ser desativados.');
+  assertCondition(
+    actor.role === 'superadmin' || targetUser.academyId === actor.academyId,
+    'permission-denied',
+    'Voce so pode desativar alunos da sua unidade.',
+  );
+  assertCondition(targetUser.status !== 'suspended', 'failed-precondition', 'Este aluno ja esta desativado.');
+
+  const now = Timestamp.now();
+  await db.collection(COLLECTIONS.users).doc(targetUserId).update({
+    status: 'suspended',
+    updatedAt: now,
+  });
+
+  const pendingGraduations = await db
+    .collection(COLLECTIONS.graduationRequests)
+    .where('userId', '==', targetUserId)
+    .where('status', '==', 'pending')
+    .get();
+
+  if (!pendingGraduations.empty) {
+    const batch = db.batch();
+    pendingGraduations.docs.forEach((docSnap) => {
+      batch.update(docSnap.ref, { status: 'superseded', updatedAt: now });
+    });
+    await batch.commit();
+  }
+
+  return { userId: targetUserId, status: 'suspended' as const };
+});
+
+export const requestReactivation = onCall(callableOptions, async (request) => {
+  const actor = await getRequestContext(request, 'student');
+  assertCondition(actor.user.status === 'suspended', 'failed-precondition', 'Sua conta nao esta desativada.');
+
+  const existingPending = await db
+    .collection(COLLECTIONS.reactivationRequests)
+    .where('userId', '==', actor.uid)
+    .where('status', '==', 'pending')
+    .limit(1)
+    .get();
+
+  assertCondition(existingPending.empty, 'already-exists', 'Voce ja tem uma solicitacao de reativacao pendente.');
+
+  const now = Timestamp.now();
+  const requestRef = db.collection(COLLECTIONS.reactivationRequests).doc();
+  const reactivationRequest: ReactivationRequestDoc = {
+    academyId: actor.user.academyId,
+    userId: actor.uid,
+    userDisplayName: actor.user.displayName,
+    userEmail: actor.user.email,
+    status: 'pending',
+    requestedAt: now,
+    createdAt: now,
+    updatedAt: now,
+  };
+  await requestRef.set(reactivationRequest);
+
+  const recipients = await listApproversForAcademy(actor.user.academyId);
+  await createNotifications({
+    academyId: actor.user.academyId,
+    recipients,
+    createdBy: actor.uid,
+    title: 'Solicitacao de reativacao',
+    body: `${actor.user.displayName} solicitou a reativacao da conta.`,
+    channel: 'system',
+    kind: 'reactivation_request',
+    actionRef: requestRef.id,
+    data: {
+      requestId: requestRef.id,
+      userId: actor.uid,
+      academyId: actor.user.academyId,
+    },
+  });
+
+  return { requestId: requestRef.id, status: 'pending' as const };
+});
+
+export const resolveReactivationRequest = onCall(callableOptions, async (request) => {
+  const actor = await getRequestContext(request, 'professor');
+  assertProfessorOrSuperadmin(actor.role);
+
+  const requestId = requiredString(request.data, 'requestId');
+  const approve = request.data && typeof (request.data as Record<string, unknown>).approve === 'boolean'
+    ? (request.data as Record<string, unknown>).approve as boolean
+    : true;
+
+  const requestRef = db.collection(COLLECTIONS.reactivationRequests).doc(requestId);
+  const requestSnap = await requestRef.get();
+  assertCondition(requestSnap.exists, 'not-found', 'Solicitacao de reativacao nao encontrada.');
+
+  const reactivationRequest = requestSnap.data() as ReactivationRequestDoc;
+  assertCondition(reactivationRequest.status === 'pending', 'failed-precondition', 'Esta solicitacao ja foi processada.');
+  assertCondition(
+    actor.role === 'superadmin' || reactivationRequest.academyId === actor.academyId,
+    'permission-denied',
+    'Voce so pode resolver solicitacoes da sua unidade.',
+  );
+
+  const now = Timestamp.now();
+  const newStatus = approve ? 'approved' : 'rejected';
+
+  await requestRef.update({
+    status: newStatus,
+    resolvedAt: now,
+    resolvedBy: actor.uid,
+    resolvedByRole: actor.role,
+    updatedAt: now,
+  });
+
+  if (approve) {
+    await db.collection(COLLECTIONS.users).doc(reactivationRequest.userId).update({
+      status: 'active',
+      updatedAt: now,
+    });
+  }
+
+  await createNotifications({
+    academyId: reactivationRequest.academyId,
+    recipients: [reactivationRequest.userId],
+    createdBy: actor.uid,
+    title: approve ? 'Conta reativada' : 'Solicitacao de reativacao rejeitada',
+    body: approve
+      ? 'Sua conta foi reativada. Voce ja pode acessar o aplicativo.'
+      : 'Sua solicitacao de reativacao foi negada. Entre em contato com seu professor.',
+    channel: 'system',
+    kind: 'reactivation_request',
+    actionRef: requestId,
+    data: { requestId, approved: approve ? 'true' : 'false' },
+  });
+
+  return { requestId, status: newStatus };
+});
+
+export const reactivateStudent = onCall(callableOptions, async (request) => {
+  const actor = await getRequestContext(request, 'professor');
+  assertProfessorOrSuperadmin(actor.role);
+
+  const targetUserId = requiredString(request.data, 'userId');
+  const targetUser = await getUserDoc(targetUserId);
+
+  assertCondition(targetUser.role === 'student', 'invalid-argument', 'Esta funcao so reativa alunos.');
+  assertCondition(targetUser.status === 'suspended', 'failed-precondition', 'Este aluno ja esta ativo.');
+  assertCondition(
+    actor.role === 'superadmin' || targetUser.academyId === actor.academyId,
+    'permission-denied',
+    'Voce so pode reativar alunos da sua unidade.',
+  );
+
+  const now = Timestamp.now();
+  await db.collection(COLLECTIONS.users).doc(targetUserId).update({
+    status: 'active',
+    updatedAt: now,
+  });
+
+  const pendingRequestsSnap = await db
+    .collection(COLLECTIONS.reactivationRequests)
+    .where('userId', '==', targetUserId)
+    .where('status', '==', 'pending')
+    .get();
+
+  const batch = db.batch();
+  for (const doc of pendingRequestsSnap.docs) {
+    batch.update(doc.ref, { status: 'approved', resolvedAt: now, resolvedBy: actor.uid, resolvedByRole: actor.role, updatedAt: now });
+  }
+  await batch.commit();
+
+  return { userId: targetUserId, status: 'active' };
 });
 
 export const adminUpdateInstructorProfile = onCall(callableOptions, async (request) => {

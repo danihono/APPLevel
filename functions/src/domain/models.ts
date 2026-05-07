@@ -10,6 +10,7 @@ export const COLLECTIONS = {
   graduationRequests: 'graduation_requests',
   graduations: 'graduations',
   joinRequests: 'join_requests',
+  reactivationRequests: 'reactivation_requests',
   learningCourses: 'learning_courses',
   learningLessonBlocks: 'learning_lesson_blocks',
   learningLessons: 'learning_lessons',
@@ -42,7 +43,8 @@ export type MissionStatus = 'in_progress' | 'completed';
 export type FightResult = 'win' | 'loss' | 'draw' | 'submission' | 'points' | 'walkover';
 export type NotificationStatus = 'queued' | 'sent' | 'read' | 'stored' | 'failed';
 export type NotificationChannel = 'academy' | 'team' | 'system';
-export type NotificationKind = 'notice' | 'join_request' | 'attendance_request' | 'graduation' | 'fight_video_submission';
+export type NotificationKind = 'notice' | 'join_request' | 'attendance_request' | 'graduation' | 'fight_video_submission' | 'reactivation_request';
+export type ReactivationRequestStatus = 'pending' | 'approved' | 'rejected';
 export type GraduationRequestStatus = 'pending' | 'approved' | 'superseded';
 export type GraduationTargetType = 'stripe' | 'belt';
 export type JoinRequestStatus = 'pending' | 'approved' | 'rejected';
@@ -189,6 +191,7 @@ export interface AttendanceDoc {
   checkedInByRole: Role;
   qrVersion?: number;
   sourceDevice?: string;
+  countsAsAttendance?: boolean;
   createdAt: FirebaseFirestore.Timestamp;
   updatedAt: FirebaseFirestore.Timestamp;
 }
@@ -497,6 +500,20 @@ export interface JoinRequestDoc {
   resolvedAt?: FirebaseFirestore.Timestamp;
   resolvedBy?: string;
   resolvedByRole?: Role;
+}
+
+export interface ReactivationRequestDoc {
+  academyId: string;
+  userId: string;
+  userDisplayName: string;
+  userEmail: string;
+  status: ReactivationRequestStatus;
+  requestedAt: FirebaseFirestore.Timestamp;
+  resolvedAt?: FirebaseFirestore.Timestamp;
+  resolvedBy?: string;
+  resolvedByRole?: Role;
+  createdAt: FirebaseFirestore.Timestamp;
+  updatedAt: FirebaseFirestore.Timestamp;
 }
 
 export const DEFAULT_PROGRESSION_RULES: ProgressionRules = {

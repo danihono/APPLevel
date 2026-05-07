@@ -21,6 +21,7 @@ import type {
   JoinRequestRecord,
   NotificationChannel,
   NotificationRecord,
+  ReactivationRequestRecord,
   UserRecord,
 } from '../services/firebase/models';
 import { isUnreadNotificationForViewer } from '../services/firebase/notifications';
@@ -37,6 +38,7 @@ interface NotificationsViewProps {
   attendanceRequests: Array<FirestoreEntity<AttendanceRequestRecord>>;
   graduationRequests: Array<FirestoreEntity<GraduationApprovalRequestRecord>>;
   fightVideoSubmissions: Array<FirestoreEntity<FightVideoSubmissionRecord>>;
+  reactivationRequests?: Array<FirestoreEntity<ReactivationRequestRecord>>;
   academies?: Array<FirestoreEntity<AcademyRecord>>;
   selectedAcademyId?: string;
   canActionRequests: boolean;
@@ -58,6 +60,7 @@ interface NotificationsViewProps {
   onApproveGraduationRequest: (requestId: string) => Promise<void>;
   onApproveFightVideoSubmission: (requestId: string) => Promise<void>;
   onRejectFightVideoSubmission: (requestId: string) => Promise<void>;
+  onResolveReactivationRequest?: (requestId: string, approve: boolean) => Promise<void>;
   onRebuildUserDerivedState?: (userId: string) => Promise<void>;
   onOpenStudent?: (studentId: string) => void;
 }
@@ -99,7 +102,17 @@ type FightVideoRequestItem = {
   request: FirestoreEntity<FightVideoSubmissionRecord>;
 };
 
-type RequestItem = JoinRequestItem | AttendanceRequestItem | FightVideoRequestItem;
+type ReactivationRequestItem = {
+  id: string;
+  kind: 'reactivation_request';
+  title: string;
+  body: string;
+  meta: string;
+  createdAt?: ReactivationRequestRecord['createdAt'];
+  request: FirestoreEntity<ReactivationRequestRecord>;
+};
+
+type RequestItem = JoinRequestItem | AttendanceRequestItem | FightVideoRequestItem | ReactivationRequestItem;
 type StaffTab = 'notifications' | 'requests' | 'communication' | 'graduations';
 
 const beltOptions = [
@@ -162,6 +175,8 @@ function notificationType(notification: FirestoreEntity<NotificationRecord>) {
       return 'Graduação';
     case 'fight_video_submission':
       return 'Video';
+    case 'reactivation_request':
+      return 'Reativação';
     default:
       return notification.channel === 'team' ? 'Equipe' : 'Comunicado';
   }
@@ -238,6 +253,7 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
   attendanceRequests,
   graduationRequests,
   fightVideoSubmissions,
+  reactivationRequests = [],
   academies = [],
   selectedAcademyId = '',
   canActionRequests,
@@ -252,6 +268,7 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
   onApproveGraduationRequest,
   onApproveFightVideoSubmission,
   onRejectFightVideoSubmission,
+  onResolveReactivationRequest,
   onRebuildUserDerivedState,
   onOpenStudent,
 }) => {
@@ -291,8 +308,9 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
       attendanceRequests,
       graduationRequests,
       fightVideoSubmissions,
+      reactivationRequests,
     }),
-    [attendanceRequests, fightVideoSubmissions, graduationRequests, joinRequests],
+    [attendanceRequests, fightVideoSubmissions, graduationRequests, joinRequests, reactivationRequests],
   );
   const unreadCount = notifications.filter((entry) => isUnreadNotificationForViewer(entry, {
     viewerRole: userRole,
@@ -388,9 +406,21 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
         request: entry,
       }));
 
-    return [...pendingJoinRequests, ...pendingAttendanceRequests, ...pendingFightVideoRequests]
+    const pendingReactivationRequests = reactivationRequests
+      .filter((entry) => entry.status === 'pending')
+      .map((entry) => ({
+        id: entry.id,
+        kind: 'reactivation_request' as const,
+        title: entry.userDisplayName,
+        body: `${entry.userEmail} — solicitou reativação da conta`,
+        meta: `Solicitada em ${formatStamp(entry.requestedAt)}`,
+        createdAt: entry.createdAt,
+        request: entry,
+      }));
+
+    return [...pendingJoinRequests, ...pendingAttendanceRequests, ...pendingFightVideoRequests, ...pendingReactivationRequests]
       .sort((left, right) => (right.createdAt?.toMillis?.() ?? 0) - (left.createdAt?.toMillis?.() ?? 0));
-  }, [attendanceRequests, currentUserId, fightVideoSubmissions, isSuperAdmin, joinRequests, userRole]);
+  }, [attendanceRequests, currentUserId, fightVideoSubmissions, isSuperAdmin, joinRequests, reactivationRequests, userRole]);
 
   useEffect(() => {
     setExpandedRequestId((current) => (
@@ -563,6 +593,8 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
         });
       } else if (item.kind === 'fight_video_submission') {
         await onApproveFightVideoSubmission(item.id);
+      } else if (item.kind === 'reactivation_request') {
+        await onResolveReactivationRequest?.(item.id, true);
       } else {
         await onApproveAttendanceRequest(item.id);
       }
@@ -578,7 +610,9 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
       ? 'solicitação de cadastro'
       : item.kind === 'fight_video_submission'
         ? 'solicitação de vídeo'
-        : 'solicitação de presença';
+        : item.kind === 'reactivation_request'
+          ? 'solicitação de reativação'
+          : 'solicitação de presença';
     if (!window.confirm(`Tem certeza que deseja rejeitar esta ${label}? Esta ação não pode ser desfeita.`)) {
       return;
     }
@@ -591,6 +625,8 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
         await onRejectJoinRequest(item.id);
       } else if (item.kind === 'fight_video_submission') {
         await onRejectFightVideoSubmission(item.id);
+      } else if (item.kind === 'reactivation_request') {
+        await onResolveReactivationRequest?.(item.id, false);
       } else {
         await onRejectAttendanceRequest(item.id);
       }

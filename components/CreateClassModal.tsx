@@ -110,6 +110,7 @@ export interface CreateClassPayload {
   seriesMode: 'manual' | 'recurring';
   scheduledStart: string;
   scheduledEnd: string;
+  capacity: number;
 }
 
 interface CreateClassModalProps {
@@ -131,6 +132,7 @@ function buildPayloads(params: {
   seriesMode: 'manual' | 'recurring';
   time: string;
   duration: number;
+  capacity: number;
 }): CreateClassPayload[] {
   const [hours, minutes] = params.time.split(':').map(Number);
   return params.dates.map((classDate) => {
@@ -147,6 +149,7 @@ function buildPayloads(params: {
       seriesMode: params.seriesMode,
       scheduledStart: start.toISOString(),
       scheduledEnd: end.toISOString(),
+      capacity: params.capacity,
     };
   });
 }
@@ -179,6 +182,7 @@ const CreateClassModal: React.FC<CreateClassModalProps> = ({
   const [professorId, setProfessorId] = useState(initialProfessor?.id ?? '');
   const [professorName, setProfessorName] = useState(initialProfessor?.displayName ?? currentUserName);
   const [tatame, setTatame] = useState('Tatame 1');
+  const [capacity, setCapacity] = useState(30);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [submitResult, setSubmitResult] = useState<CreateClassScheduleBatchResult | null>(null);
@@ -208,13 +212,14 @@ const CreateClassModal: React.FC<CreateClassModalProps> = ({
       seriesMode: mode === 'recurring' ? 'recurring' : 'manual',
       time,
       duration,
+      capacity,
     }),
-    [activeDates, duration, mode, professorId, professorName, tatame, time, title, tipo],
+    [activeDates, capacity, duration, mode, professorId, professorName, tatame, time, title, tipo],
   );
 
   useEffect(() => {
     setSubmitResult(null);
-  }, [activeDates, duration, mode, professorId, recurringEnd, recurringStart, recurringWeekdays, tatame, time, title, tipo]);
+  }, [activeDates, capacity, duration, mode, professorId, recurringEnd, recurringStart, recurringWeekdays, tatame, time, title, tipo]);
 
   function shiftMonth(dir: -1 | 1) {
     const next = new Date(calYear, calMonth + dir, 1);
@@ -541,6 +546,18 @@ const CreateClassModal: React.FC<CreateClassModalProps> = ({
                     <option key={option.value} value={option.value}>{option.label}</option>
                   ))}
                 </select>
+              </label>
+
+              <label className="app-field">
+                <span className="app-field__label">Capacidade</span>
+                <input
+                  type="number"
+                  value={capacity}
+                  onChange={(event) => setCapacity(Number(event.target.value))}
+                  className="app-input"
+                  min={1}
+                  max={500}
+                />
               </label>
             </div>
 

@@ -31,6 +31,7 @@ import type {
   LearningQuizRecord,
   LearningTrackRecord,
   NotificationRecord,
+  ReactivationRequestRecord,
   StoreItemRecord,
   UserRecord,
 } from './models';
@@ -343,6 +344,28 @@ export function subscribeToJoinRequests(
     (snapshot) => {
       const records = snapshot.docs
         .map((item) => mapDoc<JoinRequestRecord>(item))
+        .sort((left, right) => toMillis(right.updatedAt ?? right.createdAt) - toMillis(left.updatedAt ?? left.createdAt));
+      listener(records);
+    },
+    onError,
+  );
+}
+
+export function subscribeToReactivationRequests(
+  academyId: string | undefined,
+  listener: (records: Array<FirestoreEntity<ReactivationRequestRecord>>) => void,
+  onError?: (error: Error) => void,
+) {
+  const baseCollection = collection(firebaseDb, 'reactivation_requests');
+  const reactivationQuery = academyId
+    ? query(baseCollection, where('academyId', '==', academyId))
+    : baseCollection;
+
+  return onSnapshot(
+    reactivationQuery,
+    (snapshot) => {
+      const records = snapshot.docs
+        .map((item) => mapDoc<ReactivationRequestRecord>(item))
         .sort((left, right) => toMillis(right.updatedAt ?? right.createdAt) - toMillis(left.updatedAt ?? left.createdAt));
       listener(records);
     },

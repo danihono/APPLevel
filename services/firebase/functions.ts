@@ -10,6 +10,7 @@ import type {
   LearningContentStatus,
   LearningLessonBlockType,
   NotificationChannel,
+  ReactivationRequestStatus,
 } from './models';
 import type { ProgressionRuleSegment } from '../../beltCatalog';
 import { firebaseFunctions } from './client';
@@ -460,4 +461,16 @@ export const backendFunctions = {
 
   toggleClassRsvp: (payload: { classId: string }) =>
     callFunction<{ rsvped: boolean; rsvpCount: number }>('toggleClassRsvp', payload),
+
+  deactivateStudent: (payload: { userId: string }) =>
+    callFunction<{ userId: string; status: 'suspended' }>('deactivateStudent', payload),
+
+  requestReactivation: () =>
+    callFunction<{ requestId: string; status: ReactivationRequestStatus }>('requestReactivation', {}),
+
+  resolveReactivationRequest: (payload: { requestId: string; approve: boolean }) =>
+    callFunction<{ requestId: string; status: ReactivationRequestStatus }>('resolveReactivationRequest', payload),
+
+  reactivateStudent: (payload: { userId: string }) =>
+    callFunction<{ userId: string; status: 'active' }>('reactivateStudent', payload),
 };

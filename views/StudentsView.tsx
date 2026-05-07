@@ -7,6 +7,7 @@ import type { User } from '../types';
 
 interface StudentsViewProps {
   students: User[];
+  deactivatedStudents?: User[];
   progressionRules?: ProgressionRules | null;
   graduationRequests?: Array<FirestoreEntity<GraduationApprovalRequestRecord>>;
   rankingAttendances?: Array<FirestoreEntity<AttendanceRecord>>;
@@ -37,10 +38,13 @@ interface StudentsViewProps {
     lastStripeDateOverride?: string;
   }) => Promise<void>;
   onAdminUpdateStudentPhoto?: (payload: { userId: string; photoFile: File }) => Promise<void>;
+  onDeactivateStudent?: (userId: string) => Promise<void>;
+  onActivateStudent?: (userId: string) => Promise<void>;
 }
 
 const StudentsView: React.FC<StudentsViewProps> = ({
   students,
+  deactivatedStudents = [],
   progressionRules,
   graduationRequests = [],
   rankingAttendances = [],
@@ -58,10 +62,13 @@ const StudentsView: React.FC<StudentsViewProps> = ({
   onAdminUpdateStudentProfile,
   onAdminUpdateStudentTimeline,
   onAdminUpdateStudentPhoto,
+  onDeactivateStudent,
+  onActivateStudent,
 }) => {
   return (
     <StudentRoster
       students={students}
+      deactivatedStudents={deactivatedStudents}
       progressionRules={progressionRules}
       graduationRequests={graduationRequests}
       rankingAttendances={rankingAttendances}
@@ -79,6 +86,8 @@ const StudentsView: React.FC<StudentsViewProps> = ({
       onAdminUpdateStudentProfile={onAdminUpdateStudentProfile}
       onAdminUpdateStudentTimeline={onAdminUpdateStudentTimeline}
       onAdminUpdateStudentPhoto={onAdminUpdateStudentPhoto}
+      onDeactivateStudent={onDeactivateStudent}
+      onActivateStudent={onActivateStudent}
     />
   );
 };

@@ -601,11 +601,11 @@ function isClassVisibleForStudent(
   if (INFANTIL_CLASS_TYPES.has(d)) return false;
 
   if (belt === 'white' && stripes <= 1) {
-    return d === 'iniciante' || !ADULT_CLASS_TYPES.has(d);
+    return d === 'iniciante' || d === 'feminino' || !ADULT_CLASS_TYPES.has(d);
   }
 
   if (belt === 'white') {
-    return d === 'iniciante' || d === 'sport' || !ADULT_CLASS_TYPES.has(d);
+    return true;
   }
 
   return true;
@@ -637,6 +637,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
   onRemoveStudentPresent,
 }) => {
   const isStaff = userRole === UserRole.PROFESSOR || userRole === UserRole.SUPERADMIN;
+  const isSuperAdmin = userRole === UserRole.SUPERADMIN;
   const today = useMemo(() => stripDate(new Date()), []);
   const [isCompactMonthGrid, setIsCompactMonthGrid] = useState(
     () => (typeof window !== 'undefined' ? window.matchMedia('(max-width: 719px)').matches : false),
@@ -919,11 +920,22 @@ const CalendarView: React.FC<CalendarViewProps> = ({
 
       return [...classes]
         .filter((entry) => {
-          if (entry.professorId !== currentUserId) {
+          // Superadmin vê todas as aulas da academia; professor só as próprias
+          if (!isSuperAdmin && entry.professorId !== currentUserId) {
             return false;
           }
 
           if (entry.status !== 'scheduled' && entry.status !== 'active') {
+            return false;
+          }
+
+          if (filterProfessor !== 'all' && entry.professorId !== filterProfessor) {
+            return false;
+          }
+          if (filterType !== 'all' && (entry.description ?? '') !== filterType) {
+            return false;
+          }
+          if (filterTatame !== 'all' && entry.tatame !== filterTatame) {
             return false;
           }
 
@@ -932,7 +944,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
         })
         .sort(sortClasses);
     },
-    [classes, currentUserId, isStaff, nowMs],
+    [classes, currentUserId, filterProfessor, filterTatame, filterType, isStaff, isSuperAdmin, nowMs],
   );
 
   const classesByDay = useMemo(() => {
@@ -1502,7 +1514,9 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                 Aulas pendentes
               </h2>
               <p className={isCompactMonthGrid ? 'mt-3 text-sm text-[color:var(--text-muted)]' : 'app-section-copy mt-4'}>
-                Aulas suas que já passaram do horário e ainda estão agendadas ou ativas.
+                {isSuperAdmin
+                  ? 'Aulas da academia que já passaram do horário e ainda estão agendadas ou ativas.'
+                  : 'Aulas suas que já passaram do horário e ainda estão agendadas ou ativas.'}
               </p>
             </div>
 

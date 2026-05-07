@@ -10,7 +10,9 @@ import { backendFunctions, isRetryableSignupAcademyFetchError } from '../service
 
 interface LoginViewProps {
   onLogin: (email: string, password: string) => Promise<void>;
+  onRequestReactivation?: () => Promise<void>;
   initialError?: string;
+  isSuspended?: boolean;
 }
 
 function getSignupPasswordError(password: string): string {
@@ -25,7 +27,7 @@ function getSignupPasswordError(password: string): string {
   return '';
 }
 
-const LoginView: React.FC<LoginViewProps> = ({ onLogin, initialError = '' }) => {
+const LoginView: React.FC<LoginViewProps> = ({ onLogin, onRequestReactivation, initialError = '', isSuspended = false }) => {
   const [mode, setMode] = useState<'login' | 'signup' | 'success'>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -33,6 +35,8 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, initialError = '' }) => 
   const [rememberMe, setRememberMe] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const [reactivationBusy, setReactivationBusy] = useState(false);
+  const [reactivationSent, setReactivationSent] = useState(false);
 
   const [signupLoading, setSignupLoading] = useState(false);
   const [signupError, setSignupError] = useState('');
@@ -148,6 +152,20 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, initialError = '' }) => 
     setAcademyOptionsLoaded(false);
   };
 
+  const handleRequestReactivation = async () => {
+    if (!onRequestReactivation) return;
+    setReactivationBusy(true);
+    setError('');
+    try {
+      await onRequestReactivation();
+      setReactivationSent(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Não foi possível enviar a solicitação.');
+    } finally {
+      setReactivationBusy(false);
+    }
+  };
+
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     setError('');
@@ -194,6 +212,56 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, initialError = '' }) => 
       setSignupLoading(false);
     }
   };
+
+  if (isSuspended) {
+    return (
+      <div className="lv-login">
+        <div className="lv-login__card">
+          <div className="lv-login__hero">
+            <div className="lv-login__hero-photo" style={{ backgroundImage: 'url(/login.png)' }} />
+            <div className="lv-login__hero-overlay" />
+            <img src="/logo3.png" alt="Level Jiu Jitsu" className="lv-login__logo" />
+          </div>
+          <div className="lv-login__body">
+            <p className="lv-login__kicker">ACESSO BLOQUEADO</p>
+            <h1 className="lv-login__headline">
+              Conta desativada<span className="lv-login__headline-period">.</span>
+            </h1>
+            <p className="lv-login__sub">
+              Sua conta foi desativada pelo seu professor. Para voltar a treinar, solicite a reativação.
+            </p>
+
+            {error ? <div className="lv-login__error">{error}</div> : null}
+
+            {reactivationSent ? (
+              <div style={{ color: '#22c55e', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '0.75rem', padding: '0.75rem 1rem', fontSize: '0.875rem', marginBottom: '1rem' }}>
+                Solicitação enviada! Aguarde a resposta do seu professor.
+              </div>
+            ) : (
+              <button
+                type="button"
+                disabled={reactivationBusy || !onRequestReactivation}
+                onClick={() => void handleRequestReactivation()}
+                className="lv-btn-entrar"
+                style={{ marginTop: '1rem' }}
+              >
+                <span className="lv-btn-entrar__label">
+                  {reactivationBusy ? 'Enviando...' : 'Solicitar Reativação'}
+                </span>
+                <span className="lv-btn-entrar__arrow"><ArrowRight size={18} /></span>
+              </button>
+            )}
+
+            <p className="lv-login__register" style={{ marginTop: '1.5rem' }}>
+              <button type="button" className="lv-login__register-link" onClick={() => window.location.reload()}>
+                Voltar ao login
+              </button>
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (mode === 'login') {
     return (
