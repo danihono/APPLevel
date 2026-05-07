@@ -125,6 +125,13 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    match /reactivation_requests/{requestId} {
+      allow read: if isSuperAdmin()
+        || (isApprover() && sameAcademy(resource.data.academyId))
+        || isSelf(resource.data.userId);
+      allow write: if false;
+    }
+
     match /attendance_requests/{requestId} {
       allow read: if isSuperAdmin()
         || (
