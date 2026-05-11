@@ -2,6 +2,7 @@ import {
   EmailAuthProvider,
   onAuthStateChanged,
   reauthenticateWithCredential,
+  sendPasswordResetEmail,
   signInWithEmailAndPassword,
   signOut,
   type User,
@@ -15,6 +16,10 @@ export function subscribeToAuthState(listener: (user: User | null) => void) {
 
 export async function signInWithEmail(email: string, password: string) {
   return signInWithEmailAndPassword(firebaseAuth, email, password);
+}
+
+export async function requestPasswordReset(email: string) {
+  return sendPasswordResetEmail(firebaseAuth, email.trim());
 }
 
 export async function logout() {

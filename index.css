@@ -6590,6 +6590,11 @@ html.dark .profile-mobile__menu-icon {
   -webkit-tap-highlight-color: transparent;
 }
 
+.lv-login__forgot:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .lv-btn-entrar {
   display: flex;
   align-items: center;
@@ -6725,6 +6730,16 @@ html.dark .profile-mobile__menu-icon {
   padding: 0.7rem 0.9rem;
   font-size: 0.84rem;
   color: #d74b4b;
+  margin-bottom: 0.9rem;
+}
+
+.lv-login__success {
+  background: rgba(41,166,117,0.1);
+  border: 1px solid rgba(41,166,117,0.2);
+  border-radius: 0.85rem;
+  padding: 0.7rem 0.9rem;
+  font-size: 0.84rem;
+  color: #15803d;
   margin-bottom: 0.9rem;
 }
 

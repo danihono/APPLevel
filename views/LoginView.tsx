@@ -6,6 +6,7 @@ import {
   inferTrainingTypeFromBirthDate,
   kidsCategoryLabel,
 } from '../beltCatalog';
+import { requestPasswordReset } from '../services/firebase/auth';
 import { backendFunctions, isRetryableSignupAcademyFetchError } from '../services/firebase/functions';
 
 interface LoginViewProps {
@@ -27,6 +28,27 @@ function getSignupPasswordError(password: string): string {
   return '';
 }
 
+const PASSWORD_RESET_SUCCESS_MESSAGE = 'Se este e-mail estiver cadastrado, enviaremos um link para redefinir sua senha.';
+
+function getPasswordResetError(error: unknown): string {
+  const code = typeof error === 'object' && error && 'code' in error
+    ? String((error as { code: unknown }).code)
+    : '';
+
+  switch (code) {
+    case 'auth/invalid-email':
+      return 'Informe um e-mail valido para receber o link de redefinicao.';
+    case 'auth/too-many-requests':
+      return 'Muitas tentativas de redefinicao. Aguarde alguns minutos e tente de novo.';
+    default:
+      if (error instanceof Error && error.message) {
+        return error.message;
+      }
+
+      return 'Nao foi possivel enviar o link de redefinicao agora.';
+  }
+}
+
 const LoginView: React.FC<LoginViewProps> = ({ onLogin, onRequestReactivation, initialError = '', isSuspended = false }) => {
   const [mode, setMode] = useState<'login' | 'signup' | 'success'>('login');
   const [email, setEmail] = useState('');
@@ -35,6 +57,8 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onRequestReactivation, i
   const [rememberMe, setRememberMe] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const [passwordResetLoading, setPasswordResetLoading] = useState(false);
+  const [passwordResetSuccess, setPasswordResetSuccess] = useState('');
   const [reactivationBusy, setReactivationBusy] = useState(false);
   const [reactivationSent, setReactivationSent] = useState(false);
 
@@ -166,9 +190,41 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onRequestReactivation, i
     }
   };
 
+  const handlePasswordReset = async () => {
+    const trimmedEmail = email.trim();
+    setError('');
+    setPasswordResetSuccess('');
+
+    if (!trimmedEmail) {
+      setError('Informe seu e-mail para receber o link de redefinicao.');
+      return;
+    }
+
+    setPasswordResetLoading(true);
+
+    try {
+      await requestPasswordReset(trimmedEmail);
+      setPasswordResetSuccess(PASSWORD_RESET_SUCCESS_MESSAGE);
+    } catch (resetError) {
+      const code = typeof resetError === 'object' && resetError && 'code' in resetError
+        ? String((resetError as { code: unknown }).code)
+        : '';
+
+      if (code === 'auth/user-not-found') {
+        setPasswordResetSuccess(PASSWORD_RESET_SUCCESS_MESSAGE);
+        return;
+      }
+
+      setError(getPasswordResetError(resetError));
+    } finally {
+      setPasswordResetLoading(false);
+    }
+  };
+
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     setError('');
+    setPasswordResetSuccess('');
     setIsLoading(true);
 
     try {
@@ -288,6 +344,10 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onRequestReactivation, i
               <div className="lv-login__error">{error || initialError}</div>
             ) : null}
 
+            {passwordResetSuccess ? (
+              <div className="lv-login__success">{passwordResetSuccess}</div>
+            ) : null}
+
             <form onSubmit={handleSubmit}>
               {/* Email */}
               <div className="lv-field">
@@ -298,7 +358,10 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onRequestReactivation, i
                     type="email"
                     autoComplete="username"
                     value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    onChange={(e) => {
+                      setEmail(e.target.value);
+                      setPasswordResetSuccess('');
+                    }}
                     className="lv-field__input"
                     placeholder="você@academia.com"
                     required
@@ -341,8 +404,13 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onRequestReactivation, i
                   />
                   Lembrar de mim
                 </label>
-                <button type="button" className="lv-login__forgot">
-                  Esqueci minha senha
+                <button
+                  type="button"
+                  className="lv-login__forgot"
+                  disabled={passwordResetLoading}
+                  onClick={() => void handlePasswordReset()}
+                >
+                  {passwordResetLoading ? 'Enviando...' : 'Esqueci minha senha'}
                 </button>
               </div>
 

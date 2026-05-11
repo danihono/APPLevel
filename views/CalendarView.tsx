@@ -6,6 +6,7 @@ import ClassSessionCard from '../components/ClassSessionCard';
 import CreateClassModal, { type CreateClassPayload } from '../components/CreateClassModal';
 import DeleteClassModal, { type DeleteClassPayload } from '../components/DeleteClassModal';
 import EditClassModal, { type EditClassPayload } from '../components/EditClassModal';
+import { inferTrainingTypeFromBirthDate } from '../beltCatalog';
 import { getMyClassRsvp, subscribeToClassAttendances, subscribeToClassRsvps, type FirestoreEntity } from '../services/firebase/data';
 import {
   backendFunctions,
@@ -55,6 +56,7 @@ interface CalendarViewProps {
 
 type CalendarSurface = 'calendar' | 'today' | 'unfinished';
 type StaffFilter = 'minhas' | 'todas';
+type PresencaStudentTypeFilter = 'all' | 'kids' | 'adult';
 type FeedbackToast = {
   title: string;
   note?: string;
@@ -612,6 +614,10 @@ function isClassVisibleForStudent(
   return true;
 }
 
+function isKidsStudent(student: FirestoreEntity<UserRecord>): boolean {
+  return !!student.kidsCategory || inferTrainingTypeFromBirthDate(student.birthDate) === 'Kids';
+}
+
 const CalendarView: React.FC<CalendarViewProps> = ({
   userRole,
   currentUserId,
@@ -675,18 +681,24 @@ const CalendarView: React.FC<CalendarViewProps> = ({
   const [studentErrorById, setStudentErrorById] = useState<Record<string, string>>({});
   const [presencaSearch, setPresencaSearch] = useState('');
   const [presencaBeltFilter, setPresencaBeltFilter] = useState('all');
+  const [presencaStudentTypeFilter, setPresencaStudentTypeFilter] = useState<PresencaStudentTypeFilter>('all');
   const [filterType, setFilterType] = useState('all');
   const [filterProfessor, setFilterProfessor] = useState('all');
   const [filterTatame, setFilterTatame] = useState('all');
 
   const tokenInputRef = useRef<HTMLInputElement>(null);
+  const selectedClassDescription = useMemo(
+    () => classes.find((entry) => entry.id === selectedClassId)?.description ?? '',
+    [classes, selectedClassId],
+  );
 
   useEffect(() => {
     setSheetTab('detalhes');
     setPresencaSearch('');
     setPresencaBeltFilter('all');
+    setPresencaStudentTypeFilter(INFANTIL_CLASS_TYPES.has(selectedClassDescription) ? 'kids' : 'all');
     setStudentErrorById({});
-  }, [selectedClassId]);
+  }, [selectedClassDescription, selectedClassId]);
 
   useEffect(() => {
     const selectedClass = classes.find((c) => c.id === selectedClassId);
@@ -1098,11 +1110,22 @@ const CalendarView: React.FC<CalendarViewProps> = ({
       );
   }, [attendanceByUserId, classAttendances, classRsvps, rsvpByUserId, studentById]);
 
+  const pendingPresencaStudents = useMemo(() => {
+    return [...academyStudents]
+      .filter((student) => !rsvpByUserId.has(student.id) && !attendanceByUserId.has(student.id))
+      .sort((a, b) =>
+        (a.displayName ?? '').localeCompare(b.displayName ?? '', 'pt-BR'),
+      );
+  }, [academyStudents, attendanceByUserId, rsvpByUserId]);
+
   const filteredPresencaStudents = useMemo(() => {
-    let list = [...academyStudents].sort((a, b) =>
-      (a.displayName ?? '').localeCompare(b.displayName ?? '', 'pt-BR'),
-    );
-    list = list.filter((student) => !rsvpByUserId.has(student.id) && !attendanceByUserId.has(student.id));
+    let list = pendingPresencaStudents;
+    if (presencaStudentTypeFilter !== 'all') {
+      list = list.filter((student) => {
+        const kidsStudent = isKidsStudent(student);
+        return presencaStudentTypeFilter === 'kids' ? kidsStudent : !kidsStudent;
+      });
+    }
     if (presencaSearch.trim()) {
       const q = presencaSearch.toLowerCase().trim();
       list = list.filter((s) => s.displayName?.toLowerCase().includes(q));
@@ -1111,7 +1134,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
       list = list.filter((s) => s.belt === presencaBeltFilter);
     }
     return list;
-  }, [academyStudents, attendanceByUserId, presencaSearch, presencaBeltFilter, rsvpByUserId]);
+  }, [pendingPresencaStudents, presencaBeltFilter, presencaSearch, presencaStudentTypeFilter]);
 
   const isMineView = isStaff && view === 'minhas';
   const selectedDayEmptyMessage = isMineView
@@ -1850,6 +1873,23 @@ const CalendarView: React.FC<CalendarViewProps> = ({
 
                       {/* Seção não confirmados */}
                       <div style={{ marginTop: 8, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                        <div className="app-segment" style={{ flex: '1 1 100%', padding: 3 }}>
+                          {[
+                            { value: 'all', label: 'Todos' },
+                            { value: 'kids', label: 'Kids' },
+                            { value: 'adult', label: 'Adultos' },
+                          ].map((option) => (
+                            <button
+                              key={option.value}
+                              type="button"
+                              onClick={() => setPresencaStudentTypeFilter(option.value as PresencaStudentTypeFilter)}
+                              className={`app-segment__button ${presencaStudentTypeFilter === option.value ? 'is-active' : ''}`}
+                              style={{ minHeight: 32, fontSize: '0.75rem' }}
+                            >
+                              {option.label}
+                            </button>
+                          ))}
+                        </div>
                         <input
                           type="search"
                           value={presencaSearch}
@@ -1882,9 +1922,9 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                           Nao confirmados
                         </p>
                         <p style={{ fontSize: '0.72rem', color: 'var(--text-soft)' }}>
-                          {filteredPresencaStudents.length !== academyStudents.length
-                            ? `${filteredPresencaStudents.length} de ${academyStudents.length}`
-                            : academyStudents.length}
+                          {filteredPresencaStudents.length !== pendingPresencaStudents.length
+                            ? `${filteredPresencaStudents.length} de ${pendingPresencaStudents.length}`
+                            : pendingPresencaStudents.length}
                           {' '}· {classAttendances.length} presentes
                         </p>
                       </div>
