@@ -2984,36 +2984,54 @@ html.dark .app-button--ghost {
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.025));
 }
 
-.app-button--danger {
-  color: var(--danger);
-  border-color: rgba(215, 75, 75, 0.2);
-  background: linear-gradient(180deg, rgba(215, 75, 75, 0.16), rgba(215, 75, 75, 0.08));
-}
-
+.app-button--danger,
 .app-button--solid-danger {
   color: #fff;
-  background: linear-gradient(180deg, #ef5f5f, var(--danger, #d74b4b));
+  background: linear-gradient(180deg, #ef4444, #b91c1c);
   border-color: transparent;
-  box-shadow: 0 12px 22px rgba(215, 75, 75, 0.28);
+  box-shadow: 0 14px 28px rgba(185, 28, 28, 0.28);
+  text-shadow: 0 1px 1px rgba(80, 8, 8, 0.24);
 }
 
+.app-button--danger:hover,
+.app-button--danger:focus-visible,
 .app-button--solid-danger:hover,
 .app-button--solid-danger:focus-visible {
   border-color: transparent;
-  background: linear-gradient(180deg, #f36b6b, var(--danger, #d74b4b));
-  box-shadow: 0 14px 24px rgba(215, 75, 75, 0.34);
+  background: linear-gradient(180deg, #f05252, #991b1b);
+  box-shadow: 0 16px 30px rgba(185, 28, 28, 0.36);
 }
 
+.app-button--danger::before,
+.app-button--danger::after,
 .app-button--solid-danger::before,
 .app-button--solid-danger::after {
   opacity: 0;
 }
 
+.app-button--danger:hover::before,
+.app-button--danger:focus-visible::before,
+.app-button--danger:hover::after,
+.app-button--danger:focus-visible::after,
 .app-button--solid-danger:hover::before,
 .app-button--solid-danger:focus-visible::before,
 .app-button--solid-danger:hover::after,
 .app-button--solid-danger:focus-visible::after {
   opacity: 0;
+}
+
+html.dark .app-button--danger,
+html.dark .app-button--solid-danger {
+  background: linear-gradient(180deg, #e11d48, #9f1239);
+  box-shadow: 0 16px 30px rgba(225, 29, 72, 0.32);
+}
+
+html.dark .app-button--danger:hover,
+html.dark .app-button--danger:focus-visible,
+html.dark .app-button--solid-danger:hover,
+html.dark .app-button--solid-danger:focus-visible {
+  background: linear-gradient(180deg, #f43f5e, #881337);
+  box-shadow: 0 18px 32px rgba(225, 29, 72, 0.38);
 }
 
 .app-button--chip {
@@ -3382,6 +3400,10 @@ html.dark .app-list-card {
   gap: 0.9rem;
 }
 
+.student-roster__period-row {
+  min-width: 0;
+}
+
 .student-roster__date-grid {
   display: grid;
   gap: 0.9rem;
@@ -3568,6 +3590,74 @@ html.dark .student-roster__ranking-position {
 }
 
 @media (max-width: 719px) {
+  .student-roster__filter-grid {
+    margin-top: 1rem;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.65rem;
+    align-items: end;
+  }
+
+  .student-roster__search,
+  .student-roster__type-row {
+    grid-column: 1 / -1;
+  }
+
+  .student-roster__filter-grid .app-field {
+    gap: 0.35rem;
+  }
+
+  .student-roster__filter-grid .app-field__label,
+  .student-roster__date-grid .app-field__label {
+    font-size: 0.72rem;
+  }
+
+  .student-roster__filter-grid .app-input,
+  .student-roster__filter-grid .app-select,
+  .student-roster__date-grid .app-input {
+    min-height: 2.35rem;
+    padding: 0.58rem 0.68rem;
+    border-radius: 0.85rem;
+    font-size: 0.82rem;
+  }
+
+  .student-roster__filter-grid .app-search svg {
+    left: 0.72rem;
+    width: 1rem;
+    height: 1rem;
+  }
+
+  .student-roster__filter-grid .app-search .app-input {
+    padding-left: 2.15rem;
+  }
+
+  .student-roster__filter-grid .app-chip,
+  .student-roster__period-panel .app-chip {
+    min-height: 2.1rem;
+    padding: 0.48rem 0.68rem;
+    font-size: 0.74rem;
+  }
+
+  .student-roster__type-row,
+  .student-roster__period-row {
+    gap: 0.45rem;
+    padding-bottom: 0.1rem;
+  }
+
+  .student-roster__period-panel {
+    margin-top: 0.75rem;
+    gap: 0.55rem;
+  }
+
+  .student-roster__date-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.55rem;
+  }
+
+  .student-roster__period-note {
+    font-size: 0.72rem;
+    line-height: 1.35;
+  }
+
   .student-roster__card {
     grid-template-columns: minmax(0, 1fr);
     justify-items: start;

@@ -120,6 +120,7 @@ export interface AttendanceRecord {
   userId: string;
   checkInMethod: CheckInMethod;
   checkedInBy: string;
+  countsAsAttendance?: boolean;
   checkedInAt?: Timestamp;
   createdAt?: Timestamp;
   updatedAt?: Timestamp;

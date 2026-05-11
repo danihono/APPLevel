@@ -1614,7 +1614,7 @@ const LearningHubView: React.FC<LearningHubViewProps> = (props) => {
                       {blockTypeIcon(block.type)}
                       <strong>Bloco {blockIndex + 1}</strong>
                     </div>
-                    <button type="button" onClick={() => setLessonBlockDrafts((current) => current.filter((entry) => entry.tempId !== block.tempId))} className="app-button app-button--dark app-button--small"><Trash2 size={14} />Remover</button>
+                    <button type="button" onClick={() => setLessonBlockDrafts((current) => current.filter((entry) => entry.tempId !== block.tempId))} className="app-button app-button--danger app-button--small"><Trash2 size={14} />Remover</button>
                   </div>
                   <div className="mt-4 app-grid-2">
                     <label className="app-field"><span className="app-field__label">Tipo</span><select value={block.type} onChange={(event) => updateDraftBlock(block.tempId, (current) => ({ ...current, type: event.target.value as LearningLessonBlockType, sourceUrl: current.type === 'youtube' ? current.sourceUrl : '', storagePath: '', mimeType: '', fileName: '', thumbnailUrl: '', file: null }))} className="app-select"><option value="youtube">YouTube</option><option value="uploaded_video">Video</option><option value="pdf">PDF</option><option value="image">Imagem</option></select></label>
@@ -1725,7 +1725,7 @@ const LearningHubView: React.FC<LearningHubViewProps> = (props) => {
                 <div key={`quiz-question-${questionIndex}`} className="app-panel app-panel--soft p-4">
                   <div className="flex items-center justify-between gap-3">
                     <strong>Pergunta {questionIndex + 1}</strong>
-                    <button type="button" onClick={() => setQuizQuestions((current) => current.filter((_, index) => index !== questionIndex))} disabled={quizQuestions.length <= 1} className="app-button app-button--dark app-button--small"><Trash2 size={14} />Remover</button>
+                    <button type="button" onClick={() => setQuizQuestions((current) => current.filter((_, index) => index !== questionIndex))} disabled={quizQuestions.length <= 1} className="app-button app-button--danger app-button--small"><Trash2 size={14} />Remover</button>
                   </div>
                   <label className="app-field mt-4"><span className="app-field__label">Enunciado</span><input value={question.prompt} onChange={(event) => setQuizQuestions((current) => current.map((item, index) => index === questionIndex ? { ...item, prompt: event.target.value } : item))} className="app-input" required /></label>
                   <div className="mt-4 space-y-3">

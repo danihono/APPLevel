@@ -227,30 +227,61 @@ export function subscribeToRankingAttendances(
   listener: (records: Array<FirestoreEntity<AttendanceRecord>>) => void,
   onError?: (error: Error) => void,
 ) {
-  const constraints: QueryConstraint[] = [];
+  const snapshotsByDateField = new Map<'checkedInAt' | 'createdAt', Array<FirestoreEntity<AttendanceRecord>>>();
 
-  if (params.academyId) {
-    constraints.push(where('academyId', '==', params.academyId));
+  function buildConstraints(dateField: 'checkedInAt' | 'createdAt'): QueryConstraint[] {
+    const constraints: QueryConstraint[] = [];
+
+    if (params.academyId) {
+      constraints.push(where('academyId', '==', params.academyId));
+    }
+
+    constraints.push(where(dateField, '>=', Timestamp.fromDate(params.startDate)));
+
+    if (params.endDate) {
+      constraints.push(where(dateField, '<=', Timestamp.fromDate(params.endDate)));
+    }
+
+    constraints.push(orderBy(dateField, 'desc'));
+
+    return constraints;
   }
 
-  constraints.push(where('checkedInAt', '>=', Timestamp.fromDate(params.startDate)));
+  function publishMergedRecords() {
+    const recordsById = new Map<string, FirestoreEntity<AttendanceRecord>>();
 
-  if (params.endDate) {
-    constraints.push(where('checkedInAt', '<=', Timestamp.fromDate(params.endDate)));
+    snapshotsByDateField.forEach((records) => {
+      records.forEach((record) => recordsById.set(record.id, record));
+    });
+
+    listener(
+      [...recordsById.values()]
+        .sort((left, right) => toMillis(right.checkedInAt ?? right.createdAt) - toMillis(left.checkedInAt ?? left.createdAt)),
+    );
   }
 
-  constraints.push(orderBy('checkedInAt', 'desc'));
-
-  return onSnapshot(
-    query(collection(firebaseDb, 'attendances'), ...constraints),
+  const unsubscribeCheckedInAt = onSnapshot(
+    query(collection(firebaseDb, 'attendances'), ...buildConstraints('checkedInAt')),
     (snapshot) => {
-      const records = snapshot.docs
-        .map((item) => mapDoc<AttendanceRecord>(item))
-        .sort((left, right) => toMillis(right.checkedInAt) - toMillis(left.checkedInAt));
-      listener(records);
+      snapshotsByDateField.set('checkedInAt', snapshot.docs.map((item) => mapDoc<AttendanceRecord>(item)));
+      publishMergedRecords();
     },
     onError,
   );
+
+  const unsubscribeCreatedAt = onSnapshot(
+    query(collection(firebaseDb, 'attendances'), ...buildConstraints('createdAt')),
+    (snapshot) => {
+      snapshotsByDateField.set('createdAt', snapshot.docs.map((item) => mapDoc<AttendanceRecord>(item)));
+      publishMergedRecords();
+    },
+    onError,
+  );
+
+  return () => {
+    unsubscribeCheckedInAt();
+    unsubscribeCreatedAt();
+  };
 }
 
 export function subscribeToAttendanceRequests(

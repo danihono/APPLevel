@@ -1051,10 +1051,58 @@ const CalendarView: React.FC<CalendarViewProps> = ({
     [attendances, currentUserId],
   );
 
+  const attendanceByUserId = useMemo(() => {
+    const records = new Map<string, FirestoreEntity<AttendanceRecord>>();
+    classAttendances.forEach((entry) => {
+      records.set(entry.userId, entry);
+    });
+    return records;
+  }, [classAttendances]);
+
+  const rsvpByUserId = useMemo(() => {
+    const records = new Map<string, FirestoreEntity<ClassRsvpRecord>>();
+    classRsvps.forEach((entry) => {
+      records.set(entry.userId, entry);
+    });
+    return records;
+  }, [classRsvps]);
+
+  const studentById = useMemo(() => {
+    const records = new Map<string, FirestoreEntity<UserRecord>>();
+    academyStudents.forEach((entry) => {
+      records.set(entry.id, entry);
+    });
+    return records;
+  }, [academyStudents]);
+
+  const confirmedRoster = useMemo(() => {
+    const userIds = new Set<string>();
+    classRsvps.forEach((entry) => userIds.add(entry.userId));
+    classAttendances.forEach((entry) => userIds.add(entry.userId));
+
+    return Array.from(userIds)
+      .map((userId) => {
+        const rsvp = rsvpByUserId.get(userId);
+        const attendance = attendanceByUserId.get(userId);
+        const student = studentById.get(userId);
+        return {
+          userId,
+          displayName: rsvp?.userDisplayName ?? student?.displayName ?? 'Aluno',
+          record: attendance,
+          sourceOrder: rsvp ? 0 : 1,
+        };
+      })
+      .sort((left, right) =>
+        left.sourceOrder - right.sourceOrder
+        || left.displayName.localeCompare(right.displayName, 'pt-BR'),
+      );
+  }, [attendanceByUserId, classAttendances, classRsvps, rsvpByUserId, studentById]);
+
   const filteredPresencaStudents = useMemo(() => {
     let list = [...academyStudents].sort((a, b) =>
       (a.displayName ?? '').localeCompare(b.displayName ?? '', 'pt-BR'),
     );
+    list = list.filter((student) => !rsvpByUserId.has(student.id) && !attendanceByUserId.has(student.id));
     if (presencaSearch.trim()) {
       const q = presencaSearch.toLowerCase().trim();
       list = list.filter((s) => s.displayName?.toLowerCase().includes(q));
@@ -1063,7 +1111,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
       list = list.filter((s) => s.belt === presencaBeltFilter);
     }
     return list;
-  }, [academyStudents, presencaSearch, presencaBeltFilter]);
+  }, [academyStudents, attendanceByUserId, presencaSearch, presencaBeltFilter, rsvpByUserId]);
 
   const isMineView = isStaff && view === 'minhas';
   const selectedDayEmptyMessage = isMineView
@@ -1636,7 +1684,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                         type="button"
                         onClick={() => void handleToggleRsvp(selectedClass.id)}
                         disabled={rsvpBusyByClass[selectedClass.id]}
-                        className={`app-button app-button--block ${myRsvpByClass[selectedClass.id] ? 'app-button--ghost' : 'app-button--gold'}`}
+                        className={`app-button app-button--block ${myRsvpByClass[selectedClass.id] ? 'app-button--danger' : 'app-button--gold'}`}
                       >
                         <CheckCircle size={14} />
                         {rsvpBusyByClass[selectedClass.id] ? 'Aguarde...' : myRsvpByClass[selectedClass.id] ? 'Cancelar ida' : 'Confirmar ida'}
@@ -1735,25 +1783,25 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                     <div style={{ padding: '0 20px 16px', display: 'flex', flexDirection: 'column', gap: 12 }}>
                       {/* Seção confirmados */}
                       <p style={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--text-soft)' }}>
-                        Confirmados ({selectedClassRsvpCount})
+                        Confirmados ({confirmedRoster.length})
                       </p>
 
-                      {classRsvpsLoading ? (
+                      {classRsvpsLoading && confirmedRoster.length === 0 ? (
                         <div style={{ textAlign: 'center', padding: '12px 0', color: 'var(--text-soft)', fontSize: '0.85rem' }}>
                           Carregando confirmados...
                         </div>
-                      ) : classRsvps.length === 0 ? (
+                      ) : confirmedRoster.length === 0 ? (
                         <div style={{ textAlign: 'center', padding: '12px 0', color: 'var(--text-soft)', fontSize: '0.85rem' }}>
-                          Nenhum aluno confirmou presença nesta aula
+                          Nenhum aluno confirmado nesta aula
                         </div>
                       ) : (
-                        classRsvps.map((rsvp) => {
-                          const record = classAttendances.find((a) => a.userId === rsvp.userId);
-                          const markBusy = !!busyByClass[`manual_${rsvp.userId}`];
-                          const removeBusy = !!busyByClass[`remove_${rsvp.userId}`];
-                          const studentError = studentErrorById[rsvp.userId] ?? '';
+                        confirmedRoster.map((entry) => {
+                          const record = entry.record;
+                          const markBusy = !!busyByClass[`manual_${entry.userId}`];
+                          const removeBusy = !!busyByClass[`remove_${entry.userId}`];
+                          const studentError = studentErrorById[entry.userId] ?? '';
                           return (
-                            <div key={rsvp.id} className="app-list-card" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                            <div key={entry.userId} className="app-list-card" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                               {record ? (
                                 <CheckCircle size={16} style={{ color: methodColor(record.checkInMethod), flexShrink: 0 }} />
                               ) : (
@@ -1761,7 +1809,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                               )}
                               <div style={{ flex: 1, minWidth: 0 }}>
                                 <p style={{ fontSize: '0.82rem', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                  {rsvp.userDisplayName}
+                                  {entry.displayName}
                                 </p>
                                 {record ? (
                                   <p style={{ fontSize: '0.72rem', color: 'var(--text-soft)', marginTop: 2 }}>
@@ -1778,7 +1826,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                                 <button
                                   type="button"
                                   disabled={removeBusy}
-                                  onClick={() => void handleRemoveStudentPresent(selectedClass.id, rsvp.userId)}
+                                  onClick={() => void handleRemoveStudentPresent(selectedClass.id, entry.userId)}
                                   className="app-button app-button--solid-danger app-button--small"
                                   style={{ fontSize: '0.7rem', padding: '4px 10px', flexShrink: 0 }}
                                 >
@@ -1788,7 +1836,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                                 <button
                                   type="button"
                                   disabled={markBusy || selectedClass.status === 'cancelled'}
-                                  onClick={() => void handleMarkStudentPresent(selectedClass.id, rsvp.userId)}
+                                  onClick={() => void handleMarkStudentPresent(selectedClass.id, entry.userId)}
                                   className="app-button app-button--gold app-button--small"
                                   style={{ fontSize: '0.7rem', padding: '4px 10px', flexShrink: 0 }}
                                 >
@@ -1800,7 +1848,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                         })
                       )}
 
-                      {/* Seção todos os alunos */}
+                      {/* Seção não confirmados */}
                       <div style={{ marginTop: 8, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                         <input
                           type="search"
@@ -1831,7 +1879,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
 
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                         <p style={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--text-soft)' }}>
-                          Todos os alunos
+                          Nao confirmados
                         </p>
                         <p style={{ fontSize: '0.72rem', color: 'var(--text-soft)' }}>
                           {filteredPresencaStudents.length !== academyStudents.length
@@ -1856,11 +1904,11 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                         </div>
                       ) : filteredPresencaStudents.length === 0 ? (
                         <div style={{ textAlign: 'center', padding: '20px 0', color: 'var(--text-soft)', fontSize: '0.85rem' }}>
-                          Nenhum aluno encontrado
+                          Nenhum aluno pendente
                         </div>
                       ) : (
                         filteredPresencaStudents.map((student) => {
-                          const record = classAttendances.find((a) => a.userId === student.id);
+                          const record = attendanceByUserId.get(student.id);
                           const markBusy = !!busyByClass[`manual_${student.id}`];
                           const removeBusy = !!busyByClass[`remove_${student.id}`];
                           const studentError = studentErrorById[student.id] ?? '';
@@ -2065,7 +2113,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                       type="button"
                       onClick={() => setDeleteModalOpen(true)}
                       disabled={busy || !canDeleteSelected}
-                      className="app-button app-button--ghost app-button--small"
+                      className="app-button app-button--danger app-button--small"
                     >
                       <Trash2 size={14} />
                       Excluir

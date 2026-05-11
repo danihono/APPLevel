@@ -9,7 +9,7 @@ import type { BeltColor, User } from '../types';
 
 type SortMode = 'name-asc' | 'name-desc' | 'belt-desc' | 'grade-desc';
 type RosterSection = 'list' | 'ranking' | 'deactivated';
-type RankingPeriodPreset = 'since-start' | 'today' | '7d' | '30d' | 'custom';
+type RankingPeriodPreset = 'official-total' | 'today' | '7d' | '30d' | 'custom';
 
 export interface StudentRosterProps {
   students: User[];
@@ -64,7 +64,7 @@ const saoPauloDateFormatter = new Intl.DateTimeFormat('en-CA', {
 });
 
 const rankingPeriodOptions: Array<{ value: RankingPeriodPreset; label: string }> = [
-  { value: 'since-start', label: 'Desde 06/05' },
+  { value: 'official-total', label: 'Total oficial' },
   { value: 'today', label: 'Hoje' },
   { value: '7d', label: '7 dias' },
   { value: '30d', label: '30 dias' },
@@ -200,7 +200,7 @@ function resolveRankingPeriod(
     endInput: '',
     startDate: dateInputToSaoPauloDate(RANKING_START_DATE_INPUT, 'start'),
     endDate: null,
-    label: `Desde ${formatDateInput(RANKING_START_DATE_INPUT)}`,
+    label: 'Total oficial',
   };
 }
 
@@ -250,7 +250,7 @@ const StudentRoster: React.FC<StudentRosterProps> = ({
   const [filterType, setFilterType] = useState<'ALL' | 'Adulto' | 'Kids'>('ALL');
   const [filterGrade, setFilterGrade] = useState<'ALL' | string>('ALL');
   const [sortMode, setSortMode] = useState<SortMode>('name-asc');
-  const [rankingPeriod, setRankingPeriod] = useState<RankingPeriodPreset>('since-start');
+  const [rankingPeriod, setRankingPeriod] = useState<RankingPeriodPreset>('official-total');
   const [customStartDate, setCustomStartDate] = useState(RANKING_START_DATE_INPUT);
   const [customEndDate, setCustomEndDate] = useState(toSaoPauloDateInput());
   const [internalSelectedStudentId, setInternalSelectedStudentId] = useState(selectedStudentId);
@@ -262,6 +262,7 @@ const StudentRoster: React.FC<StudentRosterProps> = ({
     () => resolveRankingPeriod(rankingPeriod, customStartDate, customEndDate),
     [customEndDate, customStartDate, rankingPeriod],
   );
+  const isOfficialTotalRanking = rankingPeriod === 'official-total';
 
   const graduationRequestByUserId = useMemo(() => {
     const next = new Map<string, FirestoreEntity<GraduationApprovalRequestRecord>>();
@@ -303,6 +304,10 @@ const StudentRoster: React.FC<StudentRosterProps> = ({
   );
 
   const periodAttendances = useMemo(() => {
+    if (isOfficialTotalRanking) {
+      return [];
+    }
+
     const startMillis = periodRange.startDate.getTime();
     const endMillis = periodRange.endDate?.getTime() ?? Number.POSITIVE_INFINITY;
     return rankingAttendances.filter((attendance) => {
@@ -310,10 +315,14 @@ const StudentRoster: React.FC<StudentRosterProps> = ({
         return false;
       }
 
-      const checkedInAt = getAttendanceMillis(attendance);
-      return checkedInAt >= startMillis && checkedInAt <= endMillis;
+      if (attendance.countsAsAttendance === false) {
+        return false;
+      }
+
+      const attendanceMillis = getAttendanceMillis(attendance);
+      return attendanceMillis >= startMillis && attendanceMillis <= endMillis;
     });
-  }, [enableAcademyFilter, periodRange.endDate, periodRange.startDate, rankingAttendances, selectedAcademyId]);
+  }, [enableAcademyFilter, isOfficialTotalRanking, periodRange.endDate, periodRange.startDate, rankingAttendances, selectedAcademyId]);
 
   const attendanceCountByUserId = useMemo(() => {
     const next = new Map<string, number>();
@@ -327,7 +336,9 @@ const StudentRoster: React.FC<StudentRosterProps> = ({
     filteredStudents
       .map((student) => ({
         student,
-        attendanceCount: attendanceCountByUserId.get(student.id) ?? 0,
+        attendanceCount: isOfficialTotalRanking
+          ? Math.max(0, Math.floor(student.attendanceCount ?? 0))
+          : attendanceCountByUserId.get(student.id) ?? 0,
       }))
       .sort((left, right) => {
         const attendanceDiff = right.attendanceCount - left.attendanceCount;
@@ -337,7 +348,7 @@ const StudentRoster: React.FC<StudentRosterProps> = ({
 
         return left.student.name.localeCompare(right.student.name, 'pt-BR');
       })
-  ), [attendanceCountByUserId, filteredStudents]);
+  ), [attendanceCountByUserId, filteredStudents, isOfficialTotalRanking]);
 
   const topRankByUserId = useMemo(() => {
     const next = new Map<string, number>();
@@ -548,7 +559,7 @@ const StudentRoster: React.FC<StudentRosterProps> = ({
 
             {activeSection === 'ranking' ? (
               <div className="student-roster__period-panel">
-                <div className="app-chip-row">
+                <div className="app-chip-row student-roster__period-row">
                   {rankingPeriodOptions.map((option) => (
                     <button
                       key={option.value}
@@ -589,7 +600,9 @@ const StudentRoster: React.FC<StudentRosterProps> = ({
                 ) : null}
 
                 <p className="student-roster__period-note">
-                  Ranking analitico: {periodRange.label}. Nao altera faixa, grau ou contagem oficial.
+                  {isOfficialTotalRanking
+                    ? 'Ranking oficial: usa a contagem registrada no perfil do aluno.'
+                    : `Ranking analitico: ${periodRange.label}. Nao altera faixa, grau ou contagem oficial.`}
                 </p>
               </div>
             ) : null}
