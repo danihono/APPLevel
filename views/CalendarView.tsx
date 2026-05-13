@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Camera, CheckCircle, ChevronLeft, ChevronRight, MapPin, Pencil, Play, Plus, QrCode, RefreshCw, ShieldCheck, StopCircle, Trash2, UserCheck, X } from 'lucide-react';
+import { Camera, CheckCircle, ChevronLeft, ChevronRight, MapPin, Pencil, Play, Plus, QrCode, RefreshCw, ShieldCheck, StopCircle, Trash2, UserCheck, Users, X } from 'lucide-react';
 import QRCodeSVG from 'react-qr-code';
 import { buildMonthGrid, MONTH_WEEK_HEADER, sameCalendarDay, sameCalendarMonth, stripDate, toDateKey } from '../calendarUtils';
 import ClassSessionCard from '../components/ClassSessionCard';
@@ -413,6 +413,7 @@ interface MonthGridProps {
   today: Date;
   onSelectDay: (day: Date) => void;
   onOpenClass: (classId: string, day: Date) => void;
+  attendedDays?: Set<string>;
 }
 
 const DesktopMonthGrid: React.FC<MonthGridProps> = React.memo(function DesktopMonthGrid({
@@ -540,6 +541,7 @@ const CompactMonthGrid: React.FC<Omit<MonthGridProps, 'onOpenClass'>> = React.me
   selectedDay,
   today,
   onSelectDay,
+  attendedDays,
 }) {
   return (
   <div className="app-calendar-month-grid app-calendar-month-grid--compact">
@@ -576,7 +578,9 @@ const CompactMonthGrid: React.FC<Omit<MonthGridProps, 'onOpenClass'>> = React.me
           </div>
 
           <div className="app-calendar-month-day__dots" aria-hidden="true">
-            {hasClasses ? <span className="app-calendar-month-day__dot app-calendar-month-day__dot--gold" /> : null}
+            {attendedDays?.has(key)
+              ? <span className="app-calendar-month-day__dot app-calendar-month-day__dot--green" />
+              : hasClasses ? <span className="app-calendar-month-day__dot app-calendar-month-day__dot--gold" /> : null}
           </div>
         </button>
       );
@@ -673,6 +677,9 @@ const CalendarView: React.FC<CalendarViewProps> = ({
   const [scannerClassId, setScannerClassId] = useState<string | null>(null);
   const [myRsvpByClass, setMyRsvpByClass] = useState<Record<string, boolean>>({});
   const [rsvpBusyByClass, setRsvpBusyByClass] = useState<Record<string, boolean>>({});
+  const [showParticipants, setShowParticipants] = useState(false);
+  const [participantsList, setParticipantsList] = useState<Array<FirestoreEntity<ClassRsvpRecord>>>([]);
+  const [participantsLoading, setParticipantsLoading] = useState(false);
   const [feedbackToast, setFeedbackToast] = useState<FeedbackToast | null>(null);
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [classAttendances, setClassAttendances] = useState<Array<FirestoreEntity<AttendanceRecord>>>([]);
@@ -698,6 +705,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
     setPresencaBeltFilter('all');
     setPresencaStudentTypeFilter(INFANTIL_CLASS_TYPES.has(selectedClassDescription) ? 'kids' : 'all');
     setStudentErrorById({});
+    setShowParticipants(false);
   }, [selectedClassDescription, selectedClassId]);
 
   useEffect(() => {
@@ -780,6 +788,24 @@ const CalendarView: React.FC<CalendarViewProps> = ({
       });
     });
   }, [classes, currentUserId, isStaff]);
+
+  useEffect(() => {
+    const selectedClass = classes.find((c) => c.id === selectedClassId);
+    if (!showParticipants || !selectedClass || selectedClass.status !== 'scheduled' || isStaff) {
+      setParticipantsList([]);
+      setParticipantsLoading(false);
+      return undefined;
+    }
+    setParticipantsLoading(true);
+    return subscribeToClassRsvps(
+      selectedClass.id,
+      selectedClass.academyId,
+      (records) => {
+        setParticipantsList(records);
+        setParticipantsLoading(false);
+      },
+    );
+  }, [showParticipants, selectedClassId, classes, isStaff]);
 
   useEffect(() => {
     if (!isStaff && surfaceTab === 'unfinished') {
@@ -1062,6 +1088,14 @@ const CalendarView: React.FC<CalendarViewProps> = ({
         .sort((left, right) => (right.checkedInAt?.toDate().getTime() ?? 0) - (left.checkedInAt?.toDate().getTime() ?? 0)),
     [attendances, currentUserId],
   );
+
+  const myAttendedDays = useMemo(() => {
+    const keys = new Set<string>();
+    myAttendances.forEach((entry) => {
+      if (entry.checkedInAt) keys.add(toDateKey(entry.checkedInAt.toDate()));
+    });
+    return keys;
+  }, [myAttendances]);
 
   const attendanceByUserId = useMemo(() => {
     const records = new Map<string, FirestoreEntity<AttendanceRecord>>();
@@ -1451,6 +1485,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                   selectedDay={selectedDay}
                   today={today}
                   onSelectDay={selectCalendarDay}
+                  attendedDays={!isStaff ? myAttendedDays : undefined}
                 />
 
                 <p className="calendar-mobile__month-summary">{selectedDaySummaryLabel}</p>
@@ -1711,6 +1746,14 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                       >
                         <CheckCircle size={14} />
                         {rsvpBusyByClass[selectedClass.id] ? 'Aguarde...' : myRsvpByClass[selectedClass.id] ? 'Cancelar ida' : 'Confirmar ida'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setShowParticipants(true)}
+                        className="app-button app-button--block app-button--ghost"
+                      >
+                        <Users size={14} />
+                        {`Ver Participantes${selectedClass.rsvpCount ? ` (${selectedClass.rsvpCount})` : ''}`}
                       </button>
                     </>
                   ) : (
@@ -2390,6 +2433,64 @@ const CalendarView: React.FC<CalendarViewProps> = ({
           onClose={() => setCreateModalOpen(false)}
           onSubmit={onCreateClass}
         />
+      ) : null}
+
+      {showParticipants && selectedClass && !isStaff ? (
+        <div
+          className="staff-home__lesson-backdrop"
+          role="presentation"
+          onClick={() => setShowParticipants(false)}
+        >
+          <section
+            className="staff-home__lesson-sheet"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="participants-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="staff-home__lesson-head">
+              <div className="staff-home__lesson-title-copy">
+                <p className="staff-home__section-label">Participantes confirmados</p>
+                <h2 id="participants-title" className="staff-home__lesson-title">{selectedClass.title}</h2>
+                <p className="staff-home__lesson-subtitle">{formatTimeLabel(selectedClass.scheduledStart)}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowParticipants(false)}
+                className="app-button app-button--ghost app-button--icon staff-home__lesson-close"
+                aria-label="Fechar participantes"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className="staff-home__confirmed-list">
+              <div className="staff-home__confirmed-head">
+                <p className="staff-home__section-label">Quem confirmou</p>
+              </div>
+
+              {participantsLoading ? (
+                <div className="staff-home__confirmed-empty">Carregando...</div>
+              ) : participantsList.length > 0 ? (
+                participantsList.map((rsvp) => (
+                  <div key={rsvp.id} className="staff-home__confirmed-row">
+                    <div className="staff-home__confirmed-avatar" aria-hidden="true">
+                      <UserCheck size={16} />
+                    </div>
+                    <div className="staff-home__confirmed-copy">
+                      <p className="staff-home__confirmed-name">{rsvp.userDisplayName}</p>
+                      <p className="staff-home__confirmed-meta">Presença futura confirmada</p>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="staff-home__confirmed-empty">
+                  Nenhum aluno confirmou ainda.
+                </div>
+              )}
+            </div>
+          </section>
+        </div>
       ) : null}
     </div>
   );
