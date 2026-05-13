@@ -31,7 +31,7 @@ async function ensureNoAttendanceDuplicate(academyId: string, classId: string, u
 }
 
 function iniciante_counts_for(belt: string, stripes: number): boolean {
-  return belt === 'white' && stripes <= 1;
+  return belt === 'white' && stripes <= 2;
 }
 
 async function createAttendanceRecord(params: {
@@ -261,17 +261,12 @@ export const submitAttendanceRequest = onCall(callableOptions, async (request) =
   const duplicateRequest = await db
     .collection(COLLECTIONS.attendanceRequests)
     .where('userId', '==', actor.uid)
-    .limit(10)
+    .where('classId', '==', classId)
+    .where('status', '==', 'pending')
+    .limit(1)
     .get();
 
-  assertCondition(
-    !duplicateRequest.docs.some((doc) => {
-      const item = doc.data() as AttendanceRequestDoc;
-      return item.academyId === classData.academyId && item.classId === classId && item.status === 'pending';
-    }),
-    'already-exists',
-    'Ja existe uma solicitacao pendente para esta aula.',
-  );
+  assertCondition(duplicateRequest.empty, 'already-exists', 'Ja existe uma solicitacao pendente para esta aula.');
 
   const requestRef = db.collection(COLLECTIONS.attendanceRequests).doc();
   const now = Timestamp.now();

@@ -486,6 +486,13 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
     [graduationItems],
   );
 
+  const grauReadyCount = useMemo(
+    () => graduationItems.filter(
+      (item) => item.targetType === 'stripe' && item.remainingClasses <= 0,
+    ).length,
+    [graduationItems],
+  );
+
   function getJoinRequestDraft(request: FirestoreEntity<JoinRequestRecord>): JoinRequestDraft {
     return joinRequestDrafts[request.id] ?? normalizeJoinRequestDraft(request);
   }
@@ -939,6 +946,11 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
                           Esse aluno está apto a mudar de faixa
                         </p>
                       ) : null}
+                      {item.targetType === 'stripe' && item.remainingClasses <= 0 ? (
+                        <p className="notice-mobile__belt-ready-alert">
+                          Esse aluno está apto a subir de grau
+                        </p>
+                      ) : null}
                     </div>
                   </div>
 
@@ -1039,6 +1051,7 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
               <GraduationCap size={16} />
               {`Graduações${graduationItems.length > 0 ? ` (${graduationItems.length})` : ''}`}
               {beltReadyCount > 0 ? <span className="app-badge app-badge--gold">{beltReadyCount} faixa</span> : null}
+              {grauReadyCount > 0 ? <span className="app-badge app-badge--muted">{grauReadyCount} grau</span> : null}
             </button>
           </div>
         )}
@@ -1547,6 +1560,11 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
                   {item.targetType === 'belt' && item.remainingClasses <= 0 ? (
                     <div className="app-alert app-alert--success mt-3 text-sm">
                       Esse aluno está apto a mudar de faixa
+                    </div>
+                  ) : null}
+                  {item.targetType === 'stripe' && item.remainingClasses <= 0 ? (
+                    <div className="app-alert app-alert--success mt-3 text-sm">
+                      Esse aluno está apto a subir de grau
                     </div>
                   ) : null}
                   <div className="mt-4 flex flex-wrap gap-2">
