@@ -1,6 +1,13 @@
 import { FieldValue, Timestamp } from 'firebase-admin/firestore';
 import { onCall } from 'firebase-functions/v2/https';
-import { COLLECTIONS, NotificationChannel, NotificationDoc, Role, UserDoc } from '../domain/models';
+import {
+  COLLECTIONS,
+  GraduationApprovalRequestDoc,
+  NotificationChannel,
+  NotificationDoc,
+  Role,
+  UserDoc,
+} from '../domain/models';
 import { getRequestContext } from '../lib/context';
 import { assertCondition } from '../lib/errors';
 import { db, messaging } from '../lib/firebase';
@@ -10,6 +17,7 @@ import {
   optionalStringArray,
   requiredString,
 } from '../lib/payload';
+import { syncAllUsersInAcademy } from '../services/userState';
 
 const callableOptions = { region: 'southamerica-east1', invoker: 'public' as const };
 
@@ -40,6 +48,21 @@ function canDeleteNotification(
   }
 
   return !notification.recipientUserId || notification.recipientUserId === actor.uid;
+}
+
+function graduationNotificationTitle(request: GraduationApprovalRequestDoc): string {
+  return request.targetType === 'belt'
+    ? 'Avaliacao de faixa pendente'
+    : 'Avaliacao de grau pendente';
+}
+
+function graduationNotificationBody(request: GraduationApprovalRequestDoc): string {
+  const target = request.targetType === 'belt' ? 'faixa' : 'grau';
+  if (request.remainingClasses <= 0) {
+    return `${request.userDisplayName} completou as aulas e aguarda avaliacao para o proximo ${target}.`;
+  }
+
+  return `${request.userDisplayName} esta a ${request.remainingClasses} aula(s) do proximo ${target} e aguarda avaliacao da equipe.`;
 }
 
 async function deleteNotificationSnapshots(
@@ -189,6 +212,98 @@ export const sendSegmentedNotification = onCall(callableOptions, async (request)
     tokens: tokens.length,
     sent,
     failed,
+  };
+});
+
+export const repairPendingGraduationNotifications = onCall(callableOptions, async (request) => {
+  const actor = await getRequestContext(request, 'professor');
+  const requestedAcademyId = optionalString(request.data, 'academyId');
+  const academyId = requestedAcademyId ?? (actor.role === 'superadmin' ? undefined : actor.academyId);
+
+  assertCondition(
+    actor.role === 'superadmin' || academyId === actor.academyId,
+    'permission-denied',
+    'Voce so pode reparar notificacoes da propria academia.',
+  );
+
+  let requestQuery: FirebaseFirestore.Query = db
+    .collection(COLLECTIONS.graduationRequests)
+    .where('status', '==', 'pending');
+
+  if (academyId) {
+    requestQuery = requestQuery.where('academyId', '==', academyId);
+  }
+
+  let created = 0;
+  let skippedExisting = 0;
+  let syncedUsers = 0;
+
+  if (academyId) {
+    syncedUsers = await syncAllUsersInAcademy(academyId);
+  }
+
+  const requestSnapshot = await requestQuery.limit(2000).get();
+  const now = Timestamp.now();
+
+  for (const requestChunk of chunk(requestSnapshot.docs, 450)) {
+    const writeBatch = db.batch();
+    let writesInBatch = 0;
+
+    for (const requestDoc of requestChunk) {
+      const graduationRequest = requestDoc.data() as GraduationApprovalRequestDoc;
+      const existingNotification = await db
+        .collection(COLLECTIONS.notifications)
+        .where('academyId', '==', graduationRequest.academyId)
+        .where('actionRef', '==', requestDoc.id)
+        .limit(1)
+        .get();
+
+      if (!existingNotification.empty) {
+        skippedExisting += 1;
+        continue;
+      }
+
+      const notification: NotificationDoc = {
+        academyId: graduationRequest.academyId,
+        title: graduationNotificationTitle(graduationRequest),
+        body: graduationNotificationBody(graduationRequest),
+        channel: 'system',
+        kind: 'graduation',
+        status: 'stored',
+        createdBy: actor.uid,
+        createdAt: now,
+        updatedAt: now,
+        actionRef: requestDoc.id,
+        targetRole: 'professor',
+        targetBelt: graduationRequest.targetBelt,
+        data: {
+          requestId: requestDoc.id,
+          userId: graduationRequest.userId,
+          userDisplayName: graduationRequest.userDisplayName,
+          targetType: graduationRequest.targetType,
+          targetBelt: graduationRequest.targetBelt,
+          targetStripes: String(graduationRequest.targetStripes),
+          remainingClasses: String(graduationRequest.remainingClasses),
+          attendanceTarget: String(graduationRequest.attendanceTarget),
+        },
+      };
+
+      writeBatch.set(db.collection(COLLECTIONS.notifications).doc(`graduation_${requestDoc.id}`), notification);
+      created += 1;
+      writesInBatch += 1;
+    }
+
+    if (writesInBatch > 0) {
+      await writeBatch.commit();
+    }
+  }
+
+  return {
+    academyId: academyId ?? null,
+    scanned: requestSnapshot.size,
+    syncedUsers,
+    created,
+    skippedExisting,
   };
 });
 

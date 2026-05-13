@@ -322,6 +322,15 @@ export const backendFunctions = {
   rebuildUserDerivedState: (payload: { userId?: string }) =>
     callFunction('rebuildUserDerivedState', payload),
 
+  repairPendingGraduationNotifications: (payload: { academyId?: string }) =>
+    callFunction<{
+      academyId: string | null;
+      scanned: number;
+      syncedUsers: number;
+      created: number;
+      skippedExisting: number;
+    }>('repairPendingGraduationNotifications', payload),
+
   registerDeviceToken: (payload: { token: string }) =>
     callFunction<{ registered: boolean }>('registerDeviceToken', payload),
 

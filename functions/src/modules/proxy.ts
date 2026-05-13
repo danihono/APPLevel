@@ -40,6 +40,7 @@ const ALLOWED_CALLABLES = new Set([
   'repairAcademyProgressionRules',
   'evaluateUserProgression',
   'rebuildUserDerivedState',
+  'repairPendingGraduationNotifications',
   'recalculateUserRanking',
   'recalculateAcademyRankings',
   'upsertMission',

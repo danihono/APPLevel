@@ -592,6 +592,7 @@ const App: React.FC = () => {
   const academyAccessRetryRef = useRef(false);
   const validatedSessionRef = useRef<ValidatedSessionSnapshot | null>(null);
   const graduationCelebrationSessionSeenRef = useRef(new Set<string>());
+  const repairedGraduationNotificationsRef = useRef(new Set<string>());
   const [academyAccessRetryNonce, setAcademyAccessRetryNonce] = useState(0);
 
   const setThemeMode = (mode: 'light' | 'dark') => {
@@ -927,6 +928,31 @@ const App: React.FC = () => {
       (error) => reportSessionError('data:subscribeToNotifications', error),
     );
   }, [profile, selectedAcademyId, sessionValidated]);
+
+  useEffect(() => {
+    if (!profile || !sessionValidated || profile.role === 'student') {
+      return;
+    }
+
+    const scopedAcademyId = profile.role === 'superadmin'
+      ? selectedAcademyId
+      : profile.academyId;
+
+    if (!scopedAcademyId) {
+      return;
+    }
+
+    const repairKey = `${profile.id}:${scopedAcademyId}`;
+    if (repairedGraduationNotificationsRef.current.has(repairKey)) {
+      return;
+    }
+
+    repairedGraduationNotificationsRef.current.add(repairKey);
+    void backendFunctions.repairPendingGraduationNotifications({ academyId: scopedAcademyId }).catch((error) => {
+      repairedGraduationNotificationsRef.current.delete(repairKey);
+      console.error('[session:repairPendingGraduationNotifications]', error);
+    });
+  }, [profile?.academyId, profile?.id, profile?.role, selectedAcademyId, sessionValidated]);
 
   useEffect(() => {
     if (!profile || !sessionValidated) {

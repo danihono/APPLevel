@@ -78,6 +78,7 @@ import { callableProxy } from './modules/proxy';
 import {
   clearNotifications,
   markNotificationRead,
+  repairPendingGraduationNotifications,
   registerDeviceToken,
   sendSegmentedNotification,
 } from './modules/notifications';
@@ -96,6 +97,7 @@ export {
   requestReactivation,
   resolveReactivationRequest,
   clearNotifications,
+  repairPendingGraduationNotifications,
   approveJoinRequest,
   approveAttendanceRequest,
   approveFightVideoSubmission,
