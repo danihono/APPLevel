@@ -2341,6 +2341,10 @@ const App: React.FC = () => {
             onSubmitAttendanceRequest={handleSubmitAttendanceRequest}
             onMarkStudentPresent={handleMarkStudentForClass}
             onRemoveStudentPresent={handleRemoveStudentFromClass}
+            onOpenStudent={(studentId) => {
+              setSelectedStudentId(studentId);
+              setActiveTab('students');
+            }}
           />
         );
       }

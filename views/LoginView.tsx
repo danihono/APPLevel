@@ -40,6 +40,8 @@ function getPasswordResetError(error: unknown): string {
       return 'Informe um e-mail valido para receber o link de redefinicao.';
     case 'auth/too-many-requests':
       return 'Muitas tentativas de redefinicao. Aguarde alguns minutos e tente de novo.';
+    case 'auth/network-request-failed':
+      return 'Falha na conexao com o servidor. Verifique sua internet e tente novamente.';
     default:
       if (error instanceof Error && error.message) {
         return error.message;
@@ -210,7 +212,7 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onRequestReactivation, i
         ? String((resetError as { code: unknown }).code)
         : '';
 
-      if (code === 'auth/user-not-found') {
+      if (code === 'auth/user-not-found' || code === 'auth/user-disabled') {
         setPasswordResetSuccess(PASSWORD_RESET_SUCCESS_MESSAGE);
         return;
       }

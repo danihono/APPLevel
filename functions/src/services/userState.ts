@@ -324,7 +324,7 @@ export async function recalculateAcademyRankingPositions(academyId: string): Pro
 export async function syncUserDerivedState(
   userId: string,
   academyId: string,
-  options?: { recalculatePositions?: boolean },
+  options?: { recalculatePositions?: boolean; skipGraduationSync?: boolean },
 ): Promise<UserSyncResult> {
   const normalizedAcademyId = academyId.trim();
   assertCondition(
@@ -369,13 +369,15 @@ export async function syncUserDerivedState(
   });
 
   await batch.commit();
-  await syncGraduationApprovalRequest({
-    academyId: normalizedAcademyId,
-    userId,
-    user,
-    attendanceCount: metrics.attendanceCount,
-    rules,
-  });
+  if (!options?.skipGraduationSync) {
+    await syncGraduationApprovalRequest({
+      academyId: normalizedAcademyId,
+      userId,
+      user,
+      attendanceCount: metrics.attendanceCount,
+      rules,
+    });
+  }
   await upsertRanking(
     userId,
     normalizedAcademyId,

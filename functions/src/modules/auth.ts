@@ -1119,7 +1119,7 @@ export const approveGraduationRequest = onCall(callableOptions, async (request) 
     updatedAt: now,
   });
 
-  await syncUserDerivedState(graduationRequest.userId, graduationRequest.academyId);
+  await syncUserDerivedState(graduationRequest.userId, graduationRequest.academyId, { skipGraduationSync: true });
 
   return {
     requestId,

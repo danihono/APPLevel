@@ -52,6 +52,7 @@ interface CalendarViewProps {
   onSubmitAttendanceRequest: (classId: string) => Promise<void>;
   onMarkStudentPresent?: (classId: string, targetUserId: string) => Promise<void>;
   onRemoveStudentPresent?: (classId: string, targetUserId: string) => Promise<void>;
+  onOpenStudent?: (studentId: string) => void;
 }
 
 type CalendarSurface = 'calendar' | 'today' | 'unfinished';
@@ -647,6 +648,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
   onSubmitAttendanceRequest,
   onMarkStudentPresent,
   onRemoveStudentPresent,
+  onOpenStudent,
 }) => {
   const isStaff = userRole === UserRole.PROFESSOR || userRole === UserRole.SUPERADMIN;
   const isSuperAdmin = isSuperAdminProp ?? userRole === UserRole.SUPERADMIN;
@@ -2015,27 +2017,39 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                                   <p style={{ fontSize: '0.7rem', color: 'var(--danger)', marginTop: 2 }}>{studentError}</p>
                                 ) : null}
                               </div>
-                              {record ? (
-                                <button
-                                  type="button"
-                                  disabled={removeBusy}
-                                  onClick={() => void handleRemoveStudentPresent(selectedClass.id, student.id)}
-                                  className="app-button app-button--solid-danger app-button--small"
-                                  style={{ fontSize: '0.7rem', padding: '4px 10px', flexShrink: 0 }}
-                                >
-                                  {removeBusy ? '...' : 'Desmarcar'}
-                                </button>
-                              ) : (
-                                <button
-                                  type="button"
-                                  disabled={markBusy || selectedClass.status === 'cancelled'}
-                                  onClick={() => void handleMarkStudentPresent(selectedClass.id, student.id)}
-                                  className="app-button app-button--gold app-button--small"
-                                  style={{ fontSize: '0.7rem', padding: '4px 10px', flexShrink: 0 }}
-                                >
-                                  {markBusy ? '...' : 'Marcar'}
-                                </button>
-                              )}
+                              <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexShrink: 0 }}>
+                                {onOpenStudent ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => onOpenStudent(student.id)}
+                                    className="app-button app-button--ghost app-button--small"
+                                    style={{ fontSize: '0.7rem', padding: '4px 10px' }}
+                                  >
+                                    Ir em aluno
+                                  </button>
+                                ) : null}
+                                {record ? (
+                                  <button
+                                    type="button"
+                                    disabled={removeBusy}
+                                    onClick={() => void handleRemoveStudentPresent(selectedClass.id, student.id)}
+                                    className="app-button app-button--solid-danger app-button--small"
+                                    style={{ fontSize: '0.7rem', padding: '4px 10px' }}
+                                  >
+                                    {removeBusy ? '...' : 'Desmarcar'}
+                                  </button>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    disabled={markBusy || selectedClass.status === 'cancelled'}
+                                    onClick={() => void handleMarkStudentPresent(selectedClass.id, student.id)}
+                                    className="app-button app-button--gold app-button--small"
+                                    style={{ fontSize: '0.7rem', padding: '4px 10px' }}
+                                  >
+                                    {markBusy ? '...' : 'Marcar'}
+                                  </button>
+                                )}
+                              </div>
                             </div>
                           );
                         })
