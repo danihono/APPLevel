@@ -136,12 +136,28 @@ async function applyStudentBeltGradeUpdate(params: {
   ruleVersion?: number;
 }): Promise<Timestamp> {
   const now = Timestamp.now();
+  let attendanceCountAtBeltStart: number | undefined;
+
+  if (params.targetUser.belt !== params.belt) {
+    const baseQuery = db
+      .collection(COLLECTIONS.attendances)
+      .where('academyId', '==', params.targetUser.academyId)
+      .where('userId', '==', params.targetUserId);
+    const [totalSnap, nonCountingSnap] = await Promise.all([
+      baseQuery.count().get(),
+      baseQuery.where('countsAsAttendance', '==', false).count().get(),
+    ]);
+    const organic = totalSnap.data().count - nonCountingSnap.data().count;
+    const bonus = Math.max(0, Math.floor(params.targetUser.attendanceCountBonus ?? 0));
+    attendanceCountAtBeltStart = organic + bonus;
+  }
+
   await db.collection(COLLECTIONS.users).doc(params.targetUserId).update({
     belt: params.belt,
     grade: params.grade,
     stripes: params.stripes,
-    ...(params.targetUser.belt !== params.belt
-      ? { attendanceCountAtBeltStart: params.targetUser.attendanceCount }
+    ...(attendanceCountAtBeltStart !== undefined
+      ? { attendanceCountAtBeltStart }
       : {}),
     ...(params.hasKidsCategoryField ? { kidsCategory: params.kidsCategory ?? null } : {}),
     updatedAt: now,

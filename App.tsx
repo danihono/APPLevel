@@ -5,6 +5,7 @@ import type { CreateClassPayload } from './components/CreateClassModal';
 import type { DeleteClassPayload } from './components/DeleteClassModal';
 import type { EditClassPayload } from './components/EditClassModal';
 import GraduationCelebrationModal from './components/GraduationCelebrationModal';
+import { LoadingScreen } from './components/LoadingScreen';
 import Layout from './components/Layout';
 import HomeView from './views/HomeView';
 import LoginView from './views/LoginView';
@@ -231,57 +232,6 @@ function readThemePreference(scope: string): boolean | null {
   return null;
 }
 
-function buildLoadingView(message: string) {
-  return (
-    <div className="app-auth-shell">
-      <div className="app-auth-grid">
-        <section className="app-panel app-panel--hero app-auth-side">
-          <div>
-            <p className="app-section-label">Applevel</p>
-            <h1 className="app-section-title">Seu dojo agora tem uma cabine premium.</h1>
-            <p className="app-section-copy">
-              Estamos preparando a sessão, o tema e os dados da academia para abrir a experiência completa.
-            </p>
-          </div>
-
-          <div className="app-auth-bullets">
-            <div className="app-auth-bullet">
-              <div className="app-icon-shell">
-                <span className="app-orb__dot" />
-              </div>
-              <div>
-                <strong>Ambiente sincronizado</strong>
-                <p className="app-note">{message}</p>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <section className="app-panel app-auth-card app-panel-pad text-center">
-          <div className="mx-auto flex items-center justify-center">
-            <img src="/logo3.png" alt="APPLevel" className="h-40 w-40 object-contain animate-pulse" />
-          </div>
-          <h2 className="mt-6 text-2xl font-bold">Conectando ao APPLevel</h2>
-          <p className="mt-3 app-note">{message}</p>
-        </section>
-      </div>
-    </div>
-  );
-}
-
-function buildInlineLoadingView(message: string) {
-  return (
-    <div className="view-shell">
-      <section className="app-panel app-panel--hero app-panel-pad">
-        <p className="app-section-label">Sincronizando ambiente</p>
-        <h2 className="app-section-title">Quase pronto.</h2>
-        <p className="app-section-copy">
-          {message}
-        </p>
-      </section>
-    </div>
-  );
-}
 
 function buildFallbackAcademy(ownerUserId: string): FirestoreEntity<AcademyRecord> {
   return {
@@ -2120,7 +2070,7 @@ const App: React.FC = () => {
   }, [academyFights, fightVideoSubmissions]);
 
   if (!authReady) {
-    return buildLoadingView('Validando a sua sessao com o Firebase.');
+    return <LoadingScreen message="Validando a sua sessao com o Firebase." />;
   }
 
   if (!authUser) {
@@ -2139,7 +2089,7 @@ const App: React.FC = () => {
   }
 
   if (profileLoading || !profile) {
-    return buildLoadingView('Carregando perfil, academia e permissoes.');
+    return <LoadingScreen message="Carregando perfil, academia e permissoes." />;
   }
 
   const currentUser = toUiUser({
@@ -2207,7 +2157,7 @@ const App: React.FC = () => {
           isDarkMode={isDarkMode}
           onSetThemeMode={setThemeMode}
         >
-          {buildInlineLoadingView(bootstrapMessage)}
+          <LoadingScreen message={bootstrapMessage} />
         </Layout>
       </>
     );
@@ -2745,7 +2695,7 @@ const App: React.FC = () => {
         isDarkMode={isDarkMode}
         onSetThemeMode={setThemeMode}
       >
-        <Suspense fallback={buildInlineLoadingView('Carregando esta area do APPLevel.')}>
+        <Suspense fallback={<LoadingScreen message="Carregando esta area do APPLevel." />}>
           {renderContent()}
         </Suspense>
       </Layout>
