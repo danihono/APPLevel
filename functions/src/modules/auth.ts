@@ -140,6 +140,9 @@ async function applyStudentBeltGradeUpdate(params: {
     belt: params.belt,
     grade: params.grade,
     stripes: params.stripes,
+    ...(params.targetUser.belt !== params.belt
+      ? { attendanceCountAtBeltStart: params.targetUser.attendanceCount }
+      : {}),
     ...(params.hasKidsCategoryField ? { kidsCategory: params.kidsCategory ?? null } : {}),
     updatedAt: now,
   });

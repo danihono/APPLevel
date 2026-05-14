@@ -342,6 +342,7 @@ export async function syncUserDerivedState(
     birthDate: user.birthDate,
     kidsCategory: user.kidsCategory,
     attendanceCountBonus: bonus,
+    attendanceCountAtBeltStart: user.attendanceCountAtBeltStart ?? null,
   });
   const missionPoints = await syncUserMissions(userId, user.role, normalizedAcademyId, metrics);
   const ranking = calculateRanking(metrics, missionPoints);

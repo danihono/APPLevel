@@ -531,7 +531,11 @@ function getEffectiveBeltStartAttendances(
   attendanceCount: number | null,
   beltStartAttendances: number,
   attendanceCountBonus?: number | null,
+  attendanceCountAtBeltStart?: number | null,
 ): number {
+  if (attendanceCountAtBeltStart != null) {
+    return attendanceCountAtBeltStart;
+  }
   const bonus = Math.max(0, Math.floor(attendanceCountBonus ?? 0));
   const usesCurrentBeltBonus = beltStartAttendances > 0 && bonus > 0 && bonus < beltStartAttendances;
 
@@ -551,6 +555,7 @@ export function getUserProgressionSummary(params: {
   birthDate?: string | null;
   attendanceCount?: number | null;
   attendanceCountBonus?: number | null;
+  attendanceCountAtBeltStart?: number | null;
   currentStripeProgress?: number | null;
   currentBeltProgress?: number | null;
 }, rules?: ProgressionRules | null): UserProgressionSummary {
@@ -578,6 +583,7 @@ export function getUserProgressionSummary(params: {
     attendanceCount,
     beltStartAttendances,
     params.attendanceCountBonus,
+    params.attendanceCountAtBeltStart,
   );
   const stripeStartAttendances = effectiveBeltStartAttendances + currentStripes * classesPerStripe;
   const isManuallyPlaced = attendanceCount !== null && attendanceCount < stripeStartAttendances;

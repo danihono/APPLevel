@@ -234,6 +234,7 @@ function shouldRebuildGraduationState(user: FirestoreEntity<UserRecord>, rules?:
     kidsCategory: user.kidsCategory,
     attendanceCount: user.attendanceCount,
     attendanceCountBonus: user.attendanceCountBonus,
+    attendanceCountAtBeltStart: user.attendanceCountAtBeltStart,
     currentStripeProgress: user.currentStripeProgress,
     currentBeltProgress: user.currentBeltProgress,
   }, rules);

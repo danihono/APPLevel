@@ -178,9 +178,8 @@ export const registerAttendance = onCall(callableOptions, async (request) => {
   }
 
   const isIniciante = classData.description === 'iniciante';
-  const countsAsAttendance = isIniciante && !iniciante_counts_for(targetUser.belt, targetUser.stripes ?? 0)
-    ? false
-    : undefined;
+  const isBeginnerStudent = iniciante_counts_for(targetUser.belt, targetUser.stripes ?? 0);
+  const countsAsAttendance = (isIniciante !== isBeginnerStudent) ? false : undefined;
 
   const attendanceId = await createAttendanceRecord({
     classId,
@@ -343,9 +342,8 @@ export const approveAttendanceRequest = onCall(callableOptions, async (request) 
   assertCondition(targetUser.academyId === classData.academyId, 'permission-denied', 'Aluno e aula precisam pertencer a mesma academia.');
 
   const isIniciante = classData.description === 'iniciante';
-  const countsAsAttendance = isIniciante && !iniciante_counts_for(targetUser.belt, targetUser.stripes ?? 0)
-    ? false
-    : undefined;
+  const isBeginnerStudent = iniciante_counts_for(targetUser.belt, targetUser.stripes ?? 0);
+  const countsAsAttendance = (isIniciante !== isBeginnerStudent) ? false : undefined;
 
   const attendanceId = await createAttendanceRecord({
     classId: attendanceRequest.classId,

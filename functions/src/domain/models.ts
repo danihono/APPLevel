@@ -122,6 +122,7 @@ export interface UserDoc {
   photoPath?: string;
   attendanceCount: number;
   attendanceCountBonus?: number;
+  attendanceCountAtBeltStart?: number;
   qrCheckinsCount: number;
   currentStreak: number;
   longestStreak: number;

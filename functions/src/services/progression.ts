@@ -58,6 +58,7 @@ type ProgressionContextOptions = {
   birthDate?: string | null;
   kidsCategory?: KidsCategory | null;
   attendanceCountBonus?: number | null;
+  attendanceCountAtBeltStart?: number | null;
 };
 
 const GRAY_FAMILY_BELTS = new Set(['white', 'gray-white', 'gray', 'gray-black']);
@@ -312,8 +313,11 @@ function getMilestoneByBelt(belt: string, milestones: ProgressionMilestone[]): P
 function getEffectiveMilestoneStart(
   totalAttendances: number,
   milestone: ProgressionMilestone,
-  options?: Pick<ProgressionContextOptions, 'attendanceCountBonus'>,
+  options?: Pick<ProgressionContextOptions, 'attendanceCountBonus' | 'attendanceCountAtBeltStart'>,
 ): number {
+  if (options?.attendanceCountAtBeltStart != null) {
+    return options.attendanceCountAtBeltStart;
+  }
   const bonus = Math.max(0, Math.floor(options?.attendanceCountBonus ?? 0));
   const usesCurrentBeltBonus = milestone.minAttendances > 0 && bonus > 0 && bonus < milestone.minAttendances;
 
@@ -510,7 +514,7 @@ export function resolveNextProgressionStep(
       targetBelt: currentMilestone.belt,
       targetStripes: stripes + 1,
       attendanceTarget,
-      remainingClasses: Math.max(attendanceTarget - totalAttendances, 0),
+      remainingClasses: Math.max(attendanceTarget - effectiveAttendances, 0),
       ruleVersion: normalizedRules.version,
     };
   }

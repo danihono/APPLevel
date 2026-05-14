@@ -38,11 +38,13 @@ function toRules(lesson: FirestoreEntity<ClassRecord>) {
     : source.includes('kids')
       ? 'Kids'
       : source.includes('iniciante')
-        ? 'Branca até 1º grau'
+        ? 'Branca'
         : 'Livre';
   const grade = source.includes('advanced') || source.includes('avanc')
     ? 'Intermediário/Avançado'
-    : 'Todos os graus';
+    : source.includes('iniciante')
+      ? 'até 2° grau'
+      : 'Todos os graus';
 
   return { sex, belt, grade };
 }

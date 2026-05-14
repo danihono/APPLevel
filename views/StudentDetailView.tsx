@@ -152,8 +152,9 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
       stripes: studentGrade,
       attendanceCount: previewAttendanceCount,
       attendanceCountBonus: attendanceBonus,
+      attendanceCountAtBeltStart: studentBelt === student.belt ? student.attendanceCountAtBeltStart : undefined,
     }, progressionRules),
-    [progressionRules, previewAttendanceCount, student, studentBelt, studentGrade],
+    [progressionRules, previewAttendanceCount, student, studentBelt, studentGrade, attendanceBonus],
   );
   const stripeTotal = progression.stripeTotal;
   const beltTotal = progression.beltTotal;

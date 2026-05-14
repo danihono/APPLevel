@@ -41,6 +41,8 @@ const GraduationView: React.FC<GraduationViewProps> = ({
       kidsCategory: profile.kidsCategory ?? user.kidsCategory,
       birthDate,
       attendanceCount: profile.attendanceCount,
+      attendanceCountBonus: profile.attendanceCountBonus ?? user.attendanceCountBonus,
+      attendanceCountAtBeltStart: profile.attendanceCountAtBeltStart ?? user.attendanceCountAtBeltStart,
       currentStripeProgress: user.currentStripeProgress,
       currentBeltProgress: user.currentBeltProgress,
     }, academy.progressionRules),
@@ -48,10 +50,14 @@ const GraduationView: React.FC<GraduationViewProps> = ({
       academy.progressionRules,
       birthDate,
       profile.attendanceCount,
+      profile.attendanceCountBonus,
+      profile.attendanceCountAtBeltStart,
       profile.belt,
       profile.grade,
       profile.kidsCategory,
       profile.stripes,
+      user.attendanceCountBonus,
+      user.attendanceCountAtBeltStart,
       user.currentBeltProgress,
       user.currentStripeProgress,
       user.kidsCategory,
@@ -80,7 +86,7 @@ const GraduationView: React.FC<GraduationViewProps> = ({
             <p className="app-section-label">Faixa atual</p>
             <h2 className="mt-2 text-2xl font-bold">{beltLabel(profile.belt)}</h2>
             <p className="mt-2 text-sm text-[color:var(--text-muted)]">
-              Grau atual {profile.grade} • {profile.attendanceCount} presencas registradas
+              Grau atual {profile.grade} • {progression.beltProgress} presenças nessa faixa
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
