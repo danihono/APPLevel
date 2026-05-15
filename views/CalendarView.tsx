@@ -620,7 +620,8 @@ function isClassVisibleForStudent(
 }
 
 function isKidsStudent(student: FirestoreEntity<UserRecord>): boolean {
-  return !!student.kidsCategory || inferTrainingTypeFromBirthDate(student.birthDate) === 'Kids';
+  if (student.birthDate) return inferTrainingTypeFromBirthDate(student.birthDate) === 'Kids';
+  return !!student.kidsCategory;
 }
 
 const CalendarView: React.FC<CalendarViewProps> = ({

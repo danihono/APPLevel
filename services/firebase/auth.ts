@@ -1,4 +1,5 @@
 import {
+  confirmPasswordReset,
   EmailAuthProvider,
   onAuthStateChanged,
   reauthenticateWithCredential,
@@ -7,6 +8,7 @@ import {
   signOut,
   type User,
   updateEmail,
+  verifyPasswordResetCode,
 } from 'firebase/auth';
 import { firebaseAuth } from './client';
 
@@ -19,7 +21,17 @@ export async function signInWithEmail(email: string, password: string) {
 }
 
 export async function requestPasswordReset(email: string) {
-  return sendPasswordResetEmail(firebaseAuth, email.trim());
+  return sendPasswordResetEmail(firebaseAuth, email.trim(), {
+    url: window.location.origin,
+  });
+}
+
+export async function verifyResetCode(oobCode: string): Promise<string> {
+  return verifyPasswordResetCode(firebaseAuth, oobCode);
+}
+
+export async function applyPasswordReset(oobCode: string, newPassword: string) {
+  return confirmPasswordReset(firebaseAuth, oobCode, newPassword);
 }
 
 export async function logout() {

@@ -198,7 +198,9 @@ export function toUiUser(params: {
     lastGraduation: buildSafeDate(user.lastGraduationDateOverride ?? latestGraduationAt).toISOString(),
     branchId: user.academyId,
     type: trainingType,
-    kidsCategory: user.kidsCategory ?? inferKidsCategoryFromBirthDate(user.birthDate),
+    kidsCategory: inferTrainingTypeFromBirthDate(user.birthDate) === 'Adulto'
+      ? undefined
+      : (user.kidsCategory ?? inferKidsCategoryFromBirthDate(user.birthDate)),
     isCompetitor: user.isCompetitor ?? false,
     phone: user.phone,
     birthDate: user.birthDate,

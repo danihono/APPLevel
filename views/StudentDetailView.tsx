@@ -90,7 +90,7 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
     : 28;
   const inferredKidsCategory = inferKidsCategoryFromBirthDate(student.birthDate);
   const inferredTrainingType = inferTrainingTypeFromBirthDate(student.birthDate);
-  const canUseAdultGraduation = inferredTrainingType === 'Adulto';
+  const canUseAdultGraduation = inferredKidsCategory == null;
   const [studentBelt, setStudentBelt] = useState(student.belt);
   const [studentGrade, setStudentGrade] = useState(student.stripes);
   const [studentKidsCategory, setStudentKidsCategory] = useState<KidsCategory | ''>(student.kidsCategory ?? inferredKidsCategory ?? '');

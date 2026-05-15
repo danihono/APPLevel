@@ -9,6 +9,7 @@ import { LoadingScreen } from './components/LoadingScreen';
 import Layout from './components/Layout';
 import HomeView from './views/HomeView';
 import LoginView from './views/LoginView';
+import ResetPasswordView from './views/ResetPasswordView';
 import StaffDashboardView from './views/StaffDashboardView';
 import { normalizeBeltId } from './beltCatalog';
 import { logout, signInWithEmail, subscribeToAuthState, updateSignedInEmail } from './services/firebase/auth';
@@ -105,7 +106,7 @@ type ValidatedSessionSnapshot = {
 };
 
 const SUPERADMIN_NETWORK_TABS = new Set(['home', 'notifications', 'students', 'management', 'learning', 'profile']);
-const SUPERADMIN_PROFESSOR_TABS = new Set(['home', 'calendar', 'management', 'notifications', 'learning', 'profile']);
+const SUPERADMIN_PROFESSOR_TABS = new Set(['home', 'calendar', 'students', 'management', 'notifications', 'learning', 'profile']);
 const RANKING_START_DATE = new Date('2026-05-06T00:00:00.000-03:00');
 
 function getGraduationCelebrationStorageKey(userId: string): string {
@@ -2068,6 +2069,14 @@ const App: React.FC = () => {
 
     return next;
   }, [academyFights, fightVideoSubmissions]);
+
+  const urlParams = new URLSearchParams(window.location.search);
+  const urlMode = urlParams.get('mode');
+  const urlOobCode = urlParams.get('oobCode');
+
+  if (urlMode === 'resetPassword' && urlOobCode) {
+    return <ResetPasswordView oobCode={urlOobCode} />;
+  }
 
   if (!authReady) {
     return <LoadingScreen message="Validando a sua sessao com o Firebase." />;
