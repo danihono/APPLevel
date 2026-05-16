@@ -1742,6 +1742,14 @@ const App: React.FC = () => {
     }
   }
 
+  async function handleClearGraduationRequests(academyId?: string) {
+    try {
+      return await backendFunctions.clearGraduationRequests({ academyId });
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
+  }
+
   async function handleUpsertLearningTrack(payload: {
     trackId?: string;
     title: string;
@@ -2462,6 +2470,7 @@ const App: React.FC = () => {
             onRejectJoinRequest={handleRejectJoinRequest}
             onApproveAttendanceRequest={handleApproveAttendanceRequest}
             onRejectAttendanceRequest={handleRejectAttendanceRequest}
+            onClearGraduationRequests={handleClearGraduationRequests}
             onApproveGraduationRequest={handleApproveGraduationRequest}
             onApproveFightVideoSubmission={handleApproveFightVideoSubmission}
             onRejectFightVideoSubmission={handleRejectFightVideoSubmission}

@@ -357,6 +357,9 @@ export const backendFunctions = {
   clearNotifications: (payload: { academyId?: string; skipUnread?: boolean; notificationIds?: string[] }) =>
     callFunction<{ deleted: number }>('clearNotifications', payload),
 
+  clearGraduationRequests: (payload: { academyId?: string }) =>
+    callFunction<{ deleted: number }>('clearGraduationRequests', payload),
+
   upsertLearningTrack: (payload: {
     trackId?: string;
     title: string;

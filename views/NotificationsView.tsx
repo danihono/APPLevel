@@ -57,6 +57,7 @@ interface NotificationsViewProps {
   onRejectJoinRequest: (requestId: string) => Promise<void>;
   onApproveAttendanceRequest: (requestId: string) => Promise<void>;
   onRejectAttendanceRequest: (requestId: string) => Promise<void>;
+  onClearGraduationRequests: (academyId?: string) => Promise<{ deleted: number }>;
   onApproveGraduationRequest: (requestId: string) => Promise<void>;
   onApproveFightVideoSubmission: (requestId: string) => Promise<void>;
   onRejectFightVideoSubmission: (requestId: string) => Promise<void>;
@@ -266,6 +267,7 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
   onRejectJoinRequest,
   onApproveAttendanceRequest,
   onRejectAttendanceRequest,
+  onClearGraduationRequests,
   onApproveGraduationRequest,
   onApproveFightVideoSubmission,
   onRejectFightVideoSubmission,
@@ -293,6 +295,8 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
   const [showAllStaff, setShowAllStaff] = useState(false);
   const [clearing, setClearing] = useState(false);
   const [confirmClear, setConfirmClear] = useState(false);
+  const [confirmClearGraduations, setConfirmClearGraduations] = useState(false);
+  const [clearingGraduations, setClearingGraduations] = useState(false);
   const rebuildQueuedRef = useRef(new Set<string>());
 
   const canBroadcast =
@@ -645,6 +649,23 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
     }
   }
 
+  async function handleClearGraduations() {
+    setClearingGraduations(true);
+    setConfirmClearGraduations(false);
+    setError('');
+    setFeedback('');
+    try {
+      const result = await onClearGraduationRequests(selectedAcademyId || undefined);
+      if (result.deleted === 0) {
+        setError('Nenhuma graduação foi removida. Atualize a lista e tente novamente.');
+      }
+    } catch (clearError) {
+      setError(clearError instanceof Error ? clearError.message : 'Não foi possível limpar as graduações.');
+    } finally {
+      setClearingGraduations(false);
+    }
+  }
+
   async function handleApproveGraduation(item: FirestoreEntity<GraduationApprovalRequestRecord>) {
     setProcessingRequestId(item.id);
     setError('');
@@ -656,6 +677,81 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
     } finally {
       setProcessingRequestId(null);
     }
+  }
+
+  function renderClearGraduationsButton() {
+    if (graduationItems.length === 0) return null;
+    return (
+      <div className="flex justify-end px-1">
+        <button
+          type="button"
+          onClick={() => setConfirmClearGraduations(true)}
+          className="app-button app-button--ghost app-button--small"
+        >
+          <Trash2 size={14} />
+          Limpar tudo
+        </button>
+      </div>
+    );
+  }
+
+  function renderClearGraduationsModal() {
+    if (!confirmClearGraduations) return null;
+    return (
+      <div
+        className="fixed inset-0 z-[90] flex items-end justify-center bg-black/60 sm:items-center"
+        onClick={() => setConfirmClearGraduations(false)}
+      >
+        <div
+          className="app-panel app-panel-pad app-sheet-modal w-full max-w-sm rounded-b-none sm:rounded-[1.8rem]"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="app-icon-shell" style={{ color: '#ef4444' }}>
+                <Trash2 size={18} />
+              </div>
+              <h2 className="text-xl font-bold">Limpar graduações</h2>
+            </div>
+            <button
+              type="button"
+              onClick={() => setConfirmClearGraduations(false)}
+              className="app-button app-button--ghost app-button--icon"
+            >
+              <X size={18} />
+            </button>
+          </div>
+
+          <div className="mt-6 app-list-card">
+            <p className="text-sm text-[color:var(--text-muted)]">
+              Todas as graduações pendentes serão removidas permanentemente. Esta ação não pode ser desfeita.
+            </p>
+          </div>
+
+          {error ? <p className="mt-4 text-sm text-red-400">{error}</p> : null}
+
+          <div className="mt-6 flex gap-3">
+            <button
+              type="button"
+              onClick={() => setConfirmClearGraduations(false)}
+              disabled={clearingGraduations}
+              className="app-button app-button--ghost flex-1"
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              disabled={clearingGraduations}
+              onClick={() => void handleClearGraduations()}
+              className="app-button app-button--danger flex-1"
+            >
+              <Trash2 size={14} />
+              {clearingGraduations ? 'Limpando...' : 'Confirmar'}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   function renderClearButton(notifList: Array<FirestoreEntity<NotificationRecord>>) {
@@ -925,6 +1021,8 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
           <section className="notice-mobile__list">
             {error ? <div className="app-alert app-alert--error">{error}</div> : null}
 
+            {renderClearGraduationsButton()}
+
             {graduationItems.map((item) => {
               const isProcessing = processingRequestId === item.id;
 
@@ -984,6 +1082,7 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
         ) : null}
 
         {renderClearModal()}
+        {renderClearGraduationsModal()}
       </div>
     );
   }
@@ -1545,6 +1644,8 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
         <section className="app-list">
           {error ? <div className="app-alert app-alert--error mb-4">{error}</div> : null}
 
+          {renderClearGraduationsButton()}
+
           {graduationItems.map((item) => {
             const isProcessing = processingRequestId === item.id;
 
@@ -1610,6 +1711,7 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
       ) : null}
 
       {renderClearModal()}
+      {renderClearGraduationsModal()}
     </div>
   );
 };

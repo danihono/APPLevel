@@ -307,6 +307,43 @@ export const repairPendingGraduationNotifications = onCall(callableOptions, asyn
   };
 });
 
+export const clearGraduationRequests = onCall(callableOptions, async (request) => {
+  const actor = await getRequestContext(request, 'professor');
+  const requestedAcademyId = optionalString(request.data, 'academyId');
+  const academyId = requestedAcademyId ?? (actor.role === 'superadmin' ? undefined : actor.academyId);
+
+  assertCondition(
+    actor.role === 'superadmin' || academyId === actor.academyId,
+    'permission-denied',
+    'Você só pode limpar graduações da própria academia.',
+  );
+
+  let requestQuery: FirebaseFirestore.Query = db
+    .collection(COLLECTIONS.graduationRequests)
+    .where('status', '==', 'pending');
+  if (academyId) {
+    requestQuery = requestQuery.where('academyId', '==', academyId);
+  }
+
+  const snapshot = await requestQuery.limit(500).get();
+  if (snapshot.empty) {
+    return { deleted: 0 };
+  }
+
+  let deleted = 0;
+  for (const batchChunk of chunk(snapshot.docs, 249)) {
+    const writeBatch = db.batch();
+    for (const doc of batchChunk) {
+      writeBatch.delete(doc.ref);
+      writeBatch.delete(db.collection(COLLECTIONS.notifications).doc(`graduation_${doc.id}`));
+    }
+    await writeBatch.commit();
+    deleted += batchChunk.length;
+  }
+
+  return { deleted };
+});
+
 export const markNotificationRead = onCall(callableOptions, async (request) => {
   const actor = await getRequestContext(request, 'student');
   const notificationId = requiredString(request.data, 'notificationId');

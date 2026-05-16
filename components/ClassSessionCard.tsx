@@ -31,20 +31,26 @@ function toCategory(lesson: FirestoreEntity<ClassRecord>) {
 }
 
 function toRules(lesson: FirestoreEntity<ClassRecord>) {
-  const source = `${lesson.title} ${lesson.description ?? ''}`.toLowerCase();
+  const desc = lesson.description ?? '';
+  const source = `${lesson.title} ${desc}`.toLowerCase();
   const sex = source.includes('femin') ? 'Feminino' : source.includes('masc') ? 'Masculino' : 'Misto';
+  const isSportVida = desc === 'sport' || desc === 'vida';
   const belt = source.includes('advanced') || source.includes('avanc')
     ? 'Azul+'
     : source.includes('kids')
       ? 'Kids'
       : source.includes('iniciante')
         ? 'Branca'
-        : 'Livre';
+        : isSportVida
+          ? 'Branca+'
+          : 'Livre';
   const grade = source.includes('advanced') || source.includes('avanc')
     ? 'Intermediário/Avançado'
     : source.includes('iniciante')
       ? 'até 2° grau'
-      : 'Todos os graus';
+      : isSportVida
+        ? '> 2° grau'
+        : 'Todos os graus';
 
   return { sex, belt, grade };
 }

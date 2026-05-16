@@ -15,8 +15,8 @@ import AppVideoContent from '../components/AppVideoContent';
 import AvatarWithBelt from '../components/AvatarWithBelt';
 import ProgressBar from '../components/ProgressBar';
 import StudentProfileEditModal from '../components/StudentProfileEditModal';
-import type { FirestoreEntity } from '../services/firebase/data';
-import type { GraduationApprovalRequestRecord } from '../services/firebase/models';
+import { subscribeToUserGraduations, type FirestoreEntity } from '../services/firebase/data';
+import type { GraduationApprovalRequestRecord, GraduationRecord } from '../services/firebase/models';
 import type { KidsCategory, User } from '../types';
 
 interface StudentDetailViewProps {
@@ -101,6 +101,7 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
   const [deactivateBusy, setDeactivateBusy] = useState(false);
   const [feedback, setFeedback] = useState('');
   const [error, setError] = useState('');
+  const [liveGraduations, setLiveGraduations] = useState<Array<FirestoreEntity<GraduationRecord>>>([]);
 
   useEffect(() => {
     setStudentBelt(student.belt);
@@ -108,6 +109,10 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
     setStudentKidsCategory(student.kidsCategory ?? inferKidsCategoryFromBirthDate(student.birthDate) ?? '');
     setAttendanceBonus(student.attendanceCountBonus ?? 0);
   }, [student]);
+
+  useEffect(() => {
+    return subscribeToUserGraduations(student.branchId, student.id, setLiveGraduations);
+  }, [student.id, student.branchId]);
 
   const studentTrack = useMemo<'Adulto' | 'Kids'>(() => {
     if (isKidsOnlyBelt(studentBelt)) {
@@ -301,6 +306,10 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
       />
     );
   }
+
+  const latestGraduationIso = liveGraduations[0]?.promotedAt?.toDate?.()?.toISOString();
+  const timelineLastGraduation = student.lastGraduationDateOverride ?? latestGraduationIso;
+  const timelineLastStripeDate = student.lastStripeDateOverride ?? latestGraduationIso;
 
   return (
     <div className="view-shell">
@@ -627,7 +636,7 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
             </div>
             <div>
               <p className="text-sm font-bold">Última graduação</p>
-              <p className="mt-1 text-xs text-[color:var(--text-soft)]">{formatDate(student.lastGraduation)}</p>
+              <p className="mt-1 text-xs text-[color:var(--text-soft)]">{formatDate(timelineLastGraduation)}</p>
             </div>
           </div>
 
@@ -637,7 +646,7 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
             </div>
             <div>
               <p className="text-sm font-bold">Último grau recebido</p>
-              <p className="mt-1 text-xs text-[color:var(--text-soft)]">{formatDate(student.lastStripeDate)}</p>
+              <p className="mt-1 text-xs text-[color:var(--text-soft)]">{formatDate(timelineLastStripeDate)}</p>
             </div>
           </div>
         </div>

@@ -76,6 +76,7 @@ import {
 } from './modules/learning';
 import { callableProxy } from './modules/proxy';
 import {
+  clearGraduationRequests,
   clearNotifications,
   markNotificationRead,
   repairPendingGraduationNotifications,
@@ -96,6 +97,7 @@ export {
   reactivateStudent,
   requestReactivation,
   resolveReactivationRequest,
+  clearGraduationRequests,
   clearNotifications,
   repairPendingGraduationNotifications,
   approveJoinRequest,

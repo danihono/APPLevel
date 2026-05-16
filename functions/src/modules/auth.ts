@@ -157,7 +157,7 @@ async function applyStudentBeltGradeUpdate(params: {
     grade: params.grade,
     stripes: params.stripes,
     ...(attendanceCountAtBeltStart !== undefined
-      ? { attendanceCountAtBeltStart }
+      ? { attendanceCountAtBeltStart, attendanceCountBonus: 0 }
       : {}),
     ...(params.hasKidsCategoryField ? { kidsCategory: params.kidsCategory ?? null } : {}),
     updatedAt: now,
