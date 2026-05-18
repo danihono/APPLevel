@@ -657,7 +657,7 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
     try {
       const result = await onClearGraduationRequests(selectedAcademyId || undefined);
       if (result.deleted === 0) {
-        setError('Nenhuma graduação foi removida. Atualize a lista e tente novamente.');
+        setError('Nenhuma graduação pendente foi encontrada. Atualize a lista e tente novamente.');
       }
     } catch (clearError) {
       setError(clearError instanceof Error ? clearError.message : 'Não foi possível limpar as graduações.');
@@ -724,7 +724,7 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
 
           <div className="mt-6 app-list-card">
             <p className="text-sm text-[color:var(--text-muted)]">
-              Todas as graduações pendentes serão removidas permanentemente. Esta ação não pode ser desfeita.
+              Todas as graduações pendentes serão arquivadas e os avisos associados serão removidos. Esta ação não pode ser desfeita.
             </p>
           </div>
 

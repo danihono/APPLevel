@@ -14,7 +14,7 @@ export type MissionMetric =
 export type NotificationChannel = 'academy' | 'team' | 'system';
 export type NotificationKind = 'notice' | 'join_request' | 'attendance_request' | 'graduation' | 'fight_video_submission' | 'reactivation_request';
 export type ReactivationRequestStatus = 'pending' | 'approved' | 'rejected';
-export type GraduationRequestStatus = 'pending' | 'approved' | 'superseded';
+export type GraduationRequestStatus = 'pending' | 'approved' | 'superseded' | 'archived';
 export type GraduationTargetType = 'stripe' | 'belt';
 export type JoinRequestStatus = 'pending' | 'approved' | 'rejected';
 export type AttendanceRequestStatus = 'pending' | 'approved' | 'rejected';
@@ -22,6 +22,18 @@ export type FightVideoSourceKind = 'youtube' | 'external' | 'upload';
 export type FightVideoSubmissionStatus = 'pending' | 'approved' | 'rejected';
 export type LearningContentStatus = 'draft' | 'published';
 export type LearningLessonBlockType = 'youtube' | 'uploaded_video' | 'pdf' | 'image';
+export type FinanceStatus = 'active' | 'inactive';
+export type FinanceSalePaymentStatus = 'paid' | 'partial' | 'pending' | 'cancelled';
+export type FinanceSaleItemType = 'product' | 'service';
+export type FinanceRevenueOrigin = 'sale' | 'product' | 'service' | 'manual' | 'estorno';
+export type FinanceRevenueStatus = 'received' | 'reversed';
+export type FinanceExpenseStatus = 'paid' | 'pending' | 'overdue';
+export type InventoryMovementType =
+  | 'manual_entry'
+  | 'manual_adjustment'
+  | 'sale_decrement'
+  | 'sale_cancel_reversal'
+  | 'sale_edit_adjustment';
 
 export interface AcademyRecord {
   id: string;
@@ -235,6 +247,8 @@ export interface GraduationApprovalRequestRecord {
   approvedAt?: Timestamp;
   approvedBy?: string;
   approvedByRole?: AppRole;
+  archivedAt?: Timestamp;
+  archivedBy?: string;
 }
 
 export interface JoinRequestRecord {
@@ -444,6 +458,133 @@ export interface LearningQuizAttemptRecord {
   attemptNumber: number;
   createdAt?: Timestamp;
   updatedAt?: Timestamp;
+}
+
+export interface FinanceProductRecord {
+  academyId: string;
+  name: string;
+  category: string;
+  description?: string;
+  purchasePrice: number;
+  salePrice: number;
+  stockCurrent: number;
+  stockMinimum: number;
+  status: FinanceStatus;
+  createdBy?: string;
+  createdAt?: Timestamp;
+  updatedAt?: Timestamp;
+}
+
+export interface FinanceServiceRecord {
+  academyId: string;
+  name: string;
+  description?: string;
+  cost: number;
+  salePrice: number;
+  status: FinanceStatus;
+  createdBy?: string;
+  createdAt?: Timestamp;
+  updatedAt?: Timestamp;
+}
+
+export interface FinanceSaleRecord {
+  academyId: string;
+  customerId?: string;
+  customerName: string;
+  sellerId?: string;
+  sellerName?: string;
+  saleDate?: Timestamp;
+  paymentMethod?: string;
+  paymentStatus: FinanceSalePaymentStatus;
+  paidAt?: Timestamp;
+  dueDate?: Timestamp;
+  subtotal: number;
+  discountTotal: number;
+  total: number;
+  amountReceived: number;
+  balanceDue: number;
+  notes?: string;
+  cancelledAt?: Timestamp;
+  cancelledBy?: string;
+  createdBy?: string;
+  createdAt?: Timestamp;
+  updatedAt?: Timestamp;
+}
+
+export interface FinanceSaleItemRecord {
+  academyId: string;
+  saleId: string;
+  type: FinanceSaleItemType;
+  itemId: string;
+  itemName: string;
+  quantity: number;
+  unitPrice: number;
+  unitCost: number;
+  discount: number;
+  finalUnitPrice: number;
+  total: number;
+  createdAt?: Timestamp;
+  updatedAt?: Timestamp;
+}
+
+export interface FinancePaymentRecord {
+  academyId: string;
+  saleId: string;
+  amount: number;
+  paymentDate?: Timestamp;
+  paymentMethod: string;
+  notes?: string;
+  status: FinanceRevenueStatus;
+  reversalOfPaymentId?: string;
+  createdBy?: string;
+  createdAt?: Timestamp;
+  updatedAt?: Timestamp;
+}
+
+export interface FinanceRevenueRecord {
+  academyId: string;
+  category: string;
+  description: string;
+  amount: number;
+  receivedAt?: Timestamp;
+  paymentMethod?: string;
+  origin: FinanceRevenueOrigin;
+  status: FinanceRevenueStatus;
+  saleId?: string;
+  paymentId?: string;
+  reversalOfRevenueId?: string;
+  createdBy?: string;
+  createdAt?: Timestamp;
+  updatedAt?: Timestamp;
+}
+
+export interface FinanceExpenseRecord {
+  academyId: string;
+  category: string;
+  description: string;
+  amount: number;
+  dueDate?: Timestamp;
+  paidAt?: Timestamp;
+  status: FinanceExpenseStatus;
+  supplier?: string;
+  notes?: string;
+  createdBy?: string;
+  createdAt?: Timestamp;
+  updatedAt?: Timestamp;
+}
+
+export interface InventoryMovementRecord {
+  academyId: string;
+  productId: string;
+  productName: string;
+  type: InventoryMovementType;
+  quantityDelta: number;
+  stockBefore: number;
+  stockAfter: number;
+  saleId?: string;
+  reason?: string;
+  createdBy?: string;
+  createdAt?: Timestamp;
 }
 
 export interface CreateAcademyPayload {

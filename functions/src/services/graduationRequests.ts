@@ -33,6 +33,15 @@ function sameStepTarget(
     && request.attendanceTarget === step.attendanceTarget;
 }
 
+function sameGraduationTarget(
+  request: GraduationApprovalRequestDoc,
+  step: ProgressionNextStep,
+): boolean {
+  return request.targetType === step.targetType
+    && request.targetBelt === step.targetBelt
+    && request.targetStripes === step.targetStripes;
+}
+
 function currentUserMatchesRequestTarget(
   user: UserDoc,
   request: GraduationApprovalRequestDoc,
@@ -66,6 +75,31 @@ async function findPendingGraduationRequest(
     ['userId', '==', userId],
     ['status', '==', 'pending'],
   ]);
+}
+
+async function findArchivedGraduationRequestForStep(
+  academyId: string,
+  userId: string,
+  step: ProgressionNextStep,
+): Promise<PendingRequestRecord | undefined> {
+  const snapshot = await db
+    .collection(COLLECTIONS.graduationRequests)
+    .where('academyId', '==', academyId)
+    .where('userId', '==', userId)
+    .where('status', '==', 'archived')
+    .get();
+
+  const doc = snapshot.docs.find((entry) => (
+    sameGraduationTarget(entry.data() as GraduationApprovalRequestDoc, step)
+  ));
+  if (!doc) {
+    return undefined;
+  }
+
+  return {
+    id: doc.id,
+    data: doc.data() as GraduationApprovalRequestDoc,
+  };
 }
 
 async function supersedePendingRequest(
@@ -248,6 +282,15 @@ export async function syncGraduationApprovalRequest(
     }
 
     await supersedePendingRequest(pendingRequest, now);
+  }
+
+  const archivedRequest = await findArchivedGraduationRequestForStep(
+    params.academyId,
+    params.userId,
+    nextStep,
+  );
+  if (archivedRequest && sameGraduationTarget(archivedRequest.data, nextStep)) {
+    return;
   }
 
   await createPendingGraduationRequest({

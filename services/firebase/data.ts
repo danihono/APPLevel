@@ -21,8 +21,16 @@ import type {
   CompetitionRecord,
   FightRecord,
   FightVideoSubmissionRecord,
+  FinanceExpenseRecord,
+  FinancePaymentRecord,
+  FinanceProductRecord,
+  FinanceRevenueRecord,
+  FinanceSaleItemRecord,
+  FinanceSaleRecord,
+  FinanceServiceRecord,
   GraduationApprovalRequestRecord,
   GraduationRecord,
+  InventoryMovementRecord,
   JoinRequestRecord,
   LearningCourseRecord,
   LearningLessonBlockRecord,
@@ -702,6 +710,149 @@ export function subscribeToLearningProgress(
 
           return toMillis(right.updatedAt) - toMillis(left.updatedAt);
         });
+      listener(records);
+    },
+    onError,
+  );
+}
+
+function buildAcademyScopedQuery(collectionName: string, academyId?: string) {
+  const baseCollection = collection(firebaseDb, collectionName);
+  return academyId
+    ? query(baseCollection, where('academyId', '==', academyId))
+    : baseCollection;
+}
+
+export function subscribeToFinanceProducts(
+  academyId: string | undefined,
+  listener: (records: Array<FirestoreEntity<FinanceProductRecord>>) => void,
+  onError?: (error: Error) => void,
+) {
+  return onSnapshot(
+    buildAcademyScopedQuery('finance_products', academyId),
+    (snapshot) => {
+      const records = snapshot.docs
+        .map((item) => mapDoc<FinanceProductRecord>(item))
+        .sort((left, right) => left.name.localeCompare(right.name, 'pt-BR'));
+      listener(records);
+    },
+    onError,
+  );
+}
+
+export function subscribeToFinanceServices(
+  academyId: string | undefined,
+  listener: (records: Array<FirestoreEntity<FinanceServiceRecord>>) => void,
+  onError?: (error: Error) => void,
+) {
+  return onSnapshot(
+    buildAcademyScopedQuery('finance_services', academyId),
+    (snapshot) => {
+      const records = snapshot.docs
+        .map((item) => mapDoc<FinanceServiceRecord>(item))
+        .sort((left, right) => left.name.localeCompare(right.name, 'pt-BR'));
+      listener(records);
+    },
+    onError,
+  );
+}
+
+export function subscribeToFinanceSales(
+  academyId: string | undefined,
+  listener: (records: Array<FirestoreEntity<FinanceSaleRecord>>) => void,
+  onError?: (error: Error) => void,
+) {
+  return onSnapshot(
+    buildAcademyScopedQuery('finance_sales', academyId),
+    (snapshot) => {
+      const records = snapshot.docs
+        .map((item) => mapDoc<FinanceSaleRecord>(item))
+        .sort((left, right) => toMillis(right.saleDate ?? right.createdAt) - toMillis(left.saleDate ?? left.createdAt));
+      listener(records);
+    },
+    onError,
+  );
+}
+
+export function subscribeToFinanceSaleItems(
+  academyId: string | undefined,
+  listener: (records: Array<FirestoreEntity<FinanceSaleItemRecord>>) => void,
+  onError?: (error: Error) => void,
+) {
+  return onSnapshot(
+    buildAcademyScopedQuery('finance_sale_items', academyId),
+    (snapshot) => {
+      const records = snapshot.docs
+        .map((item) => mapDoc<FinanceSaleItemRecord>(item))
+        .sort((left, right) => left.saleId.localeCompare(right.saleId, 'pt-BR'));
+      listener(records);
+    },
+    onError,
+  );
+}
+
+export function subscribeToFinancePayments(
+  academyId: string | undefined,
+  listener: (records: Array<FirestoreEntity<FinancePaymentRecord>>) => void,
+  onError?: (error: Error) => void,
+) {
+  return onSnapshot(
+    buildAcademyScopedQuery('finance_payments', academyId),
+    (snapshot) => {
+      const records = snapshot.docs
+        .map((item) => mapDoc<FinancePaymentRecord>(item))
+        .sort((left, right) => toMillis(right.paymentDate ?? right.createdAt) - toMillis(left.paymentDate ?? left.createdAt));
+      listener(records);
+    },
+    onError,
+  );
+}
+
+export function subscribeToFinanceRevenues(
+  academyId: string | undefined,
+  listener: (records: Array<FirestoreEntity<FinanceRevenueRecord>>) => void,
+  onError?: (error: Error) => void,
+) {
+  return onSnapshot(
+    buildAcademyScopedQuery('finance_revenues', academyId),
+    (snapshot) => {
+      const records = snapshot.docs
+        .map((item) => mapDoc<FinanceRevenueRecord>(item))
+        .sort((left, right) => toMillis(right.receivedAt ?? right.createdAt) - toMillis(left.receivedAt ?? left.createdAt));
+      listener(records);
+    },
+    onError,
+  );
+}
+
+export function subscribeToFinanceExpenses(
+  academyId: string | undefined,
+  listener: (records: Array<FirestoreEntity<FinanceExpenseRecord>>) => void,
+  onError?: (error: Error) => void,
+) {
+  return onSnapshot(
+    buildAcademyScopedQuery('finance_expenses', academyId),
+    (snapshot) => {
+      const records = snapshot.docs
+        .map((item) => mapDoc<FinanceExpenseRecord>(item))
+        .sort((left, right) => toMillis(right.dueDate ?? right.createdAt) - toMillis(left.dueDate ?? left.createdAt));
+      listener(records);
+    },
+    onError,
+  );
+}
+
+export function subscribeToInventoryMovements(
+  academyId: string | undefined,
+  listener: (records: Array<FirestoreEntity<InventoryMovementRecord>>) => void,
+  onError?: (error: Error) => void,
+) {
+  return onSnapshot(
+    buildAcademyScopedQuery('inventory_movements', academyId),
+    (snapshot) => {
+      const records = snapshot.docs
+        .map((item) => mapDoc<InventoryMovementRecord>(item))
+        .sort((left, right) => toMillis(right.createdAt) - toMillis(left.createdAt));
       listener(records);
     },
     onError,

@@ -49,6 +49,7 @@ const ALLOWED_CALLABLES = new Set([
   'sendSegmentedNotification',
   'markNotificationRead',
   'clearNotifications',
+  'clearGraduationRequests',
   'upsertLearningTrack',
   'upsertLearningCourse',
   'upsertLearningLesson',
@@ -65,6 +66,18 @@ const ALLOWED_CALLABLES = new Set([
   'adminUpdateStudentTimeline',
   'adminUpdateInstructorProfile',
   'toggleClassRsvp',
+  'upsertFinanceProduct',
+  'deleteOrArchiveFinanceProduct',
+  'adjustProductStock',
+  'upsertFinanceService',
+  'deleteOrArchiveFinanceService',
+  'createFinanceSale',
+  'updateFinanceSale',
+  'recordSalePayment',
+  'cancelFinanceSale',
+  'upsertManualRevenue',
+  'upsertExpense',
+  'markExpensePaid',
 ]);
 
 const FORWARDED_HEADERS = [

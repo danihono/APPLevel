@@ -25,7 +25,15 @@ import {
   subscribeToAttendanceRequests,
   subscribeToCompetitions,
   subscribeToFightVideoSubmissions,
+  subscribeToFinanceExpenses,
+  subscribeToFinancePayments,
+  subscribeToFinanceProducts,
+  subscribeToFinanceRevenues,
+  subscribeToFinanceSaleItems,
+  subscribeToFinanceSales,
+  subscribeToFinanceServices,
   subscribeToGraduationRequests,
+  subscribeToInventoryMovements,
   subscribeToJoinRequests,
   subscribeToLearningCourses,
   subscribeToLearningLessonBlocks,
@@ -64,8 +72,16 @@ import type {
   CompetitionRecord,
   FightRecord,
   FightVideoSubmissionRecord,
+  FinanceExpenseRecord,
+  FinancePaymentRecord,
+  FinanceProductRecord,
+  FinanceRevenueRecord,
+  FinanceSaleItemRecord,
+  FinanceSaleRecord,
+  FinanceServiceRecord,
   GraduationApprovalRequestRecord,
   GraduationRecord,
+  InventoryMovementRecord,
   JoinRequestRecord,
   LearningCourseRecord,
   LearningLessonBlockRecord,
@@ -83,6 +99,7 @@ import { MOCK_PRODUCTS } from './constants';
 
 const CalendarView = lazy(() => import('./views/CalendarView'));
 const CompetitionView = lazy(() => import('./views/CompetitionView'));
+const ControleTotalView = lazy(() => import('./views/ControleTotalView'));
 const GraduationView = lazy(() => import('./views/GraduationView'));
 const LearningHubView = lazy(() => import('./views/LearningHubView'));
 const ManagementView = lazy(() => import('./views/ManagementView'));
@@ -105,7 +122,7 @@ type ValidatedSessionSnapshot = {
   role: AppRole;
 };
 
-const SUPERADMIN_NETWORK_TABS = new Set(['home', 'notifications', 'students', 'management', 'learning', 'profile']);
+const SUPERADMIN_NETWORK_TABS = new Set(['home', 'controle-total', 'notifications', 'students', 'management', 'learning', 'profile']);
 const SUPERADMIN_PROFESSOR_TABS = new Set(['home', 'calendar', 'students', 'management', 'notifications', 'learning', 'profile']);
 const RANKING_START_DATE = new Date('2026-05-06T00:00:00.000-03:00');
 
@@ -510,6 +527,14 @@ const App: React.FC = () => {
   const [fightVideoSubmissions, setFightVideoSubmissions] = useState<Array<FirestoreEntity<FightVideoSubmissionRecord>>>([]);
   const [notifications, setNotifications] = useState<Array<FirestoreEntity<NotificationRecord>>>([]);
   const [reactivationRequests, setReactivationRequests] = useState<Array<FirestoreEntity<ReactivationRequestRecord>>>([]);
+  const [financeProducts, setFinanceProducts] = useState<Array<FirestoreEntity<FinanceProductRecord>>>([]);
+  const [financeServices, setFinanceServices] = useState<Array<FirestoreEntity<FinanceServiceRecord>>>([]);
+  const [financeSales, setFinanceSales] = useState<Array<FirestoreEntity<FinanceSaleRecord>>>([]);
+  const [financeSaleItems, setFinanceSaleItems] = useState<Array<FirestoreEntity<FinanceSaleItemRecord>>>([]);
+  const [financePayments, setFinancePayments] = useState<Array<FirestoreEntity<FinancePaymentRecord>>>([]);
+  const [financeRevenues, setFinanceRevenues] = useState<Array<FirestoreEntity<FinanceRevenueRecord>>>([]);
+  const [financeExpenses, setFinanceExpenses] = useState<Array<FirestoreEntity<FinanceExpenseRecord>>>([]);
+  const [inventoryMovements, setInventoryMovements] = useState<Array<FirestoreEntity<InventoryMovementRecord>>>([]);
   const [isSuspended, setIsSuspended] = useState(false);
   const unreadNotificationsCount = useMemo(
     () => notifications.filter((entry) => isUnreadNotificationForViewer(entry, {
@@ -795,6 +820,35 @@ const App: React.FC = () => {
         },
       ),
       subscribeToAllUsers(setAllUsers, (error) => reportSessionError('data:subscribeToAllUsers', error)),
+    ];
+
+    return () => {
+      unsubscribers.forEach((unsubscribe) => unsubscribe());
+    };
+  }, [profile, sessionValidated]);
+
+  useEffect(() => {
+    if (!profile || !sessionValidated || profile.role !== 'superadmin') {
+      setFinanceProducts([]);
+      setFinanceServices([]);
+      setFinanceSales([]);
+      setFinanceSaleItems([]);
+      setFinancePayments([]);
+      setFinanceRevenues([]);
+      setFinanceExpenses([]);
+      setInventoryMovements([]);
+      return;
+    }
+
+    const unsubscribers = [
+      subscribeToFinanceProducts(undefined, setFinanceProducts, (error) => reportSessionError('data:subscribeToFinanceProducts', error)),
+      subscribeToFinanceServices(undefined, setFinanceServices, (error) => reportSessionError('data:subscribeToFinanceServices', error)),
+      subscribeToFinanceSales(undefined, setFinanceSales, (error) => reportSessionError('data:subscribeToFinanceSales', error)),
+      subscribeToFinanceSaleItems(undefined, setFinanceSaleItems, (error) => reportSessionError('data:subscribeToFinanceSaleItems', error)),
+      subscribeToFinancePayments(undefined, setFinancePayments, (error) => reportSessionError('data:subscribeToFinancePayments', error)),
+      subscribeToFinanceRevenues(undefined, setFinanceRevenues, (error) => reportSessionError('data:subscribeToFinanceRevenues', error)),
+      subscribeToFinanceExpenses(undefined, setFinanceExpenses, (error) => reportSessionError('data:subscribeToFinanceExpenses', error)),
+      subscribeToInventoryMovements(undefined, setInventoryMovements, (error) => reportSessionError('data:subscribeToInventoryMovements', error)),
     ];
 
     return () => {
@@ -2327,6 +2381,31 @@ const App: React.FC = () => {
               progressionRules={resolvedAcademy.progressionRules}
             />
           );
+      case 'controle-total':
+        return isSuperadminNetworkView ? (
+          <ControleTotalView
+            academies={allAcademies}
+            users={allUsers}
+            products={financeProducts}
+            services={financeServices}
+            sales={financeSales}
+            saleItems={financeSaleItems}
+            payments={financePayments}
+            revenues={financeRevenues}
+            expenses={financeExpenses}
+            inventoryMovements={inventoryMovements}
+            selectedAcademyId={selectedAcademyId}
+            onSelectAcademy={setSelectedAcademyId}
+          />
+        ) : (
+          <HomeView
+            user={currentUser}
+            branch={branch}
+            monthlyAttendanceCount={attendanceThisMonth.length}
+            attendanceDays={attendanceDays}
+            progressionRules={resolvedAcademy.progressionRules}
+          />
+        );
       case 'calendar': {
         const professors = academyUsers
           .filter((u) => u.role === 'professor' || u.role === 'superadmin')

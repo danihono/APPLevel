@@ -81,6 +81,39 @@ async function deleteNotificationSnapshots(
   return existingSnapshots.length;
 }
 
+async function archiveGraduationRequestSnapshots(
+  snapshots: FirebaseFirestore.QueryDocumentSnapshot[],
+  actorId: string,
+  now: Timestamp,
+) {
+  for (const batchChunk of chunk(snapshots, 500)) {
+    const writeBatch = db.batch();
+    for (const doc of batchChunk) {
+      writeBatch.update(doc.ref, {
+        status: 'archived',
+        archivedAt: now,
+        archivedBy: actorId,
+        updatedAt: now,
+      });
+    }
+    await writeBatch.commit();
+  }
+
+  return snapshots.length;
+}
+
+async function deleteGraduationNotifications(academyId?: string) {
+  const notificationQuery: FirebaseFirestore.Query = academyId
+    ? db.collection(COLLECTIONS.notifications).where('academyId', '==', academyId)
+    : db.collection(COLLECTIONS.notifications).where('kind', '==', 'graduation');
+
+  const snapshot = await notificationQuery.get();
+  const graduationSnapshots = academyId
+    ? snapshot.docs.filter((doc) => doc.get('kind') === 'graduation')
+    : snapshot.docs;
+  return deleteNotificationSnapshots(graduationSnapshots);
+}
+
 export const registerDeviceToken = onCall(callableOptions, async (request) => {
   const actor = await getRequestContext(request, 'student');
   const token = requiredString(request.data, 'token');
@@ -325,21 +358,10 @@ export const clearGraduationRequests = onCall(callableOptions, async (request) =
     requestQuery = requestQuery.where('academyId', '==', academyId);
   }
 
-  const snapshot = await requestQuery.limit(500).get();
-  if (snapshot.empty) {
-    return { deleted: 0 };
-  }
-
-  let deleted = 0;
-  for (const batchChunk of chunk(snapshot.docs, 249)) {
-    const writeBatch = db.batch();
-    for (const doc of batchChunk) {
-      writeBatch.delete(doc.ref);
-      writeBatch.delete(db.collection(COLLECTIONS.notifications).doc(`graduation_${doc.id}`));
-    }
-    await writeBatch.commit();
-    deleted += batchChunk.length;
-  }
+  const snapshot = await requestQuery.get();
+  const now = Timestamp.now();
+  const deleted = await archiveGraduationRequestSnapshots(snapshot.docs, actor.uid, now);
+  await deleteGraduationNotifications(academyId);
 
   return { deleted };
 });

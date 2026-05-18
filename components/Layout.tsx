@@ -7,6 +7,7 @@ import {
   Calendar,
   ChevronLeft,
   ChevronRight,
+  DollarSign,
   Home,
   Shield,
   Trophy,
@@ -72,6 +73,11 @@ const pageMeta: Record<string, { kicker: string; title: string; description: str
     title: 'Academia',
     description: 'Veja instrutores, acompanhe alunos e ajuste graduações e regras sem mudar a base do app.',
   },
+  'controle-total': {
+    kicker: 'Financeiro',
+    title: 'Controle Total',
+    description: 'Dashboard, catalogo e lista operacional financeira da rede LEVEL JJ.',
+  },
   notifications: {
     kicker: 'Eventos',
     title: 'Notificações',
@@ -127,6 +133,12 @@ const superadminPageMeta: Record<string, { kicker: string; title: string; descri
   },
 };
 
+superadminPageMeta['controle-total'] = {
+  kicker: 'Financeiro',
+  title: 'Controle Total',
+  description: 'Dashboard, catalogo e lista operacional financeira da rede LEVEL JJ.',
+};
+
 const Layout: React.FC<LayoutProps> = ({
   children,
   activeTab,
@@ -177,6 +189,7 @@ const Layout: React.FC<LayoutProps> = ({
     navigationRole === UserRole.SUPERADMIN
       ? [
         { id: 'home', icon: Home, label: 'Central' },
+        { id: 'controle-total', icon: DollarSign, label: 'Controle Total' },
         { id: 'notifications', icon: Bell, label: 'Comunicação' },
         { id: 'students', icon: Users, label: 'Alunos' },
         { id: 'management', icon: Shield, label: 'Gestão' },

@@ -18,6 +18,14 @@ export const COLLECTIONS = {
   learningQuizAttempts: 'learning_quiz_attempts',
   learningQuizzes: 'learning_quizzes',
   learningTracks: 'learning_tracks',
+  financeProducts: 'finance_products',
+  financeServices: 'finance_services',
+  financeSales: 'finance_sales',
+  financeSaleItems: 'finance_sale_items',
+  financePayments: 'finance_payments',
+  financeRevenues: 'finance_revenues',
+  financeExpenses: 'finance_expenses',
+  inventoryMovements: 'inventory_movements',
   missions: 'missions',
   notifications: 'notifications',
   rankings: 'rankings',
@@ -45,7 +53,7 @@ export type NotificationStatus = 'queued' | 'sent' | 'read' | 'stored' | 'failed
 export type NotificationChannel = 'academy' | 'team' | 'system';
 export type NotificationKind = 'notice' | 'join_request' | 'attendance_request' | 'graduation' | 'fight_video_submission' | 'reactivation_request';
 export type ReactivationRequestStatus = 'pending' | 'approved' | 'rejected';
-export type GraduationRequestStatus = 'pending' | 'approved' | 'superseded';
+export type GraduationRequestStatus = 'pending' | 'approved' | 'superseded' | 'archived';
 export type GraduationTargetType = 'stripe' | 'belt';
 export type JoinRequestStatus = 'pending' | 'approved' | 'rejected';
 export type AttendanceRequestStatus = 'pending' | 'approved' | 'rejected';
@@ -54,6 +62,18 @@ export type FightVideoSubmissionStatus = 'pending' | 'approved' | 'rejected';
 export type LearningContentStatus = 'draft' | 'published';
 export type LearningLessonBlockType = 'youtube' | 'uploaded_video' | 'pdf' | 'image';
 export type KidsCategory = 'level_infantil';
+export type FinanceStatus = 'active' | 'inactive';
+export type FinanceSalePaymentStatus = 'paid' | 'partial' | 'pending' | 'cancelled';
+export type FinanceSaleItemType = 'product' | 'service';
+export type FinanceRevenueOrigin = 'sale' | 'product' | 'service' | 'manual' | 'estorno';
+export type FinanceRevenueStatus = 'received' | 'reversed';
+export type FinanceExpenseStatus = 'paid' | 'pending' | 'overdue';
+export type InventoryMovementType =
+  | 'manual_entry'
+  | 'manual_adjustment'
+  | 'sale_decrement'
+  | 'sale_cancel_reversal'
+  | 'sale_edit_adjustment';
 
 export interface ProgressionMilestone {
   belt: string;
@@ -246,6 +266,8 @@ export interface GraduationApprovalRequestDoc {
   approvedAt?: FirebaseFirestore.Timestamp;
   approvedBy?: string;
   approvedByRole?: Role;
+  archivedAt?: FirebaseFirestore.Timestamp;
+  archivedBy?: string;
 }
 
 export interface MissionDoc {
@@ -458,6 +480,133 @@ export interface LearningQuizAttemptDoc {
   attemptNumber: number;
   createdAt: FirebaseFirestore.Timestamp;
   updatedAt: FirebaseFirestore.Timestamp;
+}
+
+export interface FinanceProductDoc {
+  academyId: string;
+  name: string;
+  category: string;
+  description?: string;
+  purchasePrice: number;
+  salePrice: number;
+  stockCurrent: number;
+  stockMinimum: number;
+  status: FinanceStatus;
+  createdBy: string;
+  createdAt: FirebaseFirestore.Timestamp;
+  updatedAt: FirebaseFirestore.Timestamp;
+}
+
+export interface FinanceServiceDoc {
+  academyId: string;
+  name: string;
+  description?: string;
+  cost: number;
+  salePrice: number;
+  status: FinanceStatus;
+  createdBy: string;
+  createdAt: FirebaseFirestore.Timestamp;
+  updatedAt: FirebaseFirestore.Timestamp;
+}
+
+export interface FinanceSaleDoc {
+  academyId: string;
+  customerId?: string;
+  customerName: string;
+  sellerId?: string;
+  sellerName?: string;
+  saleDate: FirebaseFirestore.Timestamp;
+  paymentMethod?: string;
+  paymentStatus: FinanceSalePaymentStatus;
+  paidAt?: FirebaseFirestore.Timestamp;
+  dueDate?: FirebaseFirestore.Timestamp;
+  subtotal: number;
+  discountTotal: number;
+  total: number;
+  amountReceived: number;
+  balanceDue: number;
+  notes?: string;
+  cancelledAt?: FirebaseFirestore.Timestamp;
+  cancelledBy?: string;
+  createdBy: string;
+  createdAt: FirebaseFirestore.Timestamp;
+  updatedAt: FirebaseFirestore.Timestamp;
+}
+
+export interface FinanceSaleItemDoc {
+  academyId: string;
+  saleId: string;
+  type: FinanceSaleItemType;
+  itemId: string;
+  itemName: string;
+  quantity: number;
+  unitPrice: number;
+  unitCost: number;
+  discount: number;
+  finalUnitPrice: number;
+  total: number;
+  createdAt: FirebaseFirestore.Timestamp;
+  updatedAt: FirebaseFirestore.Timestamp;
+}
+
+export interface FinancePaymentDoc {
+  academyId: string;
+  saleId: string;
+  amount: number;
+  paymentDate: FirebaseFirestore.Timestamp;
+  paymentMethod: string;
+  notes?: string;
+  status: FinanceRevenueStatus;
+  reversalOfPaymentId?: string;
+  createdBy: string;
+  createdAt: FirebaseFirestore.Timestamp;
+  updatedAt: FirebaseFirestore.Timestamp;
+}
+
+export interface FinanceRevenueDoc {
+  academyId: string;
+  category: string;
+  description: string;
+  amount: number;
+  receivedAt: FirebaseFirestore.Timestamp;
+  paymentMethod?: string;
+  origin: FinanceRevenueOrigin;
+  status: FinanceRevenueStatus;
+  saleId?: string;
+  paymentId?: string;
+  reversalOfRevenueId?: string;
+  createdBy: string;
+  createdAt: FirebaseFirestore.Timestamp;
+  updatedAt: FirebaseFirestore.Timestamp;
+}
+
+export interface FinanceExpenseDoc {
+  academyId: string;
+  category: string;
+  description: string;
+  amount: number;
+  dueDate: FirebaseFirestore.Timestamp;
+  paidAt?: FirebaseFirestore.Timestamp;
+  status: FinanceExpenseStatus;
+  supplier?: string;
+  notes?: string;
+  createdBy: string;
+  createdAt: FirebaseFirestore.Timestamp;
+  updatedAt: FirebaseFirestore.Timestamp;
+}
+
+export interface InventoryMovementDoc {
+  academyId: string;
+  productId: string;
+  productName: string;
+  type: InventoryMovementType;
+  quantityDelta: number;
+  stockBefore: number;
+  stockAfter: number;
+  saleId?: string;
+  reason?: string;
+  createdBy: string;
+  createdAt: FirebaseFirestore.Timestamp;
 }
 
 export interface NotificationDoc {

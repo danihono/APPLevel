@@ -6,6 +6,10 @@ import type {
   CreateUserPayload,
   FightVideoSourceKind,
   FightVideoSubmissionStatus,
+  FinanceExpenseStatus,
+  FinanceSaleItemType,
+  FinanceSalePaymentStatus,
+  FinanceStatus,
   JoinRequestStatus,
   LearningContentStatus,
   LearningLessonBlockType,
@@ -54,6 +58,27 @@ export interface DeleteClassScheduleResult {
   deletedCount: number;
   skippedCount: number;
   skipped: ClassScheduleMutationSkippedItem[];
+}
+
+export interface FinanceSaleItemPayload {
+  type: FinanceSaleItemType;
+  itemId: string;
+  quantity: number;
+  unitPrice?: number;
+  discount?: number;
+}
+
+export interface FinanceSalePayload {
+  saleId?: string;
+  academyId: string;
+  customerId?: string;
+  customerName: string;
+  sellerId?: string;
+  sellerName?: string;
+  saleDate?: string;
+  dueDate?: string;
+  notes?: string;
+  items: FinanceSaleItemPayload[];
 }
 
 const useFirebaseEmulators = import.meta.env.DEV && import.meta.env.VITE_USE_FIREBASE_EMULATORS === 'true';
@@ -485,4 +510,83 @@ export const backendFunctions = {
 
   reactivateStudent: (payload: { userId: string }) =>
     callFunction<{ userId: string; status: 'active' }>('reactivateStudent', payload),
+
+  upsertFinanceProduct: (payload: {
+    productId?: string;
+    academyId: string;
+    name: string;
+    category: string;
+    description?: string;
+    purchasePrice: number;
+    salePrice: number;
+    stockCurrent?: number;
+    stockMinimum: number;
+    status?: FinanceStatus;
+  }) => callFunction<{ productId: string; status: FinanceStatus }>('upsertFinanceProduct', payload),
+
+  deleteOrArchiveFinanceProduct: (payload: { productId: string }) =>
+    callFunction<{ productId: string; status: FinanceStatus; archived: boolean }>('deleteOrArchiveFinanceProduct', payload),
+
+  adjustProductStock: (payload: { productId: string; quantityDelta: number; reason?: string }) =>
+    callFunction<{ productId: string; stockCurrent: number }>('adjustProductStock', payload),
+
+  upsertFinanceService: (payload: {
+    serviceId?: string;
+    academyId: string;
+    name: string;
+    description?: string;
+    cost: number;
+    salePrice: number;
+    status?: FinanceStatus;
+  }) => callFunction<{ serviceId: string; status: FinanceStatus }>('upsertFinanceService', payload),
+
+  deleteOrArchiveFinanceService: (payload: { serviceId: string }) =>
+    callFunction<{ serviceId: string; status: FinanceStatus; archived: boolean }>('deleteOrArchiveFinanceService', payload),
+
+  createFinanceSale: (payload: FinanceSalePayload & {
+    paymentMethod?: string;
+    receivedAmount?: number;
+    paymentDate?: string;
+  }) => callFunction<{ saleId: string; paymentStatus: FinanceSalePaymentStatus; balanceDue: number }>('createFinanceSale', payload),
+
+  updateFinanceSale: (payload: FinanceSalePayload) =>
+    callFunction<{ saleId: string; paymentStatus: FinanceSalePaymentStatus; balanceDue: number }>('updateFinanceSale', payload),
+
+  recordSalePayment: (payload: {
+    saleId: string;
+    amount: number;
+    paymentMethod: string;
+    paymentDate?: string;
+    notes?: string;
+  }) => callFunction<{ saleId: string; paymentId: string; paymentStatus: FinanceSalePaymentStatus; balanceDue: number }>('recordSalePayment', payload),
+
+  cancelFinanceSale: (payload: { saleId: string; reason?: string }) =>
+    callFunction<{ saleId: string; paymentStatus: 'cancelled' }>('cancelFinanceSale', payload),
+
+  upsertManualRevenue: (payload: {
+    revenueId?: string;
+    academyId: string;
+    category: string;
+    description: string;
+    amount: number;
+    receivedAt?: string;
+    paymentMethod?: string;
+    status?: 'received' | 'reversed';
+  }) => callFunction<{ revenueId: string }>('upsertManualRevenue', payload),
+
+  upsertExpense: (payload: {
+    expenseId?: string;
+    academyId: string;
+    category: string;
+    description: string;
+    amount: number;
+    dueDate?: string;
+    paidAt?: string;
+    status?: FinanceExpenseStatus;
+    supplier?: string;
+    notes?: string;
+  }) => callFunction<{ expenseId: string; status: FinanceExpenseStatus }>('upsertExpense', payload),
+
+  markExpensePaid: (payload: { expenseId: string; paidAt?: string }) =>
+    callFunction<{ expenseId: string; status: 'paid' }>('markExpensePaid', payload),
 };
