@@ -30,11 +30,11 @@ import type {
   UserRecord,
 } from '../services/firebase/models';
 
-type ControleTab = 'dashboard' | 'catalog' | 'list';
+type ControleTab = 'dashboard' | 'catalog' | 'list' | 'stock';
 type CatalogMode = 'product' | 'service';
 type ListType = 'all' | 'sale' | 'payment' | 'revenue' | 'expense' | 'stock';
 type SortMode = 'newest' | 'oldest' | 'value_desc' | 'value_asc';
-type ActionMode = 'sale' | 'payment' | 'revenue' | 'expense' | 'stock' | null;
+type ActionMode = 'payment' | 'revenue' | 'expense' | null;
 
 interface ControleTotalViewProps {
   academies: Array<FirestoreEntity<AcademyRecord>>;
@@ -770,6 +770,9 @@ const ControleTotalView: React.FC<ControleTotalViewProps> = ({
         <button type="button" role="tab" className={`app-segment__button ${activeTab === 'list' ? 'is-active' : ''}`} onClick={() => setActiveTab('list')}>
           <Filter size={18} /> Lista
         </button>
+        <button type="button" role="tab" className={`app-segment__button ${activeTab === 'stock' ? 'is-active' : ''}`} onClick={() => setActiveTab('stock')}>
+          <Package size={18} /> Estoque
+        </button>
       </div>
 
       {feedback ? <div className="app-toast controle-total__feedback">{feedback}</div> : null}
@@ -1031,11 +1034,9 @@ const ControleTotalView: React.FC<ControleTotalViewProps> = ({
               <h3>Acoes do dia</h3>
               <div className="controle-total__action-buttons">
                 {[
-                  ['sale', 'Venda', <ShoppingCart key="icon" size={16} />],
                   ['payment', 'Pagamento', <CreditCard key="icon" size={16} />],
                   ['revenue', 'Receita', <DollarSign key="icon" size={16} />],
                   ['expense', 'Despesa', <ReceiptText key="icon" size={16} />],
-                  ['stock', 'Estoque', <Package key="icon" size={16} />],
                 ].map(([mode, label, icon]) => (
                   <button
                     key={String(mode)}
@@ -1048,48 +1049,6 @@ const ControleTotalView: React.FC<ControleTotalViewProps> = ({
                 ))}
               </div>
             </div>
-
-            {actionMode === 'sale' ? (
-              <form onSubmit={submitSale} className="controle-total__form-grid">
-                <label className="app-field"><span className="app-field__label">Filial</span>{renderAcademySelect(saleForm.academyId, (value) => setSaleForm((current) => ({ ...current, academyId: value, items: [initialSaleItem()] })))}</label>
-                <label className="app-field"><span className="app-field__label">Aluno/cliente</span><select className="app-select" value={saleForm.customerId} onChange={(event) => selectCustomer(event.target.value)}><option value="">Cliente avulso</option>{students.filter((student) => !saleForm.academyId || student.academyId === saleForm.academyId).map((student) => <option key={student.id} value={student.id}>{student.displayName}</option>)}</select></label>
-                <label className="app-field"><span className="app-field__label">Nome do cliente</span><input required className="app-input" value={saleForm.customerName} onChange={(event) => setSaleForm((current) => ({ ...current, customerName: event.target.value }))} /></label>
-                <label className="app-field"><span className="app-field__label">Responsavel</span><select className="app-select" value={saleForm.sellerId} onChange={(event) => selectSeller(event.target.value)}><option value="">Sem responsavel</option>{staff.filter((entry) => !saleForm.academyId || entry.academyId === saleForm.academyId || entry.role === 'superadmin').map((entry) => <option key={entry.id} value={entry.id}>{entry.displayName}</option>)}</select></label>
-                <label className="app-field"><span className="app-field__label">Data da venda</span><input className="app-input" type="date" value={saleForm.saleDate} onChange={(event) => setSaleForm((current) => ({ ...current, saleDate: event.target.value }))} /></label>
-                <label className="app-field"><span className="app-field__label">Data futura de pagamento</span><input className="app-input" type="date" value={saleForm.dueDate} onChange={(event) => setSaleForm((current) => ({ ...current, dueDate: event.target.value }))} /></label>
-
-                <div className="controle-total__items-editor">
-                  {saleForm.items.map((item, index) => {
-                    const options = item.type === 'product' ? availableProducts : availableServices;
-                    return (
-                      <div key={index} className="controle-total__sale-item">
-                        <select className="app-select" value={item.type} onChange={(event) => updateSaleItem(index, { type: event.target.value as SaleItemFormState['type'], itemId: '', unitPrice: '' })}><option value="product">Produto</option><option value="service">Servico</option></select>
-                        <select required className="app-select" value={item.itemId} onChange={(event) => updateSaleItem(index, { itemId: event.target.value, unitPrice: '' })}><option value="">Selecionar</option>{options.map((option) => <option key={option.id} value={option.id}>{option.name}</option>)}</select>
-                        <input className="app-input" inputMode="decimal" value={item.quantity} onChange={(event) => updateSaleItem(index, { quantity: event.target.value })} placeholder="Qtd" />
-                        <input className="app-input" inputMode="decimal" value={item.unitPrice} onChange={(event) => updateSaleItem(index, { unitPrice: event.target.value })} placeholder={formatCurrency(selectedItemPrice(item))} />
-                        <input className="app-input" inputMode="decimal" value={item.discount} onChange={(event) => updateSaleItem(index, { discount: event.target.value })} placeholder="Desc." />
-                        <button type="button" className="app-button app-button--ghost app-button--icon" onClick={() => setSaleForm((current) => {
-                          const nextItems = current.items.filter((_, itemIndex) => itemIndex !== index);
-                          return { ...current, items: nextItems.length ? nextItems : [initialSaleItem()] };
-                        })}><X size={16} /></button>
-                      </div>
-                    );
-                  })}
-                  <button type="button" className="app-button app-button--ghost app-button--small" onClick={() => setSaleForm((current) => ({ ...current, items: [...current.items, initialSaleItem()] }))}><Plus size={16} /> Item</button>
-                </div>
-
-                <label className="app-field"><span className="app-field__label">Forma de pagamento</span><select className="app-select" value={saleForm.paymentMethod} onChange={(event) => setSaleForm((current) => ({ ...current, paymentMethod: event.target.value }))}>{paymentMethods.map((entry) => <option key={entry}>{entry}</option>)}</select></label>
-                <label className="app-field"><span className="app-field__label">Valor recebido</span><input className="app-input" inputMode="decimal" value={saleForm.receivedAmount} onChange={(event) => setSaleForm((current) => ({ ...current, receivedAmount: event.target.value }))} /></label>
-                <label className="app-field"><span className="app-field__label">Data do pagamento</span><input className="app-input" type="date" value={saleForm.paymentDate} onChange={(event) => setSaleForm((current) => ({ ...current, paymentDate: event.target.value }))} /></label>
-                <label className="app-field controle-total__span-2"><span className="app-field__label">Observacoes</span><textarea className="app-textarea" value={saleForm.notes} onChange={(event) => setSaleForm((current) => ({ ...current, notes: event.target.value }))} /></label>
-                <div className="controle-total__sale-total">
-                  <span>Subtotal {formatCurrency(salePreview.subtotal)}</span>
-                  <span>Desconto {formatCurrency(salePreview.discount)}</span>
-                  <strong>Total {formatCurrency(salePreview.total)}</strong>
-                </div>
-                <button type="submit" disabled={busy === 'sale'} className="app-button app-button--gold"><ShoppingCart size={18} /> Criar venda</button>
-              </form>
-            ) : null}
 
             {actionMode === 'payment' ? (
               <form onSubmit={submitPayment} className="controle-total__form-grid">
@@ -1132,14 +1091,6 @@ const ControleTotalView: React.FC<ControleTotalViewProps> = ({
               </form>
             ) : null}
 
-            {actionMode === 'stock' ? (
-              <form onSubmit={submitStock} className="controle-total__form-grid">
-                <label className="app-field controle-total__span-2"><span className="app-field__label">Produto</span><select required className="app-select" value={stockForm.productId} onChange={(event) => setStockForm((current) => ({ ...current, productId: event.target.value }))}><option value="">Selecionar produto</option>{products.filter((product) => product.status === 'active').map((product) => <option key={product.id} value={product.id}>{academyName(academies, product.academyId)} - {product.name} ({product.stockCurrent})</option>)}</select></label>
-                <label className="app-field"><span className="app-field__label">Entrada/baixa</span><input required className="app-input" inputMode="decimal" value={stockForm.quantityDelta} onChange={(event) => setStockForm((current) => ({ ...current, quantityDelta: event.target.value }))} /></label>
-                <label className="app-field controle-total__span-2"><span className="app-field__label">Motivo</span><input className="app-input" value={stockForm.reason} onChange={(event) => setStockForm((current) => ({ ...current, reason: event.target.value }))} /></label>
-                <button type="submit" disabled={busy === 'stock'} className="app-button app-button--gold"><Package size={18} /> Ajustar estoque</button>
-              </form>
-            ) : null}
           </section>
 
           <section className="app-panel app-panel-pad">
@@ -1164,6 +1115,41 @@ const ControleTotalView: React.FC<ControleTotalViewProps> = ({
                 </article>
               ))}
               {timeline.length === 0 ? <div className="app-empty">Nenhum registro no periodo selecionado.</div> : null}
+            </div>
+          </section>
+        </div>
+      ) : null}
+
+      {activeTab === 'stock' ? (
+        <div className="controle-total__stack">
+          <section className="app-panel app-panel-pad controle-total__actions-panel">
+            <h3>Ajustar Estoque</h3>
+            <form onSubmit={submitStock} className="controle-total__form-grid">
+              <label className="app-field controle-total__span-2"><span className="app-field__label">Produto</span><select required className="app-select" value={stockForm.productId} onChange={(event) => setStockForm((current) => ({ ...current, productId: event.target.value }))}><option value="">Selecionar produto</option>{products.filter((product) => product.status === 'active').map((product) => <option key={product.id} value={product.id}>{academyName(academies, product.academyId)} - {product.name} ({product.stockCurrent})</option>)}</select></label>
+              <label className="app-field"><span className="app-field__label">Entrada/baixa</span><input required className="app-input" inputMode="decimal" value={stockForm.quantityDelta} onChange={(event) => setStockForm((current) => ({ ...current, quantityDelta: event.target.value }))} /></label>
+              <label className="app-field controle-total__span-2"><span className="app-field__label">Motivo</span><input className="app-input" value={stockForm.reason} onChange={(event) => setStockForm((current) => ({ ...current, reason: event.target.value }))} /></label>
+              <button type="submit" disabled={busy === 'stock'} className="app-button app-button--gold"><Package size={18} /> Ajustar estoque</button>
+            </form>
+          </section>
+
+          <section className="app-panel app-panel-pad">
+            <div className="controle-total__section-heading">
+              <h3>Movimentacoes de Estoque</h3>
+            </div>
+            <div className="app-list">
+              {timeline.filter((entry) => entry.type === 'stock').map((entry) => (
+                <article key={entry.id} className="app-list-card controle-total__timeline-card">
+                  <div>
+                    <span className={statusClass(entry.status)}>{statusLabel(entry.status)}</span>
+                    <strong>{entry.title}</strong>
+                    <p>{formatDate(entry.date)} | {entry.subtitle}</p>
+                  </div>
+                  <strong className={entry.value >= 0 ? 'controle-total__positive' : 'controle-total__negative'}>
+                    {entry.value > 0 ? '+' : ''}{entry.value}
+                  </strong>
+                </article>
+              ))}
+              {timeline.filter((entry) => entry.type === 'stock').length === 0 ? <div className="app-empty">Nenhuma movimentacao de estoque no periodo selecionado.</div> : null}
             </div>
           </section>
         </div>
