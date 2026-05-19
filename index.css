@@ -5272,14 +5272,99 @@ html.dark .superadmin-belt-dot {
 .controle-total__kpi-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.9rem;
+  gap: 0.85rem;
 }
 
-.controle-total__kpi-grid .superadmin-kpi-tile__label {
+.controle-total__kpi-tile {
+  --tile-rgb: 99, 102, 241;
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  padding: 1rem 1.1rem;
+  border-radius: 1.1rem;
+  border: 1px solid var(--border);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.86), rgba(255, 255, 255, 0.56));
+  box-shadow: 0 10px 24px rgba(15, 18, 33, 0.06);
+  min-height: 5.6rem;
+  position: relative;
+  overflow: hidden;
+  transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease;
+}
+
+.controle-total__kpi-tile::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(circle at top right, rgba(var(--tile-rgb), 0.14), transparent 60%);
+  opacity: 0.9;
+}
+
+html.dark .controle-total__kpi-tile {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02));
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.26);
+}
+
+.controle-total__kpi-tile:hover {
+  transform: translateY(-2px);
+  border-color: rgba(var(--tile-rgb), 0.34);
+  box-shadow: 0 16px 32px rgba(15, 18, 33, 0.1);
+}
+
+.controle-total__kpi-tile__icon {
+  position: relative;
   display: inline-flex;
   align-items: center;
-  gap: 0.45rem;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 2.7rem;
+  height: 2.7rem;
+  border-radius: 0.9rem;
+  color: rgb(var(--tile-rgb));
+  background: rgba(var(--tile-rgb), 0.14);
+  border: 1px solid rgba(var(--tile-rgb), 0.22);
 }
+
+.controle-total__kpi-tile__body {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  min-width: 0;
+  flex: 1;
+}
+
+.controle-total__kpi-tile__label {
+  color: var(--text-soft);
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.controle-total__kpi-tile__value {
+  font-family: var(--font-display);
+  font-size: clamp(1.05rem, 0.85rem + 0.55vw, 1.45rem);
+  line-height: 1.1;
+  color: var(--text-strong);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.controle-total__kpi-tile--sold     { --tile-rgb: 37, 99, 235; }
+.controle-total__kpi-tile--received { --tile-rgb: 22, 163, 74; }
+.controle-total__kpi-tile--pending  { --tile-rgb: 234, 179, 8; }
+.controle-total__kpi-tile--expense  { --tile-rgb: 220, 38, 38; }
+.controle-total__kpi-tile--gross    { --tile-rgb: 14, 165, 233; }
+.controle-total__kpi-tile--net      { --tile-rgb: 16, 185, 129; }
+.controle-total__kpi-tile--ticket   { --tile-rgb: 168, 85, 247; }
+.controle-total__kpi-tile--stock    { --tile-rgb: 244, 114, 22; }
 
 .controle-total__dashboard-grid,
 .controle-total__catalog-grid {
@@ -5394,7 +5479,11 @@ html.dark .controle-total__action-button {
 }
 
 .controle-total__action-button--sale {
-  --action-rgb: 37, 99, 235;
+  --action-rgb: 22, 163, 74;
+}
+
+.controle-total__action-button--purchase {
+  --action-rgb: 202, 138, 4;
 }
 
 .controle-total__action-button--payment {
@@ -5469,6 +5558,68 @@ html.dark .controle-total__sale-total {
 
 .controle-total__negative {
   color: #dc2626 !important;
+}
+
+.controle-total__stock-count {
+  color: var(--text-soft);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.controle-total__stock-card {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.9rem 1rem;
+  border-radius: 1rem;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.22);
+}
+
+html.dark .controle-total__stock-card {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.controle-total__stock-card.is-low-stock {
+  border-color: rgba(239, 68, 68, 0.34);
+}
+
+.controle-total__stock-card.is-inactive {
+  opacity: 0.6;
+}
+
+.controle-total__stock-card__info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.controle-total__stock-card__info strong {
+  color: var(--text-strong);
+}
+
+.controle-total__stock-card__info p {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+.controle-total__stock-card__edit {
+  display: flex;
+  gap: 0.5rem;
+  align-items: flex-end;
+  flex-shrink: 0;
+}
+
+.controle-total__stock-card__field {
+  width: 6rem;
+}
+
+.controle-total__stock-card__field input {
+  text-align: center;
 }
 
 @media (min-width: 760px) {
