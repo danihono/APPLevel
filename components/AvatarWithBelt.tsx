@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { getBeltMeta } from '../beltCatalog';
+import { cacheAvatar, getCachedAvatar } from '../services/avatarCache';
 import type { BeltColor } from '../types';
 
 interface AvatarWithBeltProps {
@@ -19,17 +20,65 @@ const AvatarWithBelt: React.FC<AvatarWithBeltProps> = ({ avatar, name, belt, str
     lg: 'w-24 h-24 text-3xl'
   };
 
+  // Usa a copia em cache (data URL) quando existir: aparece de imediato, sem rede.
+  const [resolvedSrc, setResolvedSrc] = useState<string | undefined>(() =>
+    avatar ? (getCachedAvatar(avatar) ?? avatar) : undefined,
+  );
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    const next = avatar ? (getCachedAvatar(avatar) ?? avatar) : undefined;
+    setResolvedSrc(next);
+    // Se veio do cache (data URL), ja esta pronta — sem flash de carregamento.
+    setLoaded(Boolean(next && next.startsWith('data:')));
+  }, [avatar]);
+
+  // Para o avatar grande (perfil), guarda a foto remota no cache local em
+  // segundo plano, para que abra instantaneamente nas proximas aberturas.
+  useEffect(() => {
+    if (size !== 'lg' || !avatar || avatar.startsWith('data:') || getCachedAvatar(avatar)) {
+      return;
+    }
+    let active = true;
+    const probe = new Image();
+    probe.crossOrigin = 'anonymous';
+    probe.onload = () => {
+      if (!active) return;
+      try {
+        const canvas = document.createElement('canvas');
+        canvas.width = probe.naturalWidth;
+        canvas.height = probe.naturalHeight;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+        ctx.drawImage(probe, 0, 0);
+        cacheAvatar(avatar, canvas.toDataURL('image/jpeg', 0.85));
+      } catch {
+        // Canvas sem CORS — ignora; a foto continua funcionando normalmente.
+      }
+    };
+    probe.src = avatar;
+    return () => {
+      active = false;
+    };
+  }, [avatar, size]);
+
   return (
     <div className={`relative ${sizeClasses[size]} flex-shrink-0 mb-2`}>
       {/* Avatar Circle */}
       <div className="w-full h-full rounded-full bg-gray-100 dark:bg-gray-800 overflow-hidden border-2 border-white dark:border-dark-card shadow-sm relative z-0">
-        {avatar ? (
-          <img src={avatar} alt={name} className="w-full h-full object-cover" />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center text-gray-400 dark:text-gray-500 font-bold uppercase">
-            {name.charAt(0)}
-          </div>
-        )}
+        {/* Inicial: placeholder sempre presente, evita circulo vazio enquanto a foto carrega */}
+        <div className="absolute inset-0 flex items-center justify-center text-gray-400 dark:text-gray-500 font-bold uppercase">
+          {name.charAt(0)}
+        </div>
+        {resolvedSrc ? (
+          <img
+            src={resolvedSrc}
+            alt={name}
+            decoding="async"
+            onLoad={() => setLoaded(true)}
+            className={`relative w-full h-full object-cover transition-opacity duration-200 ${loaded ? 'opacity-100' : 'opacity-0'}`}
+          />
+        ) : null}
       </div>
       
       {/* Belt Overlay */}

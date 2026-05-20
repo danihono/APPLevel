@@ -10,6 +10,7 @@ import {
   uploadBytes,
 } from 'firebase/storage';
 import { firebaseDb, firebaseStorage } from './client';
+import { cacheAvatar, compressAvatarImage } from '../avatarCache';
 
 type EditableUserProfile = {
   firstName?: string;
@@ -69,13 +70,28 @@ export async function updateUserProfile(userId: string, payload: EditableUserPro
 }
 
 export async function uploadUserPhoto(userId: string, file: File) {
-  const extension = file.name.split('.').pop()?.toLowerCase() || 'jpg';
+  // Comprime no cliente: uma foto de celular tem alguns MB, mas o avatar e
+  // exibido pequeno. Isso reduz drasticamente o tempo de download.
+  const compressed = await compressAvatarImage(file);
+  const body: Blob = compressed?.blob ?? file;
+  const contentType = compressed?.contentType ?? file.type ?? 'image/jpeg';
+  const extension = compressed ? 'jpg' : (file.name.split('.').pop()?.toLowerCase() || 'jpg');
+
   const storageRef = ref(firebaseStorage, `users/${userId}/profile-${Date.now()}.${extension}`);
-  await uploadBytes(storageRef, file, {
-    contentType: file.type || 'image/jpeg',
+  await uploadBytes(storageRef, body, {
+    contentType,
+    // O nome do arquivo tem um timestamp unico, entao o conteudo nunca muda:
+    // o navegador pode cachear "para sempre" e a foto abre instantaneamente.
+    cacheControl: 'public, max-age=31536000, immutable',
   });
 
-  return getDownloadURL(storageRef);
+  const url = await getDownloadURL(storageRef);
+  // Ja temos a versao comprimida em maos — guarda no cache local para a foto
+  // aparecer de primeira na proxima abertura do app.
+  if (compressed) {
+    cacheAvatar(url, compressed.dataUrl);
+  }
+  return url;
 }
 
 export async function uploadLearningLessonAsset(

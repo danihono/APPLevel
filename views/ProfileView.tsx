@@ -431,10 +431,10 @@ const ProfileView: React.FC<ProfileViewProps> = ({
                     <div className="pt-3 border-t border-white/10">
                       <p className="text-[10px] font-bold uppercase tracking-widest text-[color:var(--text-soft)] pb-3">Aparência</p>
                       <div className="flex gap-2">
-                        <button type="button" onClick={() => onSetThemeMode('light')} className={`app-button app-button--small flex-1 ${!isDarkMode ? 'app-button--gold' : 'app-button--ghost'}`}>
+                        <button type="button" onClick={() => onSetThemeMode('light')} aria-pressed={!isDarkMode} className="app-button app-button--small flex-1 app-button--theme-light">
                           <Sun size={14} />Claro
                         </button>
-                        <button type="button" onClick={() => onSetThemeMode('dark')} className={`app-button app-button--small flex-1 ${isDarkMode ? 'app-button--gold' : 'app-button--ghost'}`}>
+                        <button type="button" onClick={() => onSetThemeMode('dark')} aria-pressed={isDarkMode} className="app-button app-button--small flex-1 app-button--theme-dark">
                           <Moon size={14} />Escuro
                         </button>
                       </div>
@@ -716,7 +716,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({
                 <button
                   type="button"
                   onClick={() => onSetThemeMode('light')}
-                  className={`app-button app-button--small app-button--block ${!isDarkMode ? 'app-button--gold' : 'app-button--ghost'} profile-theme-choice`}
+                  className="app-button app-button--small app-button--block app-button--theme-light profile-theme-choice"
                   aria-pressed={!isDarkMode}
                 >
                   <Sun size={16} />
@@ -725,7 +725,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({
                 <button
                   type="button"
                   onClick={() => onSetThemeMode('dark')}
-                  className={`app-button app-button--small app-button--block ${isDarkMode ? 'app-button--gold' : 'app-button--ghost'} profile-theme-choice`}
+                  className="app-button app-button--small app-button--block app-button--theme-dark profile-theme-choice"
                   aria-pressed={isDarkMode}
                 >
                   <Moon size={16} />

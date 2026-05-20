@@ -7,9 +7,14 @@ import {
   ExternalLink,
   FileText,
   Image as ImageIcon,
+  Layers,
+  LayoutDashboard,
+  Library,
   Lock,
+  type LucideIcon,
   Network,
   Plus,
+  Route,
   Save,
   ShieldCheck,
   Trash2,
@@ -188,42 +193,56 @@ const superadminLearningTabs: Array<{
   label: string;
   title: string;
   description: string;
+  icon: LucideIcon;
+  accent: string;
 }> = [
   {
     id: 'overview',
     label: 'Visao geral',
     title: 'Acompanhamento da rede',
     description: 'Veja academias, modulos publicados e progresso dos professores em um unico painel.',
+    icon: LayoutDashboard,
+    accent: '#3b82f6',
   },
   {
     id: 'tracks',
     label: 'Trilhas',
     title: 'Editor de trilhas',
     description: 'Estruture a jornada principal do Learning Hub.',
+    icon: Route,
+    accent: '#8b5cf6',
   },
   {
     id: 'courses',
     label: 'Cursos',
     title: 'Editor de cursos',
     description: 'Agrupe modulos por curso dentro de cada trilha.',
+    icon: BookOpen,
+    accent: '#10b981',
   },
   {
     id: 'modules',
     label: 'Modulos',
     title: 'Editor de modulos',
     description: 'Monte modulos com blocos em ordem, incluindo YouTube, video, PDF e imagem.',
+    icon: Layers,
+    accent: '#f59e0b',
   },
   {
     id: 'quizzes',
     label: 'Quizzes',
     title: 'Quiz opcional do modulo',
     description: 'Ative, edite ou remova o quiz final de cada modulo.',
+    icon: ClipboardCheck,
+    accent: '#f43f5e',
   },
   {
     id: 'catalog',
     label: 'Catalogo',
     title: 'Mapa do conteudo',
     description: 'Confira toda a hierarquia entre trilhas, cursos, modulos e blocos.',
+    icon: Library,
+    accent: '#06b6d4',
   },
 ];
 
@@ -1388,7 +1407,7 @@ const LearningHubView: React.FC<LearningHubViewProps> = (props) => {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 learning-superadmin-view">
       <section className="app-panel app-panel-pad">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
@@ -1402,27 +1421,60 @@ const LearningHubView: React.FC<LearningHubViewProps> = (props) => {
         </div>
 
         <div className="learning-superadmin-tabs mt-6 flex gap-2 overflow-x-auto">
-          {superadminLearningTabs.map((tab) => (
-            <button
-              type="button"
-              key={tab.id}
-              onClick={() => setSuperadminTab(tab.id)}
-              className={`learning-superadmin-tabs__button app-button ${superadminTab === tab.id ? 'app-button--gold' : 'app-button--dark'} app-button--small`}
-            >
-              {tab.label}
-            </button>
-          ))}
+          {superadminLearningTabs.map((tab) => {
+            const isActive = superadminTab === tab.id;
+            const TabIcon = tab.icon;
+            return (
+              <button
+                type="button"
+                key={tab.id}
+                onClick={() => setSuperadminTab(tab.id)}
+                className="learning-superadmin-tabs__button app-button app-button--small inline-flex items-center gap-2 whitespace-nowrap transition-all"
+                style={{
+                  background: isActive ? tab.accent : 'rgba(255,255,255,0.05)',
+                  border: `1px solid ${isActive ? tab.accent : `${tab.accent}66`}`,
+                  color: isActive ? '#fff' : tab.accent,
+                  boxShadow: isActive ? `0 8px 20px -8px ${tab.accent}` : 'none',
+                }}
+              >
+                <TabIcon size={16} />
+                {tab.label}
+              </button>
+            );
+          })}
         </div>
 
-        <div className="learning-superadmin-panel mt-6 rounded-[1.8rem] border border-white/10 bg-white/5 p-5">
-          <div className="app-topbar-panel__inner app-topbar-panel__inner--superadmin">
-            <div>
-              <p className="app-section-label">{superadminLearningTabs.find((tab) => tab.id === superadminTab)?.label}</p>
-              <h2 className="text-2xl font-bold">{superadminLearningTabs.find((tab) => tab.id === superadminTab)?.title}</h2>
-              <p className="mt-2 text-sm text-[color:var(--text-muted)]">{superadminLearningTabs.find((tab) => tab.id === superadminTab)?.description}</p>
+        {(() => {
+          const activeTab = superadminLearningTabs.find((tab) => tab.id === superadminTab);
+          const ActiveIcon = activeTab?.icon;
+          return (
+            <div
+              className="learning-superadmin-panel mt-6 rounded-[1.8rem] border bg-white/5 p-5"
+              style={{
+                borderColor: activeTab ? `${activeTab.accent}55` : 'rgba(255,255,255,0.1)',
+                background: activeTab ? `linear-gradient(135deg, ${activeTab.accent}1a, rgba(255,255,255,0.04))` : undefined,
+              }}
+            >
+              <div className="app-topbar-panel__inner app-topbar-panel__inner--superadmin">
+                <div className="flex items-start gap-3">
+                  {ActiveIcon ? (
+                    <span
+                      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl"
+                      style={{ background: `${activeTab?.accent}26`, color: activeTab?.accent }}
+                    >
+                      <ActiveIcon size={22} />
+                    </span>
+                  ) : null}
+                  <div>
+                    <p className="app-section-label" style={{ color: activeTab?.accent }}>{activeTab?.label}</p>
+                    <h2 className="text-2xl font-bold">{activeTab?.title}</h2>
+                    <p className="mt-2 text-sm text-[color:var(--text-muted)]">{activeTab?.description}</p>
+                  </div>
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
+          );
+        })()}
       </section>
 
       {superadminTab === 'overview' ? (
@@ -1537,7 +1589,7 @@ const LearningHubView: React.FC<LearningHubViewProps> = (props) => {
             <label className="app-field"><span className="app-field__label">Ordem</span><input type="number" min={1} value={trackForm.order} onChange={(event) => setTrackForm((current) => ({ ...current, order: Number(event.target.value) }))} className="app-input" /></label>
             <label className="app-field"><span className="app-field__label">Status</span><select value={trackForm.status} onChange={(event) => setTrackForm((current) => ({ ...current, status: event.target.value as 'draft' | 'published' }))} className="app-select"><option value="draft">Rascunho</option><option value="published">Publicado</option></select></label>
           </div>
-          <button type="submit" disabled={busyKey === 'track'} className="app-button app-button--gold mt-6"><Save size={16} />{busyKey === 'track' ? 'Salvando...' : 'Salvar trilha'}</button>
+          <button type="submit" disabled={busyKey === 'track'} className="app-button app-button--gold mt-6" style={{ '--save-accent': '#8b5cf6', '--save-accent-dark': '#7c3aed' } as React.CSSProperties}><Save size={16} />{busyKey === 'track' ? 'Salvando...' : 'Salvar trilha'}</button>
         </form>
       </section>
 
@@ -1562,7 +1614,7 @@ const LearningHubView: React.FC<LearningHubViewProps> = (props) => {
             <label className="app-field"><span className="app-field__label">Ordem</span><input type="number" min={1} value={courseForm.order} onChange={(event) => setCourseForm((current) => ({ ...current, order: Number(event.target.value) }))} className="app-input" /></label>
             <label className="app-field"><span className="app-field__label">Status</span><select value={courseForm.status} onChange={(event) => setCourseForm((current) => ({ ...current, status: event.target.value as 'draft' | 'published' }))} className="app-select"><option value="draft">Rascunho</option><option value="published">Publicado</option></select></label>
           </div>
-          <button type="submit" disabled={busyKey === 'course'} className="app-button app-button--gold mt-6"><Save size={16} />{busyKey === 'course' ? 'Salvando...' : 'Salvar curso'}</button>
+          <button type="submit" disabled={busyKey === 'course'} className="app-button app-button--gold mt-6" style={{ '--save-accent': '#10b981', '--save-accent-dark': '#059669' } as React.CSSProperties}><Save size={16} />{busyKey === 'course' ? 'Salvando...' : 'Salvar curso'}</button>
         </form>
       </section>
 
@@ -1670,7 +1722,7 @@ const LearningHubView: React.FC<LearningHubViewProps> = (props) => {
             </div>
           </div>
 
-          <button type="submit" disabled={busyKey === 'lesson'} className="app-button app-button--gold mt-6"><Save size={16} />{busyKey === 'lesson' ? 'Salvando...' : 'Salvar modulo'}</button>
+          <button type="submit" disabled={busyKey === 'lesson'} className="app-button app-button--gold mt-6" style={{ '--save-accent': '#f59e0b', '--save-accent-dark': '#d97706' } as React.CSSProperties}><Save size={16} />{busyKey === 'lesson' ? 'Salvando...' : 'Salvar modulo'}</button>
         </form>
       </section>
 
@@ -1747,7 +1799,7 @@ const LearningHubView: React.FC<LearningHubViewProps> = (props) => {
             <div className="app-empty mt-6">Selecione um modulo para editar o quiz correspondente.</div>
           )}
 
-          <button type="submit" disabled={busyKey === 'quiz' || !lessonSelectionId} className="app-button app-button--gold mt-6"><Save size={16} />{busyKey === 'quiz' ? 'Salvando...' : 'Salvar quiz'}</button>
+          <button type="submit" disabled={busyKey === 'quiz' || !lessonSelectionId} className="app-button app-button--gold mt-6" style={{ '--save-accent': '#f43f5e', '--save-accent-dark': '#e11d48' } as React.CSSProperties}><Save size={16} />{busyKey === 'quiz' ? 'Salvando...' : 'Salvar quiz'}</button>
         </form>
       </section>
 
