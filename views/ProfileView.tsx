@@ -36,6 +36,7 @@ interface ProfileViewProps {
   attendanceRate: number;
   attendances: Array<FirestoreEntity<AttendanceRecord>>;
   classNameById: Map<string, string>;
+  classStartById: Map<string, Date>;
   graduations: Array<FirestoreEntity<GraduationRecord>>;
   isDarkMode: boolean;
   onSetThemeMode: (mode: 'light' | 'dark') => void;
@@ -76,6 +77,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({
   attendanceRate,
   attendances,
   classNameById,
+  classStartById,
   graduations,
   isDarkMode,
   onSetThemeMode,
@@ -447,7 +449,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({
                         <div key={attendance.id} className="app-list-card">
                           <p className="text-sm font-bold">{classNameById.get(attendance.classId) || 'Aula da academia'}</p>
                           <p className="mt-1 text-xs text-[color:var(--text-soft)]">
-                            {attendance.checkedInAt?.toDate().toLocaleString('pt-BR')} • {attendance.checkInMethod}
+                            {(classStartById.get(attendance.classId) ?? attendance.checkedInAt?.toDate())?.toLocaleString('pt-BR')} • {attendance.checkInMethod}
                           </p>
                         </div>
                       ))}
@@ -757,7 +759,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({
                   <div key={attendance.id} className="app-list-card">
                     <p className="text-sm font-bold">{classNameById.get(attendance.classId) || 'Aula da academia'}</p>
                     <p className="mt-1 text-xs text-[color:var(--text-soft)]">
-                      {attendance.checkedInAt?.toDate().toLocaleString('pt-BR')} • método {attendance.checkInMethod}
+                      {(classStartById.get(attendance.classId) ?? attendance.checkedInAt?.toDate())?.toLocaleString('pt-BR')} • método {attendance.checkInMethod}
                     </p>
                   </div>
                 ))}

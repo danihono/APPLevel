@@ -152,7 +152,19 @@ function sortClasses(left: FirestoreEntity<ClassRecord>, right: FirestoreEntity<
   return left.title.localeCompare(right.title, 'pt-BR');
 }
 
-function statusColors(status: ClassRecord['status']) {
+type DisplayClassStatus = ClassRecord['status'] | 'unfinished';
+
+function effectiveClassStatus(lesson: FirestoreEntity<ClassRecord>, nowMs: number): DisplayClassStatus {
+  if (lesson.status === 'scheduled' || lesson.status === 'active') {
+    const deadline = lesson.scheduledEnd ?? lesson.scheduledStart;
+    if (deadline && deadline.toDate().getTime() < nowMs) {
+      return 'unfinished';
+    }
+  }
+  return lesson.status;
+}
+
+function statusColors(status: DisplayClassStatus) {
   switch (status) {
     case 'active':
       return { bg: 'rgba(74,222,128,0.13)', border: 'rgba(74,222,128,0.5)', accent: '#4ade80' };
@@ -160,12 +172,14 @@ function statusColors(status: ClassRecord['status']) {
       return { bg: 'rgba(255,255,255,0.04)', border: 'rgba(255,255,255,0.12)', accent: 'var(--text-soft)' };
     case 'cancelled':
       return { bg: 'rgba(239,68,68,0.1)', border: 'rgba(239,68,68,0.35)', accent: '#ef4444' };
+    case 'unfinished':
+      return { bg: 'rgba(234,120,30,0.13)', border: 'rgba(234,120,30,0.45)', accent: 'rgba(234,120,30,0.95)' };
     default:
       return { bg: 'rgba(232,175,72,0.13)', border: 'rgba(232,175,72,0.45)', accent: 'var(--gold-mid)' };
   }
 }
 
-function statusLabel(status: ClassRecord['status']) {
+function statusLabel(status: DisplayClassStatus) {
   switch (status) {
     case 'active':
       return 'Ativa';
@@ -173,12 +187,14 @@ function statusLabel(status: ClassRecord['status']) {
       return 'Concluída';
     case 'cancelled':
       return 'Cancelada';
+    case 'unfinished':
+      return 'Não finalizada';
     default:
       return 'Agendada';
   }
 }
 
-function statusBadgeClass(status: ClassRecord['status']) {
+function statusBadgeClass(status: DisplayClassStatus) {
   switch (status) {
     case 'active':
       return 'app-badge app-badge--success';
@@ -186,6 +202,8 @@ function statusBadgeClass(status: ClassRecord['status']) {
       return 'app-badge app-badge--muted';
     case 'cancelled':
       return 'app-badge app-badge--danger';
+    case 'unfinished':
+      return 'app-badge app-badge--belt-alert';
     default:
       return 'app-badge app-badge--gold';
   }
@@ -236,12 +254,14 @@ function methodColor(method: AttendanceRecord['checkInMethod']) {
 interface ClassListItemProps {
   lesson: FirestoreEntity<ClassRecord>;
   onOpen: (classId: string) => void;
+  nowMs: number;
   compact?: boolean;
   isConfirmed?: boolean;
 }
 
-const ClassListItem: React.FC<ClassListItemProps> = ({ lesson, onOpen, compact = false, isConfirmed = false }) => {
-  const colors = statusColors(lesson.status);
+const ClassListItem: React.FC<ClassListItemProps> = ({ lesson, onOpen, nowMs, compact = false, isConfirmed = false }) => {
+  const displayStatus = effectiveClassStatus(lesson, nowMs);
+  const colors = statusColors(displayStatus);
 
   if (compact) {
     return (
@@ -252,7 +272,7 @@ const ClassListItem: React.FC<ClassListItemProps> = ({ lesson, onOpen, compact =
       >
         <span
           className="calendar-mobile__class-accent"
-          style={{ backgroundColor: lesson.status === 'scheduled' ? 'var(--gold-mid)' : colors.accent }}
+          style={{ backgroundColor: displayStatus === 'scheduled' ? 'var(--gold-mid)' : colors.accent }}
           aria-hidden="true"
         />
 
@@ -304,7 +324,7 @@ const ClassListItem: React.FC<ClassListItemProps> = ({ lesson, onOpen, compact =
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8 }}>
               <p style={{ fontSize: '1rem', fontWeight: 700 }}>{lesson.title}</p>
-              <span className={statusBadgeClass(lesson.status)}>{statusLabel(lesson.status)}</span>
+              <span className={statusBadgeClass(displayStatus)}>{statusLabel(displayStatus)}</span>
               {isConfirmed ? (
                 <span className="app-badge app-badge--success" style={{ fontSize: '0.65rem' }}>Vou</span>
               ) : null}
@@ -332,9 +352,10 @@ interface DayOverflowModalProps {
   dayClasses: Array<FirestoreEntity<ClassRecord>>;
   onOpenClass: (classId: string, day: Date) => void;
   onClose: () => void;
+  nowMs: number;
 }
 
-const DayOverflowModal: React.FC<DayOverflowModalProps> = ({ date, dayClasses, onOpenClass, onClose }) => {
+const DayOverflowModal: React.FC<DayOverflowModalProps> = ({ date, dayClasses, onOpenClass, onClose, nowMs }) => {
   const DAYS = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
   const MONTHS = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
   const title = `${DAYS[date.getDay()]}, ${date.getDate()} de ${MONTHS[date.getMonth()]}`;
@@ -362,7 +383,8 @@ const DayOverflowModal: React.FC<DayOverflowModalProps> = ({ date, dayClasses, o
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: '60vh', overflowY: 'auto' }}>
           {dayClasses.map(lesson => {
-            const colors = statusColors(lesson.status);
+            const displayStatus = effectiveClassStatus(lesson, nowMs);
+            const colors = statusColors(displayStatus);
             return (
               <button
                 key={lesson.id}
@@ -394,8 +416,8 @@ const DayOverflowModal: React.FC<DayOverflowModalProps> = ({ date, dayClasses, o
                     </p>
                   ) : null}
                 </div>
-                <span className={statusBadgeClass(lesson.status)} style={{ flexShrink: 0, fontSize: '0.65rem' }}>
-                  {statusLabel(lesson.status)}
+                <span className={statusBadgeClass(displayStatus)} style={{ flexShrink: 0, fontSize: '0.65rem' }}>
+                  {statusLabel(displayStatus)}
                 </span>
                 <ChevronRight size={16} style={{ color: 'var(--text-soft)', flexShrink: 0 }} />
               </button>
@@ -414,6 +436,7 @@ interface MonthGridProps {
   today: Date;
   onSelectDay: (day: Date) => void;
   onOpenClass: (classId: string, day: Date) => void;
+  nowMs: number;
   attendedDays?: Set<string>;
 }
 
@@ -424,6 +447,7 @@ const DesktopMonthGrid: React.FC<MonthGridProps> = React.memo(function DesktopMo
   today,
   onSelectDay,
   onOpenClass,
+  nowMs,
 }) {
   const [overflowDay, setOverflowDay] = useState<{ date: Date; classes: Array<FirestoreEntity<ClassRecord>> } | null>(null);
 
@@ -475,7 +499,7 @@ const DesktopMonthGrid: React.FC<MonthGridProps> = React.memo(function DesktopMo
 
           <div className="app-calendar-month-day__content">
             {previewClasses.map((lesson) => {
-              const colors = statusColors(lesson.status);
+              const colors = statusColors(effectiveClassStatus(lesson, nowMs));
               return (
                 <button
                   key={lesson.id}
@@ -530,13 +554,14 @@ const DesktopMonthGrid: React.FC<MonthGridProps> = React.memo(function DesktopMo
       dayClasses={overflowDay.classes}
       onOpenClass={(id, day) => { onOpenClass(id, day); setOverflowDay(null); }}
       onClose={() => setOverflowDay(null)}
+      nowMs={nowMs}
     />
   )}
   </>
   );
 });
 
-const CompactMonthGrid: React.FC<Omit<MonthGridProps, 'onOpenClass'>> = React.memo(function CompactMonthGrid({
+const CompactMonthGrid: React.FC<Omit<MonthGridProps, 'onOpenClass' | 'nowMs'>> = React.memo(function CompactMonthGrid({
   monthCells,
   classesByDay,
   selectedDay,
@@ -1516,7 +1541,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                 <div className="calendar-mobile__day-list">
                   {selectedDayClasses.length > 0 ? (
                     selectedDayClasses.map((lesson) => (
-                      <ClassListItem key={lesson.id} lesson={lesson} onOpen={openClassDetails} compact isConfirmed={!!myRsvpByClass[lesson.id]} />
+                      <ClassListItem key={lesson.id} lesson={lesson} onOpen={openClassDetails} nowMs={nowMs} compact isConfirmed={!!myRsvpByClass[lesson.id]} />
                     ))
                   ) : (
                     <div className="calendar-mobile__empty">{selectedDayEmptyMessage}</div>
@@ -1562,6 +1587,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                     today={today}
                     onSelectDay={selectCalendarDay}
                     onOpenClass={openClassDetailsFromGrid}
+                    nowMs={nowMs}
                   />
                 </div>
               </section>
@@ -1606,7 +1632,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                 <div className="mt-6 app-list">
                   {selectedDayClasses.length > 0 ? (
                     selectedDayClasses.map((lesson) => (
-                      <ClassListItem key={lesson.id} lesson={lesson} onOpen={openClassDetails} isConfirmed={!!myRsvpByClass[lesson.id]} />
+                      <ClassListItem key={lesson.id} lesson={lesson} onOpen={openClassDetails} nowMs={nowMs} isConfirmed={!!myRsvpByClass[lesson.id]} />
                     ))
                   ) : (
                     <div className="app-empty">{selectedDayEmptyMessage}</div>
@@ -1645,6 +1671,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                   key={lesson.id}
                   lesson={lesson}
                   onOpen={openClassDetails}
+                  nowMs={nowMs}
                   compact={isCompactMonthGrid}
                   isConfirmed={!!myRsvpByClass[lesson.id]}
                 />
@@ -1695,7 +1722,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
           <div className={isCompactMonthGrid ? 'calendar-mobile__day-list' : 'mt-6 app-list'}>
             {todayClasses.length > 0 ? (
               todayClasses.map((lesson) => (
-                <ClassListItem key={lesson.id} lesson={lesson} onOpen={openClassDetails} compact={isCompactMonthGrid} isConfirmed={!!myRsvpByClass[lesson.id]} />
+                <ClassListItem key={lesson.id} lesson={lesson} onOpen={openClassDetails} nowMs={nowMs} compact={isCompactMonthGrid} isConfirmed={!!myRsvpByClass[lesson.id]} />
               ))
             ) : (
               <div className={isCompactMonthGrid ? 'calendar-mobile__empty' : 'app-empty'}>{todayEmptyMessage}</div>

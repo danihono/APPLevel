@@ -2294,6 +2294,11 @@ const App: React.FC = () => {
       videoLibrary: studentVideoLibraryById.get(user.id),
     }));
   const classNameById = new Map(classes.map((lesson) => [lesson.id, lesson.title]));
+  const classStartById = new Map(
+    classes
+      .filter((lesson) => lesson.scheduledStart)
+      .map((lesson) => [lesson.id, lesson.scheduledStart!.toDate()]),
+  );
   const finishedClassesThisMonth = classes.filter((lesson) => lesson.status === 'finished' && isSameMonth(lesson.scheduledStart));
   const attendedFinishedClassIds = new Set(
     attendanceThisMonth
@@ -2600,6 +2605,7 @@ const App: React.FC = () => {
             attendanceRate={attendanceRate}
             attendances={attendances}
             classNameById={classNameById}
+            classStartById={classStartById}
             graduations={graduations}
             isDarkMode={isDarkMode}
             onSetThemeMode={setThemeMode}

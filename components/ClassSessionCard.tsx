@@ -55,14 +55,45 @@ function toRules(lesson: FirestoreEntity<ClassRecord>) {
   return { sex, belt, grade };
 }
 
-function getStatusClass(status: ClassRecord['status']) {
+type DisplayStatus = ClassRecord['status'] | 'unfinished';
+
+function effectiveStatus(lesson: FirestoreEntity<ClassRecord>): DisplayStatus {
+  if (lesson.status === 'scheduled' || lesson.status === 'active') {
+    const deadline = lesson.scheduledEnd ?? lesson.scheduledStart;
+    if (deadline && deadline.toDate().getTime() < Date.now()) {
+      return 'unfinished';
+    }
+  }
+  return lesson.status;
+}
+
+function getStatusClass(status: DisplayStatus) {
   switch (status) {
     case 'active':
       return 'app-badge app-badge--success';
     case 'finished':
       return 'app-badge app-badge--muted';
+    case 'cancelled':
+      return 'app-badge app-badge--danger';
+    case 'unfinished':
+      return 'app-badge app-badge--belt-alert';
     default:
       return 'app-badge app-badge--gold';
+  }
+}
+
+function getStatusLabel(status: DisplayStatus) {
+  switch (status) {
+    case 'active':
+      return 'Ativa';
+    case 'finished':
+      return 'Concluída';
+    case 'cancelled':
+      return 'Cancelada';
+    case 'unfinished':
+      return 'Não finalizada';
+    default:
+      return 'Agendada';
   }
 }
 
@@ -89,7 +120,10 @@ const ClassSessionCard: React.FC<ClassSessionCardProps> = ({
           <div className="flex flex-wrap items-center gap-3">
             <h2 className="text-2xl font-bold">{lesson.title}</h2>
             <span className="app-badge app-badge--muted">{toCategory(lesson)}</span>
-            {showStatus ? <span className={getStatusClass(lesson.status)}>{lesson.status}</span> : null}
+            {showStatus ? (() => {
+              const displayStatus = effectiveStatus(lesson);
+              return <span className={getStatusClass(displayStatus)}>{getStatusLabel(displayStatus)}</span>;
+            })() : null}
           </div>
 
           {lesson.description && !ALL_TYPE_CODES.has(lesson.description) ? (
