@@ -2,6 +2,7 @@ import { FieldValue, Timestamp } from 'firebase-admin/firestore';
 import { onCall } from 'firebase-functions/v2/https';
 import {
   COLLECTIONS,
+  type FinanceBuyerType,
   type FinanceExpenseDoc,
   type FinanceExpenseStatus,
   type FinancePaymentDoc,
@@ -15,6 +16,7 @@ import {
   type FinanceStatus,
   type InventoryMovementDoc,
   type InventoryMovementType,
+  type ProductPriceHistoryEntry,
 } from '../domain/models';
 import { getRequestContext } from '../lib/context';
 import { assertCondition } from '../lib/errors';
@@ -24,6 +26,10 @@ import { optionalNumber, optionalString, optionalTimestamp, requiredNumber, requ
 const callableOptions = { region: 'southamerica-east1', invoker: 'public' as const };
 const MAX_SALE_ITEMS = 80;
 const DEFAULT_PAYMENT_METHOD = 'Nao informado';
+const MAX_PRICE_HISTORY = 50;
+// Produtos sao do catalogo da Level (atacado), nao de uma filial. Movimentos de
+// estoque que nao tem uma filial compradora usam este id sentinela.
+const LEVEL_CATALOG_ID = '__level__';
 
 type Transaction = FirebaseFirestore.Transaction;
 type DocumentRef = FirebaseFirestore.DocumentReference<FirebaseFirestore.DocumentData>;
@@ -133,6 +139,15 @@ function assertSaleItemType(value: string): FinanceSaleItemType {
   return value;
 }
 
+function parseBuyerType(value: string | undefined): FinanceBuyerType {
+  if (!value) {
+    return 'filial';
+  }
+
+  assertCondition(value === 'filial' || value === 'diretoria', 'invalid-argument', 'Tipo de comprador invalido.');
+  return value;
+}
+
 async function assertAcademyExists(academyId: string): Promise<void> {
   const academySnap = await db.collection(COLLECTIONS.academies).doc(academyId).get();
   assertCondition(academySnap.exists, 'not-found', 'Filial nao encontrada.');
@@ -190,6 +205,7 @@ function calculateSaleTotals(items: ResolvedSaleItem[]): SaleTotals {
 async function resolveSaleItems(
   transaction: Transaction,
   academyId: string,
+  buyerType: FinanceBuyerType,
   parsedItems: ParsedSaleItem[],
 ): Promise<ResolvedSaleItem[]> {
   const productRefs = new Map<string, DocumentRef>();
@@ -221,10 +237,22 @@ async function resolveSaleItems(
 
     assertCondition(snapshot?.exists, 'not-found', `Item ${index + 1} nao encontrado.`);
     const data = snapshot.data() as FinanceProductDoc | FinanceServiceDoc;
-    assertCondition(data.academyId === academyId, 'permission-denied', `Item ${index + 1} pertence a outra filial.`);
+    // Produtos sao do catalogo global da Level; servicos continuam por filial.
+    if (item.type === 'service') {
+      assertCondition(
+        (data as FinanceServiceDoc).academyId === academyId,
+        'permission-denied',
+        `Item ${index + 1} pertence a outra filial.`,
+      );
+    }
     assertCondition(data.status === 'active', 'failed-precondition', `Item ${index + 1} esta inativo.`);
 
-    const unitPrice = item.unitPrice ?? data.salePrice;
+    const catalogPrice = item.type === 'product'
+      ? (buyerType === 'diretoria'
+        ? (data as FinanceProductDoc).salePriceDiretoria
+        : (data as FinanceProductDoc).salePriceFilial)
+      : (data as FinanceServiceDoc).salePrice;
+    const unitPrice = item.unitPrice ?? catalogPrice;
     assertCondition(item.discount <= unitPrice, 'invalid-argument', `O desconto do item ${index + 1} nao pode superar o valor unitario.`);
 
     const unitCost = item.type === 'product'
@@ -310,6 +338,7 @@ function applyProductStockChange(
   productRef: DocumentRef,
   product: FinanceProductDoc,
   params: {
+    academyId: string;
     quantityDelta: number;
     movementType: InventoryMovementType;
     saleId?: string;
@@ -328,7 +357,7 @@ function applyProductStockChange(
   });
 
   addInventoryMovement(transaction, {
-    academyId: product.academyId,
+    academyId: params.academyId,
     productId: productRef.id,
     productName: product.name,
     type: params.movementType,
@@ -374,6 +403,7 @@ function applySaleProductStock(
     const productData = item.productData;
     assertCondition(!!productData, 'internal', 'Produto da venda sem dados carregados.');
     applyProductStockChange(transaction, item.ref, productData, {
+      academyId: params.academyId,
       quantityDelta: -quantity,
       movementType: 'sale_decrement',
       saleId: params.saleId,
@@ -443,17 +473,16 @@ function addPaymentAndRevenue(
 export const upsertFinanceProduct = onCall(callableOptions, async (request) => {
   const actor = await getRequestContext(request, 'superadmin');
   const productId = optionalString(request.data, 'productId');
-  const academyId = requiredString(request.data, 'academyId').trim();
   const name = requiredString(request.data, 'name').trim();
   const category = requiredString(request.data, 'category').trim();
   const description = optionalString(request.data, 'description')?.trim();
   const purchasePrice = requiredMoney(request.data, 'purchasePrice');
-  const salePrice = requiredMoney(request.data, 'salePrice');
+  const salePriceFilial = requiredMoney(request.data, 'salePriceFilial');
+  const salePriceDiretoria = requiredMoney(request.data, 'salePriceDiretoria');
   const stockMinimum = optionalMoney(request.data, 'stockMinimum', 0);
   const stockCurrent = optionalNumber(request.data, 'stockCurrent');
   const status = normalizeStatus(optionalString(request.data, 'status'));
   const now = Timestamp.now();
-  await assertAcademyExists(academyId);
 
   const productRef = productId
     ? db.collection(COLLECTIONS.financeProducts).doc(productId)
@@ -462,25 +491,39 @@ export const upsertFinanceProduct = onCall(callableOptions, async (request) => {
   await db.runTransaction(async (transaction) => {
     const existing = productId ? await transaction.get(productRef) : null;
     const previous = existing?.exists ? (existing.data() as FinanceProductDoc) : null;
-    if (previous) {
-      assertCondition(previous.academyId === academyId, 'failed-precondition', 'Nao e possivel mover produto entre filiais.');
-    }
 
     const nextStock = stockCurrent == null
       ? (previous?.stockCurrent ?? 0)
       : roundMoney(stockCurrent);
     assertCondition(nextStock >= 0, 'invalid-argument', 'Estoque atual nao pode ser negativo.');
 
+    // Registra um ponto no historico de precos quando algum preco muda (ou no cadastro inicial).
+    const priceChanged = !previous
+      || previous.purchasePrice !== purchasePrice
+      || previous.salePriceFilial !== salePriceFilial
+      || previous.salePriceDiretoria !== salePriceDiretoria;
+    const priceHistory: ProductPriceHistoryEntry[] = [...(previous?.priceHistory ?? [])];
+    if (priceChanged) {
+      priceHistory.push({
+        changedAt: now,
+        changedBy: actor.uid,
+        purchasePrice,
+        salePriceFilial,
+        salePriceDiretoria,
+      });
+    }
+
     const payload: FinanceProductDoc = {
-      academyId,
       name,
       category,
       ...(description ? { description } : {}),
       purchasePrice,
-      salePrice,
+      salePriceFilial,
+      salePriceDiretoria,
       stockCurrent: nextStock,
       stockMinimum,
       status,
+      priceHistory: priceHistory.slice(-MAX_PRICE_HISTORY),
       createdBy: previous?.createdBy ?? actor.uid,
       createdAt: previous?.createdAt ?? now,
       updatedAt: now,
@@ -490,7 +533,7 @@ export const upsertFinanceProduct = onCall(callableOptions, async (request) => {
 
     if (previous && stockCurrent != null && roundMoney(previous.stockCurrent) !== nextStock) {
       addInventoryMovement(transaction, {
-        academyId,
+        academyId: LEVEL_CATALOG_ID,
         productId: productRef.id,
         productName: name,
         type: 'manual_adjustment',
@@ -555,6 +598,7 @@ export const adjustProductStock = onCall(callableOptions, async (request) => {
     const product = productSnap.data() as FinanceProductDoc;
     assertCondition(product.status === 'active', 'failed-precondition', 'Produto inativo nao aceita ajuste de estoque.');
     applyProductStockChange(transaction, productRef, product, {
+      academyId: LEVEL_CATALOG_ID,
       quantityDelta,
       movementType: quantityDelta > 0 ? 'manual_entry' : 'manual_adjustment',
       reason,
@@ -640,6 +684,7 @@ export const deleteOrArchiveFinanceService = onCall(callableOptions, async (requ
 export const createFinanceSale = onCall(callableOptions, async (request) => {
   const actor = await getRequestContext(request, 'superadmin');
   const academyId = requiredString(request.data, 'academyId').trim();
+  const buyerType = parseBuyerType(optionalString(request.data, 'buyerType')?.trim());
   const customerId = optionalString(request.data, 'customerId')?.trim();
   const customerName = requiredString(request.data, 'customerName').trim();
   const sellerId = optionalString(request.data, 'sellerId')?.trim();
@@ -659,7 +704,7 @@ export const createFinanceSale = onCall(callableOptions, async (request) => {
   let balanceDue = 0;
 
   await db.runTransaction(async (transaction) => {
-    const items = await resolveSaleItems(transaction, academyId, parsedItems);
+    const items = await resolveSaleItems(transaction, academyId, buyerType, parsedItems);
     const totals = calculateSaleTotals(items);
     assertCondition(receivedAmount <= totals.total, 'invalid-argument', 'Valor recebido nao pode superar o total da venda.');
     const amountReceived = receivedAmount;
@@ -668,6 +713,7 @@ export const createFinanceSale = onCall(callableOptions, async (request) => {
 
     const sale: FinanceSaleDoc = {
       academyId,
+      buyerType,
       ...(customerId ? { customerId } : {}),
       customerName,
       ...(sellerId ? { sellerId } : {}),
@@ -728,6 +774,7 @@ export const updateFinanceSale = onCall(callableOptions, async (request) => {
   const saleId = requiredString(request.data, 'saleId').trim();
   const saleRef = db.collection(COLLECTIONS.financeSales).doc(saleId);
   const academyId = requiredString(request.data, 'academyId').trim();
+  const buyerTypeInput = optionalString(request.data, 'buyerType')?.trim();
   const customerId = optionalString(request.data, 'customerId')?.trim();
   const customerName = requiredString(request.data, 'customerName').trim();
   const sellerId = optionalString(request.data, 'sellerId')?.trim();
@@ -746,6 +793,9 @@ export const updateFinanceSale = onCall(callableOptions, async (request) => {
     const previousSale = saleSnap.data() as FinanceSaleDoc;
     assertCondition(previousSale.paymentStatus !== 'cancelled', 'failed-precondition', 'Venda cancelada nao pode ser editada.');
     assertCondition(previousSale.academyId === academyId, 'failed-precondition', 'Nao e possivel mover venda entre filiais.');
+    const buyerType: FinanceBuyerType = buyerTypeInput
+      ? parseBuyerType(buyerTypeInput)
+      : (previousSale.buyerType ?? 'filial');
 
     const [oldItemsSnapshot, paymentsSnapshot] = await Promise.all([
       transaction.get(db.collection(COLLECTIONS.financeSaleItems).where('saleId', '==', saleId)),
@@ -755,7 +805,7 @@ export const updateFinanceSale = onCall(callableOptions, async (request) => {
     const amountReceived = paymentsSnapshot.docs
       .map((doc) => doc.data() as FinancePaymentDoc)
       .reduce((total, payment) => roundMoney(total + payment.amount), 0);
-    const newItems = await resolveSaleItems(transaction, academyId, parsedItems);
+    const newItems = await resolveSaleItems(transaction, academyId, buyerType, parsedItems);
     const totals = calculateSaleTotals(newItems);
     assertCondition(amountReceived <= totals.total, 'failed-precondition', 'A venda ja recebeu mais do que o novo total.');
 
@@ -781,6 +831,7 @@ export const updateFinanceSale = onCall(callableOptions, async (request) => {
       assertCondition(productSnap?.exists, 'not-found', 'Produto da venda nao encontrado.');
       const product = productSnap.data() as FinanceProductDoc;
       applyProductStockChange(transaction, productRef, product, {
+        academyId,
         quantityDelta: -deltaSold,
         movementType: 'sale_edit_adjustment',
         saleId,
@@ -801,6 +852,7 @@ export const updateFinanceSale = onCall(callableOptions, async (request) => {
     balanceDue = roundMoney(totals.total - amountReceived);
     paymentStatus = calculatePaymentStatus(totals.total, amountReceived);
     transaction.update(saleRef, {
+      buyerType,
       ...(customerId ? { customerId } : { customerId: FieldValue.delete() }),
       customerName,
       ...(sellerId ? { sellerId } : { sellerId: FieldValue.delete() }),
@@ -909,6 +961,7 @@ export const cancelFinanceSale = onCall(callableOptions, async (request) => {
       assertCondition(productSnap?.exists, 'not-found', 'Produto da venda nao encontrado.');
       const product = productSnap.data() as FinanceProductDoc;
       applyProductStockChange(transaction, productRef, product, {
+        academyId: sale.academyId,
         quantityDelta: quantity,
         movementType: 'sale_cancel_reversal',
         saleId,

@@ -53,12 +53,12 @@ interface ControleTotalViewProps {
 
 interface ProductFormState {
   productId: string;
-  academyId: string;
   name: string;
   category: string;
   description: string;
   purchasePrice: string;
-  salePrice: string;
+  salePriceFilial: string;
+  salePriceDiretoria: string;
   stockCurrent: string;
   stockMinimum: string;
   status: 'active' | 'inactive';
@@ -84,6 +84,7 @@ interface SaleItemFormState {
 
 interface SaleFormState {
   academyId: string;
+  buyerType: 'filial' | 'diretoria';
   customerId: string;
   customerName: string;
   sellerId: string;
@@ -98,7 +99,6 @@ interface SaleFormState {
 }
 
 interface PurchaseFormState {
-  academyId: string;
   productId: string;
   quantity: string;
   supplier: string;
@@ -193,15 +193,15 @@ function statusClass(status: string): string {
   return 'app-badge app-badge--muted';
 }
 
-function initialProductForm(academyId: string): ProductFormState {
+function initialProductForm(): ProductFormState {
   return {
     productId: '',
-    academyId,
     name: '',
     category: 'Outros',
     description: '',
     purchasePrice: '',
-    salePrice: '',
+    salePriceFilial: '',
+    salePriceDiretoria: '',
     stockCurrent: '0',
     stockMinimum: '0',
     status: 'active',
@@ -233,6 +233,7 @@ function initialSaleItem(): SaleItemFormState {
 function initialSaleForm(academyId: string): SaleFormState {
   return {
     academyId,
+    buyerType: 'filial',
     customerId: '',
     customerName: '',
     sellerId: '',
@@ -247,9 +248,8 @@ function initialSaleForm(academyId: string): SaleFormState {
   };
 }
 
-function initialPurchaseForm(academyId: string): PurchaseFormState {
+function initialPurchaseForm(): PurchaseFormState {
   return {
-    academyId,
     productId: '',
     quantity: '',
     supplier: '',
@@ -286,10 +286,10 @@ const ControleTotalView: React.FC<ControleTotalViewProps> = ({
   const [actionMode, setActionMode] = useState<ActionMode>(null);
   const [busy, setBusy] = useState('');
   const [feedback, setFeedback] = useState('');
-  const [productForm, setProductForm] = useState<ProductFormState>(() => initialProductForm(defaultAcademyId));
+  const [productForm, setProductForm] = useState<ProductFormState>(() => initialProductForm());
   const [serviceForm, setServiceForm] = useState<ServiceFormState>(() => initialServiceForm(defaultAcademyId));
   const [saleForm, setSaleForm] = useState<SaleFormState>(() => initialSaleForm(defaultAcademyId));
-  const [purchaseForm, setPurchaseForm] = useState<PurchaseFormState>(() => initialPurchaseForm(defaultAcademyId));
+  const [purchaseForm, setPurchaseForm] = useState<PurchaseFormState>(() => initialPurchaseForm());
   const [stockAcademyId, setStockAcademyId] = useState('');
   const [stockEdits, setStockEdits] = useState<Record<string, string>>({});
 
@@ -298,6 +298,7 @@ const ControleTotalView: React.FC<ControleTotalViewProps> = ({
   const salesById = useMemo(() => new Map(sales.map((sale) => [sale.id, sale])), [sales]);
   const productById = useMemo(() => new Map(products.map((product) => [product.id, product])), [products]);
   const serviceById = useMemo(() => new Map(services.map((service) => [service.id, service])), [services]);
+  const userById = useMemo(() => new Map(users.map((user) => [user.id, user])), [users]);
 
   const dashboardMetrics = useMemo(() => {
     const academyFilter = dashboardAcademyId;
@@ -321,8 +322,7 @@ const ControleTotalView: React.FC<ControleTotalViewProps> = ({
       .filter((sale) => sale.paymentStatus === 'pending' || sale.paymentStatus === 'partial')
       .reduce((total, sale) => total + sale.balanceDue, 0);
     const lowStock = products.filter((product) => (
-      (!academyFilter || product.academyId === academyFilter)
-      && product.status === 'active'
+      product.status === 'active'
       && product.stockCurrent <= product.stockMinimum
     ));
     const cancelledSales = scopedSales.filter((sale) => sale.paymentStatus === 'cancelled');
@@ -382,10 +382,9 @@ const ControleTotalView: React.FC<ControleTotalViewProps> = ({
   const filteredProducts = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
     return products.filter((product) => (
-      (!selectedAcademyId || product.academyId === selectedAcademyId)
-      && (!term || `${product.name} ${product.category}`.toLowerCase().includes(term))
+      !term || `${product.name} ${product.category}`.toLowerCase().includes(term)
     ));
-  }, [products, searchTerm, selectedAcademyId]);
+  }, [products, searchTerm]);
 
   const filteredServices = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
@@ -479,23 +478,28 @@ const ControleTotalView: React.FC<ControleTotalViewProps> = ({
       });
   }, [academies, expenses, inventoryMovements, listAcademyId, listEnd, listStart, listType, payments, revenues, sales, salesById, searchTerm, sortMode]);
 
-  const availableProducts = products.filter((product) => (
-    product.status === 'active' && product.academyId === saleForm.academyId
-  ));
+  // Produtos sao do catalogo global da Level; servicos continuam por filial.
+  const availableProducts = products.filter((product) => product.status === 'active');
   const availableServices = services.filter((service) => (
     service.status === 'active' && service.academyId === saleForm.academyId
   ));
   const availablePurchaseProducts = useMemo(() => products.filter((product) => (
-    product.status === 'active' && (!purchaseForm.academyId || product.academyId === purchaseForm.academyId)
-  )), [products, purchaseForm.academyId]);
-  const stockListProducts = useMemo(() => products
-    .filter((product) => !stockAcademyId || product.academyId === stockAcademyId)
+    product.status === 'active'
+  )), [products]);
+  const stockListProducts = useMemo(() => [...products]
     .sort((a, b) => a.name.localeCompare(b.name)),
-  [products, stockAcademyId]);
+  [products]);
+
+  function productCatalogPrice(product: FinanceProductRecord, buyerType: SaleFormState['buyerType']): number {
+    return buyerType === 'diretoria' ? product.salePriceDiretoria : product.salePriceFilial;
+  }
 
   function selectedItemPrice(item: SaleItemFormState): number {
     if (item.unitPrice.trim()) return asNumber(item.unitPrice);
-    if (item.type === 'product') return productById.get(item.itemId)?.salePrice ?? 0;
+    if (item.type === 'product') {
+      const product = productById.get(item.itemId);
+      return product ? productCatalogPrice(product, saleForm.buyerType) : 0;
+    }
     return serviceById.get(item.itemId)?.salePrice ?? 0;
   }
 
@@ -555,17 +559,17 @@ const ControleTotalView: React.FC<ControleTotalViewProps> = ({
     await runAction('product', async () => {
       await backendFunctions.upsertFinanceProduct({
         productId: productForm.productId || undefined,
-        academyId: productForm.academyId,
         name: productForm.name,
         category: productForm.category,
         description: productForm.description || undefined,
         purchasePrice: asNumber(productForm.purchasePrice),
-        salePrice: asNumber(productForm.salePrice),
+        salePriceFilial: asNumber(productForm.salePriceFilial),
+        salePriceDiretoria: asNumber(productForm.salePriceDiretoria),
         stockCurrent: asNumber(productForm.stockCurrent),
         stockMinimum: asNumber(productForm.stockMinimum),
         status: productForm.status,
       });
-      setProductForm(initialProductForm(productForm.academyId));
+      setProductForm(initialProductForm());
     });
   }
 
@@ -598,6 +602,7 @@ const ControleTotalView: React.FC<ControleTotalViewProps> = ({
 
       await backendFunctions.createFinanceSale({
         academyId: saleForm.academyId,
+        buyerType: saleForm.buyerType,
         customerId: saleForm.customerId || undefined,
         customerName: saleForm.customerName,
         sellerId: saleForm.sellerId || undefined,
@@ -630,7 +635,7 @@ const ControleTotalView: React.FC<ControleTotalViewProps> = ({
         quantityDelta: quantity,
         reason,
       });
-      setPurchaseForm(initialPurchaseForm(purchaseForm.academyId));
+      setPurchaseForm(initialPurchaseForm());
     });
   }
 
@@ -801,14 +806,15 @@ const ControleTotalView: React.FC<ControleTotalViewProps> = ({
       {activeTab === 'catalog' ? (
         <div className="controle-total__stack">
           <section className="app-panel app-panel-pad controle-total__filters">
-            <label className="app-field">
-              <span className="app-field__label">Filial ativa</span>
-              {renderAcademySelect(selectedAcademyId || defaultAcademyId, (value) => {
-                onSelectAcademy(value);
-                setProductForm((current) => ({ ...current, academyId: value }));
-                setServiceForm((current) => ({ ...current, academyId: value }));
-              })}
-            </label>
+            {catalogMode === 'service' ? (
+              <label className="app-field">
+                <span className="app-field__label">Filial ativa</span>
+                {renderAcademySelect(selectedAcademyId || defaultAcademyId, (value) => {
+                  onSelectAcademy(value);
+                  setServiceForm((current) => ({ ...current, academyId: value }));
+                })}
+              </label>
+            ) : null}
             <label className="app-field">
               <span className="app-field__label">Busca</span>
               <div className="app-search">
@@ -832,18 +838,18 @@ const ControleTotalView: React.FC<ControleTotalViewProps> = ({
                 <div className="controle-total__section-heading">
                   <h3>{productForm.productId ? 'Editar produto' : 'Cadastrar produto'}</h3>
                   {productForm.productId ? (
-                    <button type="button" className="app-button app-button--ghost app-button--small" onClick={() => setProductForm(initialProductForm(productForm.academyId))}>
+                    <button type="button" className="app-button app-button--ghost app-button--small" onClick={() => setProductForm(initialProductForm())}>
                       <X size={16} /> Limpar
                     </button>
                   ) : null}
                 </div>
-                <label className="app-field"><span className="app-field__label">Filial</span>{renderAcademySelect(productForm.academyId, (value) => setProductForm((current) => ({ ...current, academyId: value })))}</label>
                 <label className="app-field"><span className="app-field__label">Nome</span><input required className="app-input" value={productForm.name} onChange={(event) => setProductForm((current) => ({ ...current, name: event.target.value }))} /></label>
                 <label className="app-field"><span className="app-field__label">Categoria</span><select className="app-select" value={productForm.category} onChange={(event) => setProductForm((current) => ({ ...current, category: event.target.value }))}>{productCategories.map((entry) => <option key={entry}>{entry}</option>)}</select></label>
                 <label className="app-field"><span className="app-field__label">Descricao</span><textarea className="app-textarea" value={productForm.description} onChange={(event) => setProductForm((current) => ({ ...current, description: event.target.value }))} /></label>
                 <div className="controle-total__mini-grid">
                   <label className="app-field"><span className="app-field__label">Preco de compra</span><input required className="app-input" inputMode="decimal" value={productForm.purchasePrice} onChange={(event) => setProductForm((current) => ({ ...current, purchasePrice: event.target.value }))} /></label>
-                  <label className="app-field"><span className="app-field__label">Preco de venda</span><input required className="app-input" inputMode="decimal" value={productForm.salePrice} onChange={(event) => setProductForm((current) => ({ ...current, salePrice: event.target.value }))} /></label>
+                  <label className="app-field"><span className="app-field__label">Venda Filial</span><input required className="app-input" inputMode="decimal" value={productForm.salePriceFilial} onChange={(event) => setProductForm((current) => ({ ...current, salePriceFilial: event.target.value }))} /></label>
+                  <label className="app-field"><span className="app-field__label">Venda Diretoria</span><input required className="app-input" inputMode="decimal" value={productForm.salePriceDiretoria} onChange={(event) => setProductForm((current) => ({ ...current, salePriceDiretoria: event.target.value }))} /></label>
                   <label className="app-field"><span className="app-field__label">Estoque atual</span><input className="app-input" inputMode="decimal" value={productForm.stockCurrent} onChange={(event) => setProductForm((current) => ({ ...current, stockCurrent: event.target.value }))} /></label>
                   <label className="app-field"><span className="app-field__label">Estoque minimo</span><input className="app-input" inputMode="decimal" value={productForm.stockMinimum} onChange={(event) => setProductForm((current) => ({ ...current, stockMinimum: event.target.value }))} /></label>
                 </div>
@@ -860,22 +866,38 @@ const ControleTotalView: React.FC<ControleTotalViewProps> = ({
                       <article key={product.id} className={`app-list-card controle-total__catalog-card ${lowStock ? 'is-low-stock' : ''}`}>
                         <div>
                           <strong>{product.name}</strong>
-                          <p>{academyName(academies, product.academyId)} | {product.category}</p>
+                          <p>{product.category}</p>
                           <div className="superadmin-chip-row">
                             <span className={statusClass(product.status)}>{statusLabel(product.status)}</span>
                             <span className={lowStock ? 'app-badge app-badge--danger' : 'app-badge app-badge--muted'}>Estoque {product.stockCurrent}/{product.stockMinimum}</span>
-                            <span className="app-badge app-badge--gold">Lucro {formatCurrency(product.salePrice - product.purchasePrice)}</span>
+                            <span className="app-badge app-badge--muted">Compra {formatCurrency(product.purchasePrice)}</span>
+                            <span className="app-badge app-badge--gold">Filial {formatCurrency(product.salePriceFilial)}</span>
+                            <span className="app-badge app-badge--gold">Diretoria {formatCurrency(product.salePriceDiretoria)}</span>
                           </div>
+                          {product.priceHistory && product.priceHistory.length > 0 ? (
+                            <details className="controle-total__price-history">
+                              <summary>Historico de precos ({product.priceHistory.length})</summary>
+                              <ul>
+                                {[...product.priceHistory].reverse().map((entry, entryIndex) => (
+                                  <li key={entryIndex}>
+                                    <span>{formatDate(toDate(entry.changedAt))}</span>
+                                    <span>Compra {formatCurrency(entry.purchasePrice)} | Filial {formatCurrency(entry.salePriceFilial)} | Diretoria {formatCurrency(entry.salePriceDiretoria)}</span>
+                                    {entry.changedBy ? <span>{userById.get(entry.changedBy)?.displayName ?? 'Usuario'}</span> : null}
+                                  </li>
+                                ))}
+                              </ul>
+                            </details>
+                          ) : null}
                         </div>
                         <div className="controle-total__row-actions">
                           <button type="button" className="app-button app-button--ghost app-button--icon" title="Editar" onClick={() => setProductForm({
                             productId: product.id,
-                            academyId: product.academyId,
                             name: product.name,
                             category: product.category,
                             description: product.description ?? '',
                             purchasePrice: String(product.purchasePrice),
-                            salePrice: String(product.salePrice),
+                            salePriceFilial: String(product.salePriceFilial),
+                            salePriceDiretoria: String(product.salePriceDiretoria),
                             stockCurrent: String(product.stockCurrent),
                             stockMinimum: String(product.stockMinimum),
                             status: product.status,
@@ -979,6 +1001,7 @@ const ControleTotalView: React.FC<ControleTotalViewProps> = ({
             {actionMode === 'sale' ? (
               <form onSubmit={submitSale} className="controle-total__form-grid">
                 <label className="app-field"><span className="app-field__label">Filial</span>{renderAcademySelect(saleForm.academyId, (value) => setSaleForm((current) => ({ ...current, academyId: value })))}</label>
+                <label className="app-field"><span className="app-field__label">Tipo de comprador</span><select className="app-select" value={saleForm.buyerType} onChange={(event) => setSaleForm((current) => ({ ...current, buyerType: event.target.value as SaleFormState['buyerType'] }))}><option value="filial">Filial</option><option value="diretoria">Diretoria</option></select></label>
                 <label className="app-field"><span className="app-field__label">Data</span><input className="app-input" type="date" value={saleForm.saleDate} onChange={(event) => setSaleForm((current) => ({ ...current, saleDate: event.target.value }))} /></label>
                 <label className="app-field"><span className="app-field__label">Cliente</span><input required className="app-input" value={saleForm.customerName} placeholder="Nome do cliente" onChange={(event) => setSaleForm((current) => ({ ...current, customerName: event.target.value }))} /></label>
                 <label className="app-field"><span className="app-field__label">Cliente cadastrado</span><select className="app-select" value={saleForm.customerId} onChange={(event) => selectCustomer(event.target.value)}><option value="">- Avulso -</option>{students.map((student) => <option key={student.id} value={student.id}>{student.displayName}</option>)}</select></label>
@@ -1007,7 +1030,7 @@ const ControleTotalView: React.FC<ControleTotalViewProps> = ({
                         ))}
                       </select>
                       <input className="app-input" inputMode="decimal" placeholder="Qtd" value={item.quantity} onChange={(event) => updateSaleItem(index, { quantity: event.target.value })} />
-                      <input className="app-input" inputMode="decimal" placeholder="Preco unit." value={item.unitPrice} onChange={(event) => updateSaleItem(index, { unitPrice: event.target.value })} />
+                      <input className="app-input" inputMode="decimal" placeholder={item.itemId ? formatCurrency(selectedItemPrice({ ...item, unitPrice: '' })) : 'Preco unit.'} value={item.unitPrice} onChange={(event) => updateSaleItem(index, { unitPrice: event.target.value })} />
                       <input className="app-input" inputMode="decimal" placeholder="Desconto" value={item.discount} onChange={(event) => updateSaleItem(index, { discount: event.target.value })} />
                       <button type="button" className="app-button app-button--ghost app-button--icon" title="Remover" onClick={() => setSaleForm((current) => ({ ...current, items: current.items.filter((_, i) => i !== index) }))}>
                         <Trash2 size={16} />
@@ -1033,7 +1056,6 @@ const ControleTotalView: React.FC<ControleTotalViewProps> = ({
 
             {actionMode === 'purchase' ? (
               <form onSubmit={submitPurchase} className="controle-total__form-grid">
-                <label className="app-field"><span className="app-field__label">Filial</span>{renderAcademySelect(purchaseForm.academyId, (value) => setPurchaseForm((current) => ({ ...current, academyId: value, productId: '' })))}</label>
                 <label className="app-field controle-total__span-2"><span className="app-field__label">Produto</span><select required className="app-select" value={purchaseForm.productId} onChange={(event) => setPurchaseForm((current) => ({ ...current, productId: event.target.value }))}>
                   <option value="">Selecionar produto</option>
                   {availablePurchaseProducts.map((product) => (
@@ -1080,7 +1102,7 @@ const ControleTotalView: React.FC<ControleTotalViewProps> = ({
         <div className="controle-total__stack">
           <section className="app-panel app-panel-pad controle-total__filters">
             <label className="app-field">
-              <span className="app-field__label">Filial</span>
+              <span className="app-field__label">Filial (movimentacoes)</span>
               {renderAcademySelect(stockAcademyId, setStockAcademyId, true)}
             </label>
           </section>
@@ -1103,7 +1125,7 @@ const ControleTotalView: React.FC<ControleTotalViewProps> = ({
                   <article key={product.id} className={`controle-total__stock-card ${lowStock ? 'is-low-stock' : ''} ${product.status === 'inactive' ? 'is-inactive' : ''}`}>
                     <div className="controle-total__stock-card__info">
                       <strong>{product.name}</strong>
-                      <p>{academyName(academies, product.academyId)} | {product.category}</p>
+                      <p>{product.category}</p>
                       <div className="superadmin-chip-row">
                         <span className={statusClass(product.status)}>{statusLabel(product.status)}</span>
                         <span className={lowStock ? 'app-badge app-badge--danger' : 'app-badge app-badge--muted'}>Estoque {product.stockCurrent}/{product.stockMinimum}</span>
@@ -1155,7 +1177,7 @@ const ControleTotalView: React.FC<ControleTotalViewProps> = ({
                   </article>
                 );
               })}
-              {stockListProducts.length === 0 ? <div className="app-empty">Nenhum produto cadastrado para esta filial.</div> : null}
+              {stockListProducts.length === 0 ? <div className="app-empty">Nenhum produto cadastrado.</div> : null}
             </div>
           </section>
 

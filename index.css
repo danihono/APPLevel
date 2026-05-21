@@ -6018,6 +6018,40 @@ html.dark .controle-total__kpi-tile {
   gap: 0.5rem;
 }
 
+.controle-total__price-history {
+  margin-top: 0.6rem;
+}
+
+.controle-total__price-history > summary {
+  cursor: pointer;
+  font-size: 0.8rem;
+  color: var(--text-muted, #94a3b8);
+}
+
+.controle-total__price-history ul {
+  list-style: none;
+  margin: 0.5rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.controle-total__price-history li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.2rem 0.6rem;
+  font-size: 0.78rem;
+  color: var(--text-muted, #94a3b8);
+  border-left: 2px solid rgba(148, 163, 184, 0.3);
+  padding-left: 0.5rem;
+}
+
+.controle-total__price-history li span:first-child {
+  color: var(--text-strong);
+  font-weight: 600;
+}
+
 .controle-total__actions-panel {
   display: flex;
   flex-direction: column;

@@ -71,6 +71,7 @@ export interface FinanceSaleItemPayload {
 export interface FinanceSalePayload {
   saleId?: string;
   academyId: string;
+  buyerType?: 'filial' | 'diretoria';
   customerId?: string;
   customerName: string;
   sellerId?: string;
@@ -513,12 +514,12 @@ export const backendFunctions = {
 
   upsertFinanceProduct: (payload: {
     productId?: string;
-    academyId: string;
     name: string;
     category: string;
     description?: string;
     purchasePrice: number;
-    salePrice: number;
+    salePriceFilial: number;
+    salePriceDiretoria: number;
     stockCurrent?: number;
     stockMinimum: number;
     status?: FinanceStatus;

@@ -460,16 +460,26 @@ export interface LearningQuizAttemptRecord {
   updatedAt?: Timestamp;
 }
 
+export interface ProductPriceHistoryEntry {
+  changedAt: Timestamp;
+  changedBy?: string;
+  changedByName?: string;
+  purchasePrice: number;
+  salePriceFilial: number;
+  salePriceDiretoria: number;
+}
+
 export interface FinanceProductRecord {
-  academyId: string;
   name: string;
   category: string;
   description?: string;
   purchasePrice: number;
-  salePrice: number;
+  salePriceFilial: number;
+  salePriceDiretoria: number;
   stockCurrent: number;
   stockMinimum: number;
   status: FinanceStatus;
+  priceHistory?: ProductPriceHistoryEntry[];
   createdBy?: string;
   createdAt?: Timestamp;
   updatedAt?: Timestamp;
@@ -487,8 +497,11 @@ export interface FinanceServiceRecord {
   updatedAt?: Timestamp;
 }
 
+export type FinanceBuyerType = 'filial' | 'diretoria';
+
 export interface FinanceSaleRecord {
   academyId: string;
+  buyerType?: FinanceBuyerType;
   customerId?: string;
   customerName: string;
   sellerId?: string;

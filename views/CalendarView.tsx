@@ -216,6 +216,15 @@ function classTimeRange(lesson: FirestoreEntity<ClassRecord>) {
     : formatTimeLabel(lesson.scheduledStart);
 }
 
+function classDateParts(lesson: FirestoreEntity<ClassRecord>) {
+  const date = lesson.scheduledStart?.toDate();
+  if (!date) return { day: '--/--', weekday: '' };
+  return {
+    day: date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }),
+    weekday: date.toLocaleDateString('pt-BR', { weekday: 'long' }).toUpperCase(),
+  };
+}
+
 function methodLabel(method: AttendanceRecord['checkInMethod']) {
   switch (method) {
     case 'qr':
@@ -257,9 +266,10 @@ interface ClassListItemProps {
   nowMs: number;
   compact?: boolean;
   isConfirmed?: boolean;
+  showDate?: boolean;
 }
 
-const ClassListItem: React.FC<ClassListItemProps> = ({ lesson, onOpen, nowMs, compact = false, isConfirmed = false }) => {
+const ClassListItem: React.FC<ClassListItemProps> = ({ lesson, onOpen, nowMs, compact = false, isConfirmed = false, showDate = false }) => {
   const displayStatus = effectiveClassStatus(lesson, nowMs);
   const colors = statusColors(displayStatus);
 
@@ -278,7 +288,11 @@ const ClassListItem: React.FC<ClassListItemProps> = ({ lesson, onOpen, nowMs, co
 
         <div className="calendar-mobile__class-copy">
           <p className="calendar-mobile__class-title">{lesson.title}</p>
-          <p className="calendar-mobile__class-time">{formatTimeLabel(lesson.scheduledStart)}</p>
+          <p className="calendar-mobile__class-time">
+            {showDate
+              ? `${classDateParts(lesson).day} • ${formatTimeLabel(lesson.scheduledStart)}`
+              : formatTimeLabel(lesson.scheduledStart)}
+          </p>
         </div>
 
         {isConfirmed ? (
@@ -306,6 +320,23 @@ const ClassListItem: React.FC<ClassListItemProps> = ({ lesson, onOpen, nowMs, co
     >
       <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
         <div style={{ display: 'flex', gap: 12, flex: 1, minWidth: 0 }}>
+          {showDate ? (
+            <div
+              style={{
+                minWidth: 96,
+                padding: '0.7rem 0.8rem',
+                borderRadius: 16,
+                border: '1px solid rgba(232,175,72,0.2)',
+                background: 'rgba(232,175,72,0.1)',
+              }}
+            >
+              <p style={{ fontSize: '0.92rem', fontWeight: 800 }}>{classDateParts(lesson).day}</p>
+              <p style={{ marginTop: 6, fontSize: '0.68rem', fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--text-soft)' }}>
+                {classDateParts(lesson).weekday}
+              </p>
+            </div>
+          ) : null}
+
           <div
             style={{
               minWidth: 96,
@@ -1674,6 +1705,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                   nowMs={nowMs}
                   compact={isCompactMonthGrid}
                   isConfirmed={!!myRsvpByClass[lesson.id]}
+                  showDate
                 />
               ))
             ) : (

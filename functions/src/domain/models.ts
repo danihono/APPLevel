@@ -482,16 +482,26 @@ export interface LearningQuizAttemptDoc {
   updatedAt: FirebaseFirestore.Timestamp;
 }
 
+export interface ProductPriceHistoryEntry {
+  changedAt: FirebaseFirestore.Timestamp;
+  changedBy?: string;
+  changedByName?: string;
+  purchasePrice: number;
+  salePriceFilial: number;
+  salePriceDiretoria: number;
+}
+
 export interface FinanceProductDoc {
-  academyId: string;
   name: string;
   category: string;
   description?: string;
   purchasePrice: number;
-  salePrice: number;
+  salePriceFilial: number;
+  salePriceDiretoria: number;
   stockCurrent: number;
   stockMinimum: number;
   status: FinanceStatus;
+  priceHistory?: ProductPriceHistoryEntry[];
   createdBy: string;
   createdAt: FirebaseFirestore.Timestamp;
   updatedAt: FirebaseFirestore.Timestamp;
@@ -509,8 +519,11 @@ export interface FinanceServiceDoc {
   updatedAt: FirebaseFirestore.Timestamp;
 }
 
+export type FinanceBuyerType = 'filial' | 'diretoria';
+
 export interface FinanceSaleDoc {
   academyId: string;
+  buyerType: FinanceBuyerType;
   customerId?: string;
   customerName: string;
   sellerId?: string;
