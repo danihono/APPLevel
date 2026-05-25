@@ -355,6 +355,7 @@ export const backendFunctions = {
       syncedUsers: number;
       created: number;
       skippedExisting: number;
+      skippedDismissed: number;
     }>('repairPendingGraduationNotifications', payload),
 
   registerDeviceToken: (payload: { token: string }) =>

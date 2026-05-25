@@ -230,6 +230,7 @@ export interface AttendanceRequestDoc {
   reviewedAt?: FirebaseFirestore.Timestamp;
   reviewedBy?: string;
   reviewedByRole?: Role;
+  notificationDismissedAt?: FirebaseFirestore.Timestamp;
   createdAt: FirebaseFirestore.Timestamp;
   updatedAt: FirebaseFirestore.Timestamp;
 }
@@ -268,6 +269,7 @@ export interface GraduationApprovalRequestDoc {
   approvedByRole?: Role;
   archivedAt?: FirebaseFirestore.Timestamp;
   archivedBy?: string;
+  notificationDismissedAt?: FirebaseFirestore.Timestamp;
 }
 
 export interface MissionDoc {
@@ -356,6 +358,7 @@ export interface FightVideoSubmissionDoc {
   reviewedAt?: FirebaseFirestore.Timestamp;
   reviewedBy?: string;
   reviewedByRole?: Role;
+  notificationDismissedAt?: FirebaseFirestore.Timestamp;
 }
 
 export interface StoreItemDoc {
@@ -663,6 +666,7 @@ export interface JoinRequestDoc {
   resolvedAt?: FirebaseFirestore.Timestamp;
   resolvedBy?: string;
   resolvedByRole?: Role;
+  notificationDismissedAt?: FirebaseFirestore.Timestamp;
 }
 
 export interface ReactivationRequestDoc {
@@ -675,6 +679,7 @@ export interface ReactivationRequestDoc {
   resolvedAt?: FirebaseFirestore.Timestamp;
   resolvedBy?: string;
   resolvedByRole?: Role;
+  notificationDismissedAt?: FirebaseFirestore.Timestamp;
   createdAt: FirebaseFirestore.Timestamp;
   updatedAt: FirebaseFirestore.Timestamp;
 }

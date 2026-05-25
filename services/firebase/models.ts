@@ -152,6 +152,7 @@ export interface AttendanceRequestRecord {
   reviewedAt?: Timestamp;
   reviewedBy?: string;
   reviewedByRole?: AppRole;
+  notificationDismissedAt?: Timestamp;
   createdAt?: Timestamp;
   updatedAt?: Timestamp;
 }
@@ -249,6 +250,7 @@ export interface GraduationApprovalRequestRecord {
   approvedByRole?: AppRole;
   archivedAt?: Timestamp;
   archivedBy?: string;
+  notificationDismissedAt?: Timestamp;
 }
 
 export interface JoinRequestRecord {
@@ -273,6 +275,7 @@ export interface JoinRequestRecord {
   resolvedAt?: Timestamp;
   resolvedBy?: string;
   resolvedByRole?: AppRole;
+  notificationDismissedAt?: Timestamp;
 }
 
 export interface ReactivationRequestRecord {
@@ -285,6 +288,7 @@ export interface ReactivationRequestRecord {
   resolvedAt?: Timestamp;
   resolvedBy?: string;
   resolvedByRole?: AppRole;
+  notificationDismissedAt?: Timestamp;
   createdAt?: Timestamp;
   updatedAt?: Timestamp;
 }
@@ -334,6 +338,7 @@ export interface FightVideoSubmissionRecord {
   reviewedAt?: Timestamp;
   reviewedBy?: string;
   reviewedByRole?: AppRole;
+  notificationDismissedAt?: Timestamp;
 }
 
 export interface StoreItemRecord {

@@ -102,8 +102,13 @@ async function ensureGraduationNotification(params: {
   user: UserDoc;
   step: ProgressionNextStep;
   now: Timestamp;
+  dismissed?: boolean;
 }): Promise<void> {
   if (params.step.remainingClasses > 1) {
+    return;
+  }
+
+  if (params.dismissed) {
     return;
   }
 
@@ -243,6 +248,7 @@ export async function syncGraduationApprovalRequest(
         user: params.user,
         step: nextStep,
         now,
+        dismissed: Boolean(pendingRequest.data.notificationDismissedAt),
       });
       return;
     }

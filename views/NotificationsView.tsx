@@ -960,7 +960,7 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
                       type="button"
                       disabled={isProcessing}
                       onClick={() => void handleApproveGraduation(item)}
-                      className="app-button app-button--gold app-button--small"
+                      className="app-button app-button--green app-button--small"
                     >
                       <CheckCircle2 size={15} />
                       {isProcessing ? 'Processando...' : 'Aprovar'}
@@ -1586,7 +1586,7 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
                   type="button"
                   disabled={isProcessing}
                   onClick={() => void handleApproveGraduation(item)}
-                  className="app-button app-button--gold app-button--small"
+                  className="app-button app-button--green app-button--small"
                 >
                   <CheckCircle2 size={15} />
                   {isProcessing ? 'Processando...' : 'Aprovar próxima graduação'}

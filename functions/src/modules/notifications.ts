@@ -81,6 +81,45 @@ async function deleteNotificationSnapshots(
   return existingSnapshots.length;
 }
 
+const NOTIFICATION_KIND_TO_REQUEST_COLLECTION: Partial<Record<NotificationDoc['kind'], string>> = {
+  graduation: COLLECTIONS.graduationRequests,
+  join_request: COLLECTIONS.joinRequests,
+  attendance_request: COLLECTIONS.attendanceRequests,
+  fight_video_submission: COLLECTIONS.fightVideoSubmissions,
+  reactivation_request: COLLECTIONS.reactivationRequests,
+};
+
+async function markRequestsAsNotificationDismissed(
+  snapshots: FirebaseFirestore.DocumentSnapshot[],
+): Promise<void> {
+  const now = Timestamp.now();
+  const toMark = new Map<string, Set<string>>();
+
+  for (const doc of snapshots) {
+    if (!doc.exists) continue;
+    const notif = doc.data() as NotificationDoc;
+    const targetCollection = NOTIFICATION_KIND_TO_REQUEST_COLLECTION[notif.kind];
+    if (!targetCollection || !notif.actionRef) continue;
+    if (!toMark.has(targetCollection)) toMark.set(targetCollection, new Set());
+    toMark.get(targetCollection)!.add(notif.actionRef);
+  }
+
+  for (const [collectionName, idSet] of toMark) {
+    for (const idChunk of chunk([...idSet], 300)) {
+      const refs = idChunk.map((id) => db.collection(collectionName).doc(id));
+      const requestSnapshots = await db.getAll(...refs);
+      const existing = requestSnapshots.filter((doc) => doc.exists);
+      if (existing.length === 0) continue;
+
+      const writeBatch = db.batch();
+      for (const doc of existing) {
+        writeBatch.update(doc.ref, { notificationDismissedAt: now, updatedAt: now });
+      }
+      await writeBatch.commit();
+    }
+  }
+}
+
 async function archiveGraduationRequestSnapshots(
   snapshots: FirebaseFirestore.QueryDocumentSnapshot[],
   actorId: string,
@@ -269,6 +308,7 @@ export const repairPendingGraduationNotifications = onCall(callableOptions, asyn
 
   let created = 0;
   let skippedExisting = 0;
+  let skippedDismissed = 0;
   let syncedUsers = 0;
 
   if (academyId) {
@@ -284,6 +324,12 @@ export const repairPendingGraduationNotifications = onCall(callableOptions, asyn
 
     for (const requestDoc of requestChunk) {
       const graduationRequest = requestDoc.data() as GraduationApprovalRequestDoc;
+
+      if (graduationRequest.notificationDismissedAt) {
+        skippedDismissed += 1;
+        continue;
+      }
+
       const existingNotification = await db
         .collection(COLLECTIONS.notifications)
         .where('academyId', '==', graduationRequest.academyId)
@@ -337,6 +383,7 @@ export const repairPendingGraduationNotifications = onCall(callableOptions, asyn
     syncedUsers,
     created,
     skippedExisting,
+    skippedDismissed,
   };
 });
 
@@ -433,6 +480,7 @@ export const clearNotifications = onCall(callableOptions, async (request) => {
       'Voce nao pode limpar uma ou mais notificacoes selecionadas.',
     );
 
+    await markRequestsAsNotificationDismissed(snapshots);
     return { deleted: await deleteNotificationSnapshots(snapshots) };
   }
 
@@ -452,5 +500,6 @@ export const clearNotifications = onCall(callableOptions, async (request) => {
 
   const snapshot = await notifQuery.get();
 
+  await markRequestsAsNotificationDismissed(snapshot.docs);
   return { deleted: await deleteNotificationSnapshots(snapshot.docs) };
 });
