@@ -707,7 +707,7 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
                 role="tab"
                 aria-selected={historyPeriod === option.value}
                 onClick={() => setHistoryPeriod(option.value)}
-                className="app-segment__button"
+                className={`app-segment__button ${historyPeriod === option.value ? 'is-active' : ''}`}
               >
                 {option.label}
               </button>
