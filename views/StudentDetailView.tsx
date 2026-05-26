@@ -10,19 +10,20 @@ import {
   KIDS_CATEGORIES,
   type ProgressionRules,
 } from '../beltCatalog';
-import { ArrowLeft, Award, Calendar, Camera, CheckCircle2, Clock, Edit, Mail, Save, TrendingUp, UserX, Video, BookOpen } from 'lucide-react';
+import { ArrowLeft, ArrowDown, ArrowUp, Award, Calendar, Camera, CheckCircle2, ChevronDown, ChevronUp, Clock, Edit, Filter, Mail, QrCode, Save, TrendingUp, UserCheck, UserX, Video, BookOpen } from 'lucide-react';
 import AppVideoContent from '../components/AppVideoContent';
 import AvatarWithBelt from '../components/AvatarWithBelt';
 import ProgressBar from '../components/ProgressBar';
 import StudentProfileEditModal from '../components/StudentProfileEditModal';
-import { subscribeToUserGraduations, type FirestoreEntity } from '../services/firebase/data';
-import type { GraduationApprovalRequestRecord, GraduationRecord } from '../services/firebase/models';
+import { subscribeToUserAttendances, subscribeToUserGraduations, type FirestoreEntity } from '../services/firebase/data';
+import type { AttendanceRecord, ClassRecord, GraduationApprovalRequestRecord, GraduationRecord } from '../services/firebase/models';
 import type { KidsCategory, User } from '../types';
 
 interface StudentDetailViewProps {
   student: User;
   progressionRules?: ProgressionRules | null;
   graduationRequest?: FirestoreEntity<GraduationApprovalRequestRecord> | null;
+  classes?: Array<FirestoreEntity<ClassRecord>>;
   onBack: () => void;
   onApproveGraduationRequest?: (requestId: string) => Promise<void>;
   onUpdateStudentBeltGrade?: (payload: { userId: string; belt: string; grade: number; stripes?: number; kidsCategory?: string }) => Promise<void>;
@@ -66,10 +67,52 @@ function graduationTargetLabel(request: FirestoreEntity<GraduationApprovalReques
     : `${request.targetStripes} grau(s) na faixa ${beltLabel(request.targetBelt)}`;
 }
 
+type AttendancePeriodPreset = 'week' | 'month' | '3months' | 'all' | 'custom';
+type AttendanceSortDir = 'desc' | 'asc';
+
+const ATTENDANCE_PAGE_SIZE = 30;
+
+function resolveAttendanceRange(
+  preset: AttendancePeriodPreset,
+  customFrom: string,
+  customTo: string,
+): { start: Date | null; end: Date | null } {
+  const now = new Date();
+
+  if (preset === 'all') {
+    return { start: null, end: null };
+  }
+
+  if (preset === 'custom') {
+    const start = /^\d{4}-\d{2}-\d{2}$/.test(customFrom) ? new Date(`${customFrom}T00:00:00`) : null;
+    const end = /^\d{4}-\d{2}-\d{2}$/.test(customTo) ? new Date(`${customTo}T23:59:59.999`) : null;
+    return { start, end };
+  }
+
+  const end = now;
+  const start = new Date(now);
+  if (preset === 'week') {
+    start.setDate(start.getDate() - 7);
+  } else if (preset === 'month') {
+    start.setMonth(start.getMonth() - 1);
+  } else if (preset === '3months') {
+    start.setMonth(start.getMonth() - 3);
+  }
+  return { start, end };
+}
+
+function attendanceCheckInMethodLabel(method: AttendanceRecord['checkInMethod']) {
+  if (method === 'qr') return 'QR code';
+  if (method === 'manual') return 'Manual';
+  if (method === 'request') return 'Solicitada';
+  return method;
+}
+
 const StudentDetailView: React.FC<StudentDetailViewProps> = ({
   student,
   progressionRules,
   graduationRequest = null,
+  classes = [],
   onBack,
   onApproveGraduationRequest,
   onUpdateStudentBeltGrade,
@@ -102,6 +145,14 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
   const [feedback, setFeedback] = useState('');
   const [error, setError] = useState('');
   const [liveGraduations, setLiveGraduations] = useState<Array<FirestoreEntity<GraduationRecord>>>([]);
+  const [studentAttendances, setStudentAttendances] = useState<Array<FirestoreEntity<AttendanceRecord>>>([]);
+  const [historyPeriod, setHistoryPeriod] = useState<AttendancePeriodPreset>('month');
+  const [historyCustomFrom, setHistoryCustomFrom] = useState('');
+  const [historyCustomTo, setHistoryCustomTo] = useState('');
+  const [historyClassTitle, setHistoryClassTitle] = useState('');
+  const [historySortDir, setHistorySortDir] = useState<AttendanceSortDir>('desc');
+  const [historyAdvancedOpen, setHistoryAdvancedOpen] = useState(false);
+  const [historyVisibleCount, setHistoryVisibleCount] = useState(ATTENDANCE_PAGE_SIZE);
 
   useEffect(() => {
     setStudentBelt(student.belt);
@@ -111,8 +162,62 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
   }, [student]);
 
   useEffect(() => {
+    setHistoryVisibleCount(ATTENDANCE_PAGE_SIZE);
+  }, [student.id, historyPeriod, historyCustomFrom, historyCustomTo, historyClassTitle, historySortDir]);
+
+  useEffect(() => {
     return subscribeToUserGraduations(student.branchId, student.id, setLiveGraduations);
   }, [student.id, student.branchId]);
+
+  useEffect(() => {
+    return subscribeToUserAttendances(student.branchId, student.id, setStudentAttendances);
+  }, [student.id, student.branchId]);
+
+  const classesById = useMemo(() => {
+    const map = new Map<string, FirestoreEntity<ClassRecord>>();
+    classes.forEach((entry) => map.set(entry.id, entry));
+    return map;
+  }, [classes]);
+
+  const availableClassTitles = useMemo(() => {
+    const titles = new Set<string>();
+    studentAttendances.forEach((att) => {
+      const title = classesById.get(att.classId)?.title?.trim();
+      if (title) {
+        titles.add(title);
+      }
+    });
+    return Array.from(titles).sort((left, right) => left.localeCompare(right, 'pt-BR'));
+  }, [studentAttendances, classesById]);
+
+  const filteredAttendances = useMemo(() => {
+    const { start, end } = resolveAttendanceRange(historyPeriod, historyCustomFrom, historyCustomTo);
+    const selectedTitle = historyClassTitle.trim();
+
+    const result = studentAttendances.filter((att) => {
+      const refDate = (att.checkedInAt ?? att.createdAt)?.toDate?.();
+      if (start && refDate && refDate < start) return false;
+      if (end && refDate && refDate > end) return false;
+      if (selectedTitle) {
+        const title = classesById.get(att.classId)?.title?.trim() ?? '';
+        if (title !== selectedTitle) return false;
+      }
+      return true;
+    });
+
+    result.sort((left, right) => {
+      const leftMs = (left.checkedInAt ?? left.createdAt)?.toDate?.()?.getTime?.() ?? 0;
+      const rightMs = (right.checkedInAt ?? right.createdAt)?.toDate?.()?.getTime?.() ?? 0;
+      return historySortDir === 'desc' ? rightMs - leftMs : leftMs - rightMs;
+    });
+
+    return result;
+  }, [studentAttendances, classesById, historyPeriod, historyCustomFrom, historyCustomTo, historyClassTitle, historySortDir]);
+
+  const visibleAttendances = useMemo(
+    () => filteredAttendances.slice(0, historyVisibleCount),
+    [filteredAttendances, historyVisibleCount],
+  );
 
   const studentTrack = useMemo<'Adulto' | 'Kids'>(() => {
     if (isKidsOnlyBelt(studentBelt)) {
@@ -571,6 +676,154 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
               : `Regra oficial da faixa ${beltLabel(progression.currentBelt)}: progressão manual.`}
           </p>
         </div>
+      </section>
+
+      <section className="app-panel app-panel-pad">
+        <div className="flex items-center gap-3">
+          <div className="app-icon-shell">
+            <Calendar size={18} />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="app-section-label">Histórico</p>
+            <h2 className="text-xl font-bold">Aulas frequentadas</h2>
+            <p className="mt-1 text-xs text-[color:var(--text-soft)]">
+              {filteredAttendances.length} aula{filteredAttendances.length === 1 ? '' : 's'} no período selecionado
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-5">
+          <div className="app-segment flex flex-wrap gap-2" role="tablist" aria-label="Período do histórico de aulas">
+            {([
+              { value: 'week', label: '7 dias' },
+              { value: 'month', label: 'Mês' },
+              { value: '3months', label: '3 meses' },
+              { value: 'all', label: 'Todos' },
+              { value: 'custom', label: 'Personalizado' },
+            ] as Array<{ value: AttendancePeriodPreset; label: string }>).map((option) => (
+              <button
+                key={option.value}
+                type="button"
+                role="tab"
+                aria-selected={historyPeriod === option.value}
+                onClick={() => setHistoryPeriod(option.value)}
+                className="app-segment__button"
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="mt-4">
+          <button
+            type="button"
+            onClick={() => setHistoryAdvancedOpen((value) => !value)}
+            className="app-button app-button--ghost app-button--small"
+            aria-expanded={historyAdvancedOpen}
+          >
+            <Filter size={14} />
+            Mais filtros
+            {historyAdvancedOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+          </button>
+        </div>
+
+        {historyAdvancedOpen ? (
+          <div className="mt-4 space-y-4">
+            <label className="app-field">
+              <span className="app-field__label">Nome da aula</span>
+              <select
+                value={historyClassTitle}
+                onChange={(event) => setHistoryClassTitle(event.target.value)}
+                className="app-select"
+                disabled={availableClassTitles.length === 0}
+              >
+                <option value="">Todas as aulas</option>
+                {availableClassTitles.map((title) => (
+                  <option key={title} value={title}>{title}</option>
+                ))}
+              </select>
+              {availableClassTitles.length === 0 ? (
+                <span className="app-field__hint">Nenhum nome de aula disponível para este aluno ainda.</span>
+              ) : null}
+            </label>
+
+            {historyPeriod === 'custom' ? (
+              <div className="app-grid-2">
+                <label className="app-field">
+                  <span className="app-field__label">De</span>
+                  <input
+                    type="date"
+                    value={historyCustomFrom}
+                    onChange={(event) => setHistoryCustomFrom(event.target.value)}
+                    className="app-input"
+                  />
+                </label>
+                <label className="app-field">
+                  <span className="app-field__label">Até</span>
+                  <input
+                    type="date"
+                    value={historyCustomTo}
+                    onChange={(event) => setHistoryCustomTo(event.target.value)}
+                    className="app-input"
+                  />
+                </label>
+              </div>
+            ) : null}
+
+            <button
+              type="button"
+              onClick={() => setHistorySortDir((value) => (value === 'desc' ? 'asc' : 'desc'))}
+              className="app-button app-button--ghost app-button--small"
+            >
+              {historySortDir === 'desc' ? <ArrowDown size={14} /> : <ArrowUp size={14} />}
+              {historySortDir === 'desc' ? 'Mais recentes primeiro' : 'Mais antigas primeiro'}
+            </button>
+          </div>
+        ) : null}
+
+        <div className="mt-5 app-list">
+          {visibleAttendances.length === 0 ? (
+            <div className="app-empty">Nenhuma aula encontrada no período selecionado.</div>
+          ) : (
+            visibleAttendances.map((attendance) => {
+              const classInfo = classesById.get(attendance.classId);
+              const refDate = (attendance.checkedInAt ?? classInfo?.scheduledStart ?? attendance.createdAt)?.toDate?.();
+              const dateLabel = refDate ? refDate.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Sem data';
+              const counts = attendance.countsAsAttendance ?? true;
+              return (
+                <div key={attendance.id} className="app-list-card flex items-start gap-4">
+                  <div className="app-icon-shell">
+                    {attendance.checkInMethod === 'qr' ? <QrCode size={16} /> : <UserCheck size={16} />}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-bold truncate">{classInfo?.title ?? 'Aula da academia'}</p>
+                    <p className="mt-1 text-xs text-[color:var(--text-soft)]">{dateLabel}</p>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      <span className="app-badge app-badge--muted">{attendanceCheckInMethodLabel(attendance.checkInMethod)}</span>
+                      {classInfo?.professorName ? (
+                        <span className="app-badge app-badge--muted">Prof. {classInfo.professorName}</span>
+                      ) : null}
+                      {!counts ? <span className="app-badge app-badge--muted">Não computada</span> : null}
+                    </div>
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+
+        {filteredAttendances.length > historyVisibleCount ? (
+          <div className="mt-4">
+            <button
+              type="button"
+              onClick={() => setHistoryVisibleCount((value) => value + ATTENDANCE_PAGE_SIZE)}
+              className="app-button app-button--ghost app-button--block"
+            >
+              Carregar mais ({filteredAttendances.length - historyVisibleCount} restantes)
+            </button>
+          </div>
+        ) : null}
       </section>
 
       {student.videos && student.videos.length > 0 ? (

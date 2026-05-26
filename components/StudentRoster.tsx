@@ -4,7 +4,7 @@ import { BarChart3, ChevronRight, List, Search, UserX } from 'lucide-react';
 import AvatarWithBelt from './AvatarWithBelt';
 import StudentDetailView from '../views/StudentDetailView';
 import type { FirestoreEntity } from '../services/firebase/data';
-import type { AttendanceRecord, GraduationApprovalRequestRecord } from '../services/firebase/models';
+import type { AttendanceRecord, ClassRecord, GraduationApprovalRequestRecord } from '../services/firebase/models';
 import type { BeltColor, User } from '../types';
 
 type SortMode = 'name-asc' | 'name-desc' | 'belt-desc' | 'grade-desc';
@@ -17,6 +17,7 @@ export interface StudentRosterProps {
   progressionRules?: ProgressionRules | null;
   graduationRequests?: Array<FirestoreEntity<GraduationApprovalRequestRecord>>;
   rankingAttendances?: Array<FirestoreEntity<AttendanceRecord>>;
+  classes?: Array<FirestoreEntity<ClassRecord>>;
   academyName?: string;
   academies?: Array<{ id: string; name: string }>;
   selectedAcademyId?: string;
@@ -222,6 +223,7 @@ const StudentRoster: React.FC<StudentRosterProps> = ({
   progressionRules,
   graduationRequests = [],
   rankingAttendances = [],
+  classes = [],
   academyName,
   academies = [],
   selectedAcademyId = '',
@@ -417,6 +419,7 @@ const StudentRoster: React.FC<StudentRosterProps> = ({
         student={selectedStudent}
         progressionRules={progressionRules}
         graduationRequest={graduationRequestByUserId.get(selectedStudent.id) ?? null}
+        classes={classes}
         onBack={() => {
           setInternalSelectedStudentId('');
           onSelectStudent?.('');

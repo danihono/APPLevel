@@ -2470,6 +2470,7 @@ const App: React.FC = () => {
             progressionRules={resolvedAcademy.progressionRules}
             graduationRequests={graduationRequests}
             rankingAttendances={rankingAttendances}
+            classes={classes}
             academyName={
               isSuperadminNetworkView
                 ? (

@@ -2,7 +2,7 @@ import React from 'react';
 import type { ProgressionRules } from '../beltCatalog';
 import StudentRoster from '../components/StudentRoster';
 import type { FirestoreEntity } from '../services/firebase/data';
-import type { AttendanceRecord, GraduationApprovalRequestRecord } from '../services/firebase/models';
+import type { AttendanceRecord, ClassRecord, GraduationApprovalRequestRecord } from '../services/firebase/models';
 import type { User } from '../types';
 
 interface StudentsViewProps {
@@ -11,6 +11,7 @@ interface StudentsViewProps {
   progressionRules?: ProgressionRules | null;
   graduationRequests?: Array<FirestoreEntity<GraduationApprovalRequestRecord>>;
   rankingAttendances?: Array<FirestoreEntity<AttendanceRecord>>;
+  classes?: Array<FirestoreEntity<ClassRecord>>;
   academyName?: string;
   academies?: Array<{ id: string; name: string }>;
   selectedAcademyId?: string;
@@ -48,6 +49,7 @@ const StudentsView: React.FC<StudentsViewProps> = ({
   progressionRules,
   graduationRequests = [],
   rankingAttendances = [],
+  classes = [],
   academyName,
   academies = [],
   selectedAcademyId = '',
@@ -72,6 +74,7 @@ const StudentsView: React.FC<StudentsViewProps> = ({
       progressionRules={progressionRules}
       graduationRequests={graduationRequests}
       rankingAttendances={rankingAttendances}
+      classes={classes}
       academyName={academyName}
       academies={academies}
       selectedAcademyId={selectedAcademyId}
