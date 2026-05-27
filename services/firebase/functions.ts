@@ -66,12 +66,15 @@ export interface FinanceSaleItemPayload {
   quantity: number;
   unitPrice?: number;
   discount?: number;
+  beneficiaryName?: string;
+  beneficiaryUserId?: string;
 }
 
 export interface FinanceSalePayload {
   saleId?: string;
   academyId: string;
   buyerType?: 'filial' | 'diretoria';
+  buyerAcademyId?: string;
   customerId?: string;
   customerName: string;
   sellerId?: string;
@@ -568,6 +571,7 @@ export const backendFunctions = {
     serviceId?: string;
     academyId: string;
     name: string;
+    category?: string;
     description?: string;
     cost: number;
     salePrice: number;

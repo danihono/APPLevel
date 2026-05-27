@@ -1,0 +1,13 @@
+[
+  {
+    "origin": [
+      "https://applevel-c5e73.web.app",
+      "https://applevel-c5e73.firebaseapp.com",
+      "http://localhost:5173",
+      "http://localhost:5000"
+    ],
+    "method": ["GET", "HEAD"],
+    "maxAgeSeconds": 3600,
+    "responseHeader": ["Content-Type", "Cache-Control"]
+  }
+]

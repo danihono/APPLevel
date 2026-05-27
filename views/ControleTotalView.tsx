@@ -17,17 +17,18 @@ import {
 } from 'lucide-react';
 import type { FirestoreEntity } from '../services/firebase/data';
 import { backendFunctions, type FinanceSaleItemPayload } from '../services/firebase/functions';
-import type {
-  AcademyRecord,
-  FinanceExpenseRecord,
-  FinancePaymentRecord,
-  FinanceProductRecord,
-  FinanceRevenueRecord,
-  FinanceSaleItemRecord,
-  FinanceSaleRecord,
-  FinanceServiceRecord,
-  InventoryMovementRecord,
-  UserRecord,
+import {
+  LEVEL_CATALOG_ID,
+  type AcademyRecord,
+  type FinanceExpenseRecord,
+  type FinancePaymentRecord,
+  type FinanceProductRecord,
+  type FinanceRevenueRecord,
+  type FinanceSaleItemRecord,
+  type FinanceSaleRecord,
+  type FinanceServiceRecord,
+  type InventoryMovementRecord,
+  type UserRecord,
 } from '../services/firebase/models';
 
 type ControleTab = 'dashboard' | 'catalog' | 'list' | 'stock';
@@ -68,6 +69,7 @@ interface ServiceFormState {
   serviceId: string;
   academyId: string;
   name: string;
+  category: string;
   description: string;
   cost: string;
   salePrice: string;
@@ -80,11 +82,17 @@ interface SaleItemFormState {
   quantity: string;
   unitPrice: string;
   discount: string;
+  beneficiaryName: string;
+  beneficiaryUserId: string;
 }
 
 interface SaleFormState {
+  // academyId continua sendo a filial compradora quando buyerType==='filial',
+  // ou LEVEL_CATALOG_ID quando buyerType==='diretoria'. buyerAcademyId espelha
+  // explicitamente a filial compradora (vazio quando diretoria).
   academyId: string;
   buyerType: 'filial' | 'diretoria';
+  buyerAcademyId: string;
   customerId: string;
   customerName: string;
   sellerId: string;
@@ -118,6 +126,10 @@ interface TimelineEntry {
 
 const paymentMethods = ['Pix', 'Cartao de credito', 'Cartao de debito', 'Dinheiro', 'Boleto', 'Transferencia'];
 const productCategories = ['Kimono', 'Rashguard', 'Faixa', 'Camiseta', 'Short', 'Protecao', 'Outros'];
+// Categorias de servicos disponiveis na UI. 'Certificado' liga a regra de
+// beneficiario obrigatorio no item de venda.
+const serviceCategories = ['Outros', 'Certificado', 'Mensalidade', 'Aula avulsa', 'Matricula'];
+const CERTIFICATE_CATEGORY = 'Certificado';
 
 function toDate(value: { toDate?: () => Date; seconds?: number } | null | undefined): Date | null {
   if (!value) return null;
@@ -153,8 +165,9 @@ function isWithin(date: Date | null, startValue: string, endValue: string): bool
     && date.getTime() <= parseInputDate(endValue, true).getTime();
 }
 
-function formatCurrency(value: number): string {
-  return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+function formatCurrency(value: number | undefined | null): string {
+  const safeValue = typeof value === 'number' && Number.isFinite(value) ? value : 0;
+  return safeValue.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
 
 function formatDate(date: Date | null): string {
@@ -168,6 +181,7 @@ function asNumber(value: string): number {
 }
 
 function academyName(academies: Array<FirestoreEntity<AcademyRecord>>, academyId: string): string {
+  if (academyId === LEVEL_CATALOG_ID) return 'Diretoria';
   return academies.find((academy) => academy.id === academyId)?.name ?? 'Filial';
 }
 
@@ -213,6 +227,7 @@ function initialServiceForm(academyId: string): ServiceFormState {
     serviceId: '',
     academyId,
     name: '',
+    category: 'Outros',
     description: '',
     cost: '',
     salePrice: '',
@@ -227,6 +242,8 @@ function initialSaleItem(): SaleItemFormState {
     quantity: '1',
     unitPrice: '',
     discount: '0',
+    beneficiaryName: '',
+    beneficiaryUserId: '',
   };
 }
 
@@ -234,6 +251,7 @@ function initialSaleForm(academyId: string): SaleFormState {
   return {
     academyId,
     buyerType: 'filial',
+    buyerAcademyId: academyId,
     customerId: '',
     customerName: '',
     sellerId: '',
@@ -349,10 +367,15 @@ const ControleTotalView: React.FC<ControleTotalViewProps> = ({
         });
         return map;
       }, new Map());
+    // Ignora o sentinel da Central no ranking de "filiais com maior faturamento".
     const academyRevenue = scopedRevenues.reduce<Map<string, number>>((map, revenue) => {
+      if (revenue.academyId === LEVEL_CATALOG_ID) return map;
       map.set(revenue.academyId, (map.get(revenue.academyId) ?? 0) + revenue.amount);
       return map;
     }, new Map());
+    const filialSalesTotal = ticketSales
+      .filter((sale) => sale.buyerType === 'filial')
+      .reduce((total, sale) => total + sale.total, 0);
     const customerTotals = ticketSales.reduce<Map<string, number>>((map, sale) => {
       map.set(sale.customerName, (map.get(sale.customerName) ?? 0) + sale.total);
       return map;
@@ -360,6 +383,7 @@ const ControleTotalView: React.FC<ControleTotalViewProps> = ({
 
     return {
       soldTotal: ticketSales.reduce((total, sale) => total + sale.total, 0),
+      filialSalesTotal,
       revenueTotal,
       pendingTotal,
       expenseTotal,
@@ -400,11 +424,14 @@ const ControleTotalView: React.FC<ControleTotalViewProps> = ({
     const entries: TimelineEntry[] = [];
 
     sales.forEach((sale) => {
+      const buyerLabel = sale.buyerType === 'diretoria'
+        ? 'Diretoria'
+        : `Comprador: ${academyName(academies, sale.buyerAcademyId ?? sale.academyId)}`;
       entries.push({
         id: `sale:${sale.id}`,
         type: 'sale',
         title: `Venda - ${sale.customerName}`,
-        subtitle: `${academyName(academies, sale.academyId)} | ${statusLabel(sale.paymentStatus)}`,
+        subtitle: `${buyerLabel} | ${statusLabel(sale.paymentStatus)}`,
         academyId: sale.academyId,
         date: toDate(sale.saleDate ?? sale.createdAt) ?? new Date(0),
         value: sale.total,
@@ -478,10 +505,16 @@ const ControleTotalView: React.FC<ControleTotalViewProps> = ({
       });
   }, [academies, expenses, inventoryMovements, listAcademyId, listEnd, listStart, listType, payments, revenues, sales, salesById, searchTerm, sortMode]);
 
-  // Produtos sao do catalogo global da Level; servicos continuam por filial.
+  // Produtos sao do catalogo global da Level. Servicos podem ser do catalogo
+  // Central (vendaveis para qualquer filial - ex.: emissao de certificado) ou
+  // por filial (estes so aparecem quando a filial compradora coincide).
   const availableProducts = products.filter((product) => product.status === 'active');
   const availableServices = services.filter((service) => (
-    service.status === 'active' && service.academyId === saleForm.academyId
+    service.status === 'active'
+    && (
+      service.academyId === LEVEL_CATALOG_ID
+      || (saleForm.buyerType === 'filial' && service.academyId === saleForm.buyerAcademyId)
+    )
   ));
   const availablePurchaseProducts = useMemo(() => products.filter((product) => (
     product.status === 'active'
@@ -545,6 +578,31 @@ const ControleTotalView: React.FC<ControleTotalViewProps> = ({
     }));
   }
 
+  function selectBuyerAcademy(buyerAcademyId: string) {
+    const academy = academies.find((entry) => entry.id === buyerAcademyId);
+    setSaleForm((current) => ({
+      ...current,
+      academyId: buyerAcademyId,
+      buyerAcademyId,
+      // Reseta itens cujo servico era da filial anterior - eles podem nao mais
+      // estar disponiveis na nova filial compradora.
+      items: current.items.map((item) => (
+        item.type === 'service' ? { ...item, itemId: '' } : item
+      )),
+      // Auto-deriva customerName com o nome da filial compradora (continua
+      // editavel como rotulo no formulario).
+      customerName: academy?.name ?? current.customerName,
+    }));
+  }
+
+  function selectBeneficiaryStudent(itemIndex: number, userId: string) {
+    const student = students.find((entry) => entry.id === userId);
+    updateSaleItem(itemIndex, {
+      beneficiaryUserId: userId,
+      beneficiaryName: student?.displayName ?? saleForm.items[itemIndex]?.beneficiaryName ?? '',
+    });
+  }
+
   function selectSeller(userId: string) {
     const seller = staff.find((entry) => entry.id === userId);
     setSaleForm((current) => ({
@@ -580,6 +638,7 @@ const ControleTotalView: React.FC<ControleTotalViewProps> = ({
         serviceId: serviceForm.serviceId || undefined,
         academyId: serviceForm.academyId,
         name: serviceForm.name,
+        category: serviceForm.category || undefined,
         description: serviceForm.description || undefined,
         cost: asNumber(serviceForm.cost),
         salePrice: asNumber(serviceForm.salePrice),
@@ -598,11 +657,15 @@ const ControleTotalView: React.FC<ControleTotalViewProps> = ({
         quantity: asNumber(item.quantity),
         ...(item.unitPrice.trim() ? { unitPrice: asNumber(item.unitPrice) } : {}),
         discount: asNumber(item.discount),
+        ...(item.beneficiaryName.trim() ? { beneficiaryName: item.beneficiaryName.trim() } : {}),
+        ...(item.beneficiaryUserId ? { beneficiaryUserId: item.beneficiaryUserId } : {}),
       }));
 
+      const isFilial = saleForm.buyerType === 'filial';
       await backendFunctions.createFinanceSale({
-        academyId: saleForm.academyId,
+        academyId: isFilial ? saleForm.buyerAcademyId : LEVEL_CATALOG_ID,
         buyerType: saleForm.buyerType,
+        ...(isFilial ? { buyerAcademyId: saleForm.buyerAcademyId } : {}),
         customerId: saleForm.customerId || undefined,
         customerName: saleForm.customerName,
         sellerId: saleForm.sellerId || undefined,
@@ -615,7 +678,7 @@ const ControleTotalView: React.FC<ControleTotalViewProps> = ({
         receivedAmount: saleForm.receivedAmount ? asNumber(saleForm.receivedAmount) : undefined,
         paymentDate: saleForm.paymentDate || undefined,
       });
-      setSaleForm(initialSaleForm(saleForm.academyId));
+      setSaleForm(initialSaleForm(saleForm.buyerAcademyId));
     });
   }
 
@@ -667,6 +730,7 @@ const ControleTotalView: React.FC<ControleTotalViewProps> = ({
     value: string,
     onChange: (value: string) => void,
     includeAll = false,
+    includeCentral = false,
   ) => (
     <select
       className="app-select"
@@ -674,6 +738,7 @@ const ControleTotalView: React.FC<ControleTotalViewProps> = ({
       onChange={(event) => onChange(event.target.value)}
     >
       {includeAll ? <option value="">Todas as filiais</option> : null}
+      {includeCentral ? <option value={LEVEL_CATALOG_ID}>Diretoria (Catalogo Central)</option> : null}
       {academies.map((academy) => (
         <option key={academy.id} value={academy.id}>{academy.name}</option>
       ))}
@@ -727,6 +792,7 @@ const ControleTotalView: React.FC<ControleTotalViewProps> = ({
           <section className="controle-total__kpi-grid">
             {([
               ['Total vendido', dashboardMetrics.soldTotal, <ShoppingCart key="icon" size={18} />, 'sold'],
+              ['Vendas para Filiais', dashboardMetrics.filialSalesTotal, <ShoppingCart key="icon" size={18} />, 'filial'],
               ['Total recebido', dashboardMetrics.revenueTotal, <DollarSign key="icon" size={18} />, 'received'],
               ['Total pendente', dashboardMetrics.pendingTotal, <CreditCard key="icon" size={18} />, 'pending'],
               ['Despesas', dashboardMetrics.expenseTotal, <ReceiptText key="icon" size={18} />, 'expense'],
@@ -922,8 +988,9 @@ const ControleTotalView: React.FC<ControleTotalViewProps> = ({
                     </button>
                   ) : null}
                 </div>
-                <label className="app-field"><span className="app-field__label">Filial</span>{renderAcademySelect(serviceForm.academyId, (value) => setServiceForm((current) => ({ ...current, academyId: value })))}</label>
+                <label className="app-field"><span className="app-field__label">Filial</span>{renderAcademySelect(serviceForm.academyId, (value) => setServiceForm((current) => ({ ...current, academyId: value })), false, true)}</label>
                 <label className="app-field"><span className="app-field__label">Nome</span><input required className="app-input" value={serviceForm.name} onChange={(event) => setServiceForm((current) => ({ ...current, name: event.target.value }))} /></label>
+                <label className="app-field"><span className="app-field__label">Categoria</span><select className="app-select" value={serviceForm.category} onChange={(event) => setServiceForm((current) => ({ ...current, category: event.target.value }))}>{serviceCategories.map((entry) => <option key={entry}>{entry}</option>)}</select></label>
                 <label className="app-field"><span className="app-field__label">Descricao</span><textarea className="app-textarea" value={serviceForm.description} onChange={(event) => setServiceForm((current) => ({ ...current, description: event.target.value }))} /></label>
                 <div className="controle-total__mini-grid">
                   <label className="app-field"><span className="app-field__label">Custo</span><input required className="app-input" inputMode="decimal" value={serviceForm.cost} onChange={(event) => setServiceForm((current) => ({ ...current, cost: event.target.value }))} /></label>
@@ -951,6 +1018,7 @@ const ControleTotalView: React.FC<ControleTotalViewProps> = ({
                           serviceId: service.id,
                           academyId: service.academyId,
                           name: service.name,
+                          category: service.category ?? 'Outros',
                           description: service.description ?? '',
                           cost: String(service.cost),
                           salePrice: String(service.salePrice),
@@ -1000,12 +1068,15 @@ const ControleTotalView: React.FC<ControleTotalViewProps> = ({
 
             {actionMode === 'sale' ? (
               <form onSubmit={submitSale} className="controle-total__form-grid">
-                <label className="app-field"><span className="app-field__label">Filial</span>{renderAcademySelect(saleForm.academyId, (value) => setSaleForm((current) => ({ ...current, academyId: value })))}</label>
                 <label className="app-field"><span className="app-field__label">Tipo de comprador</span><select className="app-select" value={saleForm.buyerType} onChange={(event) => setSaleForm((current) => ({ ...current, buyerType: event.target.value as SaleFormState['buyerType'] }))}><option value="filial">Filial</option><option value="diretoria">Diretoria</option></select></label>
+                {saleForm.buyerType === 'filial' ? (
+                  <label className="app-field"><span className="app-field__label">Filial compradora</span>{renderAcademySelect(saleForm.buyerAcademyId, selectBuyerAcademy)}</label>
+                ) : (
+                  <label className="app-field"><span className="app-field__label">Comprador</span><input className="app-input" value="Diretoria (Central)" disabled /></label>
+                )}
                 <label className="app-field"><span className="app-field__label">Data</span><input className="app-input" type="date" value={saleForm.saleDate} onChange={(event) => setSaleForm((current) => ({ ...current, saleDate: event.target.value }))} /></label>
-                <label className="app-field"><span className="app-field__label">Cliente</span><input required className="app-input" value={saleForm.customerName} placeholder="Nome do cliente" onChange={(event) => setSaleForm((current) => ({ ...current, customerName: event.target.value }))} /></label>
-                <label className="app-field"><span className="app-field__label">Cliente cadastrado</span><select className="app-select" value={saleForm.customerId} onChange={(event) => selectCustomer(event.target.value)}><option value="">- Avulso -</option>{students.map((student) => <option key={student.id} value={student.id}>{student.displayName}</option>)}</select></label>
-                <label className="app-field"><span className="app-field__label">Vendedor</span><select className="app-select" value={saleForm.sellerId} onChange={(event) => selectSeller(event.target.value)}><option value="">- Selecionar -</option>{staff.map((entry) => <option key={entry.id} value={entry.id}>{entry.displayName}</option>)}</select></label>
+                <label className="app-field"><span className="app-field__label">Rotulo do comprador</span><input required className="app-input" value={saleForm.customerName} placeholder="Nome do comprador" onChange={(event) => setSaleForm((current) => ({ ...current, customerName: event.target.value }))} /></label>
+                <label className="app-field"><span className="app-field__label">Responsavel pela compra</span><select className="app-select" value={saleForm.sellerId} onChange={(event) => selectSeller(event.target.value)}><option value="">- Selecionar -</option>{staff.map((entry) => <option key={entry.id} value={entry.id}>{entry.displayName}</option>)}</select></label>
                 <label className="app-field"><span className="app-field__label">Vencimento</span><input className="app-input" type="date" value={saleForm.dueDate} onChange={(event) => setSaleForm((current) => ({ ...current, dueDate: event.target.value }))} /></label>
 
                 <div className="controle-total__items-editor controle-total__span-2">
@@ -1015,28 +1086,49 @@ const ControleTotalView: React.FC<ControleTotalViewProps> = ({
                       <Plus size={16} /> Adicionar
                     </button>
                   </div>
-                  {saleForm.items.map((item, index) => (
-                    <div key={index} className="controle-total__sale-item">
-                      <select className="app-select" value={item.type} onChange={(event) => updateSaleItem(index, { type: event.target.value as SaleItemFormState['type'], itemId: '' })}>
-                        <option value="product">Produto</option>
-                        <option value="service">Servico</option>
-                      </select>
-                      <select required className="app-select" value={item.itemId} onChange={(event) => updateSaleItem(index, { itemId: event.target.value })}>
-                        <option value="">Selecionar</option>
-                        {(item.type === 'product' ? availableProducts : availableServices).map((entry) => (
-                          <option key={entry.id} value={entry.id}>
-                            {entry.name}{item.type === 'product' && 'stockCurrent' in entry ? ` (${entry.stockCurrent} em estoque)` : ''}
-                          </option>
-                        ))}
-                      </select>
-                      <input className="app-input" inputMode="decimal" placeholder="Qtd" value={item.quantity} onChange={(event) => updateSaleItem(index, { quantity: event.target.value })} />
-                      <input className="app-input" inputMode="decimal" placeholder={item.itemId ? formatCurrency(selectedItemPrice({ ...item, unitPrice: '' })) : 'Preco unit.'} value={item.unitPrice} onChange={(event) => updateSaleItem(index, { unitPrice: event.target.value })} />
-                      <input className="app-input" inputMode="decimal" placeholder="Desconto" value={item.discount} onChange={(event) => updateSaleItem(index, { discount: event.target.value })} />
-                      <button type="button" className="app-button app-button--ghost app-button--icon" title="Remover" onClick={() => setSaleForm((current) => ({ ...current, items: current.items.filter((_, i) => i !== index) }))}>
-                        <Trash2 size={16} />
-                      </button>
-                    </div>
-                  ))}
+                  {saleForm.items.map((item, index) => {
+                    const selectedService = item.type === 'service' ? serviceById.get(item.itemId) : undefined;
+                    const isCertificate = selectedService?.category === CERTIFICATE_CATEGORY;
+                    return (
+                      <div key={index} className="controle-total__sale-item-row">
+                        <div className="controle-total__sale-item">
+                          <select className="app-select" value={item.type} onChange={(event) => updateSaleItem(index, { type: event.target.value as SaleItemFormState['type'], itemId: '', beneficiaryName: '', beneficiaryUserId: '' })}>
+                            <option value="product">Produto</option>
+                            <option value="service">Servico</option>
+                          </select>
+                          <select required className="app-select" value={item.itemId} onChange={(event) => updateSaleItem(index, { itemId: event.target.value, beneficiaryName: '', beneficiaryUserId: '' })}>
+                            <option value="">Selecionar</option>
+                            {(item.type === 'product' ? availableProducts : availableServices).map((entry) => (
+                              <option key={entry.id} value={entry.id}>
+                                {entry.name}{item.type === 'product' && 'stockCurrent' in entry ? ` (${entry.stockCurrent} em estoque)` : ''}
+                              </option>
+                            ))}
+                          </select>
+                          <input className="app-input" inputMode="decimal" placeholder="Qtd" value={item.quantity} onChange={(event) => updateSaleItem(index, { quantity: event.target.value })} />
+                          <input className="app-input" inputMode="decimal" placeholder={item.itemId ? formatCurrency(selectedItemPrice({ ...item, unitPrice: '' })) : 'Preco unit.'} value={item.unitPrice} onChange={(event) => updateSaleItem(index, { unitPrice: event.target.value })} />
+                          <input className="app-input" inputMode="decimal" placeholder="Desconto" value={item.discount} onChange={(event) => updateSaleItem(index, { discount: event.target.value })} />
+                          <button type="button" className="app-button app-button--ghost app-button--icon" title="Remover" onClick={() => setSaleForm((current) => ({ ...current, items: current.items.filter((_, i) => i !== index) }))}>
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                        {isCertificate ? (
+                          <div className="controle-total__sale-item-beneficiary">
+                            <label className="app-field">
+                              <span className="app-field__label">Beneficiario (nome no certificado)</span>
+                              <input required className="app-input" value={item.beneficiaryName} onChange={(event) => updateSaleItem(index, { beneficiaryName: event.target.value, beneficiaryUserId: '' })} placeholder="Nome completo" />
+                            </label>
+                            <label className="app-field">
+                              <span className="app-field__label">Aluno cadastrado (opcional)</span>
+                              <select className="app-select" value={item.beneficiaryUserId} onChange={(event) => selectBeneficiaryStudent(index, event.target.value)}>
+                                <option value="">- Digitar nome livre -</option>
+                                {students.map((student) => <option key={student.id} value={student.id}>{student.displayName}</option>)}
+                              </select>
+                            </label>
+                          </div>
+                        ) : null}
+                      </div>
+                    );
+                  })}
                 </div>
 
                 <label className="app-field"><span className="app-field__label">Forma de pagamento</span><select className="app-select" value={saleForm.paymentMethod} onChange={(event) => setSaleForm((current) => ({ ...current, paymentMethod: event.target.value }))}>{paymentMethods.map((entry) => <option key={entry}>{entry}</option>)}</select></label>

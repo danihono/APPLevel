@@ -831,9 +831,11 @@ const CalendarView: React.FC<CalendarViewProps> = ({
       return;
     }
 
-    void getMyClassRsvp(selectedClassId, currentUserId).then((rsvped) => {
-      setMyRsvpByClass((current) => ({ ...current, [selectedClassId]: rsvped }));
-    });
+    void getMyClassRsvp(selectedClassId, currentUserId)
+      .then((rsvped) => {
+        setMyRsvpByClass((current) => ({ ...current, [selectedClassId]: rsvped }));
+      })
+      .catch(() => {});
   }, [selectedClassId, classes, isStaff, currentUserId]);
 
   useEffect(() => {
@@ -842,9 +844,11 @@ const CalendarView: React.FC<CalendarViewProps> = ({
     }
 
     classes.filter((entry) => entry.status === 'scheduled').forEach((cls) => {
-      void getMyClassRsvp(cls.id, currentUserId).then((rsvped) => {
-        setMyRsvpByClass((current) => ({ ...current, [cls.id]: rsvped }));
-      });
+      void getMyClassRsvp(cls.id, currentUserId)
+        .then((rsvped) => {
+          setMyRsvpByClass((current) => ({ ...current, [cls.id]: rsvped }));
+        })
+        .catch(() => {});
     });
   }, [classes, currentUserId, isStaff]);
 
@@ -861,6 +865,10 @@ const CalendarView: React.FC<CalendarViewProps> = ({
       selectedClass.academyId,
       (records) => {
         setParticipantsList(records);
+        setParticipantsLoading(false);
+      },
+      () => {
+        setParticipantsList([]);
         setParticipantsLoading(false);
       },
     );

@@ -505,6 +505,7 @@ export interface FinanceProductRecord {
 export interface FinanceServiceRecord {
   academyId: string;
   name: string;
+  category?: string;
   description?: string;
   cost: number;
   salePrice: number;
@@ -516,9 +517,15 @@ export interface FinanceServiceRecord {
 
 export type FinanceBuyerType = 'filial' | 'diretoria';
 
+// Sentinela usado para vendas/movimentos de estoque que pertencem ao catalogo
+// global da Central (Level) e nao a uma filial especifica. Espelha o valor de
+// LEVEL_CATALOG_ID em functions/src/modules/finance.ts.
+export const LEVEL_CATALOG_ID = '__level__';
+
 export interface FinanceSaleRecord {
   academyId: string;
   buyerType?: FinanceBuyerType;
+  buyerAcademyId?: string;
   customerId?: string;
   customerName: string;
   sellerId?: string;
@@ -553,6 +560,8 @@ export interface FinanceSaleItemRecord {
   discount: number;
   finalUnitPrice: number;
   total: number;
+  beneficiaryName?: string;
+  beneficiaryUserId?: string;
   createdAt?: Timestamp;
   updatedAt?: Timestamp;
 }

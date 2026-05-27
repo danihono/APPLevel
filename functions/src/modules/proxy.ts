@@ -13,6 +13,8 @@ const ALLOWED_CALLABLES = new Set([
   'createAcademy',
   'createUserWithRole',
   'assignUserToAcademy',
+  'switchActiveAcademy',
+  'requestAdditionalAcademy',
   'setUserRole',
   'updateStudentBeltGrade',
   'validateSessionAccess',
@@ -32,6 +34,8 @@ const ALLOWED_CALLABLES = new Set([
   'approveFightVideoSubmission',
   'approveGraduationRequest',
   'rejectJoinRequest',
+  'updateJoinRequest',
+  'transferJoinRequest',
   'rejectFightVideoSubmission',
   'updateOwnStudentProfile',
   'syncOwnUserEmail',
@@ -78,6 +82,10 @@ const ALLOWED_CALLABLES = new Set([
   'upsertManualRevenue',
   'upsertExpense',
   'markExpensePaid',
+  'deactivateStudent',
+  'reactivateStudent',
+  'requestReactivation',
+  'resolveReactivationRequest',
 ]);
 
 const FORWARDED_HEADERS = [

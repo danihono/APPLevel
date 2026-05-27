@@ -5,6 +5,7 @@ import {
   BookOpen,
   Building2,
   Calendar,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   DollarSign,
@@ -30,6 +31,7 @@ interface LayoutProps {
   superadminAcademies?: Array<{ id: string; name: string }>;
   selectedAcademyId?: string;
   onSelectAcademy?: (academyId: string) => void;
+  onUnitClick?: () => void;
   isDarkMode?: boolean;
   onSetThemeMode?: (mode: 'light' | 'dark') => void;
 }
@@ -151,6 +153,7 @@ const Layout: React.FC<LayoutProps> = ({
   superadminAcademies = [],
   selectedAcademyId = '',
   onSelectAcademy,
+  onUnitClick,
   isDarkMode,
   onSetThemeMode,
 }) => {
@@ -390,10 +393,23 @@ const Layout: React.FC<LayoutProps> = ({
                   </div>
 
                   {!showSuperadminAcademyPicker ? (
-                    <div className="app-mobile-header__unit">
-                      <img src="/logo3.png" alt="" aria-hidden="true" className="app-mobile-header__unit-mark" />
-                      <span className="app-mobile-header__unit-name">{mobileUnitLabel}</span>
-                    </div>
+                    onUnitClick ? (
+                      <button
+                        type="button"
+                        onClick={onUnitClick}
+                        className="app-mobile-header__unit cursor-pointer hover:opacity-80 transition-opacity"
+                        aria-label="Trocar unidade"
+                      >
+                        <img src="/logo3.png" alt="" aria-hidden="true" className="app-mobile-header__unit-mark" />
+                        <span className="app-mobile-header__unit-name">{mobileUnitLabel}</span>
+                        <ChevronDown size={14} aria-hidden="true" />
+                      </button>
+                    ) : (
+                      <div className="app-mobile-header__unit">
+                        <img src="/logo3.png" alt="" aria-hidden="true" className="app-mobile-header__unit-mark" />
+                        <span className="app-mobile-header__unit-name">{mobileUnitLabel}</span>
+                      </div>
+                    )
                   ) : null}
                 </div>
 

@@ -1490,20 +1490,30 @@ const App: React.FC = () => {
   }
 
   async function handleStudentSelectAcademy(targetAcademyId: string) {
-    if (!authUser) {
+    if (!authUser || !profile) {
       return;
     }
     setStudentAcademySwitching(true);
     setStudentAcademySwitchError('');
+    setSessionValidated(false);
     try {
       await backendFunctions.switchActiveAcademy({ academyId: targetAcademyId });
-      await authUser.getIdTokenResult(true);
+      const nextValidatedSession: ValidatedSessionSnapshot = {
+        uid: profile.id,
+        academyId: targetAcademyId,
+        role: 'student',
+      };
+      await refreshAuthClaimsForSession(authUser, nextValidatedSession);
+      validatedSessionRef.current = nextValidatedSession;
+      setProfile((current) => applyValidatedSessionToProfile(current, nextValidatedSession));
       setSelectedAcademyId(targetAcademyId);
       setStudentSessionAcademyChosen(true);
       setActiveTab('home');
+      setSessionValidated(true);
     } catch (error) {
       reportSessionError('auth:switchActiveAcademy', error);
       setStudentAcademySwitchError(getErrorMessage(error));
+      setSessionValidated(true);
     } finally {
       setStudentAcademySwitching(false);
     }
@@ -2954,6 +2964,7 @@ const App: React.FC = () => {
         superadminAcademies={allAcademies.map((entry) => ({ id: entry.id, name: entry.name }))}
         selectedAcademyId={selectedAcademyId}
         onSelectAcademy={setSelectedAcademyId}
+        onUnitClick={isMultiAcademyStudent ? handleStudentRequestAcademyChange : undefined}
         isDarkMode={isDarkMode}
         onSetThemeMode={setThemeMode}
       >

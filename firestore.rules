@@ -71,7 +71,7 @@ service cloud.firestore {
     }
 
     match /academies/{academyDocId} {
-      allow read: if sameAcademy(academyDocId);
+      allow read: if signedIn();
       allow create: if isSuperAdmin();
       allow update: if isSuperAdmin() || (isAdmin() && sameAcademy(academyDocId));
       allow delete: if isSuperAdmin() || (isAdmin() && sameAcademy(academyDocId));

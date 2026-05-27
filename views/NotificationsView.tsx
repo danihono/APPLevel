@@ -315,6 +315,8 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
     cpf: string;
     birthDate: string;
     isCompetitor: boolean;
+    requestedBelt: string;
+    requestedGrade: number;
   } | null>(null);
   const [editingBusy, setEditingBusy] = useState(false);
   const [editingError, setEditingError] = useState('');
@@ -683,6 +685,8 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
       cpf: request.cpf,
       birthDate: request.birthDate,
       isCompetitor: request.isCompetitor,
+      requestedBelt: request.requestedBelt,
+      requestedGrade: Math.max(0, Math.floor(request.requestedGrade ?? 0)),
     });
     setEditingError('');
   }
@@ -708,6 +712,8 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
         cpf: editingDraft.cpf,
         birthDate: editingDraft.birthDate,
         isCompetitor: editingDraft.isCompetitor,
+        requestedBelt: editingDraft.requestedBelt,
+        requestedGrade: editingDraft.requestedGrade,
       });
       cancelEditJoinRequest();
     } catch (err) {
@@ -1086,6 +1092,35 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
                             <option value="no">Não</option>
                             <option value="yes">Sim</option>
                           </select>
+                        </label>
+                        <label className="app-field">
+                          <span className="app-field__label">Faixa</span>
+                          <select
+                            className="app-select"
+                            value={editingDraft.requestedBelt}
+                            onChange={(event) => setEditingDraft({ ...editingDraft, requestedBelt: event.target.value })}
+                          >
+                            {item.beltOptions.map((option) => (
+                              <option key={option.value} value={option.value}>{option.label}</option>
+                            ))}
+                          </select>
+                        </label>
+                        <label className="app-field">
+                          <span className="app-field__label">Grau</span>
+                          <input
+                            type="number"
+                            min={0}
+                            step={1}
+                            className="app-input"
+                            value={editingDraft.requestedGrade}
+                            onChange={(event) => {
+                              const parsed = Number.parseInt(event.target.value, 10);
+                              setEditingDraft({
+                                ...editingDraft,
+                                requestedGrade: Number.isNaN(parsed) ? 0 : Math.max(0, parsed),
+                              });
+                            }}
+                          />
                         </label>
                       </div>
                       <div className="mt-4 flex flex-wrap gap-3">

@@ -40,6 +40,8 @@ interface ParsedSaleItem {
   quantity: number;
   unitPrice?: number;
   discount: number;
+  beneficiaryName?: string;
+  beneficiaryUserId?: string;
 }
 
 interface ResolvedSaleItem {
@@ -53,8 +55,14 @@ interface ResolvedSaleItem {
   discount: number;
   finalUnitPrice: number;
   total: number;
+  beneficiaryName?: string;
+  beneficiaryUserId?: string;
   productData?: FinanceProductDoc;
 }
+
+// Categoria de servico que exige um beneficiario nominal no item de venda
+// (ex.: nome no certificado fisico emitido).
+const CERTIFICATE_SERVICE_CATEGORY = 'certificado';
 
 interface SaleTotals {
   subtotal: number;
@@ -153,6 +161,15 @@ async function assertAcademyExists(academyId: string): Promise<void> {
   assertCondition(academySnap.exists, 'not-found', 'Filial nao encontrada.');
 }
 
+// Permite o sentinela do catalogo Central (LEVEL_CATALOG_ID) sem buscar em
+// academies. Usado em fluxos onde "diretoria" e a propria Central.
+async function assertAcademyOrCatalog(academyId: string): Promise<void> {
+  if (academyId === LEVEL_CATALOG_ID) {
+    return;
+  }
+  await assertAcademyExists(academyId);
+}
+
 function parseSaleItems(data: unknown): ParsedSaleItem[] {
   const rawItems = requestField(data, 'items');
   assertCondition(Array.isArray(rawItems), 'invalid-argument', 'Informe ao menos um item vendido.');
@@ -166,6 +183,8 @@ function parseSaleItems(data: unknown): ParsedSaleItem[] {
     const quantity = requiredPositiveQuantity(entry, 'quantity');
     const unitPrice = optionalNumber(entry, 'unitPrice');
     const discount = optionalMoney(entry, 'discount', 0);
+    const beneficiaryName = optionalString(entry, 'beneficiaryName')?.trim();
+    const beneficiaryUserId = optionalString(entry, 'beneficiaryUserId')?.trim();
 
     if (unitPrice != null) {
       assertCondition(unitPrice >= 0, 'invalid-argument', `O valor unitario do item ${index + 1} nao pode ser negativo.`);
@@ -177,6 +196,8 @@ function parseSaleItems(data: unknown): ParsedSaleItem[] {
       quantity,
       unitPrice: unitPrice == null ? undefined : roundMoney(unitPrice),
       discount,
+      ...(beneficiaryName ? { beneficiaryName } : {}),
+      ...(beneficiaryUserId ? { beneficiaryUserId } : {}),
     };
   });
 }
@@ -237,10 +258,14 @@ async function resolveSaleItems(
 
     assertCondition(snapshot?.exists, 'not-found', `Item ${index + 1} nao encontrado.`);
     const data = snapshot.data() as FinanceProductDoc | FinanceServiceDoc;
-    // Produtos sao do catalogo global da Level; servicos continuam por filial.
+    // Produtos sao do catalogo global da Level. Servicos podem ser por filial
+    // ou do catalogo Central (academyId === LEVEL_CATALOG_ID) - este ultimo e
+    // valido para qualquer comprador (ex.: emissao de certificado vendida
+    // pela Central para qualquer filial).
     if (item.type === 'service') {
+      const serviceAcademyId = (data as FinanceServiceDoc).academyId;
       assertCondition(
-        (data as FinanceServiceDoc).academyId === academyId,
+        serviceAcademyId === academyId || serviceAcademyId === LEVEL_CATALOG_ID,
         'permission-denied',
         `Item ${index + 1} pertence a outra filial.`,
       );
@@ -260,6 +285,17 @@ async function resolveSaleItems(
       : (data as FinanceServiceDoc).cost;
     const finalUnitPrice = roundMoney(unitPrice - item.discount);
 
+    // Servicos de categoria 'certificado' exigem o nome do beneficiario fisico
+    // (e o que vai impresso no certificado).
+    if (item.type === 'service'
+      && (data as FinanceServiceDoc).category === CERTIFICATE_SERVICE_CATEGORY) {
+      assertCondition(
+        !!item.beneficiaryName,
+        'invalid-argument',
+        `Informe o beneficiario do certificado no item ${index + 1}.`,
+      );
+    }
+
     return {
       ref: snapshot.ref,
       type: item.type,
@@ -271,6 +307,8 @@ async function resolveSaleItems(
       discount: item.discount,
       finalUnitPrice,
       total: roundMoney(finalUnitPrice * item.quantity),
+      ...(item.beneficiaryName ? { beneficiaryName: item.beneficiaryName } : {}),
+      ...(item.beneficiaryUserId ? { beneficiaryUserId: item.beneficiaryUserId } : {}),
       ...(item.type === 'product' ? { productData: data as FinanceProductDoc } : {}),
     };
   });
@@ -328,6 +366,8 @@ function buildSaleItemDoc(
     discount: item.discount,
     finalUnitPrice: item.finalUnitPrice,
     total: item.total,
+    ...(item.beneficiaryName ? { beneficiaryName: item.beneficiaryName } : {}),
+    ...(item.beneficiaryUserId ? { beneficiaryUserId: item.beneficiaryUserId } : {}),
     createdAt: now,
     updatedAt: now,
   };
@@ -616,12 +656,13 @@ export const upsertFinanceService = onCall(callableOptions, async (request) => {
   const serviceId = optionalString(request.data, 'serviceId');
   const academyId = requiredString(request.data, 'academyId').trim();
   const name = requiredString(request.data, 'name').trim();
+  const category = optionalString(request.data, 'category')?.trim();
   const description = optionalString(request.data, 'description')?.trim();
   const cost = requiredMoney(request.data, 'cost');
   const salePrice = requiredMoney(request.data, 'salePrice');
   const status = normalizeStatus(optionalString(request.data, 'status'));
   const now = Timestamp.now();
-  await assertAcademyExists(academyId);
+  await assertAcademyOrCatalog(academyId);
 
   const serviceRef = serviceId
     ? db.collection(COLLECTIONS.financeServices).doc(serviceId)
@@ -635,6 +676,7 @@ export const upsertFinanceService = onCall(callableOptions, async (request) => {
   const payload: FinanceServiceDoc = {
     academyId,
     name,
+    ...(category ? { category } : {}),
     ...(description ? { description } : {}),
     cost,
     salePrice,
@@ -683,8 +725,20 @@ export const deleteOrArchiveFinanceService = onCall(callableOptions, async (requ
 
 export const createFinanceSale = onCall(callableOptions, async (request) => {
   const actor = await getRequestContext(request, 'superadmin');
-  const academyId = requiredString(request.data, 'academyId').trim();
   const buyerType = parseBuyerType(optionalString(request.data, 'buyerType')?.trim());
+  // buyerAcademyId identifica a filial compradora quando buyerType==='filial'.
+  // Para 'diretoria' (a propria Central comprando do fornecedor), usamos o
+  // sentinela LEVEL_CATALOG_ID no academyId da venda.
+  const buyerAcademyIdInput = optionalString(request.data, 'buyerAcademyId')?.trim();
+  const legacyAcademyIdInput = optionalString(request.data, 'academyId')?.trim();
+  let academyId: string;
+  if (buyerType === 'diretoria') {
+    academyId = LEVEL_CATALOG_ID;
+  } else {
+    const filialId = buyerAcademyIdInput || legacyAcademyIdInput || '';
+    assertCondition(!!filialId, 'invalid-argument', 'Informe a filial compradora.');
+    academyId = filialId;
+  }
   const customerId = optionalString(request.data, 'customerId')?.trim();
   const customerName = requiredString(request.data, 'customerName').trim();
   const sellerId = optionalString(request.data, 'sellerId')?.trim();
@@ -698,7 +752,7 @@ export const createFinanceSale = onCall(callableOptions, async (request) => {
   const parsedItems = parseSaleItems(request.data);
   const now = Timestamp.now();
   const saleRef = db.collection(COLLECTIONS.financeSales).doc();
-  await assertAcademyExists(academyId);
+  await assertAcademyOrCatalog(academyId);
 
   let paymentStatus: FinanceSalePaymentStatus = 'pending';
   let balanceDue = 0;
@@ -714,6 +768,7 @@ export const createFinanceSale = onCall(callableOptions, async (request) => {
     const sale: FinanceSaleDoc = {
       academyId,
       buyerType,
+      ...(buyerType === 'filial' ? { buyerAcademyId: academyId } : {}),
       ...(customerId ? { customerId } : {}),
       customerName,
       ...(sellerId ? { sellerId } : {}),
@@ -773,7 +828,8 @@ export const updateFinanceSale = onCall(callableOptions, async (request) => {
   const actor = await getRequestContext(request, 'superadmin');
   const saleId = requiredString(request.data, 'saleId').trim();
   const saleRef = db.collection(COLLECTIONS.financeSales).doc(saleId);
-  const academyId = requiredString(request.data, 'academyId').trim();
+  const buyerAcademyIdInput = optionalString(request.data, 'buyerAcademyId')?.trim();
+  const legacyAcademyIdInput = optionalString(request.data, 'academyId')?.trim();
   const buyerTypeInput = optionalString(request.data, 'buyerType')?.trim();
   const customerId = optionalString(request.data, 'customerId')?.trim();
   const customerName = requiredString(request.data, 'customerName').trim();
@@ -792,10 +848,16 @@ export const updateFinanceSale = onCall(callableOptions, async (request) => {
     assertCondition(saleSnap.exists, 'not-found', 'Venda nao encontrada.');
     const previousSale = saleSnap.data() as FinanceSaleDoc;
     assertCondition(previousSale.paymentStatus !== 'cancelled', 'failed-precondition', 'Venda cancelada nao pode ser editada.');
-    assertCondition(previousSale.academyId === academyId, 'failed-precondition', 'Nao e possivel mover venda entre filiais.');
     const buyerType: FinanceBuyerType = buyerTypeInput
       ? parseBuyerType(buyerTypeInput)
       : (previousSale.buyerType ?? 'filial');
+    // academyId da venda nunca muda apos a criacao (mantem agregacoes coerentes).
+    // Os inputs buyerAcademyId / academyId so servem para validar coerencia.
+    const academyId = previousSale.academyId;
+    const expectedAcademyId = buyerType === 'diretoria'
+      ? LEVEL_CATALOG_ID
+      : (buyerAcademyIdInput || legacyAcademyIdInput || academyId);
+    assertCondition(expectedAcademyId === academyId, 'failed-precondition', 'Nao e possivel mover venda entre filiais.');
 
     const [oldItemsSnapshot, paymentsSnapshot] = await Promise.all([
       transaction.get(db.collection(COLLECTIONS.financeSaleItems).where('saleId', '==', saleId)),
@@ -853,6 +915,9 @@ export const updateFinanceSale = onCall(callableOptions, async (request) => {
     paymentStatus = calculatePaymentStatus(totals.total, amountReceived);
     transaction.update(saleRef, {
       buyerType,
+      ...(buyerType === 'filial'
+        ? { buyerAcademyId: academyId }
+        : { buyerAcademyId: FieldValue.delete() }),
       ...(customerId ? { customerId } : { customerId: FieldValue.delete() }),
       customerName,
       ...(sellerId ? { sellerId } : { sellerId: FieldValue.delete() }),

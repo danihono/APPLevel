@@ -514,6 +514,7 @@ export interface FinanceProductDoc {
 export interface FinanceServiceDoc {
   academyId: string;
   name: string;
+  category?: string;
   description?: string;
   cost: number;
   salePrice: number;
@@ -528,6 +529,7 @@ export type FinanceBuyerType = 'filial' | 'diretoria';
 export interface FinanceSaleDoc {
   academyId: string;
   buyerType: FinanceBuyerType;
+  buyerAcademyId?: string;
   customerId?: string;
   customerName: string;
   sellerId?: string;
@@ -562,6 +564,8 @@ export interface FinanceSaleItemDoc {
   discount: number;
   finalUnitPrice: number;
   total: number;
+  beneficiaryName?: string;
+  beneficiaryUserId?: string;
   createdAt: FirebaseFirestore.Timestamp;
   updatedAt: FirebaseFirestore.Timestamp;
 }

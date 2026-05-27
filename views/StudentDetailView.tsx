@@ -166,11 +166,21 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
   }, [student.id, historyPeriod, historyCustomFrom, historyCustomTo, historyClassTitle, historySortDir]);
 
   useEffect(() => {
-    return subscribeToUserGraduations(student.branchId, student.id, setLiveGraduations);
+    return subscribeToUserGraduations(
+      student.branchId,
+      student.id,
+      setLiveGraduations,
+      (error) => console.warn('[StudentDetailView:graduations]', error),
+    );
   }, [student.id, student.branchId]);
 
   useEffect(() => {
-    return subscribeToUserAttendances(student.branchId, student.id, setStudentAttendances);
+    return subscribeToUserAttendances(
+      student.branchId,
+      student.id,
+      setStudentAttendances,
+      (error) => console.warn('[StudentDetailView:attendances]', error),
+    );
   }, [student.id, student.branchId]);
 
   const classesById = useMemo(() => {
