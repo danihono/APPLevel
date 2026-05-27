@@ -381,10 +381,16 @@ function buildSuperadminVisionChoiceView(params: {
   );
 }
 
-function buildSuperadminUnitFocusView(params: {
+function buildAcademyUnitSelectionView(params: {
+  kicker: string;
+  headline: React.ReactNode;
+  subtitle: string;
+  itemHint?: string;
   academies: Array<FirestoreEntity<AcademyRecord>>;
   onSelectAcademy: (academyId: string) => void;
-  onBackToNetwork: () => void;
+  backAction?: { label: string; onClick: () => void };
+  errorMessage?: string;
+  busy?: boolean;
 }) {
   return (
     <div className="min-h-screen w-full bg-[#0e0e0e] flex flex-col">
@@ -392,25 +398,33 @@ function buildSuperadminUnitFocusView(params: {
 
         <div className="mb-8">
           <p className="text-xs font-bold tracking-widest uppercase text-[#C9A465] mb-3">
-            Visão professor
+            {params.kicker}
           </p>
           <h2 className="text-4xl font-extrabold text-white leading-tight mb-3">
-            Escolha<br />uma unidade.
+            {params.headline}
           </h2>
           <p className="text-sm text-zinc-400 leading-relaxed">
-            Acesso global mantido. Operação focada em uma unidade específica.
+            {params.subtitle}
           </p>
 
-          <button
-            type="button"
-            onClick={params.onBackToNetwork}
-            className="mt-6 inline-flex items-center gap-2 px-4 py-2 rounded-full border border-[#C9A465] text-[#C9A465] text-sm font-semibold hover:bg-[#C9A465]/10 transition-colors"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
-              <path fillRule="evenodd" d="M11.78 5.22a.75.75 0 0 1 0 1.06L8.06 10l3.72 3.72a.75.75 0 1 1-1.06 1.06l-4.25-4.25a.75.75 0 0 1 0-1.06l4.25-4.25a.75.75 0 0 1 1.06 0Z" clipRule="evenodd" />
-            </svg>
-            Voltar para a rede
-          </button>
+          {params.errorMessage ? (
+            <div className="mt-4 rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+              {params.errorMessage}
+            </div>
+          ) : null}
+
+          {params.backAction ? (
+            <button
+              type="button"
+              onClick={params.backAction.onClick}
+              className="mt-6 inline-flex items-center gap-2 px-4 py-2 rounded-full border border-[#C9A465] text-[#C9A465] text-sm font-semibold hover:bg-[#C9A465]/10 transition-colors"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
+                <path fillRule="evenodd" d="M11.78 5.22a.75.75 0 0 1 0 1.06L8.06 10l3.72 3.72a.75.75 0 1 1-1.06 1.06l-4.25-4.25a.75.75 0 0 1 0-1.06l4.25-4.25a.75.75 0 0 1 1.06 0Z" clipRule="evenodd" />
+              </svg>
+              {params.backAction.label}
+            </button>
+          ) : null}
         </div>
 
         <div className="flex flex-col gap-3">
@@ -418,15 +432,18 @@ function buildSuperadminUnitFocusView(params: {
             <button
               key={entry.id}
               type="button"
+              disabled={params.busy}
               onClick={() => params.onSelectAcademy(entry.id)}
-              className="w-full flex items-center justify-between rounded-2xl bg-[#1a1a1a] border border-zinc-800 px-5 py-4 text-left hover:border-[#C9A465]/40 hover:bg-[#1f1f1f] transition-colors"
+              className="w-full flex items-center justify-between rounded-2xl bg-[#1a1a1a] border border-zinc-800 px-5 py-4 text-left hover:border-[#C9A465]/40 hover:bg-[#1f1f1f] transition-colors disabled:opacity-60 disabled:cursor-wait"
             >
               <div>
                 <p className="text-[10px] font-bold tracking-widest uppercase text-zinc-500 mb-1">
                   Unidade Level
                 </p>
                 <p className="text-base font-bold text-white">{entry.name}</p>
-                <p className="text-xs text-zinc-500 mt-0.5">Agenda · equipe · learning</p>
+                {params.itemHint ? (
+                  <p className="text-xs text-zinc-500 mt-0.5">{params.itemHint}</p>
+                ) : null}
               </div>
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 text-zinc-600 flex-shrink-0 ml-4">
                 <path fillRule="evenodd" d="M8.22 5.22a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.75.75 0 0 1-1.06-1.06L11.94 10 8.22 6.28a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
@@ -438,6 +455,40 @@ function buildSuperadminUnitFocusView(params: {
       </div>
     </div>
   );
+}
+
+function buildSuperadminUnitFocusView(params: {
+  academies: Array<FirestoreEntity<AcademyRecord>>;
+  onSelectAcademy: (academyId: string) => void;
+  onBackToNetwork: () => void;
+}) {
+  return buildAcademyUnitSelectionView({
+    kicker: 'Visão professor',
+    headline: <>Escolha<br />uma unidade.</>,
+    subtitle: 'Acesso global mantido. Operação focada em uma unidade específica.',
+    itemHint: 'Agenda · equipe · learning',
+    academies: params.academies,
+    onSelectAcademy: params.onSelectAcademy,
+    backAction: { label: 'Voltar para a rede', onClick: params.onBackToNetwork },
+  });
+}
+
+function buildStudentAcademySelectionView(params: {
+  academies: Array<FirestoreEntity<AcademyRecord>>;
+  onSelectAcademy: (academyId: string) => void;
+  errorMessage?: string;
+  busy?: boolean;
+}) {
+  return buildAcademyUnitSelectionView({
+    kicker: 'Suas unidades',
+    headline: <>Selecione<br />sua unidade.</>,
+    subtitle: 'Você tem acesso a mais de uma unidade. Escolha qual quer usar agora — você pode trocar depois pelo menu.',
+    itemHint: 'Treinos · ranking · learning',
+    academies: params.academies,
+    onSelectAcademy: params.onSelectAcademy,
+    errorMessage: params.errorMessage,
+    busy: params.busy,
+  });
 }
 
 function isSameMonth(value?: { toDate(): Date } | null) {
@@ -511,6 +562,9 @@ const App: React.FC = () => {
   const [allAcademies, setAllAcademies] = useState<Array<FirestoreEntity<AcademyRecord>>>([]);
   const [allUsers, setAllUsers] = useState<Array<FirestoreEntity<UserRecord>>>([]);
   const [selectedAcademyId, setSelectedAcademyId] = useState('');
+  const [studentSessionAcademyChosen, setStudentSessionAcademyChosen] = useState(false);
+  const [studentAcademySwitching, setStudentAcademySwitching] = useState(false);
+  const [studentAcademySwitchError, setStudentAcademySwitchError] = useState('');
   const [superadminViewMode, setSuperadminViewMode] = useState<SuperadminViewMode | null>(null);
   const [classes, setClasses] = useState<Array<FirestoreEntity<ClassRecord>>>([]);
   const [academyUsers, setAcademyUsers] = useState<Array<FirestoreEntity<UserRecord>>>([]);
@@ -581,7 +635,11 @@ const App: React.FC = () => {
   };
 
   const reportSessionError = (source: string, error: unknown) => {
-    console.error(`[session:${source}]`, error);
+    const code = typeof error === 'object' && error && 'code' in error
+      ? String((error as { code: unknown }).code)
+      : '';
+    const message = error instanceof Error ? error.message : '';
+    console.error(`[session:${source}]`, { code, message, error });
     setSessionError(getErrorMessage(error));
     setSessionErrorSource(source);
   };
@@ -799,12 +857,43 @@ const App: React.FC = () => {
       return;
     }
 
-    if (profile.role !== 'superadmin') {
+    const studentMembershipsForLoad = Array.isArray(profile.memberships) ? profile.memberships : [];
+    const isMultiAcademyStudent = profile.role === 'student' && studentMembershipsForLoad.length > 1;
+    const isStudent = profile.role === 'student';
+
+    if (profile.role !== 'superadmin' && !isMultiAcademyStudent) {
       setSelectedAcademyId(profile.academyId);
-      setAllAcademies([]);
       setAllUsers([]);
       setSuperadminDirectoryLoading(false);
+
+      if (isStudent) {
+        const unsubscribe = subscribeToAcademies(
+          (records) => {
+            setAllAcademies(records);
+          },
+          (error) => {
+            reportSessionError('data:subscribeToAcademies', error);
+          },
+        );
+        return () => unsubscribe();
+      }
+
+      setAllAcademies([]);
       return;
+    }
+
+    if (isMultiAcademyStudent) {
+      const unsubscribe = subscribeToAcademies(
+        (records) => {
+          setAllAcademies(records);
+        },
+        (error) => {
+          reportSessionError('data:subscribeToAcademies', error);
+        },
+      );
+      setAllUsers([]);
+      setSuperadminDirectoryLoading(false);
+      return () => unsubscribe();
     }
 
     setSuperadminDirectoryLoading(true);
@@ -1394,9 +1483,35 @@ const App: React.FC = () => {
       setLoginScreenError('');
       await logout();
       setActiveTab('home');
+      setStudentSessionAcademyChosen(false);
     } catch (error) {
       reportSessionError('auth:logout', error);
     }
+  }
+
+  async function handleStudentSelectAcademy(targetAcademyId: string) {
+    if (!authUser) {
+      return;
+    }
+    setStudentAcademySwitching(true);
+    setStudentAcademySwitchError('');
+    try {
+      await backendFunctions.switchActiveAcademy({ academyId: targetAcademyId });
+      await authUser.getIdTokenResult(true);
+      setSelectedAcademyId(targetAcademyId);
+      setStudentSessionAcademyChosen(true);
+      setActiveTab('home');
+    } catch (error) {
+      reportSessionError('auth:switchActiveAcademy', error);
+      setStudentAcademySwitchError(getErrorMessage(error));
+    } finally {
+      setStudentAcademySwitching(false);
+    }
+  }
+
+  function handleStudentRequestAcademyChange() {
+    setStudentSessionAcademyChosen(false);
+    setStudentAcademySwitchError('');
   }
 
   function markGraduationCelebrationsSeen(ids: string[]) {
@@ -2175,6 +2290,16 @@ const App: React.FC = () => {
   const isFirstAcademySetup = isSuperAdmin && !superadminDirectoryLoading && allAcademies.length === 0;
   const hasFocusedAcademy = Boolean(selectedAcademyId) && allAcademies.some((entry) => entry.id === selectedAcademyId);
   const needsProfessorVisionUnit = isSuperadminProfessorView && !hasFocusedAcademy;
+  const studentMemberships = profile.role === 'student'
+    ? (Array.isArray(profile.memberships) && profile.memberships.length > 0
+      ? profile.memberships
+      : (profile.academyId ? [profile.academyId] : []))
+    : [];
+  const isMultiAcademyStudent = profile.role === 'student' && studentMemberships.length > 1;
+  const studentAcademies = isMultiAcademyStudent
+    ? allAcademies.filter((entry) => studentMemberships.includes(entry.id))
+    : [];
+  const needsStudentMembershipChoice = isMultiAcademyStudent && !studentSessionAcademyChosen;
   const bootstrapMessage = !sessionValidated
     ? 'Sincronizando permissoes da sua sessao.'
     : 'Carregando perfil, academia e permissoes.';
@@ -2267,6 +2392,20 @@ const App: React.FC = () => {
         setSuperadminViewMode('superadmin');
         setActiveTab(allAcademies.length === 0 ? 'management' : 'home');
       },
+    });
+  }
+
+  if (needsStudentMembershipChoice) {
+    if (studentAcademies.length === 0) {
+      return <LoadingScreen message={studentAcademySwitching ? 'Trocando de unidade...' : 'Carregando suas unidades.'} />;
+    }
+    return buildStudentAcademySelectionView({
+      academies: studentAcademies,
+      onSelectAcademy: (academyId) => {
+        void handleStudentSelectAcademy(academyId);
+      },
+      errorMessage: studentAcademySwitchError,
+      busy: studentAcademySwitching,
     });
   }
 
@@ -2545,6 +2684,12 @@ const App: React.FC = () => {
             onClearNotifications={handleClearNotifications}
             onApproveJoinRequest={handleApproveJoinRequest}
             onRejectJoinRequest={handleRejectJoinRequest}
+            onUpdateJoinRequest={async (payload) => {
+              await backendFunctions.updateJoinRequest(payload);
+            }}
+            onTransferJoinRequest={async (payload) => {
+              await backendFunctions.transferJoinRequest(payload);
+            }}
             onApproveAttendanceRequest={handleApproveAttendanceRequest}
             onRejectAttendanceRequest={handleRejectAttendanceRequest}
             onApproveGraduationRequest={handleApproveGraduationRequest}
@@ -2615,6 +2760,24 @@ const App: React.FC = () => {
             onChangeEmail={handleChangeOwnEmail}
             onOpenNotifications={() => setActiveTab('notifications')}
             onLogout={handleLogout}
+            studentMemberships={profile.role === 'student' ? studentMemberships : undefined}
+            availableAcademiesForRequest={
+              profile.role === 'student'
+                ? allAcademies
+                    .filter((entry) => !studentMemberships.includes(entry.id) && !joinRequests.some(
+                      (req) => req.authUid === profile.id && req.academyId === entry.id && req.status === 'pending',
+                    ))
+                    .map((entry) => ({ id: entry.id, name: entry.name }))
+                : undefined
+            }
+            onRequestAcademyChange={isMultiAcademyStudent ? handleStudentRequestAcademyChange : undefined}
+            onRequestAdditionalAcademy={
+              profile.role === 'student'
+                ? async (academyId: string) => {
+                    await backendFunctions.requestAdditionalAcademy({ academyId });
+                  }
+                : undefined
+            }
           />
         );
       default:

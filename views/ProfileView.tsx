@@ -53,6 +53,10 @@ interface ProfileViewProps {
   onChangeEmail: (nextEmail: string, currentPassword: string) => Promise<void>;
   onOpenNotifications?: () => void;
   onLogout: () => void | Promise<void>;
+  studentMemberships?: string[];
+  availableAcademiesForRequest?: Array<{ id: string; name: string }>;
+  onRequestAcademyChange?: () => void;
+  onRequestAdditionalAcademy?: (academyId: string) => Promise<void>;
 }
 
 function roleLabel(role: UserRecord['role']) {
@@ -86,6 +90,10 @@ const ProfileView: React.FC<ProfileViewProps> = ({
   onChangeEmail,
   onOpenNotifications,
   onLogout,
+  studentMemberships,
+  availableAcademiesForRequest,
+  onRequestAcademyChange,
+  onRequestAdditionalAcademy,
 }) => {
   const [firstName, setFirstName] = useState(profile.firstName);
   const [lastName, setLastName] = useState(profile.lastName);
@@ -112,6 +120,34 @@ const ProfileView: React.FC<ProfileViewProps> = ({
   const [emailBusy, setEmailBusy] = useState(false);
   const [emailFeedback, setEmailFeedback] = useState('');
   const [emailError, setEmailError] = useState('');
+  const [requestAcademyOpen, setRequestAcademyOpen] = useState(false);
+  const [requestAcademyId, setRequestAcademyId] = useState('');
+  const [requestAcademyBusy, setRequestAcademyBusy] = useState(false);
+  const [requestAcademyFeedback, setRequestAcademyFeedback] = useState('');
+  const [requestAcademyError, setRequestAcademyError] = useState('');
+
+  const hasMultipleMemberships = (studentMemberships?.length ?? 0) > 1;
+  const canRequestAdditionalAcademy =
+    profile.role === 'student' && Boolean(onRequestAdditionalAcademy) && (availableAcademiesForRequest?.length ?? 0) > 0;
+
+  async function handleSubmitAdditionalAcademy() {
+    if (!onRequestAdditionalAcademy || !requestAcademyId) {
+      return;
+    }
+    setRequestAcademyBusy(true);
+    setRequestAcademyError('');
+    setRequestAcademyFeedback('');
+    try {
+      await onRequestAdditionalAcademy(requestAcademyId);
+      setRequestAcademyFeedback('Solicitação enviada. Aguarde a aprovação do professor da unidade.');
+      setRequestAcademyId('');
+      setRequestAcademyOpen(false);
+    } catch (err) {
+      setRequestAcademyError(err instanceof Error ? err.message : 'Não foi possível enviar a solicitação.');
+    } finally {
+      setRequestAcademyBusy(false);
+    }
+  }
 
   const recentAttendances = useMemo(() => attendances.slice(0, 6), [attendances]);
   const progression = useMemo(
@@ -481,6 +517,68 @@ const ProfileView: React.FC<ProfileViewProps> = ({
         </section>
 
         <div className="profile-mobile__footer">
+          {hasMultipleMemberships && onRequestAcademyChange ? (
+            <button
+              type="button"
+              onClick={() => onRequestAcademyChange()}
+              className="app-button app-button--ghost app-button--block"
+              style={{ marginBottom: '0.5rem' }}
+            >
+              Trocar de academia
+            </button>
+          ) : null}
+
+          {canRequestAdditionalAcademy ? (
+            <div style={{ marginBottom: '0.75rem' }}>
+              {requestAcademyFeedback ? (
+                <div className="app-alert app-alert--success" style={{ marginBottom: '0.5rem' }}>{requestAcademyFeedback}</div>
+              ) : null}
+              {requestAcademyError ? (
+                <div className="app-alert app-alert--error" style={{ marginBottom: '0.5rem' }}>{requestAcademyError}</div>
+              ) : null}
+
+              {requestAcademyOpen ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                  <select
+                    value={requestAcademyId}
+                    onChange={(event) => setRequestAcademyId(event.target.value)}
+                    className="app-select"
+                  >
+                    <option value="">Selecione a unidade</option>
+                    {availableAcademiesForRequest!.map((entry) => (
+                      <option key={entry.id} value={entry.id}>{entry.name}</option>
+                    ))}
+                  </select>
+                  <div style={{ display: 'flex', gap: '0.5rem' }}>
+                    <button
+                      type="button"
+                      onClick={() => void handleSubmitAdditionalAcademy()}
+                      disabled={!requestAcademyId || requestAcademyBusy}
+                      className="app-button app-button--gold app-button--block"
+                    >
+                      {requestAcademyBusy ? 'Enviando...' : 'Enviar solicitação'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setRequestAcademyOpen(false); setRequestAcademyError(''); }}
+                      className="app-button app-button--ghost app-button--block"
+                    >
+                      Cancelar
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setRequestAcademyOpen(true)}
+                  className="app-button app-button--ghost app-button--block"
+                >
+                  Solicitar entrada em outra unidade
+                </button>
+              )}
+            </div>
+          ) : null}
+
           <button type="button" onClick={() => void onLogout()} className="app-button app-button--danger app-button--block">
             <LogOut size={16} />
             Sair
@@ -787,6 +885,73 @@ const ProfileView: React.FC<ProfileViewProps> = ({
             </div>
           ) : null}
         </div>
+
+        {/* Trocar de academia */}
+        {hasMultipleMemberships && onRequestAcademyChange ? (
+          <div>
+            <button
+              type="button"
+              className="profile-mobile__menu-row w-full text-left"
+              onClick={() => onRequestAcademyChange()}
+            >
+              <div className="profile-mobile__menu-icon"><History size={18} /></div>
+              <span className="profile-mobile__menu-label">Trocar de academia</span>
+              <ChevronRight size={18} className="profile-mobile__menu-arrow" />
+            </button>
+          </div>
+        ) : null}
+
+        {/* Solicitar entrada em outra unidade */}
+        {canRequestAdditionalAcademy ? (
+          <div style={{ padding: '0 1rem 1rem' }}>
+            {requestAcademyFeedback ? (
+              <div className="app-alert app-alert--success" style={{ marginBottom: '0.5rem' }}>{requestAcademyFeedback}</div>
+            ) : null}
+            {requestAcademyError ? (
+              <div className="app-alert app-alert--error" style={{ marginBottom: '0.5rem' }}>{requestAcademyError}</div>
+            ) : null}
+
+            {requestAcademyOpen ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                <select
+                  value={requestAcademyId}
+                  onChange={(event) => setRequestAcademyId(event.target.value)}
+                  className="app-select"
+                >
+                  <option value="">Selecione a unidade</option>
+                  {availableAcademiesForRequest!.map((entry) => (
+                    <option key={entry.id} value={entry.id}>{entry.name}</option>
+                  ))}
+                </select>
+                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                  <button
+                    type="button"
+                    onClick={() => void handleSubmitAdditionalAcademy()}
+                    disabled={!requestAcademyId || requestAcademyBusy}
+                    className="app-button app-button--gold app-button--block"
+                  >
+                    {requestAcademyBusy ? 'Enviando...' : 'Enviar solicitação'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setRequestAcademyOpen(false); setRequestAcademyError(''); }}
+                    className="app-button app-button--ghost app-button--block"
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setRequestAcademyOpen(true)}
+                className="app-button app-button--ghost app-button--block"
+              >
+                Solicitar entrada em outra unidade
+              </button>
+            )}
+          </div>
+        ) : null}
 
         {/* Sair da conta */}
         <div>

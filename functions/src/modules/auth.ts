@@ -1,4 +1,4 @@
-import { Timestamp } from 'firebase-admin/firestore';
+import { FieldValue, Timestamp } from 'firebase-admin/firestore';
 import { onCall, onRequest } from 'firebase-functions/v2/https';
 import {
   AcademyDoc,
@@ -193,12 +193,16 @@ async function ensureUniqueIdentity(params: {
     db.collection(COLLECTIONS.joinRequests).where('email', '==', params.email).limit(5).get(),
     db.collection(COLLECTIONS.joinRequests).where('cpf', '==', params.cpf).limit(5).get(),
   ]);
-  const existingRequestByEmail = joinRequestsByEmail.docs
-    .map((doc) => ({ id: doc.id, data: doc.data() as JoinRequestDoc }))
-    .find((entry) => entry.data.status === 'pending');
-  const existingRequestByCpf = joinRequestsByCpf.docs
-    .map((doc) => ({ id: doc.id, data: doc.data() as JoinRequestDoc }))
-    .find((entry) => entry.data.status === 'pending');
+  const findOtherPending = (docs: FirebaseFirestore.QueryDocumentSnapshot[]) =>
+    docs
+      .map((doc) => ({ id: doc.id, data: doc.data() as JoinRequestDoc }))
+      .find((entry) =>
+        entry.data.status === 'pending'
+        && entry.id !== params.excludeRequestId
+        && (!params.excludeUserId || entry.data.authUid !== params.excludeUserId),
+      );
+  const existingRequestByEmail = findOtherPending(joinRequestsByEmail.docs);
+  const existingRequestByCpf = findOtherPending(joinRequestsByCpf.docs);
 
   assertCondition(
     !existingUserByEmail || existingUserByEmail.id === params.excludeUserId,
@@ -211,12 +215,12 @@ async function ensureUniqueIdentity(params: {
     'Ja existe uma conta usando este CPF.',
   );
   assertCondition(
-    !existingRequestByEmail || existingRequestByEmail.id === params.excludeRequestId,
+    !existingRequestByEmail,
     'already-exists',
     'Ja existe uma solicitacao pendente usando este e-mail.',
   );
   assertCondition(
-    !existingRequestByCpf || existingRequestByCpf.id === params.excludeRequestId,
+    !existingRequestByCpf,
     'already-exists',
     'Ja existe uma solicitacao pendente usando este CPF.',
   );
@@ -369,11 +373,13 @@ function buildStudentUserDoc(
 
   return {
     academyId: joinRequest.academyId,
+    memberships: [joinRequest.academyId],
     firstName: joinRequest.firstName,
     lastName: joinRequest.lastName,
     displayName: joinRequest.displayName,
     email: joinRequest.email,
     cpf: joinRequest.cpf,
+    phone: joinRequest.phone,
     birthDate: joinRequest.birthDate,
     kidsCategory: approvedProfile.kidsCategory,
     isCompetitor: joinRequest.isCompetitor,
@@ -439,8 +445,38 @@ export const listSignupAcademies = onCall(callableOptions, async () => {
   return listActiveSignupAcademies();
 });
 
+const MAX_SIGNUP_ACADEMIES = 5;
+
+function readAcademyIdsPayload(data: unknown): string[] {
+  const record = (data as Record<string, unknown> | null) ?? {};
+  const rawList = record.academyIds;
+  const ids: string[] = [];
+
+  if (Array.isArray(rawList)) {
+    for (const entry of rawList) {
+      if (typeof entry === 'string' && entry.trim().length > 0) {
+        ids.push(entry.trim());
+      }
+    }
+  }
+
+  const single = record.academyId;
+  if (typeof single === 'string' && single.trim().length > 0) {
+    ids.push(single.trim());
+  }
+
+  const unique = [...new Set(ids)];
+  assertCondition(unique.length > 0, 'invalid-argument', 'Selecione ao menos uma unidade.');
+  assertCondition(
+    unique.length <= MAX_SIGNUP_ACADEMIES,
+    'invalid-argument',
+    `Voce pode solicitar entrada em no maximo ${MAX_SIGNUP_ACADEMIES} unidades por vez.`,
+  );
+  return unique;
+}
+
 export const submitStudentSignup = onCall(callableOptions, async (request) => {
-  const academyId = requiredString(request.data, 'academyId');
+  const academyIds = readAcademyIdsPayload(request.data);
   const email = normalizeEmail(requiredString(request.data, 'email'));
   const password = requiredString(request.data, 'password');
   assertCondition(
@@ -452,6 +488,7 @@ export const submitStudentSignup = onCall(callableOptions, async (request) => {
   const lastName = requiredString(request.data, 'lastName');
   const cpf = assertValidCpf(requiredString(request.data, 'cpf'));
   const birthDate = requiredString(request.data, 'birthDate');
+  const phone = optionalString(request.data, 'phone');
   const isCompetitor = optionalBoolean(request.data, 'isCompetitor', false);
   const belt = normalizeBeltId(requiredString(request.data, 'belt'));
   const grade = Math.max(0, Math.floor(requiredNumber(request.data, 'grade')));
@@ -460,18 +497,30 @@ export const submitStudentSignup = onCall(callableOptions, async (request) => {
   assertCondition(!(kidsCategory && isAdultOnlyBelt(belt)), 'invalid-argument', 'Alunos kids nao podem iniciar com faixas adultas.');
   assertCondition(!(!kidsCategory && isKidsOnlyBelt(belt)), 'invalid-argument', 'Alunos adultos nao podem iniciar com faixas kids.');
 
-  const academySnap = await db.collection(COLLECTIONS.academies).doc(academyId).get();
-  assertCondition(academySnap.exists, 'not-found', 'Unidade nao encontrada.');
-  const academy = academySnap.data() as AcademyDoc;
-  assertCondition(academy.status === 'active', 'failed-precondition', 'Esta unidade nao esta aceitando novos cadastros.');
+  const academySnaps = await Promise.all(
+    academyIds.map((id) => db.collection(COLLECTIONS.academies).doc(id).get()),
+  );
+  const academies: Array<{ id: string; data: AcademyDoc }> = [];
+  for (let i = 0; i < academySnaps.length; i += 1) {
+    const snap = academySnaps[i];
+    assertCondition(snap.exists, 'not-found', `Unidade ${academyIds[i]} nao encontrada.`);
+    const academy = snap.data() as AcademyDoc;
+    assertCondition(
+      academy.status === 'active',
+      'failed-precondition',
+      `A unidade ${academy.name} nao esta aceitando novos cadastros.`,
+    );
+    academies.push({ id: academyIds[i], data: academy });
+  }
 
   await ensureUniqueIdentity({ email, cpf });
   assertCondition(!(await emailExists(email)), 'already-exists', 'Ja existe uma conta usando este e-mail.');
 
   const displayName = `${firstName} ${lastName}`.trim();
   const now = Timestamp.now();
+  const requestGroupId = academies.length > 1 ? db.collection(COLLECTIONS.joinRequests).doc().id : undefined;
   let createdAuthUid = '';
-  let createdJoinRequestId = '';
+  const createdJoinRequestIds: string[] = [];
 
   try {
     const createdUser = await auth.createUser({
@@ -482,50 +531,70 @@ export const submitStudentSignup = onCall(callableOptions, async (request) => {
     });
     createdAuthUid = createdUser.uid;
 
-    const joinRequestRef = db.collection(COLLECTIONS.joinRequests).doc();
-    createdJoinRequestId = joinRequestRef.id;
-    const joinRequest: JoinRequestDoc = {
-      academyId,
-      academyName: academy.name,
-      authUid: createdAuthUid,
-      email,
-      cpf,
-      firstName,
-      lastName,
-      displayName,
-      birthDate,
-      kidsCategory,
-      isCompetitor,
-      requestedBelt: belt,
-      requestedGrade: grade,
-      status: 'pending',
-      createdAt: now,
-      updatedAt: now,
-    };
+    const batch = db.batch();
+    const createdRequests: Array<{ requestId: string; academyId: string; academyName: string }> = [];
 
-    await joinRequestRef.set(joinRequest);
-
-    const recipients = await listApproversForAcademy(academyId);
-    await createNotifications({
-      academyId,
-      recipients,
-      createdBy: createdAuthUid,
-      title: 'Novo pedido de entrada',
-      body: `${displayName} solicitou cadastro na unidade ${academy.name}.`,
-      channel: 'system',
-      kind: 'join_request',
-      actionRef: joinRequestRef.id,
-      data: {
+    for (const academy of academies) {
+      const joinRequestRef = db.collection(COLLECTIONS.joinRequests).doc();
+      createdJoinRequestIds.push(joinRequestRef.id);
+      const joinRequest: JoinRequestDoc = {
+        academyId: academy.id,
+        academyName: academy.data.name,
+        authUid: createdAuthUid,
+        email,
+        cpf,
+        firstName,
+        lastName,
+        displayName,
+        phone: phone ?? undefined,
+        birthDate,
+        kidsCategory,
+        isCompetitor,
+        requestedBelt: belt,
+        requestedGrade: grade,
+        status: 'pending',
+        origin: 'signup',
+        ...(requestGroupId ? { requestGroupId } : {}),
+        createdAt: now,
+        updatedAt: now,
+      };
+      batch.set(joinRequestRef, joinRequest);
+      createdRequests.push({
         requestId: joinRequestRef.id,
-        academyId,
-        userName: displayName,
-      },
-    });
+        academyId: academy.id,
+        academyName: academy.data.name,
+      });
+    }
+
+    await batch.commit();
+
+    for (const created of createdRequests) {
+      const recipients = await listApproversForAcademy(created.academyId);
+      await createNotifications({
+        academyId: created.academyId,
+        recipients,
+        createdBy: createdAuthUid,
+        title: 'Novo pedido de entrada',
+        body: `${displayName} solicitou cadastro na unidade ${created.academyName}.`,
+        channel: 'system',
+        kind: 'join_request',
+        actionRef: created.requestId,
+        data: {
+          requestId: created.requestId,
+          academyId: created.academyId,
+          userName: displayName,
+        },
+      });
+    }
 
     return {
-      requestId: joinRequestRef.id,
-      academyId,
-      status: 'pending' as const,
+      authUid: createdAuthUid,
+      requestGroupId: requestGroupId ?? null,
+      requests: createdRequests.map((entry) => ({
+        requestId: entry.requestId,
+        academyId: entry.academyId,
+        status: 'pending' as const,
+      })),
     };
   } catch (error) {
     if (createdAuthUid) {
@@ -535,9 +604,9 @@ export const submitStudentSignup = onCall(callableOptions, async (request) => {
         // Keep the original error surface for the caller.
       }
     }
-    if (createdJoinRequestId) {
+    for (const requestId of createdJoinRequestIds) {
       try {
-        await db.collection(COLLECTIONS.joinRequests).doc(createdJoinRequestId).delete();
+        await db.collection(COLLECTIONS.joinRequests).doc(requestId).delete();
       } catch {
         // Keep the original error surface for the caller.
       }
@@ -710,11 +779,22 @@ export const approveJoinRequest = onCall(callableOptions, async (request) => {
     belt: approvedBelt,
     grade: approvedGrade,
   });
-  const userDoc = buildStudentUserDoc(joinRequest, now, approvedProfile);
+  const userRef = db.collection(COLLECTIONS.users).doc(joinRequest.authUid);
+  const existingUserSnap = await userRef.get();
+  const isFirstApproval = !existingUserSnap.exists;
   const studentNotificationId = db.collection(COLLECTIONS.notifications).doc().id;
   const batch = db.batch();
 
-  batch.set(db.collection(COLLECTIONS.users).doc(joinRequest.authUid), userDoc, { merge: true });
+  if (isFirstApproval) {
+    const userDoc = buildStudentUserDoc(joinRequest, now, approvedProfile);
+    batch.set(userRef, userDoc);
+  } else {
+    batch.update(userRef, {
+      memberships: FieldValue.arrayUnion(joinRequest.academyId),
+      updatedAt: now,
+    });
+  }
+
   batch.update(joinRequestRef, {
     status: 'approved',
     resolvedAt: now,
@@ -743,11 +823,13 @@ export const approveJoinRequest = onCall(callableOptions, async (request) => {
   } satisfies NotificationDoc);
   await batch.commit();
 
-  await setClaims(joinRequest.authUid, 'student', joinRequest.academyId);
-  await auth.updateUser(joinRequest.authUid, {
-    disabled: false,
-    displayName: joinRequest.displayName,
-  });
+  if (isFirstApproval) {
+    await setClaims(joinRequest.authUid, 'student', joinRequest.academyId);
+    await auth.updateUser(joinRequest.authUid, {
+      disabled: false,
+      displayName: joinRequest.displayName,
+    });
+  }
   await syncUserDerivedState(joinRequest.authUid, joinRequest.academyId);
 
   return {
@@ -774,23 +856,38 @@ export const rejectJoinRequest = onCall(callableOptions, async (request) => {
     'Voce so pode rejeitar alunos da sua unidade.',
   );
 
+  const now = Timestamp.now();
   await joinRequestRef.update({
     status: 'rejected',
-    resolvedAt: Timestamp.now(),
+    resolvedAt: now,
     resolvedBy: actor.uid,
     resolvedByRole: actor.role,
-    updatedAt: Timestamp.now(),
+    updatedAt: now,
   });
 
-  try {
-    await auth.deleteUser(joinRequest.authUid);
-  } catch (error) {
-    const code = typeof error === 'object' && error && 'code' in error
-      ? String((error as { code: unknown }).code)
-      : '';
+  const [existingUserSnap, otherPendingSnap] = await Promise.all([
+    db.collection(COLLECTIONS.users).doc(joinRequest.authUid).get(),
+    db
+      .collection(COLLECTIONS.joinRequests)
+      .where('authUid', '==', joinRequest.authUid)
+      .where('status', '==', 'pending')
+      .limit(1)
+      .get(),
+  ]);
 
-    if (code !== 'auth/user-not-found') {
-      throw error;
+  const shouldDeleteAuth = !existingUserSnap.exists && otherPendingSnap.empty;
+
+  if (shouldDeleteAuth) {
+    try {
+      await auth.deleteUser(joinRequest.authUid);
+    } catch (error) {
+      const code = typeof error === 'object' && error && 'code' in error
+        ? String((error as { code: unknown }).code)
+        : '';
+
+      if (code !== 'auth/user-not-found') {
+        throw error;
+      }
     }
   }
 
@@ -1479,4 +1576,313 @@ export const adminUpdateInstructorProfile = onCall(callableOptions, async (reque
   await auth.updateUser(targetUserId, authPatch);
 
   return { userId: targetUserId, displayName };
+});
+
+export const updateJoinRequest = onCall(callableOptions, async (request) => {
+  const actor = await getRequestContext(request, 'professor');
+  assertJoinRequestApproverRole(actor.role);
+
+  const data = (request.data as Record<string, unknown> | null) ?? {};
+  const requestId = requiredString(request.data, 'requestId');
+  const joinRequestRef = db.collection(COLLECTIONS.joinRequests).doc(requestId);
+  const joinRequestSnap = await joinRequestRef.get();
+
+  assertCondition(joinRequestSnap.exists, 'not-found', 'Solicitacao nao encontrada.');
+  const joinRequest = joinRequestSnap.data() as JoinRequestDoc;
+  assertCondition(joinRequest.status === 'pending', 'failed-precondition', 'Esta solicitacao ja foi processada.');
+  assertCondition(
+    actor.role === 'superadmin' || joinRequest.academyId === actor.academyId,
+    'permission-denied',
+    'Voce so pode editar solicitacoes da sua unidade.',
+  );
+
+  const firstName = optionalString(request.data, 'firstName') ?? joinRequest.firstName;
+  const lastName = optionalString(request.data, 'lastName') ?? joinRequest.lastName;
+  const phone = data.phone === undefined ? joinRequest.phone : (optionalString(request.data, 'phone') ?? undefined);
+  const birthDate = optionalString(request.data, 'birthDate') ?? joinRequest.birthDate;
+  const isCompetitor = optionalBoolean(request.data, 'isCompetitor', joinRequest.isCompetitor);
+  const requestedBeltRaw = optionalString(request.data, 'requestedBelt');
+  const requestedBelt = requestedBeltRaw ? normalizeBeltId(requestedBeltRaw) : joinRequest.requestedBelt;
+  const requestedGradeRaw = optionalNumber(request.data, 'requestedGrade');
+  const requestedGrade = requestedGradeRaw === undefined
+    ? joinRequest.requestedGrade
+    : Math.max(0, Math.floor(requestedGradeRaw));
+
+  let cpf = joinRequest.cpf;
+  if (data.cpf !== undefined) {
+    cpf = assertValidCpf(requiredString(request.data, 'cpf'));
+    if (cpf !== joinRequest.cpf) {
+      await ensureUniqueIdentity({
+        email: joinRequest.email,
+        cpf,
+        excludeRequestId: requestId,
+        excludeUserId: joinRequest.authUid,
+      });
+    }
+  }
+
+  const kidsCategory = inferKidsCategoryFromBirthDate(birthDate);
+  assertCondition(
+    !(kidsCategory && isAdultOnlyBelt(requestedBelt)),
+    'invalid-argument',
+    'Alunos kids nao podem iniciar com faixas adultas.',
+  );
+  assertCondition(
+    !(!kidsCategory && isKidsOnlyBelt(requestedBelt)),
+    'invalid-argument',
+    'Alunos adultos nao podem iniciar com faixas kids.',
+  );
+
+  const displayName = `${firstName} ${lastName}`.trim();
+  const now = Timestamp.now();
+
+  await joinRequestRef.update({
+    firstName,
+    lastName,
+    displayName,
+    phone: phone ?? null,
+    birthDate,
+    kidsCategory: kidsCategory ?? null,
+    isCompetitor,
+    requestedBelt,
+    requestedGrade,
+    cpf,
+    editedBy: actor.uid,
+    editedByRole: actor.role,
+    editedAt: now,
+    updatedAt: now,
+  });
+
+  return {
+    requestId,
+    displayName,
+    cpf,
+    requestedBelt,
+    requestedGrade,
+  };
+});
+
+export const transferJoinRequest = onCall(callableOptions, async (request) => {
+  const actor = await getRequestContext(request, 'professor');
+  assertJoinRequestApproverRole(actor.role);
+
+  const requestId = requiredString(request.data, 'requestId');
+  const targetAcademyId = requiredString(request.data, 'targetAcademyId');
+  const joinRequestRef = db.collection(COLLECTIONS.joinRequests).doc(requestId);
+  const joinRequestSnap = await joinRequestRef.get();
+
+  assertCondition(joinRequestSnap.exists, 'not-found', 'Solicitacao nao encontrada.');
+  const joinRequest = joinRequestSnap.data() as JoinRequestDoc;
+  assertCondition(joinRequest.status === 'pending', 'failed-precondition', 'Esta solicitacao ja foi processada.');
+  assertCondition(
+    actor.role === 'superadmin' || joinRequest.academyId === actor.academyId,
+    'permission-denied',
+    'Voce so pode encaminhar solicitacoes da sua unidade.',
+  );
+  assertCondition(
+    targetAcademyId !== joinRequest.academyId,
+    'invalid-argument',
+    'A unidade de destino precisa ser diferente da atual.',
+  );
+
+  const targetAcademySnap = await db.collection(COLLECTIONS.academies).doc(targetAcademyId).get();
+  assertCondition(targetAcademySnap.exists, 'not-found', 'Unidade de destino nao encontrada.');
+  const targetAcademy = targetAcademySnap.data() as AcademyDoc;
+  assertCondition(
+    targetAcademy.status === 'active',
+    'failed-precondition',
+    'A unidade de destino nao esta aceitando novos cadastros.',
+  );
+
+  const duplicateSnap = await db
+    .collection(COLLECTIONS.joinRequests)
+    .where('authUid', '==', joinRequest.authUid)
+    .where('academyId', '==', targetAcademyId)
+    .where('status', '==', 'pending')
+    .limit(1)
+    .get();
+  assertCondition(
+    duplicateSnap.empty,
+    'already-exists',
+    'Ja existe uma solicitacao pendente deste aluno na unidade de destino.',
+  );
+
+  const existingUserSnap = await db.collection(COLLECTIONS.users).doc(joinRequest.authUid).get();
+  if (existingUserSnap.exists) {
+    const existingUser = existingUserSnap.data() as UserDoc;
+    const memberships = existingUser.memberships ?? [];
+    assertCondition(
+      !memberships.includes(targetAcademyId),
+      'already-exists',
+      'O aluno ja esta vinculado a unidade de destino.',
+    );
+  }
+
+  const now = Timestamp.now();
+  const previousAcademyId = joinRequest.academyId;
+  const previousAcademyName = joinRequest.academyName;
+
+  await joinRequestRef.update({
+    academyId: targetAcademyId,
+    academyName: targetAcademy.name,
+    transferredFromAcademyId: previousAcademyId,
+    transferredFromAcademyName: previousAcademyName,
+    transferredBy: actor.uid,
+    transferredByRole: actor.role,
+    transferredAt: now,
+    updatedAt: now,
+  });
+
+  const previousNotificationsSnap = await db
+    .collection(COLLECTIONS.notifications)
+    .where('actionRef', '==', requestId)
+    .where('academyId', '==', previousAcademyId)
+    .get();
+  if (!previousNotificationsSnap.empty) {
+    const batch = db.batch();
+    previousNotificationsSnap.docs.forEach((docSnap) => {
+      batch.update(docSnap.ref, { notificationDismissedAt: now, updatedAt: now });
+    });
+    await batch.commit();
+  }
+
+  const recipients = await listApproversForAcademy(targetAcademyId);
+  await createNotifications({
+    academyId: targetAcademyId,
+    recipients,
+    createdBy: actor.uid,
+    title: 'Solicitacao encaminhada',
+    body: `${joinRequest.displayName} foi encaminhado(a) de ${previousAcademyName} para a sua unidade.`,
+    channel: 'system',
+    kind: 'join_request',
+    actionRef: requestId,
+    data: {
+      requestId,
+      academyId: targetAcademyId,
+      userName: joinRequest.displayName,
+      transferredFromAcademyId: previousAcademyId,
+    },
+  });
+
+  return {
+    requestId,
+    academyId: targetAcademyId,
+    academyName: targetAcademy.name,
+  };
+});
+
+export const requestAdditionalAcademy = onCall(callableOptions, async (request) => {
+  const actor = await getRequestContext(request, 'student');
+  assertCondition(actor.role === 'student', 'permission-denied', 'Somente alunos podem solicitar entrada em outra unidade.');
+  assertCondition(actor.user.status === 'active', 'failed-precondition', 'Sua conta precisa estar ativa para solicitar outra unidade.');
+
+  const academyId = requiredString(request.data, 'academyId');
+  const memberships = actor.user.memberships ?? (actor.user.academyId ? [actor.user.academyId] : []);
+  assertCondition(
+    !memberships.includes(academyId),
+    'already-exists',
+    'Voce ja faz parte desta unidade.',
+  );
+
+  const academySnap = await db.collection(COLLECTIONS.academies).doc(academyId).get();
+  assertCondition(academySnap.exists, 'not-found', 'Unidade nao encontrada.');
+  const academy = academySnap.data() as AcademyDoc;
+  assertCondition(
+    academy.status === 'active',
+    'failed-precondition',
+    'Esta unidade nao esta aceitando novos cadastros.',
+  );
+
+  const duplicateSnap = await db
+    .collection(COLLECTIONS.joinRequests)
+    .where('authUid', '==', actor.uid)
+    .where('academyId', '==', academyId)
+    .where('status', '==', 'pending')
+    .limit(1)
+    .get();
+  assertCondition(
+    duplicateSnap.empty,
+    'already-exists',
+    'Voce ja tem uma solicitacao pendente nesta unidade.',
+  );
+
+  const now = Timestamp.now();
+  const joinRequestRef = db.collection(COLLECTIONS.joinRequests).doc();
+  const kidsCategory = actor.user.kidsCategory ?? inferKidsCategoryFromBirthDate(actor.user.birthDate ?? '');
+  const requestedBelt = normalizeBeltId(actor.user.belt);
+  const requestedGrade = Math.max(0, Math.floor(actor.user.grade ?? 0));
+
+  const joinRequest: JoinRequestDoc = {
+    academyId,
+    academyName: academy.name,
+    authUid: actor.uid,
+    email: actor.user.email,
+    cpf: actor.user.cpf,
+    firstName: actor.user.firstName,
+    lastName: actor.user.lastName,
+    displayName: actor.user.displayName,
+    phone: actor.user.phone,
+    birthDate: actor.user.birthDate ?? '',
+    kidsCategory,
+    isCompetitor: actor.user.isCompetitor ?? false,
+    requestedBelt,
+    requestedGrade,
+    status: 'pending',
+    origin: 'additional',
+    createdAt: now,
+    updatedAt: now,
+  };
+
+  await joinRequestRef.set(joinRequest);
+
+  const recipients = await listApproversForAcademy(academyId);
+  await createNotifications({
+    academyId,
+    recipients,
+    createdBy: actor.uid,
+    title: 'Novo pedido de entrada',
+    body: `${actor.user.displayName} solicitou cadastro na unidade ${academy.name}.`,
+    channel: 'system',
+    kind: 'join_request',
+    actionRef: joinRequestRef.id,
+    data: {
+      requestId: joinRequestRef.id,
+      academyId,
+      userName: actor.user.displayName,
+    },
+  });
+
+  return {
+    requestId: joinRequestRef.id,
+    academyId,
+    status: 'pending' as const,
+  };
+});
+
+export const switchActiveAcademy = onCall(callableOptions, async (request) => {
+  const actor = await getRequestContext(request, 'student');
+  assertCondition(actor.role === 'student', 'permission-denied', 'Somente alunos podem trocar de unidade ativa.');
+  assertCondition(actor.user.status === 'active', 'failed-precondition', 'Sua conta precisa estar ativa para trocar de unidade.');
+
+  const academyId = requiredString(request.data, 'academyId');
+  const memberships = actor.user.memberships ?? (actor.user.academyId ? [actor.user.academyId] : []);
+  assertCondition(
+    memberships.includes(academyId),
+    'permission-denied',
+    'Voce nao tem acesso a esta unidade.',
+  );
+
+  if (actor.user.academyId !== academyId) {
+    await db.collection(COLLECTIONS.users).doc(actor.uid).update({
+      academyId,
+      updatedAt: Timestamp.now(),
+    });
+    await setClaims(actor.uid, 'student', academyId);
+  }
+
+  return {
+    userId: actor.uid,
+    academyId,
+    role: 'student' as const,
+  };
 });

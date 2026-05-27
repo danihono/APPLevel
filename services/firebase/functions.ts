@@ -127,17 +127,22 @@ export const backendFunctions = {
     callFunction<SignupAcademyRecord[]>('listSignupAcademies', {}),
 
   submitStudentSignup: (payload: {
-    academyId: string;
+    academyIds: string[];
     email: string;
     password: string;
     firstName: string;
     lastName: string;
     cpf: string;
     birthDate: string;
+    phone?: string;
     isCompetitor?: boolean;
     belt: string;
     grade: number;
-  }) => callFunction<{ requestId: string; academyId: string; status: JoinRequestStatus }>('submitStudentSignup', payload),
+  }) => callFunction<{
+    authUid: string;
+    requestGroupId: string | null;
+    requests: Array<{ requestId: string; academyId: string; status: JoinRequestStatus }>;
+  }>('submitStudentSignup', payload),
 
   createAcademy: (payload: CreateAcademyPayload) =>
     callFunction<{ academyId: string; name: string; slug: string }>('createAcademy', payload),
@@ -292,6 +297,33 @@ export const backendFunctions = {
 
   rejectJoinRequest: (payload: { requestId: string }) =>
     callFunction<{ requestId: string; status: JoinRequestStatus }>('rejectJoinRequest', payload),
+
+  updateJoinRequest: (payload: {
+    requestId: string;
+    firstName?: string;
+    lastName?: string;
+    phone?: string | null;
+    cpf?: string;
+    birthDate?: string;
+    isCompetitor?: boolean;
+    requestedBelt?: string;
+    requestedGrade?: number;
+  }) => callFunction<{
+    requestId: string;
+    displayName: string;
+    cpf: string;
+    requestedBelt: string;
+    requestedGrade: number;
+  }>('updateJoinRequest', payload),
+
+  transferJoinRequest: (payload: { requestId: string; targetAcademyId: string }) =>
+    callFunction<{ requestId: string; academyId: string; academyName: string }>('transferJoinRequest', payload),
+
+  requestAdditionalAcademy: (payload: { academyId: string }) =>
+    callFunction<{ requestId: string; academyId: string; status: JoinRequestStatus }>('requestAdditionalAcademy', payload),
+
+  switchActiveAcademy: (payload: { academyId: string }) =>
+    callFunction<{ userId: string; academyId: string; role: AppRole }>('switchActiveAcademy', payload),
 
   updateOwnStudentProfile: (payload: {
     firstName?: string;

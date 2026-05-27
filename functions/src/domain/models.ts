@@ -125,6 +125,7 @@ export interface AcademyDoc {
 
 export interface UserDoc {
   academyId: string;
+  memberships?: string[];
   firstName: string;
   lastName: string;
   displayName: string;
@@ -653,6 +654,7 @@ export interface JoinRequestDoc {
   firstName: string;
   lastName: string;
   displayName: string;
+  phone?: string;
   birthDate: string;
   kidsCategory?: KidsCategory;
   isCompetitor: boolean;
@@ -661,11 +663,21 @@ export interface JoinRequestDoc {
   approvedBelt?: string;
   approvedGrade?: number;
   status: JoinRequestStatus;
+  requestGroupId?: string;
+  origin?: 'signup' | 'additional';
   createdAt: FirebaseFirestore.Timestamp;
   updatedAt: FirebaseFirestore.Timestamp;
   resolvedAt?: FirebaseFirestore.Timestamp;
   resolvedBy?: string;
   resolvedByRole?: Role;
+  editedBy?: string;
+  editedByRole?: Role;
+  editedAt?: FirebaseFirestore.Timestamp;
+  transferredFromAcademyId?: string;
+  transferredFromAcademyName?: string;
+  transferredBy?: string;
+  transferredByRole?: Role;
+  transferredAt?: FirebaseFirestore.Timestamp;
   notificationDismissedAt?: FirebaseFirestore.Timestamp;
 }
 

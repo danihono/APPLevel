@@ -55,6 +55,18 @@ interface NotificationsViewProps {
   onClearNotifications: (academyId?: string, skipUnread?: boolean, notificationIds?: string[]) => Promise<{ deleted: number }>;
   onApproveJoinRequest: (payload: { requestId: string; belt?: string; grade?: number }) => Promise<void>;
   onRejectJoinRequest: (requestId: string) => Promise<void>;
+  onUpdateJoinRequest?: (payload: {
+    requestId: string;
+    firstName?: string;
+    lastName?: string;
+    phone?: string | null;
+    cpf?: string;
+    birthDate?: string;
+    isCompetitor?: boolean;
+    requestedBelt?: string;
+    requestedGrade?: number;
+  }) => Promise<void>;
+  onTransferJoinRequest?: (payload: { requestId: string; targetAcademyId: string }) => Promise<void>;
   onApproveAttendanceRequest: (requestId: string) => Promise<void>;
   onRejectAttendanceRequest: (requestId: string) => Promise<void>;
   onApproveGraduationRequest: (requestId: string) => Promise<void>;
@@ -264,6 +276,8 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
   onClearNotifications,
   onApproveJoinRequest,
   onRejectJoinRequest,
+  onUpdateJoinRequest,
+  onTransferJoinRequest,
   onApproveAttendanceRequest,
   onRejectAttendanceRequest,
   onApproveGraduationRequest,
@@ -293,6 +307,21 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
   const [showAllStaff, setShowAllStaff] = useState(false);
   const [clearing, setClearing] = useState(false);
   const [confirmClear, setConfirmClear] = useState(false);
+  const [editingRequestId, setEditingRequestId] = useState<string | null>(null);
+  const [editingDraft, setEditingDraft] = useState<{
+    firstName: string;
+    lastName: string;
+    phone: string;
+    cpf: string;
+    birthDate: string;
+    isCompetitor: boolean;
+  } | null>(null);
+  const [editingBusy, setEditingBusy] = useState(false);
+  const [editingError, setEditingError] = useState('');
+  const [transferringRequestId, setTransferringRequestId] = useState<string | null>(null);
+  const [transferTargetAcademyId, setTransferTargetAcademyId] = useState('');
+  const [transferBusy, setTransferBusy] = useState(false);
+  const [transferError, setTransferError] = useState('');
   const rebuildQueuedRef = useRef(new Set<string>());
 
   const canBroadcast =
@@ -645,6 +674,83 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
     }
   }
 
+  function startEditJoinRequest(request: FirestoreEntity<JoinRequestRecord>) {
+    setEditingRequestId(request.id);
+    setEditingDraft({
+      firstName: request.firstName,
+      lastName: request.lastName,
+      phone: request.phone ?? '',
+      cpf: request.cpf,
+      birthDate: request.birthDate,
+      isCompetitor: request.isCompetitor,
+    });
+    setEditingError('');
+  }
+
+  function cancelEditJoinRequest() {
+    setEditingRequestId(null);
+    setEditingDraft(null);
+    setEditingError('');
+  }
+
+  async function submitEditJoinRequest() {
+    if (!editingRequestId || !editingDraft || !onUpdateJoinRequest) {
+      return;
+    }
+    setEditingBusy(true);
+    setEditingError('');
+    try {
+      await onUpdateJoinRequest({
+        requestId: editingRequestId,
+        firstName: editingDraft.firstName,
+        lastName: editingDraft.lastName,
+        phone: editingDraft.phone || null,
+        cpf: editingDraft.cpf,
+        birthDate: editingDraft.birthDate,
+        isCompetitor: editingDraft.isCompetitor,
+      });
+      cancelEditJoinRequest();
+    } catch (err) {
+      setEditingError(err instanceof Error ? err.message : 'Não foi possível salvar a edição.');
+    } finally {
+      setEditingBusy(false);
+    }
+  }
+
+  function startTransferJoinRequest(request: FirestoreEntity<JoinRequestRecord>) {
+    setTransferringRequestId(request.id);
+    setTransferTargetAcademyId('');
+    setTransferError('');
+  }
+
+  function cancelTransferJoinRequest() {
+    setTransferringRequestId(null);
+    setTransferTargetAcademyId('');
+    setTransferError('');
+  }
+
+  async function submitTransferJoinRequest() {
+    if (!transferringRequestId || !transferTargetAcademyId || !onTransferJoinRequest) {
+      return;
+    }
+    if (!window.confirm('A solicitação sairá desta unidade e será encaminhada para a unidade escolhida. Confirma?')) {
+      return;
+    }
+    setTransferBusy(true);
+    setTransferError('');
+    try {
+      await onTransferJoinRequest({
+        requestId: transferringRequestId,
+        targetAcademyId: transferTargetAcademyId,
+      });
+      cancelTransferJoinRequest();
+    } catch (err) {
+      setTransferError(err instanceof Error ? err.message : 'Não foi possível encaminhar a solicitação.');
+    } finally {
+      setTransferBusy(false);
+    }
+  }
+
   async function handleApproveGraduation(item: FirestoreEntity<GraduationApprovalRequestRecord>) {
     setProcessingRequestId(item.id);
     setError('');
@@ -838,46 +944,217 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
 
             {requestItems.map((item) => {
               const isProcessing = processingRequestId === item.id;
+              const isJoinRequest = item.kind === 'join_request';
+              const joinRequest = isJoinRequest ? item.request : null;
+              const groupOtherCount = joinRequest?.requestGroupId
+                ? joinRequests.filter(
+                    (entry) => entry.requestGroupId === joinRequest.requestGroupId && entry.id !== joinRequest.id,
+                  ).length
+                : 0;
 
               return (
-                <article key={item.id} className="notice-mobile__request-card">
-                  <div className="notice-mobile__request-row">
-                    <div className="notice-mobile__avatar" aria-hidden="true">{getInitial(item.title)}</div>
+                <React.Fragment key={item.id}>
+                  <article className="notice-mobile__request-card">
+                    <div className="notice-mobile__request-row">
+                      <div className="notice-mobile__avatar" aria-hidden="true">{getInitial(item.title)}</div>
 
-                    <div className="notice-mobile__request-copy">
-                      <p className="notice-mobile__request-name">{item.title}</p>
-                      <p className="notice-mobile__request-body">{item.body}</p>
-                      <p className="notice-mobile__request-time">
-                        {item.kind === 'join_request' ? formatStamp(item.createdAt) : item.meta}
+                      <div className="notice-mobile__request-copy">
+                        <p className="notice-mobile__request-name">{item.title}</p>
+                        <p className="notice-mobile__request-body">{item.body}</p>
+                        <p className="notice-mobile__request-time">
+                          {isJoinRequest ? formatStamp(item.createdAt) : item.meta}
+                        </p>
+                      </div>
+                    </div>
+
+                    {joinRequest && (joinRequest.transferredFromAcademyName || groupOtherCount > 0) ? (
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {joinRequest.transferredFromAcademyName ? (
+                          <span className="app-badge app-badge--gold">
+                            Encaminhada de {joinRequest.transferredFromAcademyName}
+                          </span>
+                        ) : null}
+                        {groupOtherCount > 0 ? (
+                          <span className="app-badge app-badge--muted">
+                            Aluno também solicitou em {groupOtherCount} outra(s) unidade(s)
+                          </span>
+                        ) : null}
+                      </div>
+                    ) : null}
+
+                    {canActionRequests ? (
+                      <div className="notice-mobile__actions" style={{ flexWrap: 'wrap' }}>
+                        <button
+                          type="button"
+                          disabled={isProcessing}
+                          onClick={() => void handleApprove(item)}
+                          className="app-button app-button--gold app-button--small"
+                        >
+                          <CheckCircle2 size={15} />
+                          {isProcessing ? 'Processando...' : 'Aprovar'}
+                        </button>
+                        {isJoinRequest && onUpdateJoinRequest ? (
+                          <button
+                            type="button"
+                            disabled={isProcessing}
+                            onClick={() => startEditJoinRequest(item.request)}
+                            className="app-button app-button--ghost app-button--small"
+                          >
+                            Editar
+                          </button>
+                        ) : null}
+                        {isJoinRequest && onTransferJoinRequest ? (
+                          <button
+                            type="button"
+                            disabled={isProcessing}
+                            onClick={() => startTransferJoinRequest(item.request)}
+                            className="app-button app-button--ghost app-button--small"
+                          >
+                            Transferir
+                          </button>
+                        ) : null}
+                        <button
+                          type="button"
+                          disabled={isProcessing}
+                          onClick={() => void handleReject(item)}
+                          className="app-button app-button--danger app-button--small"
+                        >
+                          <XCircle size={15} />
+                          Recusar
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="notice-mobile__request-note">Sem permissão para agir sobre esta solicitação.</div>
+                    )}
+                  </article>
+
+                  {isJoinRequest && editingRequestId === item.id && editingDraft ? (
+                    <div className="app-panel app-panel--soft p-4 mt-2">
+                      <p className="app-section-label">Editar dados do aluno</p>
+                      {editingError ? (
+                        <div className="app-alert app-alert--error mt-3">{editingError}</div>
+                      ) : null}
+                      <div className="mt-4 flex flex-col gap-3">
+                        <label className="app-field">
+                          <span className="app-field__label">Nome</span>
+                          <input
+                            className="app-input"
+                            value={editingDraft.firstName}
+                            onChange={(event) => setEditingDraft({ ...editingDraft, firstName: event.target.value })}
+                          />
+                        </label>
+                        <label className="app-field">
+                          <span className="app-field__label">Sobrenome</span>
+                          <input
+                            className="app-input"
+                            value={editingDraft.lastName}
+                            onChange={(event) => setEditingDraft({ ...editingDraft, lastName: event.target.value })}
+                          />
+                        </label>
+                        <label className="app-field">
+                          <span className="app-field__label">CPF</span>
+                          <input
+                            className="app-input"
+                            value={editingDraft.cpf}
+                            onChange={(event) => setEditingDraft({ ...editingDraft, cpf: event.target.value })}
+                          />
+                        </label>
+                        <label className="app-field">
+                          <span className="app-field__label">Telefone</span>
+                          <input
+                            className="app-input"
+                            value={editingDraft.phone}
+                            onChange={(event) => setEditingDraft({ ...editingDraft, phone: event.target.value })}
+                          />
+                        </label>
+                        <label className="app-field">
+                          <span className="app-field__label">Nascimento</span>
+                          <input
+                            type="date"
+                            className="app-input"
+                            value={editingDraft.birthDate}
+                            onChange={(event) => setEditingDraft({ ...editingDraft, birthDate: event.target.value })}
+                          />
+                        </label>
+                        <label className="app-field">
+                          <span className="app-field__label">Competidor</span>
+                          <select
+                            className="app-select"
+                            value={editingDraft.isCompetitor ? 'yes' : 'no'}
+                            onChange={(event) => setEditingDraft({ ...editingDraft, isCompetitor: event.target.value === 'yes' })}
+                          >
+                            <option value="no">Não</option>
+                            <option value="yes">Sim</option>
+                          </select>
+                        </label>
+                      </div>
+                      <div className="mt-4 flex flex-wrap gap-3">
+                        <button
+                          type="button"
+                          disabled={editingBusy}
+                          onClick={() => void submitEditJoinRequest()}
+                          className="app-button app-button--gold app-button--small"
+                        >
+                          {editingBusy ? 'Salvando...' : 'Salvar alterações'}
+                        </button>
+                        <button
+                          type="button"
+                          disabled={editingBusy}
+                          onClick={() => cancelEditJoinRequest()}
+                          className="app-button app-button--ghost app-button--small"
+                        >
+                          Cancelar
+                        </button>
+                      </div>
+                    </div>
+                  ) : null}
+
+                  {isJoinRequest && transferringRequestId === item.id ? (
+                    <div className="app-panel app-panel--soft p-4 mt-2">
+                      <p className="app-section-label">Transferir para outra unidade</p>
+                      <p className="mt-2 text-sm text-[color:var(--text-muted)]">
+                        A solicitação sai desta unidade e vai para a unidade escolhida. Só os professores da nova unidade poderão aprovar.
                       </p>
+                      {transferError ? (
+                        <div className="app-alert app-alert--error mt-3">{transferError}</div>
+                      ) : null}
+                      <label className="app-field mt-4">
+                        <span className="app-field__label">Unidade de destino</span>
+                        <select
+                          className="app-select"
+                          value={transferTargetAcademyId}
+                          onChange={(event) => setTransferTargetAcademyId(event.target.value)}
+                          disabled={transferBusy}
+                        >
+                          <option value="">Selecione a unidade</option>
+                          {academies
+                            .filter((entry) => entry.id !== item.request.academyId)
+                            .map((entry) => (
+                              <option key={entry.id} value={entry.id}>{entry.name}</option>
+                            ))}
+                        </select>
+                      </label>
+                      <div className="mt-4 flex flex-wrap gap-3">
+                        <button
+                          type="button"
+                          disabled={transferBusy || !transferTargetAcademyId}
+                          onClick={() => void submitTransferJoinRequest()}
+                          className="app-button app-button--gold app-button--small"
+                        >
+                          {transferBusy ? 'Encaminhando...' : 'Confirmar transferência'}
+                        </button>
+                        <button
+                          type="button"
+                          disabled={transferBusy}
+                          onClick={() => cancelTransferJoinRequest()}
+                          className="app-button app-button--ghost app-button--small"
+                        >
+                          Cancelar
+                        </button>
+                      </div>
                     </div>
-                  </div>
-
-                  {canActionRequests ? (
-                    <div className="notice-mobile__actions">
-                      <button
-                        type="button"
-                        disabled={isProcessing}
-                        onClick={() => void handleApprove(item)}
-                        className="app-button app-button--gold app-button--small"
-                      >
-                        <CheckCircle2 size={15} />
-                        {isProcessing ? 'Processando...' : 'Aprovar'}
-                      </button>
-                      <button
-                        type="button"
-                        disabled={isProcessing}
-                        onClick={() => void handleReject(item)}
-                        className="app-button app-button--danger app-button--small"
-                      >
-                        <XCircle size={15} />
-                        Recusar
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="notice-mobile__request-note">Sem permissão para agir sobre esta solicitação.</div>
-                  )}
-                </article>
+                  ) : null}
+                </React.Fragment>
               );
             })}
 
@@ -1309,6 +1586,24 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
                           <span className="app-badge app-badge--muted">{kidsCategoryLabel(item.inferredKidsCategory)}</span>
                         ) : null}
                         <span className="app-badge app-badge--muted">{formatStamp(item.createdAt)}</span>
+                        {item.request.transferredFromAcademyName ? (
+                          <span className="app-badge app-badge--gold">
+                            Encaminhada de {item.request.transferredFromAcademyName}
+                          </span>
+                        ) : null}
+                        {item.request.requestGroupId ? (
+                          (() => {
+                            const otherCount = joinRequests.filter(
+                              (entry) =>
+                                entry.requestGroupId === item.request.requestGroupId && entry.id !== item.id,
+                            ).length;
+                            return otherCount > 0 ? (
+                              <span className="app-badge app-badge--muted">
+                                Aluno também solicitou em {otherCount} outra(s) unidade(s)
+                              </span>
+                            ) : null;
+                          })()
+                        ) : null}
                       </div>
 
                       <div className="mt-5 app-grid-2">
@@ -1403,6 +1698,26 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
                               <CheckCircle2 size={15} />
                               {isProcessing ? 'Processando...' : 'Aprovar aluno'}
                             </button>
+                            {onUpdateJoinRequest ? (
+                              <button
+                                type="button"
+                                disabled={isProcessing}
+                                onClick={() => startEditJoinRequest(item.request)}
+                                className="app-button app-button--ghost app-button--small"
+                              >
+                                Editar dados
+                              </button>
+                            ) : null}
+                            {onTransferJoinRequest ? (
+                              <button
+                                type="button"
+                                disabled={isProcessing}
+                                onClick={() => startTransferJoinRequest(item.request)}
+                                className="app-button app-button--ghost app-button--small"
+                              >
+                                Transferir unidade
+                              </button>
+                            ) : null}
                             <button
                               type="button"
                               disabled={isProcessing}
@@ -1413,6 +1728,133 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
                               Rejeitar
                             </button>
                           </div>
+
+                          {editingRequestId === item.id && editingDraft ? (
+                            <div className="mt-5 app-panel app-panel--soft p-4">
+                              <p className="app-section-label">Editar dados do aluno</p>
+                              {editingError ? (
+                                <div className="app-alert app-alert--error mt-3">{editingError}</div>
+                              ) : null}
+                              <div className="mt-4 app-grid-2">
+                                <label className="app-field">
+                                  <span className="app-field__label">Nome</span>
+                                  <input
+                                    className="app-input"
+                                    value={editingDraft.firstName}
+                                    onChange={(event) => setEditingDraft({ ...editingDraft, firstName: event.target.value })}
+                                  />
+                                </label>
+                                <label className="app-field">
+                                  <span className="app-field__label">Sobrenome</span>
+                                  <input
+                                    className="app-input"
+                                    value={editingDraft.lastName}
+                                    onChange={(event) => setEditingDraft({ ...editingDraft, lastName: event.target.value })}
+                                  />
+                                </label>
+                                <label className="app-field">
+                                  <span className="app-field__label">CPF</span>
+                                  <input
+                                    className="app-input"
+                                    value={editingDraft.cpf}
+                                    onChange={(event) => setEditingDraft({ ...editingDraft, cpf: event.target.value })}
+                                  />
+                                </label>
+                                <label className="app-field">
+                                  <span className="app-field__label">Telefone</span>
+                                  <input
+                                    className="app-input"
+                                    value={editingDraft.phone}
+                                    onChange={(event) => setEditingDraft({ ...editingDraft, phone: event.target.value })}
+                                  />
+                                </label>
+                                <label className="app-field">
+                                  <span className="app-field__label">Nascimento</span>
+                                  <input
+                                    type="date"
+                                    className="app-input"
+                                    value={editingDraft.birthDate}
+                                    onChange={(event) => setEditingDraft({ ...editingDraft, birthDate: event.target.value })}
+                                  />
+                                </label>
+                                <label className="app-field">
+                                  <span className="app-field__label">Competidor</span>
+                                  <select
+                                    className="app-select"
+                                    value={editingDraft.isCompetitor ? 'yes' : 'no'}
+                                    onChange={(event) => setEditingDraft({ ...editingDraft, isCompetitor: event.target.value === 'yes' })}
+                                  >
+                                    <option value="no">Não</option>
+                                    <option value="yes">Sim</option>
+                                  </select>
+                                </label>
+                              </div>
+                              <div className="mt-4 flex flex-wrap gap-3">
+                                <button
+                                  type="button"
+                                  disabled={editingBusy}
+                                  onClick={() => void submitEditJoinRequest()}
+                                  className="app-button app-button--gold app-button--small"
+                                >
+                                  {editingBusy ? 'Salvando...' : 'Salvar alterações'}
+                                </button>
+                                <button
+                                  type="button"
+                                  disabled={editingBusy}
+                                  onClick={() => cancelEditJoinRequest()}
+                                  className="app-button app-button--ghost app-button--small"
+                                >
+                                  Cancelar
+                                </button>
+                              </div>
+                            </div>
+                          ) : null}
+
+                          {transferringRequestId === item.id ? (
+                            <div className="mt-5 app-panel app-panel--soft p-4">
+                              <p className="app-section-label">Transferir para outra unidade</p>
+                              <p className="mt-2 text-sm text-[color:var(--text-muted)]">
+                                A solicitação sai desta unidade e vai para a unidade escolhida. Só os professores da nova unidade poderão aprovar.
+                              </p>
+                              {transferError ? (
+                                <div className="app-alert app-alert--error mt-3">{transferError}</div>
+                              ) : null}
+                              <label className="app-field mt-4">
+                                <span className="app-field__label">Unidade de destino</span>
+                                <select
+                                  className="app-select"
+                                  value={transferTargetAcademyId}
+                                  onChange={(event) => setTransferTargetAcademyId(event.target.value)}
+                                  disabled={transferBusy}
+                                >
+                                  <option value="">Selecione a unidade</option>
+                                  {academies
+                                    .filter((entry) => entry.id !== item.request.academyId)
+                                    .map((entry) => (
+                                      <option key={entry.id} value={entry.id}>{entry.name}</option>
+                                    ))}
+                                </select>
+                              </label>
+                              <div className="mt-4 flex flex-wrap gap-3">
+                                <button
+                                  type="button"
+                                  disabled={transferBusy || !transferTargetAcademyId}
+                                  onClick={() => void submitTransferJoinRequest()}
+                                  className="app-button app-button--gold app-button--small"
+                                >
+                                  {transferBusy ? 'Encaminhando...' : 'Confirmar transferência'}
+                                </button>
+                                <button
+                                  type="button"
+                                  disabled={transferBusy}
+                                  onClick={() => cancelTransferJoinRequest()}
+                                  className="app-button app-button--ghost app-button--small"
+                                >
+                                  Cancelar
+                                </button>
+                              </div>
+                            </div>
+                          ) : null}
                         </>
                       ) : (
                         <div className="mt-5 app-empty">Somente professores da unidade podem agir sobre esta solicitação.</div>

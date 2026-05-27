@@ -51,6 +51,7 @@ export interface AcademyRecord {
 
 export interface UserRecord {
   academyId: string;
+  memberships?: string[];
   firstName: string;
   lastName: string;
   displayName: string;
@@ -262,6 +263,7 @@ export interface JoinRequestRecord {
   firstName: string;
   lastName: string;
   displayName: string;
+  phone?: string;
   birthDate: string;
   kidsCategory?: KidsCategory;
   isCompetitor: boolean;
@@ -270,11 +272,21 @@ export interface JoinRequestRecord {
   approvedBelt?: string;
   approvedGrade?: number;
   status: JoinRequestStatus;
+  requestGroupId?: string;
+  origin?: 'signup' | 'additional';
   createdAt?: Timestamp;
   updatedAt?: Timestamp;
   resolvedAt?: Timestamp;
   resolvedBy?: string;
   resolvedByRole?: AppRole;
+  editedBy?: string;
+  editedByRole?: AppRole;
+  editedAt?: Timestamp;
+  transferredFromAcademyId?: string;
+  transferredFromAcademyName?: string;
+  transferredBy?: string;
+  transferredByRole?: AppRole;
+  transferredAt?: Timestamp;
   notificationDismissedAt?: Timestamp;
 }
 

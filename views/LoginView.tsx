@@ -75,7 +75,8 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onRequestReactivation, i
   const [signupPassword, setSignupPassword] = useState('');
   const [cpf, setCpf] = useState('');
   const [birthDate, setBirthDate] = useState('');
-  const [academyId, setAcademyId] = useState('');
+  const [selectedAcademyIds, setSelectedAcademyIds] = useState<string[]>([]);
+  const [manualAcademyId, setManualAcademyId] = useState('');
   const [belt, setBelt] = useState('white');
   const [grade, setGrade] = useState(0);
   const [isCompetitor, setIsCompetitor] = useState(false);
@@ -106,7 +107,6 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onRequestReactivation, i
     let active = true;
     const applyAcademyOptions = (records: Array<{ academyId: string; name: string; timezone: string }>) => {
       setAcademyOptions(records);
-      setAcademyId((current) => current || records[0]?.academyId || '');
 
       if (records.length === 0) {
         setSignupError('Nenhuma unidade ativa está disponível no momento.');
@@ -173,9 +173,18 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onRequestReactivation, i
 
   const handleRetryAcademies = () => {
     setAcademyOptions([]);
-    setAcademyId('');
+    setSelectedAcademyIds([]);
+    setManualAcademyId('');
     setSignupError('');
     setAcademyOptionsLoaded(false);
+  };
+
+  const toggleAcademySelection = (academyOptionId: string) => {
+    setSelectedAcademyIds((current) =>
+      current.includes(academyOptionId)
+        ? current.filter((entry) => entry !== academyOptionId)
+        : [...current, academyOptionId],
+    );
   };
 
   const handleRequestReactivation = async () => {
@@ -238,6 +247,15 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onRequestReactivation, i
     }
   };
 
+  const academyIdsForSubmit = useMemo(() => {
+    const ids = [...selectedAcademyIds];
+    const manualId = manualAcademyId.trim();
+    if (manualId && !ids.includes(manualId)) {
+      ids.push(manualId);
+    }
+    return [...new Set(ids)];
+  }, [manualAcademyId, selectedAcademyIds]);
+
   const handleSignup = async (event: React.FormEvent) => {
     event.preventDefault();
     const passwordError = getSignupPasswordError(signupPassword);
@@ -247,12 +265,17 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onRequestReactivation, i
       return;
     }
 
+    if (academyIdsForSubmit.length === 0) {
+      setSignupError('Selecione ao menos uma unidade.');
+      return;
+    }
+
     setSignupLoading(true);
     setSignupError('');
 
     try {
       await backendFunctions.submitStudentSignup({
-        academyId,
+        academyIds: academyIdsForSubmit,
         email: signupEmail,
         password: signupPassword,
         firstName,
@@ -527,44 +550,71 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onRequestReactivation, i
                   </span>
                 </label>
 
-                <label className="app-field">
-                  <span className="app-field__label">Unidade</span>
-                  <select
-                    value={academyId}
-                    onChange={(event) => setAcademyId(event.target.value)}
-                    className="app-select"
-                    disabled={academyLoading || academyOptions.length === 0}
-                    required
-                  >
-                    {academyLoading ? (
-                      <option value="">Carregando unidades...</option>
-                    ) : academyOptions.length === 0 ? (
-                      <option value="">Nenhuma unidade disponível</option>
-                    ) : (
-                      academyOptions.map((academyOption) => (
-                        <option key={academyOption.academyId} value={academyOption.academyId}>
-                          {academyOption.name}
-                        </option>
-                      ))
-                    )}
-                  </select>
-                </label>
-
-                {academyOptions.length > 0 && academyId ? (
-                  <div className="app-field__hint">
-                    Academy ID selecionado: <strong>{academyId}</strong>
-                  </div>
-                ) : null}
+                <div className="app-field">
+                  <span className="app-field__label">Unidades</span>
+                  <span className="app-field__hint">
+                    Marque uma ou mais unidades. Cada unidade vai analisar sua solicitação separadamente.
+                  </span>
+                  {academyLoading ? (
+                    <div className="app-note" style={{ marginTop: '0.5rem' }}>Carregando unidades...</div>
+                  ) : academyOptions.length === 0 ? (
+                    <div className="app-note" style={{ marginTop: '0.5rem' }}>Nenhuma unidade disponível no momento.</div>
+                  ) : (
+                    <div
+                      style={{
+                        marginTop: '0.5rem',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '0.5rem',
+                        border: '1px solid rgba(148, 163, 184, 0.3)',
+                        borderRadius: '0.75rem',
+                        padding: '0.75rem',
+                        maxHeight: '220px',
+                        overflowY: 'auto',
+                      }}
+                    >
+                      {academyOptions.map((academyOption) => {
+                        const checked = selectedAcademyIds.includes(academyOption.academyId);
+                        return (
+                          <label
+                            key={academyOption.academyId}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '0.625rem',
+                              padding: '0.5rem 0.625rem',
+                              borderRadius: '0.5rem',
+                              cursor: 'pointer',
+                              background: checked ? 'rgba(217, 175, 92, 0.12)' : 'transparent',
+                              border: checked ? '1px solid rgba(217, 175, 92, 0.5)' : '1px solid transparent',
+                            }}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={() => toggleAcademySelection(academyOption.academyId)}
+                            />
+                            <span style={{ fontWeight: 600 }}>{academyOption.name}</span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  )}
+                  {selectedAcademyIds.length > 0 ? (
+                    <span className="app-field__hint" style={{ marginTop: '0.5rem' }}>
+                      Solicitando entrada em <strong>{selectedAcademyIds.length}</strong> unidade(s).
+                    </span>
+                  ) : null}
+                </div>
 
                 {!academyLoading && academyOptions.length === 0 ? (
                   <label className="app-field">
                     <span className="app-field__label">Academy ID manual</span>
                     <input
-                      value={academyId}
-                      onChange={(event) => setAcademyId(event.target.value)}
+                      value={manualAcademyId}
+                      onChange={(event) => setManualAcademyId(event.target.value)}
                       className="app-input"
                       placeholder="Cole aqui o Academy ID da unidade"
-                      required
                     />
                     <span className="app-field__hint">
                       Se a lista não carregar, você ainda pode entrar com o ID da academia manualmente.
@@ -604,7 +654,7 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onRequestReactivation, i
                   </select>
                 </label>
 
-                <button type="submit" disabled={signupLoading || academyLoading || !academyId} className="app-button app-button--gold app-button--block">
+                <button type="submit" disabled={signupLoading || academyLoading || academyIdsForSubmit.length === 0} className="app-button app-button--gold app-button--block">
                   {signupLoading ? 'Enviando...' : 'Enviar cadastro'}
                 </button>
               </form>
@@ -625,7 +675,7 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onRequestReactivation, i
           {mode === 'success' ? (
             <div className="mt-6 app-form-grid">
               <div className="app-alert app-alert--success">
-                Cadastro enviado com sucesso. Agora aguarde a aprovação do professor da unidade antes de tentar entrar.
+                Cadastro enviado com sucesso. Cada unidade selecionada vai analisar sua solicitação separadamente — você receberá uma notificação assim que algum professor aprovar.
               </div>
 
               <button
