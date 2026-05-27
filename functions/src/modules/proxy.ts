@@ -69,6 +69,7 @@ const ALLOWED_CALLABLES = new Set([
   'adminUpdateStudentProfile',
   'adminUpdateStudentTimeline',
   'adminUpdateInstructorProfile',
+  'adminSetUserMemberships',
   'toggleClassRsvp',
   'upsertFinanceProduct',
   'deleteOrArchiveFinanceProduct',

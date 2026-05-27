@@ -185,6 +185,9 @@ export const backendFunctions = {
     lastStripeDateOverride?: string;
   }) => callFunction<{ userId: string }>('adminUpdateStudentTimeline', payload),
 
+  adminSetUserMemberships: (payload: { userId: string; memberships: string[] }) =>
+    callFunction<{ userId: string; memberships: string[]; academyId: string }>('adminSetUserMemberships', payload),
+
   adminUpdateInstructorProfile: (payload: {
     userId: string;
     firstName?: string;

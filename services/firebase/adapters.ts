@@ -197,6 +197,7 @@ export function toUiUser(params: {
     attendanceCountAtBeltStart: user.attendanceCountAtBeltStart,
     lastGraduation: buildSafeDate(user.lastGraduationDateOverride ?? latestGraduationAt).toISOString(),
     branchId: user.academyId,
+    memberships: Array.isArray(user.memberships) ? user.memberships : undefined,
     type: trainingType,
     kidsCategory: inferTrainingTypeFromBirthDate(user.birthDate) === 'Adulto'
       ? undefined

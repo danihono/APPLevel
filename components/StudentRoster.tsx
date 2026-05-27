@@ -47,6 +47,8 @@ export interface StudentRosterProps {
   onAdminUpdateStudentPhoto?: (payload: { userId: string; photoFile: File }) => Promise<void>;
   onDeactivateStudent?: (userId: string) => Promise<void>;
   onActivateStudent?: (userId: string) => Promise<void>;
+  viewerRole?: 'professor' | 'superadmin';
+  onAdminSetUserMemberships?: (payload: { userId: string; memberships: string[] }) => Promise<void>;
   kicker?: string;
   title?: string;
   description?: string;
@@ -240,6 +242,8 @@ const StudentRoster: React.FC<StudentRosterProps> = ({
   onAdminUpdateStudentPhoto,
   onDeactivateStudent,
   onActivateStudent,
+  viewerRole,
+  onAdminSetUserMemberships,
   kicker = 'Roster',
   title = 'Alunos com leitura mais limpa e mais forte.',
   description,
@@ -430,6 +434,9 @@ const StudentRoster: React.FC<StudentRosterProps> = ({
         onAdminUpdateStudentProfile={onAdminUpdateStudentProfile}
         onAdminUpdateStudentTimeline={onAdminUpdateStudentTimeline}
         onAdminUpdateStudentPhoto={onAdminUpdateStudentPhoto}
+        academies={academies}
+        viewerRole={viewerRole}
+        onAdminSetUserMemberships={onAdminSetUserMemberships}
         onDeactivateStudent={onDeactivateStudent}
         onActivateStudent={onActivateStudent}
       />

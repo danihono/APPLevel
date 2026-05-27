@@ -1877,6 +1877,14 @@ const App: React.FC = () => {
     }
   }
 
+  async function handleAdminSetUserMemberships(payload: { userId: string; memberships: string[] }) {
+    try {
+      await backendFunctions.adminSetUserMemberships(payload);
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
+  }
+
   async function handleAdminUpdateStudentTimeline(payload: {
     userId: string;
     trainingStartDate?: string;
@@ -2644,6 +2652,8 @@ const App: React.FC = () => {
             onAdminUpdateStudentPhoto={handleAdminUpdateStudentPhoto}
             onDeactivateStudent={handleDeactivateStudent}
             onActivateStudent={handleActivateStudent}
+            viewerRole={isSuperAdmin ? 'superadmin' : 'professor'}
+            onAdminSetUserMemberships={isSuperAdmin ? handleAdminSetUserMemberships : undefined}
           />
         );
       case 'management':
@@ -2668,6 +2678,7 @@ const App: React.FC = () => {
             onAdminUpdateStudentProfile={handleAdminUpdateStudentProfile}
             onAdminUpdateStudentTimeline={handleAdminUpdateStudentTimeline}
             onAdminUpdateStudentPhoto={handleAdminUpdateStudentPhoto}
+            onAdminSetUserMemberships={isSuperAdmin ? handleAdminSetUserMemberships : undefined}
             onUpdateInstructor={handleUpdateInstructor}
           />
         );

@@ -1,5 +1,6 @@
 import { setGlobalOptions } from 'firebase-functions/v2';
 import {
+  adminSetUserMemberships,
   adminUpdateInstructorProfile,
   adminUpdateStudentProfile,
   adminUpdateStudentTimeline,
@@ -120,6 +121,7 @@ export {
   clearGraduationRequests,
   clearNotifications,
   repairPendingGraduationNotifications,
+  adminSetUserMemberships,
   approveJoinRequest,
   approveAttendanceRequest,
   approveFightVideoSubmission,

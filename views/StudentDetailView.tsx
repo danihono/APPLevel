@@ -46,6 +46,9 @@ interface StudentDetailViewProps {
   onAdminUpdateStudentPhoto?: (payload: { userId: string; photoFile: File }) => Promise<void>;
   onDeactivateStudent?: (userId: string) => Promise<void>;
   onActivateStudent?: (userId: string) => Promise<void>;
+  academies?: Array<{ id: string; name: string }>;
+  viewerRole?: 'professor' | 'superadmin';
+  onAdminSetUserMemberships?: (payload: { userId: string; memberships: string[] }) => Promise<void>;
 }
 
 function formatDate(value?: string) {
@@ -122,6 +125,9 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
   onAdminUpdateStudentPhoto,
   onDeactivateStudent,
   onActivateStudent,
+  academies,
+  viewerRole,
+  onAdminSetUserMemberships,
 }) => {
   const [showEditModal, setShowEditModal] = useState(false);
   const photoInputRef = useRef<HTMLInputElement>(null);
@@ -153,6 +159,66 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
   const [historySortDir, setHistorySortDir] = useState<AttendanceSortDir>('desc');
   const [historyAdvancedOpen, setHistoryAdvancedOpen] = useState(false);
   const [historyVisibleCount, setHistoryVisibleCount] = useState(ATTENDANCE_PAGE_SIZE);
+
+  const initialMemberships = useMemo(
+    () => (student.memberships && student.memberships.length > 0)
+      ? [...student.memberships]
+      : (student.branchId ? [student.branchId] : []),
+    [student.id, student.memberships, student.branchId],
+  );
+  const [selectedMemberships, setSelectedMemberships] = useState<string[]>(initialMemberships);
+  const [membershipsBusy, setMembershipsBusy] = useState(false);
+  const [membershipsError, setMembershipsError] = useState('');
+
+  useEffect(() => {
+    setSelectedMemberships(initialMemberships);
+    setMembershipsError('');
+  }, [initialMemberships]);
+
+  const membershipsDirty = useMemo(() => {
+    const a = [...selectedMemberships].sort();
+    const b = [...initialMemberships].sort();
+    return a.length !== b.length || a.some((v, i) => v !== b[i]);
+  }, [selectedMemberships, initialMemberships]);
+
+  function toggleMembership(academyId: string, checked: boolean) {
+    setSelectedMemberships((current) => (
+      checked
+        ? [...new Set([...current, academyId])]
+        : current.filter((id) => id !== academyId)
+    ));
+  }
+
+  async function confirmAndSubmitMemberships() {
+    if (!onAdminSetUserMemberships || selectedMemberships.length === 0) return;
+    const academiesById = new Map(academies?.map((a) => [a.id, a.name]) ?? []);
+    const added = selectedMemberships
+      .filter((id) => !initialMemberships.includes(id))
+      .map((id) => academiesById.get(id) ?? id);
+    const removed = initialMemberships
+      .filter((id) => !selectedMemberships.includes(id))
+      .map((id) => academiesById.get(id) ?? id);
+    const parts: string[] = [];
+    if (added.length > 0) parts.push(`adicionar: ${added.join(', ')}`);
+    if (removed.length > 0) parts.push(`remover: ${removed.join(', ')}`);
+    const summary = parts.join(' | ');
+    const willSwitchActive = removed.length > 0 && !selectedMemberships.includes(student.branchId);
+    const warning = willSwitchActive
+      ? '\n\nATENCAO: a unidade ativa do aluno sera trocada automaticamente.'
+      : '';
+    if (!window.confirm(`Confirmar alteracao de unidades para ${student.name}?\n\n${summary}${warning}`)) {
+      return;
+    }
+    setMembershipsBusy(true);
+    setMembershipsError('');
+    try {
+      await onAdminSetUserMemberships({ userId: student.id, memberships: selectedMemberships });
+    } catch (err) {
+      setMembershipsError(err instanceof Error ? err.message : 'Nao foi possivel salvar as unidades.');
+    } finally {
+      setMembershipsBusy(false);
+    }
+  }
 
   useEffect(() => {
     setStudentBelt(student.belt);
@@ -525,6 +591,62 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
           </button>
         ) : null)}
       </section>
+
+      {viewerRole === 'superadmin' && academies && academies.length > 0 && onAdminSetUserMemberships ? (
+        <section className="app-panel app-panel-pad">
+          <p className="app-section-label">Unidades autorizadas</p>
+          <h2 className="text-xl font-bold mt-1">Acesso às unidades</h2>
+          <p className="mt-2 text-sm text-[color:var(--text-muted)]">
+            Marque as unidades que este aluno pode acessar. Lembre-se de clicar em <strong>Salvar unidades</strong> ao final — as alterações só são aplicadas após confirmação.
+          </p>
+          {membershipsError ? (
+            <div className="app-alert app-alert--error mt-3">{membershipsError}</div>
+          ) : null}
+          {membershipsDirty && !membershipsBusy ? (
+            <div className="app-alert app-alert--warning mt-3">
+              Você tem alterações não salvas.
+            </div>
+          ) : null}
+          <div className="mt-4 flex flex-col gap-2">
+            {academies.map((academy) => (
+              <label key={academy.id} className="flex items-center gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={selectedMemberships.includes(academy.id)}
+                  disabled={membershipsBusy}
+                  onChange={(event) => toggleMembership(academy.id, event.target.checked)}
+                  className="h-4 w-4 rounded"
+                />
+                <span className="text-sm font-medium">{academy.name}</span>
+                {academy.id === student.branchId ? (
+                  <span className="app-badge app-badge--muted">Unidade ativa</span>
+                ) : null}
+              </label>
+            ))}
+          </div>
+          <div className="mt-4 flex flex-wrap gap-3">
+            <button
+              type="button"
+              disabled={membershipsBusy || selectedMemberships.length === 0 || !membershipsDirty}
+              onClick={() => void confirmAndSubmitMemberships()}
+              className="app-button app-button--gold app-button--small"
+            >
+              {membershipsBusy ? 'Salvando...' : 'Salvar unidades'}
+            </button>
+            <button
+              type="button"
+              disabled={membershipsBusy || !membershipsDirty}
+              onClick={() => {
+                setSelectedMemberships(initialMemberships);
+                setMembershipsError('');
+              }}
+              className="app-button app-button--ghost app-button--small"
+            >
+              Cancelar
+            </button>
+          </div>
+        </section>
+      ) : null}
 
       {graduationRequest ? (
         <section className="app-panel app-panel-pad">

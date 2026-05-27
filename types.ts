@@ -62,6 +62,7 @@ export interface User {
   attendanceCountAtBeltStart?: number;
   lastGraduation: string;
   branchId: string;
+  memberships?: string[];
   type: 'Adulto' | 'Kids';
   kidsCategory?: KidsCategory;
   isCompetitor?: boolean;

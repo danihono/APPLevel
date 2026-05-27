@@ -41,6 +41,8 @@ interface StudentsViewProps {
   onAdminUpdateStudentPhoto?: (payload: { userId: string; photoFile: File }) => Promise<void>;
   onDeactivateStudent?: (userId: string) => Promise<void>;
   onActivateStudent?: (userId: string) => Promise<void>;
+  viewerRole?: 'professor' | 'superadmin';
+  onAdminSetUserMemberships?: (payload: { userId: string; memberships: string[] }) => Promise<void>;
 }
 
 const StudentsView: React.FC<StudentsViewProps> = ({
@@ -66,6 +68,8 @@ const StudentsView: React.FC<StudentsViewProps> = ({
   onAdminUpdateStudentPhoto,
   onDeactivateStudent,
   onActivateStudent,
+  viewerRole,
+  onAdminSetUserMemberships,
 }) => {
   return (
     <StudentRoster
@@ -91,6 +95,8 @@ const StudentsView: React.FC<StudentsViewProps> = ({
       onAdminUpdateStudentPhoto={onAdminUpdateStudentPhoto}
       onDeactivateStudent={onDeactivateStudent}
       onActivateStudent={onActivateStudent}
+      viewerRole={viewerRole}
+      onAdminSetUserMemberships={onAdminSetUserMemberships}
     />
   );
 };

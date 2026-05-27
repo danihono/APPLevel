@@ -68,6 +68,7 @@ interface ManagementViewProps {
     lastStripeDateOverride?: string;
   }) => Promise<void>;
   onAdminUpdateStudentPhoto?: (payload: { userId: string; photoFile: File }) => Promise<void>;
+  onAdminSetUserMemberships?: (payload: { userId: string; memberships: string[] }) => Promise<void>;
   onUpdateInstructor?: (payload: {
     userId: string;
     firstName?: string;
@@ -153,6 +154,7 @@ const ManagementView: React.FC<ManagementViewProps> = ({
   onAdminUpdateStudentProfile,
   onAdminUpdateStudentTimeline,
   onAdminUpdateStudentPhoto,
+  onAdminSetUserMemberships,
   onUpdateInstructor,
 }) => {
   const canManage = userRole === UserRole.PROFESSOR || userRole === UserRole.SUPERADMIN;
@@ -498,6 +500,9 @@ const ManagementView: React.FC<ManagementViewProps> = ({
             onAdminUpdateStudentProfile={onAdminUpdateStudentProfile}
             onAdminUpdateStudentTimeline={onAdminUpdateStudentTimeline}
             onAdminUpdateStudentPhoto={onAdminUpdateStudentPhoto}
+            academies={academies.map((entry) => ({ id: entry.id, name: entry.name }))}
+            viewerRole={isSuperAdmin ? 'superadmin' : 'professor'}
+            onAdminSetUserMemberships={isSuperAdmin ? onAdminSetUserMemberships : undefined}
           />
         ) : hasManagedAcademy ? (
           <>
@@ -629,6 +634,9 @@ const ManagementView: React.FC<ManagementViewProps> = ({
             onAdminUpdateStudentProfile={onAdminUpdateStudentProfile}
             onAdminUpdateStudentTimeline={onAdminUpdateStudentTimeline}
             onAdminUpdateStudentPhoto={onAdminUpdateStudentPhoto}
+            academies={academies.map((entry) => ({ id: entry.id, name: entry.name }))}
+            viewerRole={isSuperAdmin ? 'superadmin' : 'professor'}
+            onAdminSetUserMemberships={isSuperAdmin ? onAdminSetUserMemberships : undefined}
           />
         ) : (
           <section className="app-panel app-panel-pad">

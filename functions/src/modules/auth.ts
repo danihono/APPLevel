@@ -1886,3 +1886,52 @@ export const switchActiveAcademy = onCall(callableOptions, async (request) => {
     role: 'student' as const,
   };
 });
+
+export const adminSetUserMemberships = onCall(callableOptions, async (request) => {
+  const actor = await getRequestContext(request, 'superadmin');
+  assertCondition(
+    actor.role === 'superadmin',
+    'permission-denied',
+    'Somente superadmin pode definir as unidades do aluno.',
+  );
+
+  const targetUserId = requiredString(request.data, 'userId');
+  const rawList = (request.data as { memberships?: unknown } | null)?.memberships;
+  assertCondition(Array.isArray(rawList), 'invalid-argument', 'Lista de unidades invalida.');
+  const memberships = [...new Set(
+    (rawList as unknown[])
+      .filter((id): id is string => typeof id === 'string' && id.trim().length > 0)
+      .map((id) => id.trim()),
+  )];
+  assertCondition(
+    memberships.length > 0,
+    'invalid-argument',
+    'O aluno precisa ter pelo menos uma unidade.',
+  );
+
+  const targetUser = await getUserDoc(targetUserId);
+  assertCondition(
+    targetUser.role === 'student',
+    'failed-precondition',
+    'Somente alunos podem ter multiplas unidades.',
+  );
+
+  for (const academyId of memberships) {
+    await assertAcademyExists(academyId);
+  }
+
+  const currentActive = targetUser.academyId;
+  const nextActive = memberships.includes(currentActive) ? currentActive : memberships[0];
+  const academyChanged = nextActive !== currentActive;
+
+  await db.collection(COLLECTIONS.users).doc(targetUserId).update({
+    memberships,
+    academyId: nextActive,
+    updatedAt: Timestamp.now(),
+  });
+  if (academyChanged) {
+    await setClaims(targetUserId, 'student', nextActive);
+  }
+
+  return { userId: targetUserId, memberships, academyId: nextActive };
+});
