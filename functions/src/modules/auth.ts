@@ -138,7 +138,10 @@ async function applyStudentBeltGradeUpdate(params: {
   const now = Timestamp.now();
   let attendanceCountAtBeltStart: number | undefined;
 
-  if (params.targetUser.belt !== params.belt) {
+  const beltChanged = params.targetUser.belt !== params.belt;
+  const stripeChanged = params.targetUser.stripes !== params.stripes;
+
+  if (beltChanged) {
     const baseQuery = db
       .collection(COLLECTIONS.attendances)
       .where('academyId', '==', params.targetUser.academyId)
@@ -160,10 +163,12 @@ async function applyStudentBeltGradeUpdate(params: {
       ? { attendanceCountAtBeltStart, attendanceCountBonus: 0 }
       : {}),
     ...(params.hasKidsCategoryField ? { kidsCategory: params.kidsCategory ?? null } : {}),
+    ...(beltChanged ? { lastGraduationDateOverride: now } : {}),
+    ...(beltChanged || stripeChanged ? { lastStripeDateOverride: now } : {}),
     updatedAt: now,
   });
 
-  if (params.targetUser.belt !== params.belt || params.targetUser.stripes !== params.stripes) {
+  if (beltChanged || stripeChanged) {
     await db.collection(COLLECTIONS.graduations).doc().set({
       academyId: params.targetUser.academyId,
       userId: params.targetUserId,
@@ -1175,24 +1180,41 @@ export const approveGraduationRequest = onCall(callableOptions, async (request) 
 
   const requestId = requiredString(request.data, 'requestId');
   const requestRef = db.collection(COLLECTIONS.graduationRequests).doc(requestId);
-  const requestSnap = await requestRef.get();
-  assertCondition(requestSnap.exists, 'not-found', 'Pendencia de graduacao nao encontrada.');
 
-  const graduationRequest = requestSnap.data() as GraduationApprovalRequestDoc;
-  assertCondition(graduationRequest.status === 'pending', 'failed-precondition', 'Esta pendencia ja foi resolvida.');
-  assertCondition(
-    actor.role === 'superadmin' || graduationRequest.academyId === actor.academyId,
-    'permission-denied',
-    'Voce so pode aprovar graduacoes da sua unidade.',
-  );
+  const initialSnap = await requestRef.get();
+  assertCondition(initialSnap.exists, 'not-found', 'Pendencia de graduacao nao encontrada.');
+  const initialRequest = initialSnap.data() as GraduationApprovalRequestDoc;
 
-  const targetUser = await getUserDoc(graduationRequest.userId);
+  const targetUser = await getUserDoc(initialRequest.userId);
   assertCondition(targetUser.role === 'student', 'invalid-argument', 'Somente alunos podem ter graduacao aprovada.');
   assertCondition(
-    targetUser.academyId === graduationRequest.academyId,
+    targetUser.academyId === initialRequest.academyId,
     'failed-precondition',
     'Aluno e pendencia de graduacao precisam pertencer a mesma academia.',
   );
+
+  const claimTimestamp = Timestamp.now();
+  const graduationRequest = await db.runTransaction(async (transaction) => {
+    const snap = await transaction.get(requestRef);
+    assertCondition(snap.exists, 'not-found', 'Pendencia de graduacao nao encontrada.');
+
+    const data = snap.data() as GraduationApprovalRequestDoc;
+    assertCondition(data.status === 'pending', 'failed-precondition', 'Esta pendencia ja foi resolvida.');
+    assertCondition(
+      actor.role === 'superadmin' || data.academyId === actor.academyId,
+      'permission-denied',
+      'Voce so pode aprovar graduacoes da sua unidade.',
+    );
+
+    transaction.update(requestRef, {
+      status: 'approved',
+      approvedAt: claimTimestamp,
+      approvedBy: actor.uid,
+      approvedByRole: actor.role,
+      updatedAt: claimTimestamp,
+    });
+    return data;
+  });
 
   const now = await applyStudentBeltGradeUpdate({
     targetUserId: graduationRequest.userId,
@@ -1209,10 +1231,6 @@ export const approveGraduationRequest = onCall(callableOptions, async (request) 
     currentStripes: graduationRequest.targetStripes,
     attendanceCount: targetUser.attendanceCount,
     remainingClasses: 0,
-    status: 'approved',
-    approvedAt: now,
-    approvedBy: actor.uid,
-    approvedByRole: actor.role,
     updatedAt: now,
   });
 

@@ -10,7 +10,7 @@ import {
   KIDS_CATEGORIES,
   type ProgressionRules,
 } from '../beltCatalog';
-import { ArrowLeft, ArrowDown, ArrowUp, Award, Calendar, Camera, CheckCircle2, ChevronDown, ChevronUp, Clock, Edit, Filter, Mail, QrCode, Save, TrendingUp, UserCheck, UserX, Video, BookOpen } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, ArrowDown, ArrowUp, Award, Calendar, Camera, CheckCircle2, ChevronDown, ChevronUp, Clock, Edit, Filter, Mail, QrCode, Save, TrendingUp, UserCheck, UserX, Video, BookOpen, X } from 'lucide-react';
 import AppVideoContent from '../components/AppVideoContent';
 import AvatarWithBelt from '../components/AvatarWithBelt';
 import ProgressBar from '../components/ProgressBar';
@@ -145,6 +145,7 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
   const [studentKidsCategory, setStudentKidsCategory] = useState<KidsCategory | ''>(student.kidsCategory ?? inferredKidsCategory ?? '');
   const [attendanceBonus, setAttendanceBonus] = useState(student.attendanceCountBonus ?? 0);
   const [approveBusy, setApproveBusy] = useState(false);
+  const [approveConfirmOpen, setApproveConfirmOpen] = useState(false);
   const [saveBusy, setSaveBusy] = useState(false);
   const [bonusBusy, setBonusBusy] = useState(false);
   const [deactivateBusy, setDeactivateBusy] = useState(false);
@@ -359,6 +360,7 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
   }, [studentBelt, studentBeltOptions]);
 
   async function handleApproveSuggested() {
+    if (approveBusy) return;
     if (!graduationRequest || !onApproveGraduationRequest) {
       return;
     }
@@ -374,6 +376,7 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
       setError(submitError instanceof Error ? submitError.message : 'Não foi possível aprovar a graduação.');
     } finally {
       setApproveBusy(false);
+      setApproveConfirmOpen(false);
     }
   }
 
@@ -675,7 +678,7 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
             <div className="mt-5 flex flex-wrap gap-3">
               <button
                 type="button"
-                onClick={() => void handleApproveSuggested()}
+                onClick={() => setApproveConfirmOpen(true)}
                 disabled={approveBusy}
                 className="app-button app-button--gold"
               >
@@ -685,6 +688,62 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
             </div>
           ) : null}
         </section>
+      ) : null}
+
+      {approveConfirmOpen && graduationRequest && onApproveGraduationRequest ? (
+        <div
+          className="fixed inset-0 z-[90] flex items-end justify-center bg-black/60 sm:items-center"
+          onClick={() => { if (!approveBusy) setApproveConfirmOpen(false); }}
+        >
+          <div
+            className="app-panel app-panel-pad app-sheet-modal w-full max-w-xl rounded-b-none sm:rounded-[1.8rem]"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="app-icon-shell" style={{ color: '#f59e0b' }}>
+                  <AlertTriangle size={18} />
+                </div>
+                <h2 className="text-xl font-bold">Confirmar graduação</h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => setApproveConfirmOpen(false)}
+                disabled={approveBusy}
+                className="app-button app-button--ghost app-button--icon"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="mt-6 app-list-card">
+              <p className="text-sm font-semibold">{student.name}</p>
+              <p className="mt-2 text-sm text-[color:var(--text-muted)]">
+                Promover para <strong>{graduationTargetLabel(graduationRequest)}</strong>? Esta ação não pode ser desfeita.
+              </p>
+            </div>
+
+            <div className="mt-6 flex gap-3">
+              <button
+                type="button"
+                onClick={() => setApproveConfirmOpen(false)}
+                disabled={approveBusy}
+                className="app-button app-button--ghost flex-1"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleApproveSuggested()}
+                disabled={approveBusy}
+                className="app-button app-button--gold flex-1"
+              >
+                <CheckCircle2 size={14} />
+                {approveBusy ? 'Aprovando...' : 'Confirmar'}
+              </button>
+            </div>
+          </div>
+        </div>
       ) : null}
 
       {(feedback || error) ? (
