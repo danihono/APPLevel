@@ -491,8 +491,9 @@ export interface ProductPriceHistoryEntry {
   changedBy?: string;
   changedByName?: string;
   purchasePrice: number;
-  salePriceFilial: number;
-  salePriceDiretoria: number;
+  salePrice: number;
+  salePriceFilial?: number;
+  salePriceDiretoria?: number;
 }
 
 export interface FinanceProductDoc {
@@ -500,8 +501,9 @@ export interface FinanceProductDoc {
   category: string;
   description?: string;
   purchasePrice: number;
-  salePriceFilial: number;
-  salePriceDiretoria: number;
+  salePrice: number;
+  salePriceFilial?: number;
+  salePriceDiretoria?: number;
   stockCurrent: number;
   stockMinimum: number;
   status: FinanceStatus;
@@ -524,10 +526,12 @@ export interface FinanceServiceDoc {
   updatedAt: FirebaseFirestore.Timestamp;
 }
 
-export type FinanceBuyerType = 'filial' | 'diretoria';
+export type FinanceBuyerType = 'filial' | 'diretoria' | 'individuo';
+export type FinanceSaleType = 'product' | 'service';
 
 export interface FinanceSaleDoc {
   academyId: string;
+  saleType?: FinanceSaleType;
   buyerType: FinanceBuyerType;
   buyerAcademyId?: string;
   customerId?: string;

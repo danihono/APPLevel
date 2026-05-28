@@ -482,8 +482,9 @@ export interface ProductPriceHistoryEntry {
   changedBy?: string;
   changedByName?: string;
   purchasePrice: number;
-  salePriceFilial: number;
-  salePriceDiretoria: number;
+  salePrice: number;
+  salePriceFilial?: number;
+  salePriceDiretoria?: number;
 }
 
 export interface FinanceProductRecord {
@@ -491,8 +492,9 @@ export interface FinanceProductRecord {
   category: string;
   description?: string;
   purchasePrice: number;
-  salePriceFilial: number;
-  salePriceDiretoria: number;
+  salePrice: number;
+  salePriceFilial?: number;
+  salePriceDiretoria?: number;
   stockCurrent: number;
   stockMinimum: number;
   status: FinanceStatus;
@@ -515,7 +517,8 @@ export interface FinanceServiceRecord {
   updatedAt?: Timestamp;
 }
 
-export type FinanceBuyerType = 'filial' | 'diretoria';
+export type FinanceBuyerType = 'filial' | 'diretoria' | 'individuo';
+export type FinanceSaleType = 'product' | 'service';
 
 // Sentinela usado para vendas/movimentos de estoque que pertencem ao catalogo
 // global da Central (Level) e nao a uma filial especifica. Espelha o valor de
@@ -524,6 +527,7 @@ export const LEVEL_CATALOG_ID = '__level__';
 
 export interface FinanceSaleRecord {
   academyId: string;
+  saleType?: FinanceSaleType;
   buyerType?: FinanceBuyerType;
   buyerAcademyId?: string;
   customerId?: string;

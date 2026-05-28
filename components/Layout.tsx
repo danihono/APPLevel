@@ -458,11 +458,17 @@ const Layout: React.FC<LayoutProps> = ({
                       </select>
                     </div>
                   ) : null}
+
+                  {canToggleVision ? (
+                    <div className="app-pagebar__vision">
+                      {renderVisionSwitch()}
+                    </div>
+                  ) : null}
                 </div>
               </div>
 
               {canToggleVision ? (
-                <div className="app-vision-corner">
+                <div className="app-vision-corner app-vision-corner--mobile">
                   {renderVisionSwitch()}
                 </div>
               ) : null}

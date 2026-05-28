@@ -347,21 +347,28 @@ img {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
   gap: 1rem;
 }
 
 .app-pagebar__title {
+  flex: 1 1 18rem;
+  min-width: 0;
   font-size: clamp(1.55rem, 1.24rem + 1.08vw, 2.2rem);
   line-height: 1.04;
 }
 
 .app-pagebar__context {
   width: min(100%, 16rem);
-  flex: 0 0 auto;
+  flex: 0 1 16rem;
 }
 
 .app-pagebar__select {
   min-width: 14rem;
+}
+
+.app-pagebar__vision {
+  flex: 0 0 auto;
 }
 
 .app-mobile-header {
@@ -1139,7 +1146,7 @@ html.dark .calendar-mobile__day-section {
 }
 
 .app-pagebar--with-vision-switch {
-  padding-right: 12.5rem;
+  padding-right: 0;
 }
 
 .app-topbar-panel__inner--superadmin {
@@ -1147,6 +1154,7 @@ html.dark .calendar-mobile__day-section {
 }
 
 .app-vision-corner {
+  display: none;
   position: absolute;
   top: 0.2rem;
   right: 0;
@@ -6543,6 +6551,7 @@ html.dark .controle-total__stock-card {
   }
 
   .app-vision-corner {
+    display: block;
     top: calc(env(safe-area-inset-top) + 0.95rem);
     right: 1rem;
   }

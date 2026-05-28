@@ -12,6 +12,7 @@ import {
   type FinanceSaleItemDoc,
   type FinanceSaleItemType,
   type FinanceSalePaymentStatus,
+  type FinanceSaleType,
   type FinanceServiceDoc,
   type FinanceStatus,
   type InventoryMovementDoc,
@@ -87,6 +88,15 @@ function roundMoney(value: number): number {
   return Math.round((value + Number.EPSILON) * 100) / 100;
 }
 
+// Le o preco de venda do produto, com fallback para os campos legados
+// (salePriceFilial/salePriceDiretoria) presentes em documentos antigos.
+function readProductSalePrice(product: FinanceProductDoc): number {
+  if (typeof product.salePrice === 'number') return product.salePrice;
+  if (typeof product.salePriceFilial === 'number') return product.salePriceFilial;
+  if (typeof product.salePriceDiretoria === 'number') return product.salePriceDiretoria;
+  return 0;
+}
+
 function requiredMoney(data: unknown, fieldName: string): number {
   const value = roundMoney(requiredNumber(data, fieldName));
   assertCondition(value >= 0, 'invalid-argument', `O campo "${fieldName}" nao pode ser negativo.`);
@@ -152,8 +162,36 @@ function parseBuyerType(value: string | undefined): FinanceBuyerType {
     return 'filial';
   }
 
-  assertCondition(value === 'filial' || value === 'diretoria', 'invalid-argument', 'Tipo de comprador invalido.');
+  assertCondition(
+    value === 'filial' || value === 'diretoria' || value === 'individuo',
+    'invalid-argument',
+    'Tipo de comprador invalido.',
+  );
   return value;
+}
+
+function parseSaleType(value: string | undefined): FinanceSaleType | undefined {
+  if (!value) return undefined;
+  assertCondition(value === 'product' || value === 'service', 'invalid-argument', 'Tipo de venda invalido.');
+  return value;
+}
+
+// Deriva o saleType pelos itens, garantindo que todos sejam do mesmo tipo.
+// Se um saleType explicito for passado, valida que bate com os itens.
+function resolveSaleType(items: ParsedSaleItem[], explicit?: FinanceSaleType): FinanceSaleType {
+  assertCondition(items.length > 0, 'invalid-argument', 'A venda precisa de pelo menos um item.');
+  const first = items[0].type;
+  for (let i = 1; i < items.length; i += 1) {
+    assertCondition(
+      items[i].type === first,
+      'invalid-argument',
+      'Uma venda nao pode misturar produtos e servicos.',
+    );
+  }
+  if (explicit) {
+    assertCondition(explicit === first, 'invalid-argument', 'Tipo de venda nao bate com os itens.');
+  }
+  return first;
 }
 
 async function assertAcademyExists(academyId: string): Promise<void> {
@@ -273,9 +311,7 @@ async function resolveSaleItems(
     assertCondition(data.status === 'active', 'failed-precondition', `Item ${index + 1} esta inativo.`);
 
     const catalogPrice = item.type === 'product'
-      ? (buyerType === 'diretoria'
-        ? (data as FinanceProductDoc).salePriceDiretoria
-        : (data as FinanceProductDoc).salePriceFilial)
+      ? readProductSalePrice(data as FinanceProductDoc)
       : (data as FinanceServiceDoc).salePrice;
     const unitPrice = item.unitPrice ?? catalogPrice;
     assertCondition(item.discount <= unitPrice, 'invalid-argument', `O desconto do item ${index + 1} nao pode superar o valor unitario.`);
@@ -517,8 +553,7 @@ export const upsertFinanceProduct = onCall(callableOptions, async (request) => {
   const category = requiredString(request.data, 'category').trim();
   const description = optionalString(request.data, 'description')?.trim();
   const purchasePrice = requiredMoney(request.data, 'purchasePrice');
-  const salePriceFilial = requiredMoney(request.data, 'salePriceFilial');
-  const salePriceDiretoria = requiredMoney(request.data, 'salePriceDiretoria');
+  const salePrice = requiredMoney(request.data, 'salePrice');
   const stockMinimum = optionalMoney(request.data, 'stockMinimum', 0);
   const stockCurrent = optionalNumber(request.data, 'stockCurrent');
   const status = normalizeStatus(optionalString(request.data, 'status'));
@@ -537,19 +572,18 @@ export const upsertFinanceProduct = onCall(callableOptions, async (request) => {
       : roundMoney(stockCurrent);
     assertCondition(nextStock >= 0, 'invalid-argument', 'Estoque atual nao pode ser negativo.');
 
+    const previousSalePrice = previous ? readProductSalePrice(previous) : undefined;
     // Registra um ponto no historico de precos quando algum preco muda (ou no cadastro inicial).
     const priceChanged = !previous
       || previous.purchasePrice !== purchasePrice
-      || previous.salePriceFilial !== salePriceFilial
-      || previous.salePriceDiretoria !== salePriceDiretoria;
+      || previousSalePrice !== salePrice;
     const priceHistory: ProductPriceHistoryEntry[] = [...(previous?.priceHistory ?? [])];
     if (priceChanged) {
       priceHistory.push({
         changedAt: now,
         changedBy: actor.uid,
         purchasePrice,
-        salePriceFilial,
-        salePriceDiretoria,
+        salePrice,
       });
     }
 
@@ -558,8 +592,7 @@ export const upsertFinanceProduct = onCall(callableOptions, async (request) => {
       category,
       ...(description ? { description } : {}),
       purchasePrice,
-      salePriceFilial,
-      salePriceDiretoria,
+      salePrice,
       stockCurrent: nextStock,
       stockMinimum,
       status,
@@ -726,18 +759,36 @@ export const deleteOrArchiveFinanceService = onCall(callableOptions, async (requ
 export const createFinanceSale = onCall(callableOptions, async (request) => {
   const actor = await getRequestContext(request, 'superadmin');
   const buyerType = parseBuyerType(optionalString(request.data, 'buyerType')?.trim());
+  const parsedItems = parseSaleItems(request.data);
+  const saleType = resolveSaleType(parsedItems, parseSaleType(optionalString(request.data, 'saleType')?.trim()));
+  // Validacao cruzada saleType x buyerType:
+  //  - Produto: comprador eh uma Filial (revende) ou a propria Diretoria (estoque interno).
+  //  - Servico: comprador eh uma Filial (atacado de servicos) ou um Individuo (cliente final).
+  if (saleType === 'product') {
+    assertCondition(
+      buyerType === 'filial' || buyerType === 'diretoria',
+      'invalid-argument',
+      'Venda de produto exige comprador Filial ou Diretoria.',
+    );
+  } else {
+    assertCondition(
+      buyerType === 'filial' || buyerType === 'individuo',
+      'invalid-argument',
+      'Venda de servico exige comprador Filial ou Individuo.',
+    );
+  }
   // buyerAcademyId identifica a filial compradora quando buyerType==='filial'.
-  // Para 'diretoria' (a propria Central comprando do fornecedor), usamos o
-  // sentinela LEVEL_CATALOG_ID no academyId da venda.
+  // Para 'diretoria' (Central comprando do fornecedor) e 'individuo' (Central
+  // vendendo direto a um cliente), usamos LEVEL_CATALOG_ID no academyId.
   const buyerAcademyIdInput = optionalString(request.data, 'buyerAcademyId')?.trim();
   const legacyAcademyIdInput = optionalString(request.data, 'academyId')?.trim();
   let academyId: string;
-  if (buyerType === 'diretoria') {
-    academyId = LEVEL_CATALOG_ID;
-  } else {
+  if (buyerType === 'filial') {
     const filialId = buyerAcademyIdInput || legacyAcademyIdInput || '';
     assertCondition(!!filialId, 'invalid-argument', 'Informe a filial compradora.');
     academyId = filialId;
+  } else {
+    academyId = LEVEL_CATALOG_ID;
   }
   const customerId = optionalString(request.data, 'customerId')?.trim();
   const customerName = requiredString(request.data, 'customerName').trim();
@@ -749,7 +800,6 @@ export const createFinanceSale = onCall(callableOptions, async (request) => {
   const receivedAmount = optionalMoney(request.data, 'receivedAmount', 0);
   const paymentMethod = optionalString(request.data, 'paymentMethod')?.trim() || DEFAULT_PAYMENT_METHOD;
   const paymentDate = optionalTimestamp(request.data, 'paymentDate') ?? saleDate;
-  const parsedItems = parseSaleItems(request.data);
   const now = Timestamp.now();
   const saleRef = db.collection(COLLECTIONS.financeSales).doc();
   await assertAcademyOrCatalog(academyId);
@@ -767,6 +817,7 @@ export const createFinanceSale = onCall(callableOptions, async (request) => {
 
     const sale: FinanceSaleDoc = {
       academyId,
+      saleType,
       buyerType,
       ...(buyerType === 'filial' ? { buyerAcademyId: academyId } : {}),
       ...(customerId ? { customerId } : {}),
@@ -851,12 +902,26 @@ export const updateFinanceSale = onCall(callableOptions, async (request) => {
     const buyerType: FinanceBuyerType = buyerTypeInput
       ? parseBuyerType(buyerTypeInput)
       : (previousSale.buyerType ?? 'filial');
+    const saleType = resolveSaleType(parsedItems, parseSaleType(optionalString(request.data, 'saleType')?.trim()));
+    if (saleType === 'product') {
+      assertCondition(
+        buyerType === 'filial' || buyerType === 'diretoria',
+        'invalid-argument',
+        'Venda de produto exige comprador Filial ou Diretoria.',
+      );
+    } else {
+      assertCondition(
+        buyerType === 'filial' || buyerType === 'individuo',
+        'invalid-argument',
+        'Venda de servico exige comprador Filial ou Individuo.',
+      );
+    }
     // academyId da venda nunca muda apos a criacao (mantem agregacoes coerentes).
     // Os inputs buyerAcademyId / academyId so servem para validar coerencia.
     const academyId = previousSale.academyId;
-    const expectedAcademyId = buyerType === 'diretoria'
-      ? LEVEL_CATALOG_ID
-      : (buyerAcademyIdInput || legacyAcademyIdInput || academyId);
+    const expectedAcademyId = buyerType === 'filial'
+      ? (buyerAcademyIdInput || legacyAcademyIdInput || academyId)
+      : LEVEL_CATALOG_ID;
     assertCondition(expectedAcademyId === academyId, 'failed-precondition', 'Nao e possivel mover venda entre filiais.');
 
     const [oldItemsSnapshot, paymentsSnapshot] = await Promise.all([
@@ -914,6 +979,7 @@ export const updateFinanceSale = onCall(callableOptions, async (request) => {
     balanceDue = roundMoney(totals.total - amountReceived);
     paymentStatus = calculatePaymentStatus(totals.total, amountReceived);
     transaction.update(saleRef, {
+      saleType,
       buyerType,
       ...(buyerType === 'filial'
         ? { buyerAcademyId: academyId }

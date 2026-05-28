@@ -73,7 +73,8 @@ export interface FinanceSaleItemPayload {
 export interface FinanceSalePayload {
   saleId?: string;
   academyId: string;
-  buyerType?: 'filial' | 'diretoria';
+  saleType?: 'product' | 'service';
+  buyerType?: 'filial' | 'diretoria' | 'individuo';
   buyerAcademyId?: string;
   customerId?: string;
   customerName: string;
@@ -557,8 +558,7 @@ export const backendFunctions = {
     category: string;
     description?: string;
     purchasePrice: number;
-    salePriceFilial: number;
-    salePriceDiretoria: number;
+    salePrice: number;
     stockCurrent?: number;
     stockMinimum: number;
     status?: FinanceStatus;
