@@ -34,21 +34,21 @@
 
 html.dark {
   color-scheme: dark;
-  --bg: #07070b;
-  --bg-deep: #101016;
-  --bg-contrast: #191923;
-  --surface: rgba(18, 18, 24, 0.6);
-  --surface-strong: rgba(20, 20, 28, 0.82);
-  --surface-solid: rgba(12, 12, 18, 0.94);
-  --surface-pressed: rgba(26, 26, 35, 0.96);
-  --toolbar-bg: rgba(16, 16, 22, 0.72);
-  --toolbar-plate: rgba(9, 9, 15, 0.94);
-  --border: rgba(255, 255, 255, 0.12);
-  --border-strong: rgba(255, 255, 255, 0.12);
-  --divider: rgba(255, 255, 255, 0.12);
+  --bg: #0a0a0c;
+  --bg-deep: #050507;
+  --bg-contrast: #15151b;
+  --surface: rgba(22, 22, 28, 0.66);
+  --surface-strong: rgba(26, 26, 34, 0.88);
+  --surface-solid: rgba(16, 16, 22, 0.96);
+  --surface-pressed: rgba(30, 30, 40, 0.97);
+  --toolbar-bg: rgba(14, 14, 20, 0.78);
+  --toolbar-plate: rgba(8, 8, 12, 0.96);
+  --border: rgba(255, 255, 255, 0.16);
+  --border-strong: rgba(255, 255, 255, 0.16);
+  --divider: rgba(255, 255, 255, 0.16);
   --text-strong: #f7f4ee;
-  --text-muted: #b3b2c0;
-  --text-soft: #818394;
+  --text-muted: #c7c6d2;
+  --text-soft: #9a9aab;
   --shadow-panel: 0 34px 96px rgba(0, 0, 0, 0.55), 0 10px 24px rgba(0, 0, 0, 0.28);
   --shadow-soft: 0 18px 48px rgba(0, 0, 0, 0.35);
   --gold-button-surface: linear-gradient(180deg, rgba(16, 16, 22, 0.94), rgba(22, 22, 30, 0.92));
@@ -110,6 +110,21 @@ body::after {
   pointer-events: none;
   z-index: -1;
   animation: grain-shift 18s steps(6) infinite;
+}
+
+html.dark body {
+  background:
+    radial-gradient(circle at 16% 18%, rgba(232, 175, 72, 0.1), transparent 26%),
+    radial-gradient(circle at 84% 14%, rgba(140, 172, 255, 0.05), transparent 24%),
+    radial-gradient(circle at 50% 100%, rgba(232, 175, 72, 0.06), transparent 34%),
+    linear-gradient(180deg, var(--bg) 0%, var(--bg-deep) 100%);
+}
+
+html.dark body::before {
+  background:
+    radial-gradient(circle at 20% 15%, rgba(232, 175, 72, 0.1), transparent 22%),
+    radial-gradient(circle at 76% 18%, rgba(255, 255, 255, 0.03), transparent 18%),
+    radial-gradient(circle at 50% 100%, rgba(115, 143, 229, 0.05), transparent 24%);
 }
 
 html:not(.dark) .text-gray-300 {
@@ -531,46 +546,49 @@ img {
 }
 
 html.dark .app-mobile-header {
-  border-bottom-color: rgba(17, 17, 24, 0.08);
+  border-bottom-color: rgba(232, 175, 72, 0.28);
   background:
-    linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(248, 248, 251, 0.98) 56%, rgba(239, 240, 245, 0.98) 100%);
-  box-shadow: 0 14px 32px rgba(0, 0, 0, 0.14);
-  color: #111116;
+    linear-gradient(135deg, #0b0b0e, #15110a 60%, #1c1408 100%);
+  box-shadow: 0 14px 32px rgba(0, 0, 0, 0.5);
+  color: #f7f4ee;
 }
 
 html.dark .app-mobile-header::before {
-  background: radial-gradient(circle, rgba(17, 17, 24, 0.08), transparent 68%);
+  background: radial-gradient(circle, rgba(232, 175, 72, 0.22), transparent 68%);
 }
 
 html.dark .app-mobile-header::after {
-  border-bottom-color: rgba(17, 17, 24, 0.05);
+  border-bottom-color: rgba(255, 255, 255, 0.04);
 }
 
-html.dark .app-mobile-header__brand-wordmark,
+html.dark .app-mobile-header__brand-wordmark {
+  color: var(--gold-light);
+}
+
 html.dark .app-mobile-header__unit-name,
 html.dark .app-mobile-header__title {
-  color: #111116;
+  color: #f7f4ee;
 }
 
 html.dark .app-mobile-header__unit {
-  border-color: rgba(17, 17, 24, 0.1);
-  background: rgba(17, 17, 24, 0.04);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.75);
+  border-color: rgba(232, 175, 72, 0.26);
+  background: rgba(255, 255, 255, 0.06);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
 }
 
 html.dark .app-mobile-header__title-row {
-  border-top-color: rgba(17, 17, 24, 0.08);
+  border-top-color: rgba(255, 255, 255, 0.08);
 }
 
 html.dark .app-mobile-header__eyebrow {
-  color: #5e6070;
+  color: #c9c7d2;
 }
 
 html.dark .app-mobile-header__select {
-  border-color: rgba(17, 17, 24, 0.1);
-  background: rgba(17, 17, 24, 0.05);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
-  color: #111116;
+  border-color: rgba(232, 175, 72, 0.26);
+  background: rgba(255, 255, 255, 0.06);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  color: #fff8ef;
 }
 
 .app-panel {
@@ -3152,15 +3170,24 @@ html.dark .app-segment {
 }
 
 .app-segment__button.is-active {
-  color: var(--text-strong);
-  background: rgba(255, 255, 255, 0.92);
-  border-color: rgba(232, 175, 72, 0.35);
-  box-shadow: 0 2px 8px rgba(17, 17, 24, 0.12), 0 1px 2px rgba(17, 17, 24, 0.08);
+  color: #fdf6e9;
+  background: linear-gradient(160deg, #5c3d1f, #3a2613);
+  border-color: rgba(232, 175, 72, 0.55);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    0 0 0 1px rgba(232, 175, 72, 0.35),
+    0 6px 16px rgba(83, 53, 23, 0.45);
+  transform: translateY(-1px);
 }
 
 html.dark .app-segment__button.is-active {
-  background: rgba(255, 255, 255, 0.16);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3), 0 1px 2px rgba(0, 0, 0, 0.2);
+  color: #fdf6e9;
+  background: linear-gradient(160deg, #6b4a26, #43301a);
+  border-color: rgba(232, 175, 72, 0.6);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    0 0 0 1px rgba(232, 175, 72, 0.45),
+    0 6px 18px rgba(0, 0, 0, 0.55);
 }
 
 .learning-superadmin-tabs {
