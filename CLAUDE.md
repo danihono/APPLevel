@@ -158,6 +158,11 @@ Todas segmentadas por `academyId`:
 - TypeScript em **strict mode** (frontend e backend).
 - Path alias do frontend: `@/*` → raiz do projeto.
 - Strings de UI e logs ficam em **português**.
+- **Layouts desktop e mobile:** várias telas têm duas renderizações separadas
+  (ex.: em `NotificationsView.tsx` os cards de graduação aparecem na versão
+  desktop e na versão `notice-mobile__*`). Ao alterar UI/comportamento de um
+  card/lista/ação, aplique a mudança nas **duas** versões — a menos que o
+  usuário peça explicitamente para mexer só em uma.
 
 ## Ambiente
 

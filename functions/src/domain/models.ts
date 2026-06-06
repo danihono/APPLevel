@@ -163,6 +163,9 @@ export interface UserDoc {
   trainingStartDate?: FirebaseFirestore.Timestamp;
   lastGraduationDateOverride?: FirebaseFirestore.Timestamp;
   lastStripeDateOverride?: FirebaseFirestore.Timestamp;
+  // Marca a data da ultima graduacao/promocao do aluno. Usada para impedir
+  // aprovar uma nova graduacao antes de o aluno comparecer a uma aula.
+  lastGradeApprovalAt?: FirebaseFirestore.Timestamp;
   plainPassword?: string;
   createdAt: FirebaseFirestore.Timestamp;
   updatedAt: FirebaseFirestore.Timestamp;

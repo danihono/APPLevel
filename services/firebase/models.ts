@@ -89,6 +89,7 @@ export interface UserRecord {
   trainingStartDate?: Timestamp;
   lastGraduationDateOverride?: Timestamp;
   lastStripeDateOverride?: Timestamp;
+  lastGradeApprovalAt?: Timestamp;
   plainPassword?: string;
   createdAt?: Timestamp;
   updatedAt?: Timestamp;

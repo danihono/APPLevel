@@ -12,6 +12,7 @@ interface StudentProfileEditModalProps {
     phone?: string;
     cpf?: string;
     birthDate?: string;
+    email?: string;
     isCompetitor?: boolean;
   }) => Promise<void>;
   onAdminUpdateStudentTimeline?: (payload: {
@@ -44,6 +45,7 @@ const StudentProfileEditModal: React.FC<StudentProfileEditModalProps> = ({
   const [phone, setPhone] = useState(student.phone ?? '');
   const [cpf, setCpf] = useState(student.cpf ?? '');
   const [birthDate, setBirthDate] = useState(toInputDate(student.birthDate));
+  const [email, setEmail] = useState(student.email ?? '');
   const [isCompetitor, setIsCompetitor] = useState(student.isCompetitor ?? false);
 
   const [trainingStartDate, setTrainingStartDate] = useState(toInputDate(student.trainingStartDate ?? student.startDate));
@@ -59,6 +61,19 @@ const StudentProfileEditModal: React.FC<StudentProfileEditModalProps> = ({
     event.preventDefault();
     if (!onAdminUpdateStudentProfile && !onAdminUpdateStudentTimeline) return;
 
+    const emailTrimmed = email.trim();
+    const emailChanged =
+      !!emailTrimmed && emailTrimmed.toLowerCase() !== (student.email ?? '').toLowerCase();
+    if (
+      emailChanged
+      && !window.confirm(
+        `Alterar o e-mail de ${student.name} para "${emailTrimmed}"?\n\n`
+        + 'O aluno passará a entrar no app com este novo e-mail.',
+      )
+    ) {
+      return;
+    }
+
     setBusy(true);
     setFeedback('');
     setError('');
@@ -72,6 +87,7 @@ const StudentProfileEditModal: React.FC<StudentProfileEditModalProps> = ({
           phone: phone.trim() || undefined,
           cpf: cpf.trim() || undefined,
           birthDate: birthDate || undefined,
+          email: emailTrimmed || undefined,
           isCompetitor,
         });
       }
@@ -187,12 +203,12 @@ const StudentProfileEditModal: React.FC<StudentProfileEditModalProps> = ({
               <span className="app-field__label">E-mail</span>
               <input
                 type="email"
-                value={student.email}
-                readOnly
-                disabled
-                className="app-input opacity-50 cursor-not-allowed"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="app-input"
+                placeholder="aluno@email.com"
               />
-              <span className="app-field__hint">Para alterar o e-mail, o aluno deve fazê-lo pelo próprio perfil.</span>
+              <span className="app-field__hint">Alterar o e-mail muda o login do aluno: ele passará a entrar com o novo e-mail.</span>
             </label>
           </div>
 

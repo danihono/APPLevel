@@ -176,6 +176,7 @@ export const backendFunctions = {
     phone?: string;
     cpf?: string;
     birthDate?: string;
+    email?: string;
     isCompetitor?: boolean;
   }) => callFunction<{ userId: string; displayName: string }>('adminUpdateStudentProfile', payload),
 

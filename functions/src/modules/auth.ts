@@ -164,7 +164,7 @@ async function applyStudentBeltGradeUpdate(params: {
       : {}),
     ...(params.hasKidsCategoryField ? { kidsCategory: params.kidsCategory ?? null } : {}),
     ...(beltChanged ? { lastGraduationDateOverride: now } : {}),
-    ...(beltChanged || stripeChanged ? { lastStripeDateOverride: now } : {}),
+    ...(beltChanged || stripeChanged ? { lastStripeDateOverride: now, lastGradeApprovalAt: now } : {}),
     updatedAt: now,
   });
 
@@ -242,6 +242,28 @@ async function emailExists(email: string): Promise<boolean> {
 
     if (code === 'auth/user-not-found') {
       return false;
+    }
+
+    throw error;
+  }
+}
+
+async function updateAuthUserSafe(
+  uid: string,
+  patch: { displayName: string; email?: string; password?: string },
+): Promise<void> {
+  try {
+    await auth.updateUser(uid, patch);
+  } catch (error) {
+    const code = typeof error === 'object' && error && 'code' in error
+      ? String((error as { code: unknown }).code)
+      : '';
+
+    if (code === 'auth/email-already-exists') {
+      assertCondition(false, 'already-exists', 'Ja existe uma conta usando este e-mail.');
+    }
+    if (code === 'auth/invalid-email') {
+      assertCondition(false, 'invalid-argument', 'E-mail invalido.');
     }
 
     throw error;
@@ -1193,6 +1215,17 @@ export const approveGraduationRequest = onCall(callableOptions, async (request) 
     'Aluno e pendencia de graduacao precisam pertencer a mesma academia.',
   );
 
+  // So permite uma nova graduacao se o aluno compareceu a pelo menos uma aula
+  // desde a ultima graduacao. Evita encadear varias aprovacoes sem o aluno treinar.
+  // Fallback em lastStripeDateOverride cobre alunos graduados antes deste campo existir.
+  const lastApprovalMs = (targetUser.lastGradeApprovalAt ?? targetUser.lastStripeDateOverride)?.toMillis?.() ?? null;
+  const lastAttendanceMs = targetUser.lastAttendanceAt?.toMillis?.() ?? null;
+  assertCondition(
+    lastApprovalMs === null || (lastAttendanceMs !== null && lastAttendanceMs > lastApprovalMs),
+    'failed-precondition',
+    'Este aluno ja foi graduado recentemente. Aguarde ele completar a proxima aula antes de aprovar a proxima graduacao.',
+  );
+
   const claimTimestamp = Timestamp.now();
   const graduationRequest = await db.runTransaction(async (transaction) => {
     const snap = await transaction.get(requestRef);
@@ -1266,13 +1299,23 @@ export const adminUpdateStudentProfile = onCall(callableOptions, async (request)
   const isCompetitor = optionalBoolean(request.data, 'isCompetitor', targetUser.isCompetitor ?? false);
   const displayName = `${firstName} ${lastName}`.trim();
 
-  if (cpf !== targetUser.cpf) {
+  const newEmail = optionalString(request.data, 'email');
+  const normalizedEmail = newEmail ? normalizeEmail(newEmail) : undefined;
+  const emailChanged = !!normalizedEmail && normalizedEmail !== targetUser.email;
+
+  if (emailChanged || cpf !== targetUser.cpf) {
     await ensureUniqueIdentity({
-      email: targetUser.email,
+      email: emailChanged ? normalizedEmail! : targetUser.email,
       cpf,
       excludeUserId: targetUserId,
     });
   }
+
+  // Atualiza o Auth antes do Firestore: ele valida formato/unicidade do e-mail e lanca
+  // erro antes de gravarmos qualquer coisa, evitando deixar Auth e Firestore fora de sincronia.
+  const authPatch: { displayName: string; email?: string } = { displayName };
+  if (emailChanged) authPatch.email = normalizedEmail!;
+  await updateAuthUserSafe(targetUserId, authPatch);
 
   const now = Timestamp.now();
   await db.collection(COLLECTIONS.users).doc(targetUserId).update({
@@ -1283,9 +1326,9 @@ export const adminUpdateStudentProfile = onCall(callableOptions, async (request)
     phone: phone ?? null,
     birthDate: birthDate ?? null,
     isCompetitor,
+    ...(emailChanged ? { email: normalizedEmail } : {}),
     updatedAt: now,
   });
-  await auth.updateUser(targetUserId, { displayName });
   await syncUserDerivedState(targetUserId, targetUser.academyId);
 
   return { userId: targetUserId, displayName };
@@ -1567,9 +1610,25 @@ export const adminUpdateInstructorProfile = onCall(callableOptions, async (reque
   const belt = optionalString(request.data, 'belt') ?? targetUser.belt;
   const grade = optionalNumber(request.data, 'grade') ?? targetUser.grade;
   const newEmail = optionalString(request.data, 'email');
+  const normalizedEmail = newEmail ? normalizeEmail(newEmail) : undefined;
+  const emailChanged = !!normalizedEmail && normalizedEmail !== targetUser.email;
   const newPassword = optionalString(request.data, 'newPassword');
   const plainPassword = optionalString(request.data, 'plainPassword');
   const displayName = `${firstName} ${lastName}`.trim();
+
+  if (emailChanged) {
+    await ensureUniqueIdentity({
+      email: normalizedEmail!,
+      cpf: targetUser.cpf,
+      excludeUserId: targetUserId,
+    });
+  }
+
+  // Atualiza o Auth antes do Firestore para validar o e-mail e manter as duas fontes em sincronia.
+  const authPatch: { displayName: string; email?: string; password?: string } = { displayName };
+  if (emailChanged) authPatch.email = normalizedEmail!;
+  if (newPassword) authPatch.password = newPassword;
+  await updateAuthUserSafe(targetUserId, authPatch);
 
   const now = Timestamp.now();
   const firestorePatch: Record<string, unknown> = {
@@ -1582,16 +1641,10 @@ export const adminUpdateInstructorProfile = onCall(callableOptions, async (reque
   };
 
   if (phone !== undefined) firestorePatch.phone = phone || null;
-  if (newEmail) firestorePatch.email = normalizeEmail(newEmail);
+  if (emailChanged) firestorePatch.email = normalizedEmail;
   if (plainPassword !== undefined) firestorePatch.plainPassword = plainPassword || null;
 
   await db.collection(COLLECTIONS.users).doc(targetUserId).update(firestorePatch);
-
-  const authPatch: { displayName: string; email?: string; password?: string } = { displayName };
-  if (newEmail) authPatch.email = normalizeEmail(newEmail);
-  if (newPassword) authPatch.password = newPassword;
-
-  await auth.updateUser(targetUserId, authPatch);
 
   return { userId: targetUserId, displayName };
 });

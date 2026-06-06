@@ -469,6 +469,11 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
     [graduationRequests],
   );
 
+  const usersById = useMemo(
+    () => new Map(academyUsers.map((entry) => [entry.id, entry])),
+    [academyUsers],
+  );
+
   const pendingGraduationUserIds = useMemo(
     () => new Set(graduationItems.map((item) => item.userId)),
     [graduationItems],
@@ -1239,6 +1244,11 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
 
             {graduationItems.map((item) => {
               const isProcessing = processingRequestId === item.id;
+              const cardUser = usersById.get(item.userId);
+              const lastApprovalMs = (cardUser?.lastGradeApprovalAt ?? cardUser?.lastStripeDateOverride)?.toMillis?.() ?? null;
+              const lastAttendanceMs = cardUser?.lastAttendanceAt?.toMillis?.() ?? null;
+              const isBlocked = lastApprovalMs !== null
+                && !(lastAttendanceMs !== null && lastAttendanceMs > lastApprovalMs);
 
               return (
                 <article key={item.id} className="notice-mobile__request-card">
@@ -1267,10 +1277,16 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
                     </div>
                   </div>
 
+                  {isBlocked ? (
+                    <div className="app-alert app-alert--warning text-sm">
+                      Este aluno já foi graduado recentemente. Aguarde ele completar a próxima aula para liberar a próxima graduação.
+                    </div>
+                  ) : null}
+
                   <div className="notice-mobile__actions">
                     <button
                       type="button"
-                      disabled={isProcessing}
+                      disabled={isProcessing || isBlocked}
                       onClick={() => void handleApproveGraduation(item)}
                       className="app-button app-button--green app-button--small"
                     >
@@ -2024,6 +2040,13 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
 
           {graduationItems.map((item) => {
             const isProcessing = processingRequestId === item.id;
+            const cardUser = usersById.get(item.userId);
+            const lastApprovalMs = (cardUser?.lastGradeApprovalAt ?? cardUser?.lastStripeDateOverride)?.toMillis?.() ?? null;
+            const lastAttendanceMs = cardUser?.lastAttendanceAt?.toMillis?.() ?? null;
+            // Bloqueia nova aprovacao enquanto o aluno nao comparecer a uma aula
+            // desde a ultima graduacao.
+            const isBlocked = lastApprovalMs !== null
+              && !(lastAttendanceMs !== null && lastAttendanceMs > lastApprovalMs);
 
             return (
             <article key={item.id} className="app-panel app-panel-pad">
@@ -2058,10 +2081,16 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
                 </div>
               </div>
 
+              {isBlocked ? (
+                <div className="app-alert app-alert--warning mt-3 text-sm">
+                  Este aluno já foi graduado recentemente. Aguarde ele completar a próxima aula para liberar a próxima graduação.
+                </div>
+              ) : null}
+
               <div className="mt-5 flex flex-wrap gap-3">
                 <button
                   type="button"
-                  disabled={isProcessing}
+                  disabled={isProcessing || isBlocked}
                   onClick={() => void handleApproveGraduation(item)}
                   className="app-button app-button--green app-button--small"
                 >

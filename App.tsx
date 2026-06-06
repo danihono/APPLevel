@@ -1859,6 +1859,7 @@ const App: React.FC = () => {
     phone?: string;
     cpf?: string;
     birthDate?: string;
+    email?: string;
     isCompetitor?: boolean;
   }) {
     try {

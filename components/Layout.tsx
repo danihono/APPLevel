@@ -261,6 +261,26 @@ const Layout: React.FC<LayoutProps> = ({
     </div>
   );
 
+  const renderUnitChip = () => (
+    onUnitClick ? (
+      <button
+        type="button"
+        onClick={onUnitClick}
+        className="app-mobile-header__unit cursor-pointer hover:opacity-80 transition-opacity"
+        aria-label="Trocar unidade"
+      >
+        <img src="/logo3.png" alt="" aria-hidden="true" className="app-mobile-header__unit-mark" />
+        <span className="app-mobile-header__unit-name">{mobileUnitLabel}</span>
+        <ChevronDown size={14} aria-hidden="true" />
+      </button>
+    ) : (
+      <div className="app-mobile-header__unit">
+        <img src="/logo3.png" alt="" aria-hidden="true" className="app-mobile-header__unit-mark" />
+        <span className="app-mobile-header__unit-name">{mobileUnitLabel}</span>
+      </div>
+    )
+  );
+
   useEffect(() => {
     const updateIndicator = () => {
       const activeButton = navRefs.current[activeTab];
@@ -383,7 +403,7 @@ const Layout: React.FC<LayoutProps> = ({
           <div className={isSuperAdmin ? 'app-content-shell' : ''}>
             <header className={`app-topbar ${isSuperAdmin ? 'app-topbar--superadmin' : ''}`.trim()}>
               <div
-                className={`app-mobile-header ${canToggleVision && !showSuperadminAcademyPicker ? 'app-mobile-header--with-vision-switch' : ''}`.trim()}
+                className="app-mobile-header"
                 title={mobileUnitLabel}
               >
                 <div className="app-mobile-header__row">
@@ -392,24 +412,12 @@ const Layout: React.FC<LayoutProps> = ({
                     <span className="app-mobile-header__brand-wordmark">LEVEL</span>
                   </div>
 
-                  {!showSuperadminAcademyPicker ? (
-                    onUnitClick ? (
-                      <button
-                        type="button"
-                        onClick={onUnitClick}
-                        className="app-mobile-header__unit cursor-pointer hover:opacity-80 transition-opacity"
-                        aria-label="Trocar unidade"
-                      >
-                        <img src="/logo3.png" alt="" aria-hidden="true" className="app-mobile-header__unit-mark" />
-                        <span className="app-mobile-header__unit-name">{mobileUnitLabel}</span>
-                        <ChevronDown size={14} aria-hidden="true" />
-                      </button>
-                    ) : (
-                      <div className="app-mobile-header__unit">
-                        <img src="/logo3.png" alt="" aria-hidden="true" className="app-mobile-header__unit-mark" />
-                        <span className="app-mobile-header__unit-name">{mobileUnitLabel}</span>
-                      </div>
-                    )
+                  {canToggleVision ? (
+                    <div className="app-mobile-header__vision">
+                      {renderVisionSwitch()}
+                    </div>
+                  ) : !showSuperadminAcademyPicker ? (
+                    renderUnitChip()
                   ) : null}
                 </div>
 
@@ -432,6 +440,10 @@ const Layout: React.FC<LayoutProps> = ({
                           <option key={entry.id} value={entry.id}>{entry.name}</option>
                         ))}
                       </select>
+                    </div>
+                  ) : canToggleVision ? (
+                    <div className="app-mobile-header__context app-mobile-header__context--unit">
+                      {renderUnitChip()}
                     </div>
                   ) : null}
                 </div>
@@ -466,12 +478,6 @@ const Layout: React.FC<LayoutProps> = ({
                   ) : null}
                 </div>
               </div>
-
-              {canToggleVision ? (
-                <div className="app-vision-corner app-vision-corner--mobile">
-                  {renderVisionSwitch()}
-                </div>
-              ) : null}
 
             </header>
 

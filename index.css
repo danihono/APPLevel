@@ -1171,15 +1171,6 @@ html.dark .calendar-mobile__day-section {
   gap: 0.8rem 1rem;
 }
 
-.app-vision-corner {
-  display: none;
-  position: absolute;
-  top: 0.2rem;
-  right: 0;
-  z-index: 4;
-  pointer-events: none;
-}
-
 .app-vision-switch {
   pointer-events: auto;
   display: inline-flex;
@@ -4348,6 +4339,12 @@ html.dark .app-auth-bullet {
   color: var(--success);
 }
 
+.app-alert--warning {
+  border-color: rgba(202, 138, 4, 0.22);
+  background: rgba(202, 138, 4, 0.12);
+  color: #b45309;
+}
+
 .app-toast {
   padding: 0.95rem 1rem;
   border-radius: 1.35rem;
@@ -6573,14 +6570,14 @@ html.dark .controle-total__stock-card {
     align-items: stretch;
   }
 
-  .app-mobile-header--with-vision-switch {
-    padding-right: 9.75rem;
+  .app-mobile-header__vision {
+    flex: 0 0 auto;
+    margin-left: auto;
   }
 
-  .app-vision-corner {
-    display: block;
-    top: calc(env(safe-area-inset-top) + 0.95rem);
-    right: 1rem;
+  .app-mobile-header__context--unit {
+    display: flex;
+    justify-content: flex-end;
   }
 
   .app-vision-switch__button {
