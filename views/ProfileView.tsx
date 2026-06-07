@@ -630,7 +630,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({
         </article>
         <article className="app-panel app-panel-pad">
           <p className="app-stat-card__label">Próximo grau</p>
-          <p className="app-stat-card__value">{nextStripeRemaining}</p>
+          <p className="app-stat-card__value">{progression.stripeCycleRemaining ?? 0}</p>
           <p className="app-stat-card__note">Aulas restantes</p>
         </article>
         <article className="app-panel app-panel-pad">

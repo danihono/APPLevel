@@ -69,8 +69,9 @@ const GraduationView: React.FC<GraduationViewProps> = ({
   const activeRules = progression.activeRules;
   const currentRule = progression.currentRule;
 
-  const stripeProgress = progression.stripeProgress;
-  const stripeTotal = progression.stripeTotal;
+  const stripeCycleProgress = progression.stripeCycleProgress;
+  const stripeCycleTotal = progression.stripeCycleTotal;
+  const stripeCycleRemaining = progression.stripeCycleRemaining;
   const beltProgress = progression.beltProgress;
   const beltTotal = progression.beltTotal;
   const nextStripeRemaining = progression.stripeRemaining;
@@ -121,14 +122,14 @@ const GraduationView: React.FC<GraduationViewProps> = ({
               <div className="flex items-center justify-between text-sm mb-2">
                 <span className="font-semibold">Próximo grau</span>
                 <span className="text-[color:var(--text-muted)]">
-                  {stripeTotal > 0 ? `${stripeProgress} / ${stripeTotal} aulas` : 'Progressão manual'}
+                  {stripeCycleTotal > 0 ? `${stripeCycleProgress} / ${stripeCycleTotal} aulas` : 'Progressão manual'}
                 </span>
               </div>
-              <ProgressBar current={stripeProgress} total={stripeTotal} />
+              <ProgressBar current={stripeCycleProgress} total={stripeCycleTotal} />
               <p className="mt-2 text-xs text-[color:var(--text-muted)]">
-                {nextStripeRemaining === null
+                {stripeCycleRemaining === null
                   ? 'Essa faixa não tem liberação automática de grau por aulas.'
-                  : `Restam ${nextStripeRemaining} aula(s) para atingir o próximo grau.`}
+                  : `Restam ${stripeCycleRemaining} aula(s) para atingir o próximo grau.`}
               </p>
             </div>
 

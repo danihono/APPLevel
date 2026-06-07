@@ -151,8 +151,11 @@ async function applyStudentBeltGradeUpdate(params: {
       baseQuery.where('countsAsAttendance', '==', false).count().get(),
     ]);
     const organic = totalSnap.data().count - nonCountingSnap.data().count;
-    const bonus = Math.max(0, Math.floor(params.targetUser.attendanceCountBonus ?? 0));
-    attendanceCountAtBeltStart = organic + bonus;
+    // O marco da nova faixa precisa estar na MESMA moeda da contagem corrente pós-promoção:
+    // o bônus é zerado logo abaixo (attendanceCountBonus: 0) e attendanceCount passa a ser
+    // apenas aulas reais (= `organic`, idêntico a computeEngagementMetrics). Somar o bônus
+    // aqui deixaria o progresso da nova faixa congelado pelas primeiras `bonus` aulas reais.
+    attendanceCountAtBeltStart = organic;
   }
 
   await db.collection(COLLECTIONS.users).doc(params.targetUserId).update({

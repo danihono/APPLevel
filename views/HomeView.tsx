@@ -107,8 +107,8 @@ const HomeView: React.FC<HomeViewProps> = ({
         <div className="mt-6 space-y-5">
           <ProgressBar
             label="Próximo grau"
-            current={progression.stripeProgress}
-            total={progression.stripeTotal}
+            current={progression.stripeCycleProgress}
+            total={progression.stripeCycleTotal}
           />
           <ProgressBar
             label="Próxima faixa"

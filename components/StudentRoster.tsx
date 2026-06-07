@@ -81,8 +81,8 @@ function getStudentGrade(student: User) {
 function getProgressionHint(student: User, rules?: ProgressionRules | null): string | null {
   const prog = getUserProgressionSummary(student, rules);
   const parts: string[] = [];
-  if (prog.stripeTotal > 0) {
-    parts.push(`${prog.stripeProgress}/${prog.stripeTotal} grau`);
+  if (prog.stripeCycleTotal > 0) {
+    parts.push(`${prog.stripeCycleProgress}/${prog.stripeCycleTotal} grau`);
   }
   if (prog.beltTotal > 0) {
     parts.push(`${prog.beltProgress}/${prog.beltTotal} faixa`);

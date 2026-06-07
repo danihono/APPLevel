@@ -25,6 +25,9 @@ export interface UserProgressionSummary {
   stripeProgress: number;
   stripeTotal: number;
   stripeRemaining: number | null;
+  stripeCycleProgress: number;
+  stripeCycleTotal: number;
+  stripeCycleRemaining: number | null;
   beltProgress: number;
   beltTotal: number;
   beltRemaining: number | null;
@@ -600,6 +603,15 @@ export function getUserProgressionSummary(params: {
     : isManuallyPlaced
       ? clampProgress(currentStripes * classesPerStripe + gradeProgressForBelt, beltTotal)
       : clampProgress(attendanceCount - effectiveBeltStartAttendances, beltTotal);
+  // Ciclo de grau para EXIBIÇÃO: segue mostrando o ciclo atual (ex.: 12/30) mesmo quando
+  // o aluno já completou todos os graus, desde que ainda exista próxima faixa.
+  const hasStripeCycle = classesPerStripe > 0 && (currentStripes < maxStripes || !!nextRule);
+  const stripeCycleTotal = hasStripeCycle ? classesPerStripe : 0;
+  const stripeCycleProgress = attendanceCount == null
+    ? clampProgress(params.currentStripeProgress ?? 0, stripeCycleTotal)
+    : isManuallyPlaced
+      ? clampProgress(attendanceCount, stripeCycleTotal)
+      : clampProgress(attendanceCount - stripeStartAttendances, stripeCycleTotal);
 
   return {
     track,
@@ -613,6 +625,9 @@ export function getUserProgressionSummary(params: {
     stripeProgress,
     stripeTotal,
     stripeRemaining: stripeTotal > 0 ? Math.max(stripeTotal - stripeProgress, 0) : null,
+    stripeCycleProgress,
+    stripeCycleTotal,
+    stripeCycleRemaining: stripeCycleTotal > 0 ? Math.max(stripeCycleTotal - stripeCycleProgress, 0) : null,
     beltProgress,
     beltTotal,
     beltRemaining: beltTotal > 0 ? Math.max(beltTotal - beltProgress, 0) : null,

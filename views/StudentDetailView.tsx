@@ -321,7 +321,11 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
 
   function handleStudentBeltChange(value: string) {
     const nextBelt = value as typeof student.belt;
+    const beltChanged = nextBelt !== studentBelt;
     setStudentBelt(nextBelt);
+    if (beltChanged) {
+      setStudentGrade(0);
+    }
 
     if (canUseAdultGraduation && !isKidsOnlyBelt(nextBelt)) {
       setStudentKidsCategory('');
@@ -343,10 +347,10 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
     }, progressionRules),
     [progressionRules, previewAttendanceCount, student, studentBelt, studentGrade, attendanceBonus],
   );
-  const stripeTotal = progression.stripeTotal;
   const beltTotal = progression.beltTotal;
-  const stripeProgress = progression.stripeProgress;
   const beltProgress = progression.beltProgress;
+  const gradeDisplayTotal = progression.stripeCycleTotal;
+  const gradeDisplayProgress = progression.stripeCycleProgress;
 
   useEffect(() => {
     if (!studentBeltOptions.length) {
@@ -846,10 +850,10 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
 
         <div className="mt-6 space-y-6">
           <div>
-            <ProgressBar current={stripeProgress} total={stripeTotal} />
+            <ProgressBar current={gradeDisplayProgress} total={gradeDisplayTotal} />
             <p className="mt-3 text-sm text-[color:var(--text-muted)]">
-              {stripeTotal > 0
-                ? `Progresso real para o próximo grau: ${stripeProgress}/${stripeTotal} aulas`
+              {gradeDisplayTotal > 0
+                ? `Progresso real para o próximo grau: ${gradeDisplayProgress}/${gradeDisplayTotal} aulas`
                 : 'Próximo grau: progressão manual'}
             </p>
           </div>
