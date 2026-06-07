@@ -10,6 +10,7 @@ import {
   kidsCategoryLabel,
 } from '../beltCatalog';
 import { Bell, BellRing, CheckCircle2, ChevronDown, ChevronUp, ClipboardCheck, GraduationCap, Send, Trash2, X, XCircle } from 'lucide-react';
+import { useConfirm } from '../components/ConfirmDialog';
 import AppVideoContent from '../components/AppVideoContent';
 import type { FirestoreEntity } from '../services/firebase/data';
 import type {
@@ -290,6 +291,7 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
   const isSuperAdmin = userRole === UserRole.SUPERADMIN;
   const isStudent = userRole === UserRole.ALUNO;
   const isProfessorMobileView = userRole === UserRole.PROFESSOR;
+  const confirm = useConfirm();
   const [activeTab, setActiveTab] = useState<StaffTab>('notifications');
   const [studentChannelTab, setStudentChannelTab] = useState<'academy' | 'team'>('academy');
   const [title, setTitle] = useState('');
@@ -657,7 +659,12 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
         : item.kind === 'reactivation_request'
           ? 'solicitação de reativação'
           : 'solicitação de presença';
-    if (!window.confirm(`Tem certeza que deseja rejeitar esta ${label}? Esta ação não pode ser desfeita.`)) {
+    if (!(await confirm({
+      title: 'Rejeitar solicitação',
+      message: `Tem certeza que deseja rejeitar esta ${label}? Esta ação não pode ser desfeita.`,
+      confirmLabel: 'Rejeitar',
+      tone: 'danger',
+    }))) {
       return;
     }
 
@@ -744,7 +751,11 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
     if (!transferringRequestId || !transferTargetAcademyId || !onTransferJoinRequest) {
       return;
     }
-    if (!window.confirm('A solicitação sairá desta unidade e será encaminhada para a unidade escolhida. Confirma?')) {
+    if (!(await confirm({
+      title: 'Transferir solicitação',
+      message: 'A solicitação sairá desta unidade e será encaminhada para a unidade escolhida. Confirma?',
+      confirmLabel: 'Transferir',
+    }))) {
       return;
     }
     setTransferBusy(true);

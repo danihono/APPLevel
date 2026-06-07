@@ -10,6 +10,7 @@ import {
   KIDS_CATEGORIES,
   type ProgressionRules,
 } from '../beltCatalog';
+import { useConfirm } from '../components/ConfirmDialog';
 import { AlertTriangle, ArrowLeft, ArrowDown, ArrowUp, Award, Calendar, Camera, CheckCircle2, ChevronDown, ChevronUp, Clock, Edit, Filter, Mail, QrCode, Save, TrendingUp, UserCheck, UserX, Video, BookOpen, X } from 'lucide-react';
 import AppVideoContent from '../components/AppVideoContent';
 import AvatarWithBelt from '../components/AvatarWithBelt';
@@ -129,6 +130,7 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
   viewerRole,
   onAdminSetUserMemberships,
 }) => {
+  const confirm = useConfirm();
   const [showEditModal, setShowEditModal] = useState(false);
   const photoInputRef = useRef<HTMLInputElement>(null);
   const [photoBusy, setPhotoBusy] = useState(false);
@@ -207,7 +209,12 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
     const warning = willSwitchActive
       ? '\n\nATENCAO: a unidade ativa do aluno sera trocada automaticamente.'
       : '';
-    if (!window.confirm(`Confirmar alteracao de unidades para ${student.name}?\n\n${summary}${warning}`)) {
+    if (!(await confirm({
+      title: 'Alterar unidades',
+      message: `Confirmar alteracao de unidades para ${student.name}?\n\n${summary}${warning}`,
+      confirmLabel: 'Confirmar',
+      tone: willSwitchActive ? 'danger' : 'default',
+    }))) {
       return;
     }
     setMembershipsBusy(true);
@@ -416,7 +423,12 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
 
   async function handleDeactivate() {
     if (!onDeactivateStudent) return;
-    if (!window.confirm(`Desativar ${student.name}? O aluno não poderá mais acessar o aplicativo.`)) return;
+    if (!(await confirm({
+      title: 'Desativar aluno',
+      message: `Desativar ${student.name}? O aluno não poderá mais acessar o aplicativo.`,
+      confirmLabel: 'Desativar',
+      tone: 'danger',
+    }))) return;
     setDeactivateBusy(true);
     setFeedback('');
     setError('');

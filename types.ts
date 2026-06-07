@@ -96,27 +96,6 @@ export interface ClassInstance {
   date: string;
 }
 
-export interface Product {
-  id: string;
-  name: string;
-  price: number;
-  vendor: string;
-  category: string;
-  image: string;
-  variations?: { size: string[]; color: string[] };
-}
-
-export interface Order {
-  id: string;
-  userId: string;
-  branchId: string;
-  items: { productId: string; quantity: number; price: number }[];
-  total: number;
-  commission: number;
-  status: 'Pendente' | 'Pago' | 'Enviado' | 'Entregue';
-  createdAt: string;
-}
-
 export interface NewsItem {
   id: string;
   title: string;

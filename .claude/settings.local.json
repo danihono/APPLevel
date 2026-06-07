@@ -3,7 +3,13 @@
     "allow": [
       "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\follo\\\\applevel\" -Force)",
       "Bash(Select-Object Name, FullName, PSIsContainer)",
-      "Bash(Format-List)"
+      "Bash(Format-List)",
+      "Bash(grep -rn \"toProduct\" *.tsx *.ts views/*.tsx components/*.tsx services/**/*.ts)",
+      "Bash(grep -rn \"StoreItemRecord\" *.tsx *.ts views/*.tsx components/*.tsx services/firebase/*.ts)",
+      "Bash(sed -n '105,130p' services/firebase/adapters.ts)",
+      "Bash(grep -rn \"subscribeToStoreItems\\\\|StoreItem\" *.tsx *.ts views/*.tsx components/*.tsx services/firebase/*.ts)",
+      "Bash(sed -n '490,525p' services/firebase/data.ts)",
+      "Bash(sed -n '350,375p' services/firebase/models.ts)"
     ]
   }
 }

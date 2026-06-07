@@ -29,7 +29,6 @@ export const COLLECTIONS = {
   missions: 'missions',
   notifications: 'notifications',
   rankings: 'rankings',
-  storeItems: 'store_items',
   userMissions: 'user_missions',
   users: 'users',
 } as const;
@@ -363,20 +362,6 @@ export interface FightVideoSubmissionDoc {
   reviewedBy?: string;
   reviewedByRole?: Role;
   notificationDismissedAt?: FirebaseFirestore.Timestamp;
-}
-
-export interface StoreItemDoc {
-  academyId: string;
-  name: string;
-  description?: string;
-  rewardType: 'product' | 'discount' | 'experience';
-  pointsCost: number;
-  cashPrice?: number;
-  stock?: number;
-  imagePath?: string;
-  status: 'active' | 'inactive';
-  createdAt: FirebaseFirestore.Timestamp;
-  updatedAt: FirebaseFirestore.Timestamp;
 }
 
 export interface LearningTrackDoc {

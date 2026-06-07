@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { ArrowLeft, Save, User, Calendar } from 'lucide-react';
 import type { User as UserType } from '../types';
+import { useConfirm } from './ConfirmDialog';
 
 interface StudentProfileEditModalProps {
   student: UserType;
@@ -56,6 +57,7 @@ const StudentProfileEditModal: React.FC<StudentProfileEditModalProps> = ({
   const [busy, setBusy] = useState(false);
   const [feedback, setFeedback] = useState('');
   const [error, setError] = useState('');
+  const confirm = useConfirm();
 
   async function handleSave(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -66,10 +68,12 @@ const StudentProfileEditModal: React.FC<StudentProfileEditModalProps> = ({
       !!emailTrimmed && emailTrimmed.toLowerCase() !== (student.email ?? '').toLowerCase();
     if (
       emailChanged
-      && !window.confirm(
-        `Alterar o e-mail de ${student.name} para "${emailTrimmed}"?\n\n`
-        + 'O aluno passará a entrar no app com este novo e-mail.',
-      )
+      && !(await confirm({
+        title: 'Alterar e-mail',
+        message: `Alterar o e-mail de ${student.name} para "${emailTrimmed}"?\n\n`
+          + 'O aluno passará a entrar no app com este novo e-mail.',
+        confirmLabel: 'Alterar e-mail',
+      }))
     ) {
       return;
     }

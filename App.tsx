@@ -95,7 +95,6 @@ import type {
   UserRecord,
 } from './services/firebase/models';
 import { UserRole, type UserVideo } from './types';
-import { MOCK_PRODUCTS } from './constants';
 
 const CalendarView = lazy(() => import('./views/CalendarView'));
 const CompetitionView = lazy(() => import('./views/CompetitionView'));
@@ -105,7 +104,6 @@ const LearningHubView = lazy(() => import('./views/LearningHubView'));
 const ManagementView = lazy(() => import('./views/ManagementView'));
 const NotificationsView = lazy(() => import('./views/NotificationsView'));
 const ProfileView = lazy(() => import('./views/ProfileView'));
-const StoreView = lazy(() => import('./views/StoreView'));
 const SuperadminDashboardView = lazy(() => import('./views/SuperadminDashboardView'));
 const StudentsView = lazy(() => import('./views/StudentsView'));
 
@@ -2753,13 +2751,6 @@ const App: React.FC = () => {
             onMarkBlockComplete={handleMarkLearningBlockComplete}
             onStartQuiz={handleStartLessonQuiz}
             onSubmitQuiz={handleSubmitLessonQuiz}
-          />
-        );
-      case 'store':
-        return (
-          <StoreView
-            products={MOCK_PRODUCTS}
-            branch={branch}
           />
         );
       case 'profile':

@@ -9,6 +9,7 @@ import type { FirestoreEntity } from '../services/firebase/data';
 import type { AcademyRecord, ClassRecord, UserRecord } from '../services/firebase/models';
 import InstructorEditModal from '../components/InstructorEditModal';
 import StudentRoster from '../components/StudentRoster';
+import { useConfirm } from '../components/ConfirmDialog';
 import { UserRole, type UserVideo } from '../types';
 
 interface ManagementViewProps {
@@ -215,6 +216,7 @@ const ManagementView: React.FC<ManagementViewProps> = ({
   ), [instructors]);
   const masterBlackSectionRef = useRef<HTMLElement | null>(null);
 
+  const confirm = useConfirm();
   const [academyName, setAcademyName] = useState(managedAcademy.name);
   const [academyTimezone, setAcademyTimezone] = useState(managedAcademy.timezone);
   const [academyStatus, setAcademyStatus] = useState<'active' | 'inactive' | 'suspended'>(managedAcademy.status);
@@ -309,11 +311,21 @@ const ManagementView: React.FC<ManagementViewProps> = ({
     }
 
     if (academyStatus === 'suspended' && managedAcademy.status !== 'suspended') {
-      if (!window.confirm('Tem certeza que deseja SUSPENDER esta academia? Os alunos serão impedidos de acessar o sistema.')) {
+      if (!(await confirm({
+        title: 'Suspender academia',
+        message: 'Tem certeza que deseja SUSPENDER esta academia? Os alunos serão impedidos de acessar o sistema.',
+        confirmLabel: 'Suspender',
+        tone: 'danger',
+      }))) {
         return;
       }
     } else if (academyStatus === 'inactive' && managedAcademy.status === 'active') {
-      if (!window.confirm('Tem certeza que deseja inativar esta academia?')) {
+      if (!(await confirm({
+        title: 'Inativar academia',
+        message: 'Tem certeza que deseja inativar esta academia?',
+        confirmLabel: 'Inativar',
+        tone: 'danger',
+      }))) {
         return;
       }
     }

@@ -354,20 +354,6 @@ export interface FightVideoSubmissionRecord {
   notificationDismissedAt?: Timestamp;
 }
 
-export interface StoreItemRecord {
-  academyId: string;
-  name: string;
-  description?: string;
-  rewardType: 'product' | 'discount' | 'experience';
-  pointsCost: number;
-  cashPrice?: number;
-  stock?: number;
-  imagePath?: string;
-  status: 'active' | 'inactive';
-  createdAt?: Timestamp;
-  updatedAt?: Timestamp;
-}
-
 export interface LearningTrackRecord {
   title: string;
   description?: string;

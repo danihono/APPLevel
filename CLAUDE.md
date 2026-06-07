@@ -61,7 +61,6 @@ applevel/
 ├── App.tsx                  # Componente raiz (~2800 linhas) — roteamento e estado global
 ├── index.tsx                # Entry point React
 ├── types.ts                 # Tipos globais do frontend
-├── constants.tsx            # Constantes + dados mockados
 ├── utils.ts                 # Funções utilitárias
 ├── beltCatalog.ts           # Catálogo de faixas de Jiu-Jitsu
 ├── calendarUtils.ts         # Utilitários de calendário
@@ -142,7 +141,7 @@ Região global: `southamerica-east1`; `maxInstances: 10`.
 Todas segmentadas por `academyId`:
 
 `users`, `academies`, `classes`, `attendances`, `graduations`, `missions`,
-`rankings`, `competitions`, `fights`, `store_items`, `notifications`,
+`rankings`, `competitions`, `fights`, `notifications`,
 `learning_*` (tracks, courses, lessons, quizzes, progress),
 `finance_*` (products, services, sales, payments, revenues, expenses),
 `inventory_movements`.
@@ -178,6 +177,5 @@ Todas segmentadas por `academyId`:
 - Após `firebase deploy`, o script `scripts/fixFunctionInvokers.cjs` corrige as
   permissões de invocação das functions — por isso `firebase:deploy` o executa
   automaticamente. Se fizer deploy manual, rode `npm run firebase:fix-invokers`.
-- O frontend ainda usa **dados mockados parcialmente** (`constants.tsx`).
 - `App.tsx` é grande (~2800 linhas) e concentra roteamento e estado global.
 - Emuladores: auth `9099`, functions `5001`, firestore `8080`, storage `9199`.

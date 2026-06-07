@@ -90,11 +90,6 @@ const pageMeta: Record<string, { kicker: string; title: string; description: str
     title: 'Learning Hub',
     description: 'Uma área de capacitação pensada para professores assistirem conteúdos e validarem aprendizado.',
   },
-  store: {
-    kicker: 'Merch',
-    title: 'Loja',
-    description: 'Produtos, busca e chamadas de ação herdaram o mesmo sistema dourado do resto da experiência.',
-  },
   profile: {
     kicker: 'Identity',
     title: 'Perfil',

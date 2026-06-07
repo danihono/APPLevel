@@ -40,7 +40,6 @@ import type {
   LearningTrackRecord,
   NotificationRecord,
   ReactivationRequestRecord,
-  StoreItemRecord,
   UserRecord,
 } from './models';
 import { isNotificationInViewerInbox } from './notifications';
@@ -490,23 +489,6 @@ export function subscribeToFightVideoSubmissions(
       const records = snapshot.docs
         .map((item) => mapDoc<FightVideoSubmissionRecord>(item))
         .sort((left, right) => toMillis(right.updatedAt ?? right.createdAt) - toMillis(left.updatedAt ?? left.createdAt));
-      listener(records);
-    },
-    onError,
-  );
-}
-
-export function subscribeToStoreItems(
-  academyId: string,
-  listener: (records: Array<FirestoreEntity<StoreItemRecord>>) => void,
-  onError?: (error: Error) => void,
-) {
-  return onSnapshot(
-    query(collection(firebaseDb, 'store_items'), where('academyId', '==', academyId)),
-    (snapshot) => {
-      const records = snapshot.docs
-        .map((item) => mapDoc<StoreItemRecord>(item))
-        .sort((left, right) => left.name.localeCompare(right.name, 'pt-BR'));
       listener(records);
     },
     onError,

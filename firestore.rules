@@ -179,13 +179,6 @@ service cloud.firestore {
       allow write: if false;
     }
 
-    match /store_items/{storeItemId} {
-      allow read: if sameAcademy(resource.data.academyId);
-      allow create: if (isAdmin() && sameAcademy(request.resource.data.academyId)) || isSuperAdmin();
-      allow update: if (isAdmin() && sameAcademy(resource.data.academyId)) || isSuperAdmin();
-      allow delete: if (isAdmin() && sameAcademy(resource.data.academyId)) || isSuperAdmin();
-    }
-
     match /notifications/{notificationId} {
       allow read: if isSuperAdmin()
         || sameAcademy(resource.data.academyId)

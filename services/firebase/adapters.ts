@@ -4,7 +4,7 @@ import {
   inferTrainingTypeFromBirthDate,
   normalizeBeltId,
 } from '../../beltCatalog';
-import type { Branch, Product, User, UserVideo } from '../../types';
+import type { Branch, User, UserVideo } from '../../types';
 import { UserRole } from '../../types';
 import { getVideoSourceKindFromUrl } from '../../utils';
 import type {
@@ -13,7 +13,6 @@ import type {
   FightRecord,
   FightVideoSubmissionRecord,
   GraduationRecord,
-  StoreItemRecord,
   UserRecord,
 } from './models';
 import type { FirestoreEntity } from './data';
@@ -103,19 +102,6 @@ export function toBranch(academy: FirestoreEntity<AcademyRecord> | null): Branch
     name: academy?.name ?? 'Academia',
     location: academy?.timezone ?? 'America/Sao_Paulo',
     commissionBalance: 0,
-  };
-}
-
-export function toProduct(item: FirestoreEntity<StoreItemRecord>): Product {
-  return {
-    id: item.id,
-    name: item.name,
-    price: item.cashPrice ?? item.pointsCost,
-    vendor: 'LEVEL Store',
-    category: item.rewardType,
-    image: item.imagePath && item.imagePath.startsWith('http')
-      ? item.imagePath
-      : `https://picsum.photos/seed/${item.id}/400/400`,
   };
 }
 
