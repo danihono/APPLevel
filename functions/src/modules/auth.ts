@@ -193,16 +193,6 @@ async function applyStudentBeltGradeUpdate(params: {
     attendanceCountBonusToWrite = 0;
   }
 
-  console.info('[DBG applyStudentBeltGradeUpdate] vai gravar', JSON.stringify({
-    targetUserId: params.targetUserId,
-    gradeProgress: params.gradeProgress,
-    attendanceCount: params.targetUser.attendanceCount,
-    writtenBaseline: attendanceCountAtBeltStart,
-    writtenBonus: attendanceCountBonusToWrite,
-    beltChanged,
-    stripeChanged,
-  }));
-
   await db.collection(COLLECTIONS.users).doc(params.targetUserId).update({
     belt: params.belt,
     grade: params.grade,
@@ -1133,15 +1123,6 @@ export const updateStudentBeltGrade = onCall(callableOptions, async (request) =>
   const gradeProgress = gradeProgressRaw != null
     ? Math.max(0, Math.floor(gradeProgressRaw))
     : undefined;
-  console.info('[DBG updateStudentBeltGrade] recebido', JSON.stringify({
-    targetUserId,
-    belt,
-    grade,
-    stripes,
-    gradeProgressRaw,
-    gradeProgress,
-    dataKeys: request.data && typeof request.data === 'object' ? Object.keys(request.data as Record<string, unknown>) : null,
-  }));
   const targetUser = await getUserDoc(targetUserId);
 
   assertCondition(targetUser.role === 'student', 'invalid-argument', 'Somente alunos podem ter faixa ou grau alterados.');
