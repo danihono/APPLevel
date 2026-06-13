@@ -231,13 +231,17 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
     }
   }
 
+  // Reseta o formulario SO ao trocar de aluno (student.id). O objeto `student` e recriado a cada
+  // render do App (map/toUiUser), entao depender dele aqui faria o reset disparar em qualquer
+  // re-render (ex.: atualizacao de subscription), apagando o que o admin acabou de digitar.
   useEffect(() => {
     setStudentBelt(student.belt);
     setStudentGrade(student.stripes);
     setStudentKidsCategory(student.kidsCategory ?? inferKidsCategoryFromBirthDate(student.birthDate) ?? '');
     setAttendanceBonus(student.attendanceCountBonus ?? 0);
     setGradeCurrentClasses(getUserProgressionSummary({ ...student }, progressionRules).stripeCycleProgress);
-  }, [student, progressionRules]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [student.id]);
 
   useEffect(() => {
     setHistoryVisibleCount(ATTENDANCE_PAGE_SIZE);
