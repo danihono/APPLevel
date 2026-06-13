@@ -27,7 +27,7 @@ interface StudentDetailViewProps {
   classes?: Array<FirestoreEntity<ClassRecord>>;
   onBack: () => void;
   onApproveGraduationRequest?: (requestId: string) => Promise<void>;
-  onUpdateStudentBeltGrade?: (payload: { userId: string; belt: string; grade: number; stripes?: number; kidsCategory?: string }) => Promise<void>;
+  onUpdateStudentBeltGrade?: (payload: { userId: string; belt: string; grade: number; stripes?: number; kidsCategory?: string; attendanceCountAtBeltStart?: number }) => Promise<void>;
   onSetStudentAttendanceBonus?: (payload: { userId: string; attendanceCountBonus: number }) => Promise<void>;
   onAdminUpdateStudentProfile?: (payload: {
     userId: string;
@@ -146,6 +146,9 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
   const [studentGrade, setStudentGrade] = useState(student.stripes);
   const [studentKidsCategory, setStudentKidsCategory] = useState<KidsCategory | ''>(student.kidsCategory ?? inferredKidsCategory ?? '');
   const [attendanceBonus, setAttendanceBonus] = useState(student.attendanceCountBonus ?? 0);
+  const [gradeCurrentClasses, setGradeCurrentClasses] = useState(
+    () => getUserProgressionSummary({ ...student }, progressionRules).stripeCycleProgress,
+  );
   const [approveBusy, setApproveBusy] = useState(false);
   const [approveConfirmOpen, setApproveConfirmOpen] = useState(false);
   const [saveBusy, setSaveBusy] = useState(false);
@@ -233,7 +236,8 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
     setStudentGrade(student.stripes);
     setStudentKidsCategory(student.kidsCategory ?? inferKidsCategoryFromBirthDate(student.birthDate) ?? '');
     setAttendanceBonus(student.attendanceCountBonus ?? 0);
-  }, [student]);
+    setGradeCurrentClasses(getUserProgressionSummary({ ...student }, progressionRules).stripeCycleProgress);
+  }, [student, progressionRules]);
 
   useEffect(() => {
     setHistoryVisibleCount(ATTENDANCE_PAGE_SIZE);
@@ -332,6 +336,7 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
     setStudentBelt(nextBelt);
     if (beltChanged) {
       setStudentGrade(0);
+      setGradeCurrentClasses(0);
     }
 
     if (canUseAdultGraduation && !isKidsOnlyBelt(nextBelt)) {
@@ -344,15 +349,32 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
   );
   const previewAttendanceCount = registeredAttendanceCount + attendanceBonus;
   const progression = useMemo(
-    () => getUserProgressionSummary({
-      ...student,
-      belt: studentBelt,
-      stripes: studentGrade,
-      attendanceCount: previewAttendanceCount,
-      attendanceCountBonus: attendanceBonus,
-      attendanceCountAtBeltStart: studentBelt === student.belt ? student.attendanceCountAtBeltStart : undefined,
-    }, progressionRules),
-    [progressionRules, previewAttendanceCount, student, studentBelt, studentGrade, attendanceBonus],
+    () => {
+      // 1o passo: resolve o stripeEvery da faixa (independe do marco).
+      const base = getUserProgressionSummary({
+        ...student,
+        belt: studentBelt,
+        stripes: studentGrade,
+        attendanceCount: previewAttendanceCount,
+        attendanceCountBonus: attendanceBonus,
+        attendanceCountAtBeltStart: studentBelt === student.belt ? student.attendanceCountAtBeltStart : undefined,
+      }, progressionRules);
+      // 2o passo: reposiciona o marco a partir do campo "Aulas no grau atual", para que o
+      // progresso do grau mostre exatamente `gradeCurrentClasses`/stripeEvery.
+      const manualBaseline = Math.max(
+        0,
+        previewAttendanceCount - studentGrade * base.classesPerStripe - gradeCurrentClasses,
+      );
+      return getUserProgressionSummary({
+        ...student,
+        belt: studentBelt,
+        stripes: studentGrade,
+        attendanceCount: previewAttendanceCount,
+        attendanceCountBonus: attendanceBonus,
+        attendanceCountAtBeltStart: manualBaseline,
+      }, progressionRules);
+    },
+    [progressionRules, previewAttendanceCount, student, studentBelt, studentGrade, attendanceBonus, gradeCurrentClasses],
   );
   const beltTotal = progression.beltTotal;
   const beltProgress = progression.beltProgress;
@@ -403,12 +425,17 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
     setError('');
 
     try {
+      const attendanceCountAtBeltStart = Math.max(
+        0,
+        previewAttendanceCount - studentGrade * progression.classesPerStripe - gradeCurrentClasses,
+      );
       await onUpdateStudentBeltGrade({
         userId: student.id,
         belt: studentBelt,
         grade: studentGrade,
         stripes: studentGrade,
         kidsCategory: studentTrack === 'Kids' ? studentKidsCategory : '',
+        attendanceCountAtBeltStart,
       });
       if (onSetStudentAttendanceBonus) {
         await onSetStudentAttendanceBonus({ userId: student.id, attendanceCountBonus: attendanceBonus });
@@ -800,10 +827,30 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
                 type="number"
                 min={0}
                 value={studentGrade}
-                onChange={(event) => setStudentGrade(Math.max(0, Math.floor(Number(event.target.value) || 0)))}
+                onChange={(event) => {
+                  setStudentGrade(Math.max(0, Math.floor(Number(event.target.value) || 0)));
+                  setGradeCurrentClasses(0);
+                }}
                 className="app-input"
               />
             </label>
+
+            {progression.classesPerStripe > 0 ? (
+              <label className="app-field">
+                <span className="app-field__label">Aulas no grau atual</span>
+                <input
+                  type="number"
+                  min={0}
+                  max={progression.classesPerStripe}
+                  value={gradeCurrentClasses}
+                  onChange={(event) => setGradeCurrentClasses(
+                    Math.max(0, Math.min(progression.classesPerStripe, Math.floor(Number(event.target.value) || 0))),
+                  )}
+                  className="app-input"
+                />
+                <span className="app-field__hint">Quantas aulas o aluno já tem no grau atual (0 reinicia o grau)</span>
+              </label>
+            ) : null}
 
             {onSetStudentAttendanceBonus ? (
               <label className="app-field">

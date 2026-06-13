@@ -160,7 +160,7 @@ export const backendFunctions = {
   setUserRole: (payload: { userId: string; role: AppRole }) =>
     callFunction<{ userId: string; role: AppRole }>('setUserRole', payload),
 
-  updateStudentBeltGrade: (payload: { userId: string; belt: string; grade: number; stripes?: number; kidsCategory?: string }) =>
+  updateStudentBeltGrade: (payload: { userId: string; belt: string; grade: number; stripes?: number; kidsCategory?: string; attendanceCountAtBeltStart?: number }) =>
     callFunction<{ userId: string; belt: string; grade: number; stripes: number; kidsCategory?: string | null }>('updateStudentBeltGrade', payload),
 
   setStudentAttendanceBonus: (payload: { userId: string; attendanceCountBonus: number }) =>

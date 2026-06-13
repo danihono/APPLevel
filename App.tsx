@@ -1834,7 +1834,7 @@ const App: React.FC = () => {
     }
   }
 
-  async function handleUpdateStudentBeltGrade(payload: { userId: string; belt: string; grade: number; stripes?: number; kidsCategory?: string }) {
+  async function handleUpdateStudentBeltGrade(payload: { userId: string; belt: string; grade: number; stripes?: number; kidsCategory?: string; attendanceCountAtBeltStart?: number }) {
     try {
       await backendFunctions.updateStudentBeltGrade(payload);
     } catch (error) {

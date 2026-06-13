@@ -135,14 +135,21 @@ async function applyStudentBeltGradeUpdate(params: {
   kidsCategory?: string;
   hasKidsCategoryField: boolean;
   ruleVersion?: number;
+  attendanceCountAtBeltStart?: number;
 }): Promise<Timestamp> {
   const now = Timestamp.now();
   let attendanceCountAtBeltStart: number | undefined;
+  let resetBonus = false;
 
   const beltChanged = params.targetUser.belt !== params.belt;
   const stripeChanged = params.targetUser.stripes !== params.stripes;
 
-  if (beltChanged || stripeChanged) {
+  if (params.attendanceCountAtBeltStart !== undefined) {
+    // Ajuste manual do progresso do grau (campo "Aulas no grau atual"): grava o marco recebido
+    // diretamente e mantem o bonus. Vale mesmo sem mudar faixa/grau, pois apenas reposiciona o
+    // progresso dentro do grau atual.
+    attendanceCountAtBeltStart = Math.max(0, Math.floor(params.attendanceCountAtBeltStart));
+  } else if (beltChanged || stripeChanged) {
     const baseQuery = db
       .collection(COLLECTIONS.attendances)
       .where('academyId', '==', params.targetUser.academyId)
@@ -166,15 +173,15 @@ async function applyStudentBeltGradeUpdate(params: {
       kidsCategory: params.targetUser.kidsCategory,
     });
     attendanceCountAtBeltStart = Math.max(0, organic - params.stripes * stripeEvery);
+    resetBonus = true;
   }
 
   await db.collection(COLLECTIONS.users).doc(params.targetUserId).update({
     belt: params.belt,
     grade: params.grade,
     stripes: params.stripes,
-    ...(attendanceCountAtBeltStart !== undefined
-      ? { attendanceCountAtBeltStart, attendanceCountBonus: 0 }
-      : {}),
+    ...(attendanceCountAtBeltStart !== undefined ? { attendanceCountAtBeltStart } : {}),
+    ...(resetBonus ? { attendanceCountBonus: 0 } : {}),
     ...(params.hasKidsCategoryField ? { kidsCategory: params.kidsCategory ?? null } : {}),
     ...(beltChanged ? { lastGraduationDateOverride: now } : {}),
     ...(beltChanged || stripeChanged ? { lastStripeDateOverride: now, lastGradeApprovalAt: now } : {}),
@@ -1095,6 +1102,10 @@ export const updateStudentBeltGrade = onCall(callableOptions, async (request) =>
   const stripes = Math.max(0, Math.floor(optionalNumber(request.data, 'stripes') ?? grade));
   const kidsCategory = optionalString(request.data, 'kidsCategory');
   const hasKidsCategoryField = Object.prototype.hasOwnProperty.call(data, 'kidsCategory');
+  const attendanceCountAtBeltStartRaw = optionalNumber(request.data, 'attendanceCountAtBeltStart');
+  const attendanceCountAtBeltStart = attendanceCountAtBeltStartRaw != null
+    ? Math.max(0, Math.floor(attendanceCountAtBeltStartRaw))
+    : undefined;
   const targetUser = await getUserDoc(targetUserId);
 
   assertCondition(targetUser.role === 'student', 'invalid-argument', 'Somente alunos podem ter faixa ou grau alterados.');
@@ -1112,6 +1123,7 @@ export const updateStudentBeltGrade = onCall(callableOptions, async (request) =>
     stripes,
     kidsCategory,
     hasKidsCategoryField,
+    attendanceCountAtBeltStart,
   });
 
   await syncUserDerivedState(targetUserId, targetUser.academyId);
