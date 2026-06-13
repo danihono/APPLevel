@@ -7943,3 +7943,252 @@ html.dark .profile-mobile__menu-icon {
     position: absolute;
   }
 }
+
+/* =====================================================================
+   SUPERADMIN · DESKTOP — TEMA FLAT (SaaS limpo)
+   Tudo escopado em .app-shell--superadmin. Não afeta aluno/professor
+   nem o restante do app. Como os componentes (.app-panel, .sa-*,
+   .controle-total__*, .app-button…) leem os tokens abaixo, redefini-los
+   aqui reestiliza toda a área do superadmin de uma vez.
+   ===================================================================== */
+
+/* ---- 1. Paleta flat: tokens re-escopados (claro) ---- */
+.app-shell--superadmin {
+  --bg: #f5f6f8;
+  --bg-deep: #eef0f3;
+  --bg-contrast: #e6e9ee;
+  --surface: #ffffff;
+  --surface-strong: #ffffff;
+  --surface-solid: #ffffff;
+  --surface-pressed: #f2f4f7;
+  --toolbar-bg: #ffffff;
+  --toolbar-plate: #f7f8fa;
+  --border: #e4e7ec;
+  --border-strong: #d0d5dd;
+  --divider: #eaecf0;
+  --text-strong: #101828;
+  --text-muted: #475467;
+  --text-soft: #667085;
+  --shadow-panel: 0 1px 3px rgba(16, 24, 40, 0.08), 0 1px 2px rgba(16, 24, 40, 0.04);
+  --shadow-soft: 0 1px 2px rgba(16, 24, 40, 0.05);
+  --success: #15803d;
+  --danger: #b42318;
+  --info: #175cd3;
+  /* ouro legível como texto sobre branco (AA) */
+  --gold-ink: #97701b;
+  /* escala de espaçamento/raio padronizada */
+  --sa-radius: 1rem;
+  --sa-radius-sm: 0.7rem;
+
+  background: var(--bg);
+  /* cor base da subárvore: garante que textos que HERDAM a cor (nomes,
+     valores de KPI, títulos sem classe) usem o --text-strong do escopo,
+     em vez de herdar a cor do <body> (que está fora do escopo). Resolve o
+     texto "transparente/cinza-claro". Cores explícitas seguem valendo. */
+  color: var(--text-strong);
+}
+
+/* ---- 1b. Paleta flat (escuro) ---- */
+html.dark .app-shell--superadmin {
+  --bg: #0f1216;
+  --bg-deep: #0b0e11;
+  --bg-contrast: #15191e;
+  --surface: #161a1f;
+  --surface-strong: #1a1f26;
+  --surface-solid: #161a1f;
+  --surface-pressed: #202632;
+  --toolbar-bg: #14181d;
+  --toolbar-plate: #11151a;
+  --border: #2a2f37;
+  --border-strong: #353b45;
+  --divider: #23282f;
+  --text-strong: #f5f7fa;
+  --text-muted: #c2c8d2;
+  --text-soft: #8b929e;
+  --shadow-panel: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-soft: 0 1px 2px rgba(0, 0, 0, 0.35);
+  --success: #3ccf91;
+  --danger: #f97066;
+  --info: #5d9bf5;
+  --gold-ink: #e8af48;
+
+  background: var(--bg);
+}
+
+/* ---- 2. Remover o "vidro" (blur) dentro do superadmin ---- */
+.app-shell--superadmin .app-panel,
+.app-shell--superadmin .app-button,
+.app-shell--superadmin .app-sidebar__button,
+.app-shell--superadmin .app-sidebar__collapse,
+.app-shell--superadmin .app-segment,
+.app-shell--superadmin .app-toolbar,
+.app-shell--superadmin .app-input,
+.app-shell--superadmin .app-select,
+.app-shell--superadmin .app-textarea,
+.app-shell--superadmin .sa-card,
+.app-shell--superadmin .sa-kpi-card {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+/* ---- 3. Cards/painéis sólidos e planos ---- */
+.app-shell--superadmin .app-panel {
+  background: var(--surface-strong);
+  border: 1px solid var(--border);
+  border-radius: var(--sa-radius);
+  box-shadow: var(--shadow-panel);
+}
+.app-shell--superadmin .app-panel::before {
+  display: none;
+}
+.app-shell--superadmin .app-panel--hero {
+  background: var(--surface-strong);
+  border-color: var(--border);
+}
+
+.app-shell--superadmin .sa-card,
+.app-shell--superadmin .sa-kpi-card {
+  border-radius: var(--sa-radius);
+  box-shadow: var(--shadow-panel);
+}
+
+/* KPI tiles do Controle Total — corrige o tile branco no tema escuro */
+.app-shell--superadmin .controle-total__kpi-tile {
+  background: var(--surface-strong);
+  border-radius: var(--sa-radius);
+  box-shadow: var(--shadow-panel);
+}
+.app-shell--superadmin .controle-total__kpi-tile::before {
+  opacity: 0.5;
+}
+.app-shell--superadmin .controle-total__kpi-tile:hover {
+  transform: none;
+  box-shadow: var(--shadow-soft);
+}
+
+/* ---- 4. Sidebar do superadmin (nav limpa) ---- */
+.app-shell--superadmin .app-sidebar__button {
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--sa-radius-sm);
+  box-shadow: none;
+  min-height: 3.1rem;
+  color: var(--text-muted);
+}
+.app-shell--superadmin .app-sidebar__button:hover,
+.app-shell--superadmin .app-sidebar__button:focus-visible {
+  transform: none;
+  background: var(--surface-pressed);
+  border-color: var(--border);
+  color: var(--text-strong);
+}
+.app-shell--superadmin .app-sidebar__button.is-active {
+  background: rgba(232, 175, 72, 0.12);
+  border-color: rgba(232, 175, 72, 0.32);
+  box-shadow: inset 3px 0 0 var(--gold-mid);
+  color: var(--text-strong);
+}
+html.dark .app-shell--superadmin .app-sidebar__button.is-active {
+  background: rgba(232, 175, 72, 0.14);
+  border-color: rgba(232, 175, 72, 0.3);
+}
+.app-shell--superadmin .app-sidebar__collapse {
+  background: var(--surface-pressed);
+  border: 1px solid var(--border);
+  border-radius: var(--sa-radius-sm);
+  box-shadow: none;
+}
+
+/* ---- 5. Botões / segmentos / inputs planos ---- */
+.app-shell--superadmin .app-button {
+  border-radius: var(--sa-radius-sm);
+  box-shadow: var(--shadow-soft);
+  min-height: 2.85rem;
+}
+.app-shell--superadmin .app-button::before {
+  display: none;
+}
+
+/* Segmented control (abas do Controle Total) */
+.app-shell--superadmin .app-segment {
+  background: var(--surface-pressed);
+  border: 1px solid var(--border);
+  border-radius: var(--sa-radius-sm);
+  box-shadow: none;
+}
+.app-shell--superadmin .app-segment__button.is-active {
+  transform: none;
+  background: rgba(232, 175, 72, 0.16);
+  color: var(--gold-ink);
+  border-color: rgba(232, 175, 72, 0.45);
+  box-shadow: none;
+}
+
+.app-shell--superadmin .app-input,
+.app-shell--superadmin .app-select,
+.app-shell--superadmin .app-textarea {
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--sa-radius-sm);
+  box-shadow: none;
+}
+.app-shell--superadmin .app-input:focus,
+.app-shell--superadmin .app-select:focus,
+.app-shell--superadmin .app-textarea:focus {
+  transform: none;
+  border-color: var(--gold-mid);
+  box-shadow: 0 0 0 3px rgba(232, 175, 72, 0.18);
+}
+
+/* ---- 6. Tipografia: hierarquia consistente ---- */
+.app-shell--superadmin .controle-total__hero h2,
+.app-shell--superadmin .controle-total h3 {
+  font-weight: 800;
+}
+/* Valores de KPI/stat: sem font-weight herdavam 400 (Sora fino) e, grandes
+   sobre branco, pareciam cinza-claro/ilegíveis. A cor já herda --text-strong;
+   só o peso resolve — e assim o vermelho de alerta (.text-[color:var(--danger)])
+   continua valendo. */
+.app-shell--superadmin .app-stat-card__value,
+.app-shell--superadmin .controle-total__kpi-tile__value {
+  font-weight: 800;
+}
+.app-shell--superadmin .sa-kpi-card__value,
+.app-shell--superadmin .app-stat-card__value,
+.app-shell--superadmin .controle-total__kpi-tile__value,
+.app-shell--superadmin .sa-donut__core strong,
+.app-shell--superadmin .sa-legend__value,
+.app-shell--superadmin .sa-table tbody td {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---- 7. Contraste pontual ---- */
+/* ouro legível como texto sobre branco */
+.app-shell--superadmin .app-badge--gold {
+  color: var(--gold-ink);
+}
+/* donut: contorno para o anel ficar visível sobre card branco */
+.app-shell--superadmin .sa-donut::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 1px var(--border-strong);
+  pointer-events: none;
+}
+/* legenda/pontos de faixa: borda para faixa "branca" não sumir */
+.app-shell--superadmin .sa-legend__dot,
+.app-shell--superadmin .sa-mob-belt-dot {
+  box-shadow: inset 0 0 0 1px rgba(16, 24, 40, 0.18);
+}
+html.dark .app-shell--superadmin .sa-legend__dot,
+html.dark .app-shell--superadmin .sa-mob-belt-dot {
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.22);
+}
+/* foco visível dourado em ambos os temas */
+.app-shell--superadmin a:focus-visible,
+.app-shell--superadmin button:focus-visible,
+.app-shell--superadmin [role='tab']:focus-visible {
+  outline: 2px solid var(--gold-glow);
+  outline-offset: 2px;
+}

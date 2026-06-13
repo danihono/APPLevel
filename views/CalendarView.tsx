@@ -6,7 +6,8 @@ import ClassSessionCard from '../components/ClassSessionCard';
 import CreateClassModal, { type CreateClassPayload } from '../components/CreateClassModal';
 import DeleteClassModal, { type DeleteClassPayload } from '../components/DeleteClassModal';
 import EditClassModal, { type EditClassPayload } from '../components/EditClassModal';
-import { inferTrainingTypeFromBirthDate } from '../beltCatalog';
+import { beltLabel, inferTrainingTypeFromBirthDate } from '../beltCatalog';
+import AvatarWithBelt from '../components/AvatarWithBelt';
 import { getMyClassRsvp, subscribeToClassAttendances, subscribeToClassRsvps, type FirestoreEntity } from '../services/firebase/data';
 import {
   backendFunctions,
@@ -17,7 +18,10 @@ import {
 } from '../services/firebase/functions';
 import type { AttendanceRecord, AttendanceRequestRecord, ClassRecord, ClassRsvpRecord, UserRecord } from '../services/firebase/models';
 import { formatDateLabel, formatTimeLabel } from '../services/firebase/adapters';
-import { UserRole, type KidsCategory } from '../types';
+import { UserRole, type BeltColor, type KidsCategory } from '../types';
+
+// photoPath so e uma URL exibivel quando comeca com http (ver adapters.ts).
+const photoToAvatar = (p?: string) => (p && p.startsWith('http') ? p : undefined);
 
 interface QrSessionPayload {
   classId: string;
@@ -646,33 +650,13 @@ const CompactMonthGrid: React.FC<Omit<MonthGridProps, 'onOpenClass' | 'nowMs'>> 
   );
 });
 
-const ADULT_CLASS_TYPES = new Set(['iniciante', 'vida', 'sport', 'feminino', 'competicao', 'nogi']);
 const INFANTIL_CLASS_TYPES = new Set(['kids-01', 'kids-02', 'kids-03']);
 
-function isClassVisibleForStudent(
-  desc: string | undefined,
-  belt: string,
-  stripes: number,
-  kidsCategory?: KidsCategory,
-): boolean {
-  const d = desc ?? '';
-
-  if (kidsCategory) {
-    if (kidsCategory === 'level_infantil') return INFANTIL_CLASS_TYPES.has(d);
-    return false;
-  }
-
-  if (INFANTIL_CLASS_TYPES.has(d)) return false;
-
-  if (belt === 'white' && stripes <= 1) {
-    return d === 'iniciante' || d === 'feminino' || !ADULT_CLASS_TYPES.has(d);
-  }
-
-  if (belt === 'white') {
-    return true;
-  }
-
-  return true;
+function isClassVisibleForStudent(desc: string | undefined, kidsCategory?: KidsCategory): boolean {
+  // KIDS veem qualquer aula (infantil ou adulta).
+  if (kidsCategory) return true;
+  // Adultos (inclusive iniciantes) veem todas as aulas adultas, mas nao as infantis.
+  return !INFANTIL_CLASS_TYPES.has(desc ?? '');
 }
 
 function isKidsStudent(student: FirestoreEntity<UserRecord>): boolean {
@@ -762,7 +746,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
     setSheetTab('detalhes');
     setPresencaSearch('');
     setPresencaBeltFilter('all');
-    setPresencaStudentTypeFilter(INFANTIL_CLASS_TYPES.has(selectedClassDescription) ? 'kids' : 'all');
+    setPresencaStudentTypeFilter('all');
     setStudentErrorById({});
     setShowParticipants(false);
   }, [selectedClassDescription, selectedClassId]);
@@ -1003,12 +987,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
             return entry.professorId === currentUserId;
           }
           if (userRole === UserRole.ALUNO) {
-            return isClassVisibleForStudent(
-              entry.description,
-              currentUserBelt ?? 'white',
-              currentUserStripes ?? 0,
-              currentUserKidsCategory,
-            );
+            return isClassVisibleForStudent(entry.description, currentUserKidsCategory);
           }
           return true;
         })
@@ -1016,7 +995,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
         .filter((entry) => filterProfessor === 'all' || entry.professorId === filterProfessor)
         .filter((entry) => filterTatame === 'all' || entry.tatame === filterTatame)
         .sort(sortClasses),
-    [classes, currentUserId, currentUserBelt, currentUserKidsCategory, currentUserStripes, isStaff, userRole, view, filterType, filterProfessor, filterTatame],
+    [classes, currentUserId, currentUserKidsCategory, isStaff, userRole, view, filterType, filterProfessor, filterTatame],
   );
 
   const unfinishedClasses = useMemo(
@@ -1203,6 +1182,10 @@ const CalendarView: React.FC<CalendarViewProps> = ({
           displayName: rsvp?.userDisplayName ?? student?.displayName ?? 'Aluno',
           record: attendance,
           sourceOrder: rsvp ? 0 : 1,
+          belt: student?.belt,
+          stripes: student?.stripes ?? 0,
+          grade: student?.grade ?? 0,
+          photoPath: student?.photoPath,
         };
       })
       .sort((left, right) =>
@@ -1943,9 +1926,19 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                               ) : (
                                 <span style={{ width: 16, height: 16, border: '2px solid var(--border)', borderRadius: 4, flexShrink: 0, display: 'inline-block' }} />
                               )}
+                              <AvatarWithBelt
+                                avatar={photoToAvatar(entry.photoPath)}
+                                name={entry.displayName}
+                                belt={(entry.belt ?? 'white') as BeltColor}
+                                stripes={entry.stripes}
+                                size="sm"
+                              />
                               <div style={{ flex: 1, minWidth: 0 }}>
                                 <p style={{ fontSize: '0.82rem', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                   {entry.displayName}
+                                </p>
+                                <p style={{ fontSize: '0.72rem', color: 'var(--text-soft)', marginTop: 2 }}>
+                                  Faixa {beltLabel(entry.belt)} · Grau {entry.grade}
                                 </p>
                                 {record ? (
                                   <p style={{ fontSize: '0.72rem', color: 'var(--text-soft)', marginTop: 2 }}>
@@ -2072,9 +2065,19 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                               ) : (
                                 <span style={{ width: 16, height: 16, border: '2px solid var(--border)', borderRadius: 4, flexShrink: 0, display: 'inline-block' }} />
                               )}
+                              <AvatarWithBelt
+                                avatar={photoToAvatar(student.photoPath)}
+                                name={student.displayName ?? 'Aluno'}
+                                belt={(student.belt ?? 'white') as BeltColor}
+                                stripes={student.stripes ?? 0}
+                                size="sm"
+                              />
                               <div style={{ flex: 1, minWidth: 0 }}>
                                 <p style={{ fontSize: '0.82rem', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                   {student.displayName}
+                                </p>
+                                <p style={{ fontSize: '0.72rem', color: 'var(--text-soft)', marginTop: 2 }}>
+                                  Faixa {beltLabel(student.belt)} · Grau {student.grade ?? 0}
                                 </p>
                                 {record ? (
                                   <p style={{ fontSize: '0.72rem', color: 'var(--text-soft)', marginTop: 2 }}>

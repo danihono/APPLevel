@@ -30,24 +30,6 @@ async function ensureNoAttendanceDuplicate(academyId: string, classId: string, u
   assertCondition(duplicateSnapshot.empty, 'already-exists', 'Presenca ja registrada para este atleta nesta aula.');
 }
 
-function resolveCountsAsAttendance(
-  classDescription: string | undefined,
-  belt: string,
-  stripes: number,
-): boolean | undefined {
-  const s = stripes ?? 0;
-  const isIniciante = classDescription === 'iniciante';
-  const isNogi = classDescription === 'nogi';
-
-  if (isNogi) {
-    const isWhiteBelow2 = belt === 'white' && s < 2;
-    return isWhiteBelow2 ? false : undefined;
-  }
-
-  const isBeginnerStudent = belt === 'white' && s <= 2;
-  return isIniciante !== isBeginnerStudent ? false : undefined;
-}
-
 async function createAttendanceRecord(params: {
   classId: string;
   classData: ClassDoc;
@@ -57,7 +39,6 @@ async function createAttendanceRecord(params: {
   checkedInByRole: Role;
   sourceDevice?: string;
   qrVersion?: number;
-  countsAsAttendance?: boolean;
 }): Promise<string> {
   await ensureNoAttendanceDuplicate(params.classData.academyId, params.classId, params.userId);
 
@@ -74,7 +55,6 @@ async function createAttendanceRecord(params: {
     checkedInByRole: params.checkedInByRole,
     qrVersion: params.qrVersion,
     sourceDevice: params.sourceDevice,
-    ...(params.countsAsAttendance === false && { countsAsAttendance: false }),
     createdAt: now,
     updatedAt: now,
   };
@@ -191,12 +171,6 @@ export const registerAttendance = onCall(callableOptions, async (request) => {
     assertCondition(hashQrToken(qrToken) === classData.activeQrHash, 'permission-denied', 'QR Code invalido.');
   }
 
-  const countsAsAttendance = resolveCountsAsAttendance(
-    classData.description,
-    targetUser.belt,
-    targetUser.stripes ?? 0,
-  );
-
   const attendanceId = await createAttendanceRecord({
     classId,
     classData,
@@ -206,7 +180,6 @@ export const registerAttendance = onCall(callableOptions, async (request) => {
     checkedInByRole: actor.role,
     sourceDevice,
     qrVersion: checkInMethod === 'qr' ? classData.activeQrVersion : undefined,
-    countsAsAttendance,
   });
 
   return {
@@ -357,12 +330,6 @@ export const approveAttendanceRequest = onCall(callableOptions, async (request) 
   );
   assertCondition(targetUser.academyId === classData.academyId, 'permission-denied', 'Aluno e aula precisam pertencer a mesma academia.');
 
-  const countsAsAttendance = resolveCountsAsAttendance(
-    classData.description,
-    targetUser.belt,
-    targetUser.stripes ?? 0,
-  );
-
   const attendanceId = await createAttendanceRecord({
     classId: attendanceRequest.classId,
     classData,
@@ -370,7 +337,6 @@ export const approveAttendanceRequest = onCall(callableOptions, async (request) 
     checkInMethod: 'request',
     checkedInBy: actor.uid,
     checkedInByRole: actor.role,
-    countsAsAttendance,
   });
 
   await requestRef.update({

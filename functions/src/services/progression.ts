@@ -533,6 +533,17 @@ export function resolveNextProgressionStep(
   };
 }
 
+export function resolveStripeEveryForBelt(
+  belt: string,
+  options?: ProgressionContextOptions,
+  rules?: Partial<ProgressionRules> | null,
+): number {
+  const normalizedRules = normalizeProgressionRules(rules);
+  const context = resolveProgressionContext(belt, normalizedRules, options);
+  const milestone = getMilestoneByBelt(belt, context.milestones) ?? context.milestones[0];
+  return milestone?.stripeEvery ?? 0;
+}
+
 export function resolveProgression(
   totalAttendances: number,
   rules?: Partial<ProgressionRules> | null,

@@ -30,6 +30,7 @@ import {
   isKidsOnlyBelt,
   normalizeBeltId,
   resolveProgressionTargets,
+  resolveStripeEveryForBelt,
 } from '../services/progression';
 import { syncUserDerivedState } from '../services/userState';
 
@@ -141,7 +142,7 @@ async function applyStudentBeltGradeUpdate(params: {
   const beltChanged = params.targetUser.belt !== params.belt;
   const stripeChanged = params.targetUser.stripes !== params.stripes;
 
-  if (beltChanged) {
+  if (beltChanged || stripeChanged) {
     const baseQuery = db
       .collection(COLLECTIONS.attendances)
       .where('academyId', '==', params.targetUser.academyId)
@@ -151,11 +152,20 @@ async function applyStudentBeltGradeUpdate(params: {
       baseQuery.where('countsAsAttendance', '==', false).count().get(),
     ]);
     const organic = totalSnap.data().count - nonCountingSnap.data().count;
-    // O marco da nova faixa precisa estar na MESMA moeda da contagem corrente pós-promoção:
-    // o bônus é zerado logo abaixo (attendanceCountBonus: 0) e attendanceCount passa a ser
-    // apenas aulas reais (= `organic`, idêntico a computeEngagementMetrics). Somar o bônus
-    // aqui deixaria o progresso da nova faixa congelado pelas primeiras `bonus` aulas reais.
-    attendanceCountAtBeltStart = organic;
+    // Toda graduacao (faixa OU grau) zera a contagem do proximo grau: o marco e reposicionado
+    // para que o proximo grau comece em 0/stripeEvery. Como os alvos sao cumulativos
+    // (marco + N*stripeEvery), guardamos `organic - graus*stripeEvery`, de modo que o piso do
+    // grau recem-aprovado fique exatamente em `organic` (contagem corrente pos-promocao) e o
+    // proximo grau exija um ciclo inteiro de aulas novas.
+    // O marco fica na MESMA moeda da contagem corrente: o bonus e zerado logo abaixo
+    // (attendanceCountBonus: 0) e attendanceCount passa a ser apenas aulas reais (= `organic`,
+    // identico a computeEngagementMetrics). Somar o bonus aqui congelaria o progresso pelas
+    // primeiras `bonus` aulas reais.
+    const stripeEvery = resolveStripeEveryForBelt(params.belt, {
+      birthDate: params.targetUser.birthDate,
+      kidsCategory: params.targetUser.kidsCategory,
+    });
+    attendanceCountAtBeltStart = Math.max(0, organic - params.stripes * stripeEvery);
   }
 
   await db.collection(COLLECTIONS.users).doc(params.targetUserId).update({
