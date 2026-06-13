@@ -27,7 +27,7 @@ interface StudentDetailViewProps {
   classes?: Array<FirestoreEntity<ClassRecord>>;
   onBack: () => void;
   onApproveGraduationRequest?: (requestId: string) => Promise<void>;
-  onUpdateStudentBeltGrade?: (payload: { userId: string; belt: string; grade: number; stripes?: number; kidsCategory?: string; attendanceCountAtBeltStart?: number }) => Promise<void>;
+  onUpdateStudentBeltGrade?: (payload: { userId: string; belt: string; grade: number; stripes?: number; kidsCategory?: string; gradeProgress?: number }) => Promise<void>;
   onSetStudentAttendanceBonus?: (payload: { userId: string; attendanceCountBonus: number }) => Promise<void>;
   onAdminUpdateStudentProfile?: (payload: {
     userId: string;
@@ -347,38 +347,23 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
       setStudentKidsCategory('');
     }
   }
-  const registeredAttendanceCount = Math.max(
-    0,
-    Math.floor((student.attendanceCount ?? 0) - (student.attendanceCountBonus ?? 0)),
-  );
-  const previewAttendanceCount = registeredAttendanceCount + attendanceBonus;
   const progression = useMemo(
     () => {
-      // 1o passo: resolve o stripeEvery da faixa (independe do marco).
-      const base = getUserProgressionSummary({
-        ...student,
-        belt: studentBelt,
-        stripes: studentGrade,
-        attendanceCount: previewAttendanceCount,
-        attendanceCountBonus: attendanceBonus,
-        attendanceCountAtBeltStart: studentBelt === student.belt ? student.attendanceCountAtBeltStart : undefined,
-      }, progressionRules);
-      // 2o passo: reposiciona o marco a partir do campo "Aulas no grau atual", para que o
-      // progresso do grau mostre exatamente `gradeCurrentClasses`/stripeEvery.
-      const manualBaseline = Math.max(
-        0,
-        previewAttendanceCount - studentGrade * base.classesPerStripe - gradeCurrentClasses,
-      );
+      // Resolve stripeEvery/beltTotal da faixa (independe da contagem real do aluno).
+      const base = getUserProgressionSummary({ ...student, belt: studentBelt, stripes: studentGrade }, progressionRules);
+      // Mostra exatamente "aulas no grau atual" no grau e "graus*stripeEvery + aulas no grau" na faixa,
+      // independente de quantas aulas reais o aluno tem (cobre aluno colocado manualmente). Por isso
+      // passamos attendanceCount=null e fornecemos os progressos diretamente.
       return getUserProgressionSummary({
         ...student,
         belt: studentBelt,
         stripes: studentGrade,
-        attendanceCount: previewAttendanceCount,
-        attendanceCountBonus: attendanceBonus,
-        attendanceCountAtBeltStart: manualBaseline,
+        attendanceCount: null,
+        currentStripeProgress: gradeCurrentClasses,
+        currentBeltProgress: studentGrade * base.classesPerStripe + gradeCurrentClasses,
       }, progressionRules);
     },
-    [progressionRules, previewAttendanceCount, student, studentBelt, studentGrade, attendanceBonus, gradeCurrentClasses],
+    [progressionRules, student, studentBelt, studentGrade, gradeCurrentClasses],
   );
   const beltTotal = progression.beltTotal;
   const beltProgress = progression.beltProgress;
@@ -429,21 +414,16 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
     setError('');
 
     try {
-      const attendanceCountAtBeltStart = Math.max(
-        0,
-        previewAttendanceCount - studentGrade * progression.classesPerStripe - gradeCurrentClasses,
-      );
+      // Envia apenas "aulas no grau atual" (gradeProgress). O backend calcula marco + bonus a partir
+      // da contagem real dele, posicionando o aluno exatamente (inclui aluno colocado manualmente).
       await onUpdateStudentBeltGrade({
         userId: student.id,
         belt: studentBelt,
         grade: studentGrade,
         stripes: studentGrade,
         kidsCategory: studentTrack === 'Kids' ? studentKidsCategory : '',
-        attendanceCountAtBeltStart,
+        gradeProgress: gradeCurrentClasses,
       });
-      if (onSetStudentAttendanceBonus) {
-        await onSetStudentAttendanceBonus({ userId: student.id, attendanceCountBonus: attendanceBonus });
-      }
       setFeedback('Graduação do aluno atualizada com sucesso.');
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : 'Não foi possível atualizar a graduação.');
@@ -853,20 +833,6 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
                   className="app-input"
                 />
                 <span className="app-field__hint">Quantas aulas o aluno já tem no grau atual (0 reinicia o grau)</span>
-              </label>
-            ) : null}
-
-            {onSetStudentAttendanceBonus ? (
-              <label className="app-field">
-                <span className="app-field__label">Aulas anteriores</span>
-                <input
-                  type="number"
-                  min={0}
-                  value={attendanceBonus}
-                  onChange={(event) => setAttendanceBonus(Math.max(0, Math.floor(Number(event.target.value) || 0)))}
-                  className="app-input"
-                />
-                <span className="app-field__hint">Aulas realizadas antes do cadastro no sistema</span>
               </label>
             ) : null}
 

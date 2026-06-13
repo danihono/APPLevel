@@ -135,21 +135,16 @@ async function applyStudentBeltGradeUpdate(params: {
   kidsCategory?: string;
   hasKidsCategoryField: boolean;
   ruleVersion?: number;
-  attendanceCountAtBeltStart?: number;
+  gradeProgress?: number;
 }): Promise<Timestamp> {
   const now = Timestamp.now();
   let attendanceCountAtBeltStart: number | undefined;
-  let resetBonus = false;
+  let attendanceCountBonusToWrite: number | undefined;
 
   const beltChanged = params.targetUser.belt !== params.belt;
   const stripeChanged = params.targetUser.stripes !== params.stripes;
 
-  if (params.attendanceCountAtBeltStart !== undefined) {
-    // Ajuste manual do progresso do grau (campo "Aulas no grau atual"): grava o marco recebido
-    // diretamente e mantem o bonus. Vale mesmo sem mudar faixa/grau, pois apenas reposiciona o
-    // progresso dentro do grau atual.
-    attendanceCountAtBeltStart = Math.max(0, Math.floor(params.attendanceCountAtBeltStart));
-  } else if (beltChanged || stripeChanged) {
+  const countOrganicAttendances = async (): Promise<number> => {
     const baseQuery = db
       .collection(COLLECTIONS.attendances)
       .where('academyId', '==', params.targetUser.academyId)
@@ -158,30 +153,62 @@ async function applyStudentBeltGradeUpdate(params: {
       baseQuery.count().get(),
       baseQuery.where('countsAsAttendance', '==', false).count().get(),
     ]);
-    const organic = totalSnap.data().count - nonCountingSnap.data().count;
+    return totalSnap.data().count - nonCountingSnap.data().count;
+  };
+
+  if (params.gradeProgress !== undefined) {
+    // Ajuste manual do progresso do grau (campo "Aulas no grau atual"). O progresso e derivado de
+    // (attendanceCount - marco): attendanceCount = aulas reais (organic) + bonus. Para o grau mostrar
+    // exatamente `gradeProgress` aulas, o aluno precisa ter um total = graus*stripeEvery + gradeProgress.
+    // Ajustamos marco E bonus juntos para representar essa posicao, cobrindo inclusive o aluno
+    // colocado manualmente (poucas aulas reais), em que so o marco nao bastaria.
+    const organic = await countOrganicAttendances();
+    const stripeEvery = resolveStripeEveryForBelt(params.belt, {
+      birthDate: params.targetUser.birthDate,
+      kidsCategory: params.targetUser.kidsCategory,
+    });
+    const targetTotal = params.stripes * stripeEvery + params.gradeProgress;
+    if (organic >= targetTotal) {
+      // Tem aulas reais suficientes: o excedente fica absorvido no marco, sem bonus.
+      attendanceCountAtBeltStart = organic - targetTotal;
+      attendanceCountBonusToWrite = 0;
+    } else {
+      // Colocacao manual: completa o total necessario com bonus, marco em 0.
+      attendanceCountAtBeltStart = 0;
+      attendanceCountBonusToWrite = targetTotal - organic;
+    }
+  } else if (beltChanged || stripeChanged) {
     // Toda graduacao (faixa OU grau) zera a contagem do proximo grau: o marco e reposicionado
     // para que o proximo grau comece em 0/stripeEvery. Como os alvos sao cumulativos
     // (marco + N*stripeEvery), guardamos `organic - graus*stripeEvery`, de modo que o piso do
     // grau recem-aprovado fique exatamente em `organic` (contagem corrente pos-promocao) e o
-    // proximo grau exija um ciclo inteiro de aulas novas.
-    // O marco fica na MESMA moeda da contagem corrente: o bonus e zerado logo abaixo
-    // (attendanceCountBonus: 0) e attendanceCount passa a ser apenas aulas reais (= `organic`,
-    // identico a computeEngagementMetrics). Somar o bonus aqui congelaria o progresso pelas
-    // primeiras `bonus` aulas reais.
+    // proximo grau exija um ciclo inteiro de aulas novas. O bonus e zerado (attendanceCount passa a
+    // ser apenas aulas reais), entao somar o bonus aqui congelaria o progresso.
+    const organic = await countOrganicAttendances();
     const stripeEvery = resolveStripeEveryForBelt(params.belt, {
       birthDate: params.targetUser.birthDate,
       kidsCategory: params.targetUser.kidsCategory,
     });
     attendanceCountAtBeltStart = Math.max(0, organic - params.stripes * stripeEvery);
-    resetBonus = true;
+    attendanceCountBonusToWrite = 0;
   }
+
+  console.info('[DBG applyStudentBeltGradeUpdate] vai gravar', JSON.stringify({
+    targetUserId: params.targetUserId,
+    gradeProgress: params.gradeProgress,
+    attendanceCount: params.targetUser.attendanceCount,
+    writtenBaseline: attendanceCountAtBeltStart,
+    writtenBonus: attendanceCountBonusToWrite,
+    beltChanged,
+    stripeChanged,
+  }));
 
   await db.collection(COLLECTIONS.users).doc(params.targetUserId).update({
     belt: params.belt,
     grade: params.grade,
     stripes: params.stripes,
     ...(attendanceCountAtBeltStart !== undefined ? { attendanceCountAtBeltStart } : {}),
-    ...(resetBonus ? { attendanceCountBonus: 0 } : {}),
+    ...(attendanceCountBonusToWrite !== undefined ? { attendanceCountBonus: attendanceCountBonusToWrite } : {}),
     ...(params.hasKidsCategoryField ? { kidsCategory: params.kidsCategory ?? null } : {}),
     ...(beltChanged ? { lastGraduationDateOverride: now } : {}),
     ...(beltChanged || stripeChanged ? { lastStripeDateOverride: now, lastGradeApprovalAt: now } : {}),
@@ -1102,10 +1129,19 @@ export const updateStudentBeltGrade = onCall(callableOptions, async (request) =>
   const stripes = Math.max(0, Math.floor(optionalNumber(request.data, 'stripes') ?? grade));
   const kidsCategory = optionalString(request.data, 'kidsCategory');
   const hasKidsCategoryField = Object.prototype.hasOwnProperty.call(data, 'kidsCategory');
-  const attendanceCountAtBeltStartRaw = optionalNumber(request.data, 'attendanceCountAtBeltStart');
-  const attendanceCountAtBeltStart = attendanceCountAtBeltStartRaw != null
-    ? Math.max(0, Math.floor(attendanceCountAtBeltStartRaw))
+  const gradeProgressRaw = optionalNumber(request.data, 'gradeProgress');
+  const gradeProgress = gradeProgressRaw != null
+    ? Math.max(0, Math.floor(gradeProgressRaw))
     : undefined;
+  console.info('[DBG updateStudentBeltGrade] recebido', JSON.stringify({
+    targetUserId,
+    belt,
+    grade,
+    stripes,
+    gradeProgressRaw,
+    gradeProgress,
+    dataKeys: request.data && typeof request.data === 'object' ? Object.keys(request.data as Record<string, unknown>) : null,
+  }));
   const targetUser = await getUserDoc(targetUserId);
 
   assertCondition(targetUser.role === 'student', 'invalid-argument', 'Somente alunos podem ter faixa ou grau alterados.');
@@ -1123,7 +1159,7 @@ export const updateStudentBeltGrade = onCall(callableOptions, async (request) =>
     stripes,
     kidsCategory,
     hasKidsCategoryField,
-    attendanceCountAtBeltStart,
+    gradeProgress,
   });
 
   await syncUserDerivedState(targetUserId, targetUser.academyId);
