@@ -3,9 +3,10 @@
     "relation": ["delegate_permission/common.handle_all_urls"],
     "target": {
       "namespace": "android_app",
-      "package_name": "com.applevel.app",
+      "package_name": "com.leveljiujitsu.app",
       "sha256_cert_fingerprints": [
-        "SUBSTITUA_PELO_SHA256_DA_CHAVE_DE_ASSINATURA"
+        "E1:FD:91:95:63:E8:D3:3E:7E:DC:B8:49:17:17:1A:01:18:0E:9B:84:73:FB:BA:4D:B4:1D:E0:59:8E:22:A8:B8",
+        "0E:2F:1B:22:CE:15:13:C5:81:E8:5D:BD:40:E9:A8:60:89:89:F7:3D:35:D7:BF:52:4C:0B:5E:13:9C:42:C6:86"
       ]
     }
   }
