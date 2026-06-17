@@ -544,6 +544,27 @@ export function resolveStripeEveryForBelt(
   return milestone?.stripeEvery ?? 0;
 }
 
+// Posiciona marco (attendanceCountAtBeltStart) + bonus para que o grau atual exiba exatamente
+// `gradeProgress` aulas. Numa graduacao, gradeProgress = 0 (todo grau recem-aprovado comeca em 0).
+// Para alunos com aulas reais suficientes, o excedente fica absorvido no marco (bonus zerado);
+// para alunos colocados manualmente (poucas aulas reais), completamos a posicao com bonus em vez
+// de zera-lo — zerar o bonus aqui rebaixaria o aluno a "colocacao manual" e faria as aulas reais
+// restantes reaparecerem como progresso do novo grau (bug: 21/30 e 51/150 em vez de 0/30 e 30/150).
+export function resolveBeltStartAndBonus(
+  organicAttendances: number,
+  stripes: number,
+  stripeEvery: number,
+  gradeProgress = 0,
+): { attendanceCountAtBeltStart: number; attendanceCountBonus: number } {
+  const organic = Math.max(0, Math.floor(organicAttendances));
+  const targetTotal =
+    Math.max(0, Math.floor(stripes)) * Math.max(0, stripeEvery) + Math.max(0, Math.floor(gradeProgress));
+  if (organic >= targetTotal) {
+    return { attendanceCountAtBeltStart: organic - targetTotal, attendanceCountBonus: 0 };
+  }
+  return { attendanceCountAtBeltStart: 0, attendanceCountBonus: targetTotal - organic };
+}
+
 export function resolveProgression(
   totalAttendances: number,
   rules?: Partial<ProgressionRules> | null,

@@ -29,6 +29,7 @@ import {
   isAdultOnlyBelt,
   isKidsOnlyBelt,
   normalizeBeltId,
+  resolveBeltStartAndBonus,
   resolveProgressionTargets,
   resolveStripeEveryForBelt,
 } from '../services/progression';
@@ -156,41 +157,24 @@ async function applyStudentBeltGradeUpdate(params: {
     return totalSnap.data().count - nonCountingSnap.data().count;
   };
 
-  if (params.gradeProgress !== undefined) {
-    // Ajuste manual do progresso do grau (campo "Aulas no grau atual"). O progresso e derivado de
-    // (attendanceCount - marco): attendanceCount = aulas reais (organic) + bonus. Para o grau mostrar
-    // exatamente `gradeProgress` aulas, o aluno precisa ter um total = graus*stripeEvery + gradeProgress.
-    // Ajustamos marco E bonus juntos para representar essa posicao, cobrindo inclusive o aluno
-    // colocado manualmente (poucas aulas reais), em que so o marco nao bastaria.
+  if (params.gradeProgress !== undefined || beltChanged || stripeChanged) {
+    // Reposiciona marco (attendanceCountAtBeltStart) + bonus para o grau exibir exatamente
+    // `gradeProgress` aulas. O progresso e derivado de (attendanceCount - marco), onde
+    // attendanceCount = aulas reais (organic) + bonus.
+    //   - Ajuste manual (campo "Aulas no grau atual"): usa o gradeProgress informado.
+    //   - Graduacao automatica (sem gradeProgress): gradeProgress = 0, pois todo grau
+    //     recem-aprovado comeca em 0/stripeEvery.
+    // Ajustar marco E bonus juntos (em vez de zerar o bonus) cobre o aluno colocado manualmente
+    // (poucas aulas reais): zerar o bonus o rebaixaria a "colocacao manual" e faria as aulas reais
+    // restantes reaparecerem como progresso do novo grau (bug: 21/30 e 51/150 em vez de 0/30 e 30/150).
     const organic = await countOrganicAttendances();
     const stripeEvery = resolveStripeEveryForBelt(params.belt, {
       birthDate: params.targetUser.birthDate,
       kidsCategory: params.targetUser.kidsCategory,
     });
-    const targetTotal = params.stripes * stripeEvery + params.gradeProgress;
-    if (organic >= targetTotal) {
-      // Tem aulas reais suficientes: o excedente fica absorvido no marco, sem bonus.
-      attendanceCountAtBeltStart = organic - targetTotal;
-      attendanceCountBonusToWrite = 0;
-    } else {
-      // Colocacao manual: completa o total necessario com bonus, marco em 0.
-      attendanceCountAtBeltStart = 0;
-      attendanceCountBonusToWrite = targetTotal - organic;
-    }
-  } else if (beltChanged || stripeChanged) {
-    // Toda graduacao (faixa OU grau) zera a contagem do proximo grau: o marco e reposicionado
-    // para que o proximo grau comece em 0/stripeEvery. Como os alvos sao cumulativos
-    // (marco + N*stripeEvery), guardamos `organic - graus*stripeEvery`, de modo que o piso do
-    // grau recem-aprovado fique exatamente em `organic` (contagem corrente pos-promocao) e o
-    // proximo grau exija um ciclo inteiro de aulas novas. O bonus e zerado (attendanceCount passa a
-    // ser apenas aulas reais), entao somar o bonus aqui congelaria o progresso.
-    const organic = await countOrganicAttendances();
-    const stripeEvery = resolveStripeEveryForBelt(params.belt, {
-      birthDate: params.targetUser.birthDate,
-      kidsCategory: params.targetUser.kidsCategory,
-    });
-    attendanceCountAtBeltStart = Math.max(0, organic - params.stripes * stripeEvery);
-    attendanceCountBonusToWrite = 0;
+    const resolved = resolveBeltStartAndBonus(organic, params.stripes, stripeEvery, params.gradeProgress ?? 0);
+    attendanceCountAtBeltStart = resolved.attendanceCountAtBeltStart;
+    attendanceCountBonusToWrite = resolved.attendanceCountBonus;
   }
 
   await db.collection(COLLECTIONS.users).doc(params.targetUserId).update({

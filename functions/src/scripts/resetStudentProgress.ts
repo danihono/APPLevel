@@ -1,7 +1,7 @@
 import { Timestamp } from 'firebase-admin/firestore';
 import { COLLECTIONS, UserDoc } from '../domain/models';
 import { db } from '../lib/firebase';
-import { normalizeBeltId, resolveStripeEveryForBelt } from '../services/progression';
+import { normalizeBeltId, resolveBeltStartAndBonus, resolveStripeEveryForBelt } from '../services/progression';
 import { syncUserDerivedState } from '../services/userState';
 
 // Script pontual de correcao: zera a contagem de progressao de UM aluno, posicionando o
@@ -150,7 +150,13 @@ async function main(): Promise<void> {
     birthDate: user.birthDate,
     kidsCategory: user.kidsCategory,
   });
-  const attendanceCountAtBeltStart = Math.max(0, organic - stripes * stripeEvery);
+  // gradeProgress = 0: o reset posiciona o aluno no inicio do grau atual (0/stripeEvery).
+  const { attendanceCountAtBeltStart, attendanceCountBonus } = resolveBeltStartAndBonus(
+    organic,
+    stripes,
+    stripeEvery,
+    0,
+  );
 
   console.log(
     JSON.stringify(
@@ -168,7 +174,7 @@ async function main(): Promise<void> {
           belt,
           stripes,
           attendanceCountAtBeltStart,
-          attendanceCountBonus: 0,
+          attendanceCountBonus,
           previsaoGrau: `0/${stripeEvery}`,
           previsaoFaixa: `${stripes * stripeEvery}/${stripeEvery * 5}`,
         },
@@ -189,7 +195,7 @@ async function main(): Promise<void> {
     grade: stripes,
     stripes,
     attendanceCountAtBeltStart,
-    attendanceCountBonus: 0,
+    attendanceCountBonus,
     updatedAt: Timestamp.now(),
   });
 
