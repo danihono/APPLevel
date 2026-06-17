@@ -1,7 +1,12 @@
 import { Timestamp } from 'firebase-admin/firestore';
 import { AttendanceDoc, COLLECTIONS, UserDoc } from '../domain/models';
 import { db } from '../lib/firebase';
-import { resolveBeltStartAndBonus, resolveStripeEveryForBelt } from '../services/progression';
+import {
+  resolveBeltStartAndBonus,
+  resolveMaxStripesForBelt,
+  resolveProgressionTargets,
+  resolveStripeEveryForBelt,
+} from '../services/progression';
 import { syncUserDerivedState } from '../services/userState';
 
 // Script de varredura: corrige alunos cuja progressao ficou com aulas contadas em dobro apos uma
@@ -127,34 +132,45 @@ async function main(): Promise<void> {
       continue;
     }
 
-    const stripes = Math.max(0, Math.floor(user.stripes ?? 0));
+    const beltCtx = { birthDate: user.birthDate, kidsCategory: user.kidsCategory };
+    const maxStripes = resolveMaxStripesForBelt(user.belt, beltCtx);
+    // M7: clampa stripes ao teto da faixa (a leitura sempre clampa; o marco gravado tem de bater).
+    const stripes = Math.min(maxStripes, Math.max(0, Math.floor(user.stripes ?? 0)));
     if (stripes <= 0) {
       continue; // sem grau, nao ha piso de grau a estourar
     }
 
-    const stripeEvery = resolveStripeEveryForBelt(user.belt, {
-      birthDate: user.birthDate,
-      kidsCategory: user.kidsCategory,
-    });
+    const stripeEvery = resolveStripeEveryForBelt(user.belt, beltCtx);
     if (stripeEvery <= 0) {
       continue; // faixa terminal / sem graus por aula
     }
 
     const organic = await countOrganicAttendances(userAcademyId, userId);
     const bonus = Math.max(0, Math.floor(user.attendanceCountBonus ?? 0));
-    const marco = Math.max(0, Math.floor(user.attendanceCountAtBeltStart ?? 0));
-    const floor = marco + stripes * stripeEvery;
     const total = organic + bonus;
 
-    // Assinatura do bug: graduado (stripes > 0) porem abaixo do piso do grau (isManuallyPlaced).
-    if (total >= floor) {
-      continue;
+    // M9: detecta pela MESMA logica do app (resolveProgressionTargets + isManuallyPlaced), com as
+    // mesmas options de userState.ts. Evita falso-positivo no aluno organico sem marco gravado:
+    // attendanceCountAtBeltStart null e tratado via minAttendances, nao como 0.
+    const snapshot = resolveProgressionTargets(user.belt, stripes, total, undefined, {
+      birthDate: user.birthDate,
+      kidsCategory: user.kidsCategory,
+      attendanceCountBonus: bonus,
+      attendanceCountAtBeltStart: user.attendanceCountAtBeltStart ?? null,
+    });
+    if (!snapshot.isManuallyPlaced) {
+      continue; // o app nao esta exibindo aulas vazadas para este aluno
     }
     affected += 1;
 
     // Preserva o progresso real desde a ultima graduacao; sem timestamp, reinicia o grau em 0.
+    // M8: clampa a stripeEvery — mais que um ciclo = promocao de grau pendente, nao progresso do grau atual.
     const since = user.lastStripeDateOverride ?? user.lastGradeApprovalAt ?? null;
-    const gradeProgress = since ? await countAttendancesSince(userAcademyId, userId, since) : 0;
+    const rawGradeProgress = since ? await countAttendancesSince(userAcademyId, userId, since) : 0;
+    const gradeProgress = Math.min(rawGradeProgress, stripeEvery);
+    if (rawGradeProgress > stripeEvery) {
+      console.warn(`[fix] ${userId}: ${rawGradeProgress} aulas desde a ultima graduacao > stripeEvery ${stripeEvery}; clampado (possivel promocao de grau pendente).`);
+    }
     const resolved = resolveBeltStartAndBonus(organic, stripes, stripeEvery, gradeProgress);
 
     console.log(
@@ -168,7 +184,7 @@ async function main(): Promise<void> {
             attendanceCountAtBeltStart: user.attendanceCountAtBeltStart ?? null,
             attendanceCountBonus: bonus,
           },
-          calculo: { organic, bonus, marco, stripeEvery, stripes, floor, total, gradeProgress },
+          calculo: { organic, bonus, stripeEvery, stripes, total, gradeProgress },
           depois: {
             attendanceCountAtBeltStart: resolved.attendanceCountAtBeltStart,
             attendanceCountBonus: resolved.attendanceCountBonus,

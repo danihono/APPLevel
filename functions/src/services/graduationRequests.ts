@@ -16,6 +16,7 @@ interface SyncGraduationApprovalRequestParams {
   user: UserDoc;
   attendanceCount: number;
   rules?: AcademyDoc['progressionRules'];
+  lastAttendanceAt?: Timestamp | null;
 }
 
 type PendingRequestRecord = {
@@ -40,6 +41,16 @@ function currentUserMatchesRequestTarget(
   return user.belt === request.targetBelt && user.stripes === request.targetStripes;
 }
 
+// Gate temporal: so ha o que graduar se o aluno treinou ao menos uma aula desde a ultima graduacao.
+// Evita pendencia fantasma recriada por syncs nao relacionados (presenca de outro aluno via recalc
+// em massa, ranking, missoes) logo apos uma promocao. `lastAttendanceAt` explicito permite ao
+// proprio check-in que dispara o sync ja contar (o snapshot do user ainda traz o valor antigo).
+function hasTrainedSinceLastGraduation(user: UserDoc, lastAttendanceAt?: Timestamp | null): boolean {
+  const lastApprovalMs = (user.lastGradeApprovalAt ?? user.lastStripeDateOverride)?.toMillis?.() ?? null;
+  const lastAttendanceMs = (lastAttendanceAt ?? user.lastAttendanceAt)?.toMillis?.() ?? null;
+  return lastApprovalMs === null || (lastAttendanceMs !== null && lastAttendanceMs > lastApprovalMs);
+}
+
 function buildGraduationNotificationTitle(step: ProgressionNextStep): string {
   return step.targetType === 'belt'
     ? 'Avaliacao de faixa pendente'
@@ -57,15 +68,40 @@ function buildGraduationNotificationBody(params: {
   return `${params.user.displayName} esta a 1 aula do proximo ${target} e aguarda avaliacao da equipe.`;
 }
 
-async function findPendingGraduationRequest(
+// Mantem a pendencia `pending` mais recente e supersede as demais. Resiliente a corridas: duas
+// pendencias simultaneas nao quebram mais todo o sync do aluno (antes findSingleByFields lancava
+// failed-precondition com >1 resultado, travando presenca/ranking/missoes ate intervencao manual).
+async function findAndDedupePendingRequests(
   academyId: string,
   userId: string,
+  now: Timestamp,
 ): Promise<PendingRequestRecord | undefined> {
-  return findSingleByFields<GraduationApprovalRequestDoc>(COLLECTIONS.graduationRequests, [
-    ['academyId', '==', academyId],
-    ['userId', '==', userId],
-    ['status', '==', 'pending'],
-  ]);
+  const snapshot = await db
+    .collection(COLLECTIONS.graduationRequests)
+    .where('academyId', '==', academyId)
+    .where('userId', '==', userId)
+    .where('status', '==', 'pending')
+    .get();
+  if (snapshot.empty) {
+    return undefined;
+  }
+
+  const records: PendingRequestRecord[] = snapshot.docs
+    .map((doc) => ({ id: doc.id, data: doc.data() as GraduationApprovalRequestDoc }))
+    .sort((a, b) => (b.data.createdAt?.toMillis?.() ?? 0) - (a.data.createdAt?.toMillis?.() ?? 0));
+
+  const [keep, ...stale] = records;
+  if (stale.length > 0) {
+    const batch = db.batch();
+    for (const record of stale) {
+      batch.update(db.collection(COLLECTIONS.graduationRequests).doc(record.id), {
+        status: 'superseded',
+        updatedAt: now,
+      });
+    }
+    await batch.commit();
+  }
+  return keep;
 }
 
 async function supersedePendingRequest(
@@ -75,23 +111,6 @@ async function supersedePendingRequest(
   await db.collection(COLLECTIONS.graduationRequests).doc(request.id).update({
     status: 'superseded',
     updatedAt: now,
-  });
-}
-
-async function approvePendingRequestFromUserState(params: {
-  request: PendingRequestRecord;
-  user: UserDoc;
-  attendanceCount: number;
-  now: Timestamp;
-}): Promise<void> {
-  await db.collection(COLLECTIONS.graduationRequests).doc(params.request.id).update({
-    currentBelt: params.user.belt,
-    currentStripes: params.user.stripes,
-    attendanceCount: params.attendanceCount,
-    remainingClasses: 0,
-    status: 'approved',
-    approvedAt: params.now,
-    updatedAt: params.now,
   });
 }
 
@@ -210,19 +229,19 @@ export async function syncGraduationApprovalRequest(
       attendanceCountAtBeltStart: params.user.attendanceCountAtBeltStart ?? null,
     },
   );
-  let pendingRequest = await findPendingGraduationRequest(params.academyId, params.userId);
+  let pendingRequest = await findAndDedupePendingRequests(params.academyId, params.userId, now);
 
   if (pendingRequest && currentUserMatchesRequestTarget(params.user, pendingRequest.data)) {
-    await approvePendingRequestFromUserState({
-      request: pendingRequest,
-      user: params.user,
-      attendanceCount: params.attendanceCount,
-      now,
-    });
+    // O aluno ja esta no alvo (promovido por outra via — ex.: graduacao manual). A pendencia foi
+    // resolvida fora desta maquina: marcamos como `superseded`, nao `approved`. Marcar como aprovada
+    // aqui furaria o gate temporal (aprovaria sem aula nova) e contaminaria relatorios de aprovacao.
+    await supersedePendingRequest(pendingRequest, now);
     pendingRequest = undefined;
   }
 
-  if (!nextStep || nextStep.remainingClasses > 1) {
+  const trainedSinceLastGraduation = hasTrainedSinceLastGraduation(params.user, params.lastAttendanceAt);
+
+  if (!nextStep || nextStep.remainingClasses > 1 || !trainedSinceLastGraduation) {
     if (pendingRequest) {
       await supersedePendingRequest(pendingRequest, now);
     }

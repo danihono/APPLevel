@@ -185,9 +185,9 @@ export function toUiUser(params: {
     branchId: user.academyId,
     memberships: Array.isArray(user.memberships) ? user.memberships : undefined,
     type: trainingType,
-    kidsCategory: inferTrainingTypeFromBirthDate(user.birthDate) === 'Adulto'
-      ? undefined
-      : (user.kidsCategory ?? inferKidsCategoryFromBirthDate(user.birthDate)),
+    // Preserva o kidsCategory persistido (nao descartar quando o tipo e inferido como Adulto) —
+    // o backend usa kidsCategory para escolher a trilha da branca; descartar divergiria do servidor.
+    kidsCategory: user.kidsCategory ?? inferKidsCategoryFromBirthDate(user.birthDate),
     isCompetitor: user.isCompetitor ?? false,
     phone: user.phone,
     birthDate: user.birthDate,

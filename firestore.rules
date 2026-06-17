@@ -65,7 +65,20 @@ service cloud.firestore {
           && sameAcademy(request.resource.data.academyId)
         );
 
-      allow update: if isAcademyStaff(resource.data.academyId);
+      // Staff edita perfil pelo SDK cliente, mas faixa/grau/progressao/identidade so mudam via
+      // Cloud Functions (Admin SDK ignora estas regras). Bloquear a escrita direta desses campos
+      // fecha o bypass do gate de graduacao e da contabilidade marco+bonus.
+      allow update: if isAcademyStaff(resource.data.academyId)
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+          'belt', 'stripes', 'grade',
+          'attendanceCount', 'attendanceCountBonus', 'attendanceCountAtBeltStart',
+          'lastGradeApprovalAt', 'lastStripeDateOverride', 'lastGraduationDateOverride',
+          'role', 'academyId', 'memberships',
+          'nextStripeAttendanceTarget', 'nextBeltAttendanceTarget',
+          'currentStripeProgress', 'classesToNextStripe',
+          'currentBeltProgress', 'totalClassesToNextBelt',
+          'rankingPoints', 'missionPoints', 'competitionPoints', 'beltPromotions'
+        ]);
 
       allow delete: if isSuperAdmin() || (isAdmin() && sameAcademy(resource.data.academyId));
     }

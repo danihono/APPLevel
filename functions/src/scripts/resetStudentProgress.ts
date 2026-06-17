@@ -1,7 +1,7 @@
 import { Timestamp } from 'firebase-admin/firestore';
 import { COLLECTIONS, UserDoc } from '../domain/models';
 import { db } from '../lib/firebase';
-import { normalizeBeltId, resolveBeltStartAndBonus, resolveStripeEveryForBelt } from '../services/progression';
+import { normalizeBeltId, resolveBeltStartAndBonus, resolveMaxStripesForBelt, resolveStripeEveryForBelt } from '../services/progression';
 import { syncUserDerivedState } from '../services/userState';
 
 // Script pontual de correcao: zera a contagem de progressao de UM aluno, posicionando o
@@ -144,12 +144,13 @@ async function main(): Promise<void> {
   }
 
   const belt = args.belt ? normalizeBeltId(args.belt) : user.belt;
-  const stripes = args.stripes != null ? args.stripes : Math.max(0, Math.floor(user.stripes ?? 0));
+  const beltCtx = { birthDate: user.birthDate, kidsCategory: user.kidsCategory };
+  // Clampa stripes a maxStripes da faixa (a leitura sempre clampa; o marco gravado tem de bater).
+  const maxStripes = resolveMaxStripesForBelt(belt, beltCtx);
+  const rawStripes = args.stripes != null ? args.stripes : Math.max(0, Math.floor(user.stripes ?? 0));
+  const stripes = Math.min(maxStripes, Math.max(0, Math.floor(rawStripes)));
   const organic = await countOrganicAttendances(academyId, userId);
-  const stripeEvery = resolveStripeEveryForBelt(belt, {
-    birthDate: user.birthDate,
-    kidsCategory: user.kidsCategory,
-  });
+  const stripeEvery = resolveStripeEveryForBelt(belt, beltCtx);
   // gradeProgress = 0: o reset posiciona o aluno no inicio do grau atual (0/stripeEvery).
   const { attendanceCountAtBeltStart, attendanceCountBonus } = resolveBeltStartAndBonus(
     organic,

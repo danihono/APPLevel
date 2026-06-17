@@ -30,6 +30,7 @@ import {
   isKidsOnlyBelt,
   normalizeBeltId,
   resolveBeltStartAndBonus,
+  resolveMaxStripesForBelt,
   resolveProgressionTargets,
   resolveStripeEveryForBelt,
 } from '../services/progression';
@@ -137,6 +138,7 @@ async function applyStudentBeltGradeUpdate(params: {
   hasKidsCategoryField: boolean;
   ruleVersion?: number;
   gradeProgress?: number;
+  desiredBonus?: number;
 }): Promise<Timestamp> {
   const now = Timestamp.now();
   let attendanceCountAtBeltStart: number | undefined;
@@ -157,22 +159,28 @@ async function applyStudentBeltGradeUpdate(params: {
     return totalSnap.data().count - nonCountingSnap.data().count;
   };
 
-  if (params.gradeProgress !== undefined || beltChanged || stripeChanged) {
+  if (params.gradeProgress !== undefined || params.desiredBonus !== undefined || beltChanged || stripeChanged) {
     // Reposiciona marco (attendanceCountAtBeltStart) + bonus para o grau exibir exatamente
     // `gradeProgress` aulas. O progresso e derivado de (attendanceCount - marco), onde
     // attendanceCount = aulas reais (organic) + bonus.
     //   - Ajuste manual (campo "Aulas no grau atual"): usa o gradeProgress informado.
-    //   - Graduacao automatica (sem gradeProgress): gradeProgress = 0, pois todo grau
+    //   - Bonus desejado (staff define o proprio bonus): deriva gradeProgress de organic+desiredBonus.
+    //   - Graduacao automatica (sem nenhum dos dois): gradeProgress = 0, pois todo grau
     //     recem-aprovado comeca em 0/stripeEvery.
-    // Ajustar marco E bonus juntos (em vez de zerar o bonus) cobre o aluno colocado manualmente
-    // (poucas aulas reais): zerar o bonus o rebaixaria a "colocacao manual" e faria as aulas reais
+    // Ajustar marco E bonus juntos (em vez de gravar bonus isolado) cobre o aluno colocado manualmente
+    // (poucas aulas reais): bonus isolado o rebaixaria a "colocacao manual" e faria as aulas reais
     // restantes reaparecerem como progresso do novo grau (bug: 21/30 e 51/150 em vez de 0/30 e 30/150).
     const organic = await countOrganicAttendances();
     const stripeEvery = resolveStripeEveryForBelt(params.belt, {
       birthDate: params.targetUser.birthDate,
       kidsCategory: params.targetUser.kidsCategory,
     });
-    const resolved = resolveBeltStartAndBonus(organic, params.stripes, stripeEvery, params.gradeProgress ?? 0);
+    const effectiveGradeProgress = params.gradeProgress !== undefined
+      ? params.gradeProgress
+      : params.desiredBonus !== undefined
+        ? Math.max(0, (organic + params.desiredBonus) - params.stripes * stripeEvery)
+        : 0;
+    const resolved = resolveBeltStartAndBonus(organic, params.stripes, stripeEvery, effectiveGradeProgress);
     attendanceCountAtBeltStart = resolved.attendanceCountAtBeltStart;
     attendanceCountBonusToWrite = resolved.attendanceCountBonus;
   }
@@ -417,7 +425,13 @@ function buildStudentUserDoc(
     kidsCategory?: JoinRequestDoc['kidsCategory'];
   },
 ): UserDoc {
-  const approvedGrade = Math.max(0, Math.floor(approvedProfile.grade));
+  const beltCtx = { birthDate: joinRequest.birthDate, kidsCategory: approvedProfile.kidsCategory };
+  const maxStripes = resolveMaxStripesForBelt(approvedProfile.belt, beltCtx);
+  const approvedGrade = Math.min(maxStripes, Math.max(0, Math.floor(approvedProfile.grade)));
+  // Aluno que entra ja com grau precisa nascer com marco+bonus posicionados; senao total=0 < piso
+  // do grau -> isManuallyPlaced e as aulas reais futuras vazam como progresso do grau errado.
+  const stripeEvery = resolveStripeEveryForBelt(approvedProfile.belt, beltCtx);
+  const { attendanceCountAtBeltStart, attendanceCountBonus } = resolveBeltStartAndBonus(0, approvedGrade, stripeEvery, 0);
 
   return {
     academyId: joinRequest.academyId,
@@ -437,6 +451,8 @@ function buildStudentUserDoc(
     stripes: approvedGrade,
     grade: approvedGrade,
     attendanceCount: 0,
+    attendanceCountAtBeltStart,
+    attendanceCountBonus,
     qrCheckinsCount: 0,
     currentStreak: 0,
     longestStreak: 0,
@@ -726,8 +742,13 @@ export const createUserWithRole = onCall(callableOptions, async (request) => {
   const birthDate = optionalString(request.data, 'birthDate');
   const isCompetitor = optionalBoolean(request.data, 'isCompetitor', false);
   const belt = optionalString(request.data, 'belt') ?? 'white';
-  const grade = optionalNumber(request.data, 'grade') ?? 0;
-  const stripes = optionalNumber(request.data, 'stripes') ?? grade;
+  const beltCtx = { birthDate };
+  const maxStripes = resolveMaxStripesForBelt(belt, beltCtx);
+  const grade = Math.min(maxStripes, Math.max(0, Math.floor(optionalNumber(request.data, 'grade') ?? 0)));
+  const stripes = Math.min(maxStripes, Math.max(0, Math.floor(optionalNumber(request.data, 'stripes') ?? grade)));
+  const stripeEvery = resolveStripeEveryForBelt(belt, beltCtx);
+  // Mantem a invariante marco+bonus mesmo na criacao de staff com grau (>0).
+  const { attendanceCountAtBeltStart, attendanceCountBonus } = resolveBeltStartAndBonus(0, stripes, stripeEvery, 0);
   const plainPassword = optionalString(request.data, 'plainPassword');
 
   assertCondition(ROLE_ORDER.includes(requestedRole), 'invalid-argument', 'Role invalida.');
@@ -770,6 +791,8 @@ export const createUserWithRole = onCall(callableOptions, async (request) => {
     stripes,
     grade,
     attendanceCount: 0,
+    attendanceCountAtBeltStart,
+    attendanceCountBonus,
     qrCheckinsCount: 0,
     currentStreak: 0,
     longestStreak: 0,
@@ -1143,7 +1166,7 @@ export const setStudentAttendanceBonus = onCall(callableOptions, async (request)
   assertProfessorOrSuperadmin(actor.role);
 
   const targetUserId = requiredString(request.data, 'userId');
-  const attendanceCountBonus = Math.floor(requiredNumber(request.data, 'attendanceCountBonus'));
+  const attendanceCountBonus = Math.max(0, Math.floor(requiredNumber(request.data, 'attendanceCountBonus')));
   const targetUser = await getUserDoc(targetUserId);
 
   assertCondition(targetUser.role === 'student', 'invalid-argument', 'Somente alunos podem ter aulas ajustadas.');
@@ -1153,15 +1176,35 @@ export const setStudentAttendanceBonus = onCall(callableOptions, async (request)
     'Voce so pode alterar alunos da sua unidade.',
   );
 
+  // Reacerta marco + bonus JUNTOS: gravar o bonus isolado dessincronizaria o marco e poderia
+  // jogar o aluno em "colocacao manual" (aulas reais vazando como progresso do grau). Derivamos
+  // o gradeProgress a partir de organic+novoBonus e deixamos o helper posicionar marco e bonus.
+  const beltCtx = { birthDate: targetUser.birthDate, kidsCategory: targetUser.kidsCategory };
+  const maxStripes = resolveMaxStripesForBelt(targetUser.belt, beltCtx);
+  const stripes = Math.min(maxStripes, Math.max(0, Math.floor(targetUser.stripes ?? 0)));
+  const stripeEvery = resolveStripeEveryForBelt(targetUser.belt, beltCtx);
+  const attendanceQuery = db
+    .collection(COLLECTIONS.attendances)
+    .where('academyId', '==', targetUser.academyId)
+    .where('userId', '==', targetUserId);
+  const [totalSnap, nonCountingSnap] = await Promise.all([
+    attendanceQuery.count().get(),
+    attendanceQuery.where('countsAsAttendance', '==', false).count().get(),
+  ]);
+  const organic = totalSnap.data().count - nonCountingSnap.data().count;
+  const gradeProgress = Math.max(0, (organic + attendanceCountBonus) - stripes * stripeEvery);
+  const resolved = resolveBeltStartAndBonus(organic, stripes, stripeEvery, gradeProgress);
+
   const now = Timestamp.now();
   await db.collection(COLLECTIONS.users).doc(targetUserId).update({
-    attendanceCountBonus,
+    attendanceCountBonus: resolved.attendanceCountBonus,
+    attendanceCountAtBeltStart: resolved.attendanceCountAtBeltStart,
     updatedAt: now,
   });
 
   await syncUserDerivedState(targetUserId, targetUser.academyId);
 
-  return { userId: targetUserId, attendanceCountBonus };
+  return { userId: targetUserId, attendanceCountBonus: resolved.attendanceCountBonus };
 });
 
 export const updateOwnStaffBeltGrade = onCall(callableOptions, async (request) => {
@@ -1170,14 +1213,20 @@ export const updateOwnStaffBeltGrade = onCall(callableOptions, async (request) =
 
   const data = (request.data as Record<string, unknown> | null) ?? {};
   const belt = normalizeBeltId(requiredString(request.data, 'belt'));
-  const grade = Math.max(0, Math.floor(requiredNumber(request.data, 'grade')));
-  const stripes = Math.max(0, Math.floor(optionalNumber(request.data, 'stripes') ?? grade));
+  // Clampa grade/stripes a maxStripes da faixa (a leitura sempre clampa; o marco gravado tem de bater).
+  const maxStripes = resolveMaxStripesForBelt(belt, {
+    birthDate: actor.user.birthDate,
+    kidsCategory: actor.user.kidsCategory,
+  });
+  const grade = Math.min(maxStripes, Math.max(0, Math.floor(requiredNumber(request.data, 'grade'))));
+  const stripes = Math.min(maxStripes, Math.max(0, Math.floor(optionalNumber(request.data, 'stripes') ?? grade)));
   const attendanceCountBonus = Object.prototype.hasOwnProperty.call(data, 'attendanceCountBonus')
     ? Math.max(0, Math.floor(requiredNumber(request.data, 'attendanceCountBonus')))
     : (actor.user.attendanceCountBonus ?? 0);
   const academyId = actor.user.academyId.trim();
 
   if (academyId.length > 0) {
+    // O helper (via desiredBonus) e a UNICA fonte de marco+bonus — sem update de bonus isolado depois.
     await applyStudentBeltGradeUpdate({
       targetUserId: actor.uid,
       targetUser: actor.user,
@@ -1185,41 +1234,50 @@ export const updateOwnStaffBeltGrade = onCall(callableOptions, async (request) =
       grade,
       stripes,
       hasKidsCategoryField: false,
-    });
-
-    await db.collection(COLLECTIONS.users).doc(actor.uid).update({
-      attendanceCountBonus,
-      updatedAt: Timestamp.now(),
+      desiredBonus: attendanceCountBonus,
     });
 
     await syncUserDerivedState(actor.uid, academyId);
-  } else {
-    const previousAttendanceCount = Math.max(0, Math.floor(actor.user.attendanceCount ?? 0));
-    const previousAttendanceCountBonus = Math.max(0, Math.floor(actor.user.attendanceCountBonus ?? 0));
-    const attendanceCount = Math.max(0, previousAttendanceCount - previousAttendanceCountBonus) + attendanceCountBonus;
-    const progression = resolveProgressionTargets(belt, stripes, attendanceCount, DEFAULT_PROGRESSION_RULES, {
-      birthDate: actor.user.birthDate,
-      kidsCategory: actor.user.kidsCategory,
-      attendanceCountBonus,
-    });
 
-    await db.collection(COLLECTIONS.users).doc(actor.uid).update({
-      belt,
-      grade,
-      stripes,
-      attendanceCountBonus,
-      attendanceCount,
-      nextStripeAttendanceTarget: progression.nextStripeAttendanceTarget,
-      nextBeltAttendanceTarget: progression.nextBeltAttendanceTarget,
-      currentStripeProgress: progression.currentStripeProgress,
-      classesToNextStripe: progression.classesToNextStripe,
-      currentBeltProgress: progression.currentBeltProgress,
-      totalClassesToNextBelt: progression.totalClassesToNextBelt,
-      updatedAt: Timestamp.now(),
-    });
+    return { userId: actor.uid, belt, grade, stripes, attendanceCountBonus };
   }
 
-  return { userId: actor.uid, belt, grade, stripes, attendanceCountBonus };
+  // Staff sem academia nao tem colecao de attendances; o attendanceCount derivado e a fonte.
+  const previousAttendanceCount = Math.max(0, Math.floor(actor.user.attendanceCount ?? 0));
+  const previousAttendanceCountBonus = Math.max(0, Math.floor(actor.user.attendanceCountBonus ?? 0));
+  const organicEquivalent = Math.max(0, previousAttendanceCount - previousAttendanceCountBonus);
+  const attendanceCount = organicEquivalent + attendanceCountBonus;
+  const stripeEvery = resolveStripeEveryForBelt(belt, {
+    birthDate: actor.user.birthDate,
+    kidsCategory: actor.user.kidsCategory,
+  });
+  const gradeProgress = Math.max(0, attendanceCount - stripes * stripeEvery);
+  const { attendanceCountAtBeltStart, attendanceCountBonus: bonusToWrite } =
+    resolveBeltStartAndBonus(organicEquivalent, stripes, stripeEvery, gradeProgress);
+  const progression = resolveProgressionTargets(belt, stripes, attendanceCount, DEFAULT_PROGRESSION_RULES, {
+    birthDate: actor.user.birthDate,
+    kidsCategory: actor.user.kidsCategory,
+    attendanceCountBonus: bonusToWrite,
+    attendanceCountAtBeltStart,
+  });
+
+  await db.collection(COLLECTIONS.users).doc(actor.uid).update({
+    belt,
+    grade,
+    stripes,
+    attendanceCountBonus: bonusToWrite,
+    attendanceCountAtBeltStart,
+    attendanceCount,
+    nextStripeAttendanceTarget: progression.nextStripeAttendanceTarget,
+    nextBeltAttendanceTarget: progression.nextBeltAttendanceTarget,
+    currentStripeProgress: progression.currentStripeProgress,
+    classesToNextStripe: progression.classesToNextStripe,
+    currentBeltProgress: progression.currentBeltProgress,
+    totalClassesToNextBelt: progression.totalClassesToNextBelt,
+    updatedAt: Timestamp.now(),
+  });
+
+  return { userId: actor.uid, belt, grade, stripes, attendanceCountBonus: bonusToWrite };
 });
 
 export const approveGraduationRequest = onCall(callableOptions, async (request) => {
@@ -1241,20 +1299,13 @@ export const approveGraduationRequest = onCall(callableOptions, async (request) 
     'Aluno e pendencia de graduacao precisam pertencer a mesma academia.',
   );
 
-  // So permite uma nova graduacao se o aluno compareceu a pelo menos uma aula
-  // desde a ultima graduacao. Evita encadear varias aprovacoes sem o aluno treinar.
-  // Fallback em lastStripeDateOverride cobre alunos graduados antes deste campo existir.
-  const lastApprovalMs = (targetUser.lastGradeApprovalAt ?? targetUser.lastStripeDateOverride)?.toMillis?.() ?? null;
-  const lastAttendanceMs = targetUser.lastAttendanceAt?.toMillis?.() ?? null;
-  assertCondition(
-    lastApprovalMs === null || (lastAttendanceMs !== null && lastAttendanceMs > lastApprovalMs),
-    'failed-precondition',
-    'Este aluno ja foi graduado recentemente. Aguarde ele completar a proxima aula antes de aprovar a proxima graduacao.',
-  );
-
   const claimTimestamp = Timestamp.now();
+  const targetUserRef = db.collection(COLLECTIONS.users).doc(initialRequest.userId);
   const graduationRequest = await db.runTransaction(async (transaction) => {
-    const snap = await transaction.get(requestRef);
+    const [snap, userSnap] = await Promise.all([
+      transaction.get(requestRef),
+      transaction.get(targetUserRef),
+    ]);
     assertCondition(snap.exists, 'not-found', 'Pendencia de graduacao nao encontrada.');
 
     const data = snap.data() as GraduationApprovalRequestDoc;
@@ -1263,6 +1314,18 @@ export const approveGraduationRequest = onCall(callableOptions, async (request) 
       actor.role === 'superadmin' || data.academyId === actor.academyId,
       'permission-denied',
       'Voce so pode aprovar graduacoes da sua unidade.',
+    );
+
+    // Gate temporal DENTRO da transacao (le timestamps frescos): so permite uma nova graduacao se o
+    // aluno compareceu a pelo menos uma aula desde a ultima. Evita encadear aprovacoes concorrentes
+    // sem aula nova. Fallback em lastStripeDateOverride cobre alunos graduados antes deste campo.
+    const freshUser = userSnap.data() as UserDoc | undefined;
+    const lastApprovalMs = (freshUser?.lastGradeApprovalAt ?? freshUser?.lastStripeDateOverride)?.toMillis?.() ?? null;
+    const lastAttendanceMs = freshUser?.lastAttendanceAt?.toMillis?.() ?? null;
+    assertCondition(
+      lastApprovalMs === null || (lastAttendanceMs !== null && lastAttendanceMs > lastApprovalMs),
+      'failed-precondition',
+      'Este aluno ja foi graduado recentemente. Aguarde ele completar a proxima aula antes de aprovar a proxima graduacao.',
     );
 
     transaction.update(requestRef, {

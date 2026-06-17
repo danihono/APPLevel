@@ -482,14 +482,17 @@ function resolveProgressionTrack(params: {
     };
   }
 
-  if (isAdultOnlyBelt(beltId) || params.type === 'Adulto') {
+  if (isAdultOnlyBelt(beltId)) {
     return {
       track: 'Adulto',
       activeRules: rules.adult.belts,
     };
   }
 
-  if (params.type === 'Kids' || params.kidsCategory || inferredKidsCategory) {
+  // Branca/neutra: espelha o backend (resolveProgressionContext) — Kids sse a idade infere kids
+  // (< 16) OU ha kidsCategory; senao Adulto. NAO usa params.type (que o backend desconhece),
+  // senao app e servidor divergiriam nas idades de fronteira.
+  if (inferredKidsCategory || params.kidsCategory) {
     return {
       track: 'Kids',
       kidsCategory,
@@ -687,7 +690,8 @@ export function inferTrainingTypeFromBirthDate(birthDate?: string | null): Train
   const today = new Date();
   const ageByBirthYear = today.getFullYear() - birthYear;
 
-  return ageByBirthYear < 15 ? 'Kids' : 'Adulto';
+  // Limiar alinhado ao backend (inferKidsCategoryFromBirthDate usa >=16 = Adulto).
+  return ageByBirthYear < 16 ? 'Kids' : 'Adulto';
 }
 
 export function inferKidsCategoryFromBirthDate(birthDate?: string | null): KidsCategory | undefined {

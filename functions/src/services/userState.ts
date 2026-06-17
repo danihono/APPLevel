@@ -376,6 +376,7 @@ export async function syncUserDerivedState(
       user,
       attendanceCount: metrics.attendanceCount,
       rules,
+      lastAttendanceAt: metrics.lastAttendanceAt,
     });
   }
   await upsertRanking(
@@ -434,11 +435,27 @@ export async function syncAllUsersInAcademy(academyId: string): Promise<number> 
 
 export async function bumpClassAttendanceCounter(classId: string, delta: 1 | -1): Promise<void> {
   const classRef = db.collection(COLLECTIONS.classes).doc(classId);
-  await classRef.set(
-    {
-      currentAttendanceCount: FieldValue.increment(delta),
-      updatedAt: Timestamp.now(),
-    },
-    { merge: true },
-  );
+  if (delta > 0) {
+    await classRef.set(
+      {
+        currentAttendanceCount: FieldValue.increment(delta),
+        updatedAt: Timestamp.now(),
+      },
+      { merge: true },
+    );
+    return;
+  }
+  // Decremento com piso em 0: evita contador negativo na classe (delete sem o create simetrico).
+  await db.runTransaction(async (transaction) => {
+    const snap = await transaction.get(classRef);
+    const current = Math.max(0, Math.floor((snap.data()?.currentAttendanceCount as number | undefined) ?? 0));
+    transaction.set(
+      classRef,
+      {
+        currentAttendanceCount: Math.max(0, current - 1),
+        updatedAt: Timestamp.now(),
+      },
+      { merge: true },
+    );
+  });
 }

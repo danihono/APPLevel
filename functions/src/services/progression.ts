@@ -19,6 +19,7 @@ export interface ProgressionSnapshot {
   classesToNextStripe: number;
   currentBeltProgress: number;
   totalClassesToNextBelt: number;
+  isManuallyPlaced: boolean;
   ruleVersion: number;
 }
 
@@ -463,6 +464,7 @@ export function resolveProgressionTargets(
     classesToNextStripe,
     currentBeltProgress,
     totalClassesToNextBelt,
+    isManuallyPlaced,
     ruleVersion: normalizedRules.version,
   };
 }
@@ -542,6 +544,17 @@ export function resolveStripeEveryForBelt(
   const context = resolveProgressionContext(belt, normalizedRules, options);
   const milestone = getMilestoneByBelt(belt, context.milestones) ?? context.milestones[0];
   return milestone?.stripeEvery ?? 0;
+}
+
+export function resolveMaxStripesForBelt(
+  belt: string,
+  options?: ProgressionContextOptions,
+  rules?: Partial<ProgressionRules> | null,
+): number {
+  const normalizedRules = normalizeProgressionRules(rules);
+  const context = resolveProgressionContext(belt, normalizedRules, options);
+  const milestone = getMilestoneByBelt(belt, context.milestones) ?? context.milestones[0];
+  return milestone?.maxStripes ?? 0;
 }
 
 // Posiciona marco (attendanceCountAtBeltStart) + bonus para que o grau atual exiba exatamente
