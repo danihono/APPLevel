@@ -16,7 +16,7 @@ import {
 } from '../domain/models';
 import { findSingleByFields, getRequestContext, getUserDoc } from '../lib/context';
 import { assertCondition } from '../lib/errors';
-import { auth, db, messaging } from '../lib/firebase';
+import { auth, db, messaging, storage } from '../lib/firebase';
 import {
   optionalBoolean,
   optionalNumber,
@@ -2094,4 +2094,139 @@ export const adminSetUserMemberships = onCall(callableOptions, async (request) =
   }
 
   return { userId: targetUserId, memberships, academyId: nextActive };
+});
+
+// Limite seguro abaixo do teto de 500 escritas por batch do Firestore.
+const DELETE_BATCH_LIMIT = 400;
+
+// Coleta refs de varias consultas e apaga em lotes, respeitando o teto do Firestore.
+async function deleteDocsFromSnapshots(
+  snapshots: FirebaseFirestore.QuerySnapshot[],
+): Promise<number> {
+  const refs: FirebaseFirestore.DocumentReference[] = [];
+  for (const snapshot of snapshots) {
+    for (const docSnap of snapshot.docs) {
+      refs.push(docSnap.ref);
+    }
+  }
+
+  for (let index = 0; index < refs.length; index += DELETE_BATCH_LIMIT) {
+    const batch = db.batch();
+    for (const ref of refs.slice(index, index + DELETE_BATCH_LIMIT)) {
+      batch.delete(ref);
+    }
+    await batch.commit();
+  }
+
+  return refs.length;
+}
+
+// Auto-exclusao da conta do aluno (LGPD / requisito do Google Play). Opera SOMENTE sobre a
+// propria conta do solicitante. Apaga PII e arquivos pessoais; anonimiza o que precisa ser
+// retido por obrigacao fiscal/legal (financeiro) ou como historico (lutas).
+export const deleteMyAccount = onCall(callableOptions, async (request) => {
+  const actor = await getRequestContext(request, 'student');
+  assertCondition(
+    actor.role === 'student',
+    'permission-denied',
+    'Apenas contas de aluno podem ser excluidas pelo proprio app. Para excluir uma conta de equipe, entre em contato com o suporte.',
+  );
+
+  const uid = actor.uid;
+  const ANON = 'Usuario removido';
+
+  // 1) Apaga arquivos pessoais no Storage (foto de perfil + videos de luta), sob users/{uid}/.
+  try {
+    await storage.bucket().deleteFiles({ prefix: `users/${uid}/` });
+  } catch (error) {
+    // Nao bloqueia a exclusao do restante dos dados caso o Storage falhe/esteja vazio.
+    console.error(`Falha ao apagar arquivos do Storage para ${uid}:`, error);
+  }
+
+  // 2) Apaga o doc do usuario PRIMEIRO: assim os triggers (onFightWritten) que dependem do
+  //    doc do usuario fazem no-op e nao recriam ranking orfao durante a anonimizacao abaixo.
+  await db.collection(COLLECTIONS.users).doc(uid).delete();
+
+  // 3) Apaga documentos pessoais / de progresso (sem valor de auditoria legal).
+  const [
+    attendanceRequests,
+    classRsvps,
+    graduationRequests,
+    userMissions,
+    rankings,
+    learningProgress,
+    learningQuizAttempts,
+    reactivationRequests,
+    notifications,
+    fightVideoSubmissions,
+    joinRequests,
+  ] = await Promise.all([
+    db.collection(COLLECTIONS.attendanceRequests).where('userId', '==', uid).get(),
+    db.collection(COLLECTIONS.classRsvps).where('userId', '==', uid).get(),
+    db.collection(COLLECTIONS.graduationRequests).where('userId', '==', uid).get(),
+    db.collection(COLLECTIONS.userMissions).where('userId', '==', uid).get(),
+    db.collection(COLLECTIONS.rankings).where('userId', '==', uid).get(),
+    db.collection(COLLECTIONS.learningProgress).where('userId', '==', uid).get(),
+    db.collection(COLLECTIONS.learningQuizAttempts).where('userId', '==', uid).get(),
+    db.collection(COLLECTIONS.reactivationRequests).where('userId', '==', uid).get(),
+    db.collection(COLLECTIONS.notifications).where('recipientUserId', '==', uid).get(),
+    db.collection(COLLECTIONS.fightVideoSubmissions).where('athleteId', '==', uid).get(),
+    db.collection(COLLECTIONS.joinRequests).where('authUid', '==', uid).get(),
+  ]);
+
+  await deleteDocsFromSnapshots([
+    attendanceRequests,
+    classRsvps,
+    graduationRequests,
+    userMissions,
+    rankings,
+    learningProgress,
+    learningQuizAttempts,
+    reactivationRequests,
+    notifications,
+    fightVideoSubmissions,
+    joinRequests,
+  ]);
+
+  // 4) Anonimiza o que e retido: lutas (historico de competicao) e financeiro (obrigacao
+  //    fiscal por 5 anos). Mantemos os registros e valores, removendo a identificacao pessoal.
+  const now = Timestamp.now();
+  const [fights, financeSales, financeSaleItems] = await Promise.all([
+    db.collection(COLLECTIONS.fights).where('athleteId', '==', uid).get(),
+    db.collection(COLLECTIONS.financeSales).where('customerId', '==', uid).get(),
+    db.collection(COLLECTIONS.financeSaleItems).where('beneficiaryUserId', '==', uid).get(),
+  ]);
+
+  const anonRefs: { ref: FirebaseFirestore.DocumentReference; data: Record<string, unknown> }[] = [];
+  for (const docSnap of fights.docs) {
+    anonRefs.push({ ref: docSnap.ref, data: { athleteName: ANON, updatedAt: now } });
+  }
+  for (const docSnap of financeSales.docs) {
+    anonRefs.push({ ref: docSnap.ref, data: { customerName: ANON, updatedAt: now } });
+  }
+  for (const docSnap of financeSaleItems.docs) {
+    anonRefs.push({ ref: docSnap.ref, data: { beneficiaryName: ANON, updatedAt: now } });
+  }
+
+  for (let index = 0; index < anonRefs.length; index += DELETE_BATCH_LIMIT) {
+    const batch = db.batch();
+    for (const item of anonRefs.slice(index, index + DELETE_BATCH_LIMIT)) {
+      batch.update(item.ref, item.data);
+    }
+    await batch.commit();
+  }
+
+  // 5) Por fim, remove a conta de autenticacao (login).
+  try {
+    await auth.deleteUser(uid);
+  } catch (error) {
+    const code = typeof error === 'object' && error && 'code' in error
+      ? String((error as { code: unknown }).code)
+      : '';
+    if (code !== 'auth/user-not-found') {
+      throw error;
+    }
+  }
+
+  return { userId: uid, status: 'deleted' as const };
 });

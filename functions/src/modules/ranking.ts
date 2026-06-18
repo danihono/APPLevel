@@ -1,7 +1,8 @@
 import { onDocumentWritten } from 'firebase-functions/v2/firestore';
 import { onCall } from 'firebase-functions/v2/https';
-import { FightDoc } from '../domain/models';
+import { COLLECTIONS, FightDoc } from '../domain/models';
 import { getRequestContext, getUserDoc } from '../lib/context';
+import { db } from '../lib/firebase';
 import { assertCondition } from '../lib/errors';
 import { optionalString } from '../lib/payload';
 import { syncAllUsersInAcademy, syncUserDerivedState } from '../services/userState';
@@ -58,6 +59,13 @@ export const onFightWritten = onDocumentWritten(
     const fight = after ?? before;
 
     if (!fight) {
+      return;
+    }
+
+    // Se o atleta nao existe mais (ex.: conta excluida via deleteMyAccount), nao tentamos
+    // sincronizar estado derivado — evita erro 'not-found' e a recriacao de ranking orfao.
+    const athleteSnap = await db.collection(COLLECTIONS.users).doc(fight.athleteId).get();
+    if (!athleteSnap.exists) {
       return;
     }
 

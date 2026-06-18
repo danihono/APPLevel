@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { getBeltMeta } from '../beltCatalog';
+import { MONTH_WEEK_HEADER } from '../calendarUtils';
 import {
   Activity,
   AlertTriangle,
@@ -201,6 +202,143 @@ function getActivityLabel(date: Date | null) {
 
   return `Atividade há ${daysSince} dias`;
 }
+
+const WEEKDAY_SHORT_TO_INDEX: Record<string, number> = {
+  Mon: 0,
+  Tue: 1,
+  Wed: 2,
+  Thu: 3,
+  Fri: 4,
+  Sat: 5,
+  Sun: 6,
+};
+
+const MONTH_LABELS_PT = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'] as const;
+
+interface ZonedParts {
+  weekdayIndex: number;
+  hour: number;
+  monthKey: string;
+  monthLabel: string;
+}
+
+// Deriva dia-da-semana (0=Seg..6=Dom), hora e mês de uma data NA TIMEZONE da academia.
+// Usa Intl.DateTimeFormat porque getDay()/getHours() usariam o fuso do navegador.
+function getZonedParts(date: Date, timeZone: string): ZonedParts | null {
+  try {
+    const parts = new Intl.DateTimeFormat('en-US', {
+      timeZone,
+      weekday: 'short',
+      hour: '2-digit',
+      hour12: false,
+      year: 'numeric',
+      month: '2-digit',
+    }).formatToParts(date);
+
+    const lookup = (type: string) => parts.find((part) => part.type === type)?.value ?? '';
+    const weekdayIndex = WEEKDAY_SHORT_TO_INDEX[lookup('weekday')] ?? -1;
+    const hour = Number.parseInt(lookup('hour'), 10) % 24;
+    const monthValue = lookup('month');
+    const yearValue = lookup('year');
+    const monthNumber = Number.parseInt(monthValue, 10);
+
+    if (weekdayIndex < 0 || Number.isNaN(hour) || Number.isNaN(monthNumber)) {
+      return null;
+    }
+
+    return {
+      weekdayIndex,
+      hour,
+      monthKey: `${yearValue}-${monthValue}`,
+      monthLabel: `${MONTH_LABELS_PT[monthNumber - 1] ?? ''}/${yearValue.slice(-2)}`,
+    };
+  } catch {
+    return null;
+  }
+}
+
+interface FocusBar {
+  key: string;
+  label: string;
+  attendances: number;
+  classCount: number;
+}
+
+interface FocusProfessor {
+  id: string;
+  name: string;
+  classCount: number;
+  totalAttendances: number;
+  avgPerClass: number;
+}
+
+interface FocusBeltSlice {
+  key: string;
+  label: string;
+  color: string;
+  total: number;
+  share: number;
+}
+
+interface FocusTopStudent {
+  id: string;
+  name: string;
+  attendanceCount: number;
+}
+
+interface FocusStatistics {
+  finishedClassCount: number;
+  totalAttendances: number;
+  avgPerClass: number;
+  occupancyRate: number;
+  cancellationRate: number;
+  byWeekday: FocusBar[];
+  peakWeekday: FocusBar | null;
+  byHour: FocusBar[];
+  peakHour: FocusBar | null;
+  monthlyTrend: Array<{ key: string; label: string; attendances: number }>;
+  professors: FocusProfessor[];
+  topProfessor: FocusProfessor | null;
+  classStatusCounts: { scheduled: number; active: number; finished: number; cancelled: number };
+  topTatame: { name: string; classCount: number } | null;
+  belts: FocusBeltSlice[];
+  beltRingGradient: string;
+  activeStudents: number;
+  invitedStudents: number;
+  suspendedStudents: number;
+  newStudents: number;
+  atRiskStudents: number;
+  topStudents: FocusTopStudent[];
+}
+
+// Lista de barras horizontais reaproveitada por desktop e mobile.
+const FocusBarList: React.FC<{
+  items: Array<{ key: string; label: string; value: number; caption?: string }>;
+  emptyLabel: string;
+}> = ({ items, emptyLabel }) => {
+  if (items.length === 0) {
+    return <div className="app-empty">{emptyLabel}</div>;
+  }
+
+  const max = items.reduce((largest, item) => Math.max(largest, item.value), 0);
+
+  return (
+    <div className="superadmin-bar-list">
+      {items.map((item) => (
+        <div key={item.key} className="superadmin-bar-item">
+          <div className="superadmin-bar-item__header">
+            <span>{item.label}</span>
+            <strong>{formatNumber(item.value)}</strong>
+          </div>
+          <div className="superadmin-bar superadmin-bar--thin">
+            <span style={{ width: `${max > 0 ? Math.max(6, Math.round((item.value / max) * 100)) : 0}%` }} />
+          </div>
+          {item.caption ? <p className="superadmin-bar-item__footer">{item.caption}</p> : null}
+        </div>
+      ))}
+    </div>
+  );
+};
 
 const SuperadminDashboardView: React.FC<SuperadminDashboardViewProps> = ({
   academies,
@@ -414,6 +552,184 @@ const SuperadminDashboardView: React.FC<SuperadminDashboardViewProps> = ({
   const focusScheduledClasses = classes.filter((item) => item.status === 'scheduled').length;
   const focusOpenCompetitions = competitions.filter((item) => item.status === 'published').length;
   const focusFinishedCompetitions = competitions.filter((item) => item.status === 'finished').length;
+
+  // Estatísticas detalhadas da unidade em foco — calculadas no cliente a partir das
+  // aulas/usuários já carregados quando uma academia está selecionada.
+  const focusStatistics = useMemo<FocusStatistics | null>(() => {
+    if (!selectedAcademyId) {
+      return null;
+    }
+
+    const timeZone = academy?.timezone || 'America/Sao_Paulo';
+    const finishedClasses = classes.filter((item) => item.status === 'finished');
+
+    const weekdayBuckets = MONTH_WEEK_HEADER.map((label) => ({ label, attendances: 0, classCount: 0 }));
+    const hourBuckets = new Map<number, { attendances: number; classCount: number }>();
+    const monthBuckets = new Map<string, { label: string; attendances: number }>();
+    const professorBuckets = new Map<string, FocusProfessor>();
+    const tatameBuckets = new Map<string, number>();
+
+    finishedClasses.forEach((item) => {
+      const attendance = item.currentAttendanceCount ?? 0;
+      const start = safeToDate(item.scheduledStart);
+
+      if (start) {
+        const zoned = getZonedParts(start, timeZone);
+        if (zoned) {
+          weekdayBuckets[zoned.weekdayIndex].attendances += attendance;
+          weekdayBuckets[zoned.weekdayIndex].classCount += 1;
+
+          const hourBucket = hourBuckets.get(zoned.hour) ?? { attendances: 0, classCount: 0 };
+          hourBucket.attendances += attendance;
+          hourBucket.classCount += 1;
+          hourBuckets.set(zoned.hour, hourBucket);
+
+          const monthBucket = monthBuckets.get(zoned.monthKey) ?? { label: zoned.monthLabel, attendances: 0 };
+          monthBucket.attendances += attendance;
+          monthBuckets.set(zoned.monthKey, monthBucket);
+        }
+      }
+
+      const professorId = item.professorId || 'desconhecido';
+      const resolvedName = item.professorName
+        || academyUsers.find((user) => user.id === item.professorId)?.displayName
+        || 'Professor';
+      const professorBucket = professorBuckets.get(professorId)
+        ?? { id: professorId, name: resolvedName, classCount: 0, totalAttendances: 0, avgPerClass: 0 };
+      professorBucket.classCount += 1;
+      professorBucket.totalAttendances += attendance;
+      professorBuckets.set(professorId, professorBucket);
+
+      const tatame = (item.tatame || '').trim();
+      if (tatame) {
+        tatameBuckets.set(tatame, (tatameBuckets.get(tatame) ?? 0) + 1);
+      }
+    });
+
+    const byWeekday: FocusBar[] = weekdayBuckets.map((bucket, index) => ({
+      key: String(index),
+      label: bucket.label,
+      attendances: bucket.attendances,
+      classCount: bucket.classCount,
+    }));
+    const peakWeekday = [...byWeekday]
+      .filter((bucket) => bucket.classCount > 0)
+      .sort((left, right) => right.attendances - left.attendances)[0] ?? null;
+
+    const byHour: FocusBar[] = [...hourBuckets.entries()]
+      .sort((left, right) => right[1].attendances - left[1].attendances)
+      .map(([hour, value]) => ({
+        key: String(hour),
+        label: `${String(hour).padStart(2, '0')}h`,
+        attendances: value.attendances,
+        classCount: value.classCount,
+      }));
+    const peakHour = byHour[0] ?? null;
+
+    const monthlyTrend = [...monthBuckets.entries()]
+      .sort((left, right) => left[0].localeCompare(right[0]))
+      .slice(-12)
+      .map(([key, value]) => ({ key, label: value.label, attendances: value.attendances }));
+
+    const professors = [...professorBuckets.values()]
+      .map((professor) => ({
+        ...professor,
+        avgPerClass: professor.classCount > 0 ? Math.round(professor.totalAttendances / professor.classCount) : 0,
+      }))
+      .sort((left, right) => right.classCount - left.classCount || right.totalAttendances - left.totalAttendances);
+
+    const classStatusCounts = {
+      scheduled: classes.filter((item) => item.status === 'scheduled').length,
+      active: classes.filter((item) => item.status === 'active').length,
+      finished: finishedClasses.length,
+      cancelled: classes.filter((item) => item.status === 'cancelled').length,
+    };
+    const cancellationDenominator = classStatusCounts.finished + classStatusCounts.cancelled;
+    const cancellationRate = cancellationDenominator > 0
+      ? Math.round((classStatusCounts.cancelled / cancellationDenominator) * 100)
+      : 0;
+
+    const occupancyClasses = finishedClasses.filter((item) => (item.capacity ?? 0) > 0);
+    const occupancyRate = occupancyClasses.length > 0
+      ? Math.round(
+        (occupancyClasses.reduce(
+          (sum, item) => sum + Math.min(1, (item.currentAttendanceCount ?? 0) / (item.capacity || 1)),
+          0,
+        ) / occupancyClasses.length) * 100,
+      )
+      : 0;
+
+    const totalAttendances = finishedClasses.reduce((sum, item) => sum + (item.currentAttendanceCount ?? 0), 0);
+    const avgPerClass = classStatusCounts.finished > 0
+      ? Math.round(totalAttendances / classStatusCounts.finished)
+      : 0;
+
+    const topTatameEntry = [...tatameBuckets.entries()].sort((left, right) => right[1] - left[1])[0];
+    const topTatame = topTatameEntry ? { name: topTatameEntry[0], classCount: topTatameEntry[1] } : null;
+
+    const students = academyUsers.filter((user) => user.role === 'student');
+    const activeStudentsList = students.filter((user) => user.status === 'active');
+
+    let beltCursor = 0;
+    const belts: FocusBeltSlice[] = beltBreakdownConfig.map((belt) => {
+      const total = activeStudentsList.filter((user) => normalizeBelt(user.belt) === belt.key).length;
+      return {
+        key: belt.key,
+        label: belt.label,
+        color: belt.color,
+        total,
+        share: percentOf(total, activeStudentsList.length),
+      };
+    });
+    const beltSegments = belts
+      .filter((belt) => belt.total > 0)
+      .map((belt) => {
+        const segmentStart = beltCursor * 3.6;
+        beltCursor += belt.share;
+        return `${belt.color} ${segmentStart}deg ${beltCursor * 3.6}deg`;
+      });
+    const beltRingGradient = beltSegments.length > 0
+      ? `conic-gradient(${beltSegments.join(', ')}, rgba(127, 127, 147, 0.16) ${beltCursor * 3.6}deg 360deg)`
+      : 'conic-gradient(rgba(127, 127, 147, 0.16) 0deg 360deg)';
+
+    const newStudents = students.filter((user) => {
+      const daysSince = getDaysSince(safeToDate(user.createdAt) ?? null);
+      return daysSince !== null && daysSince <= 30;
+    }).length;
+    const atRiskStudents = activeStudentsList.filter((user) => {
+      const daysSince = getDaysSince(safeToDate(user.lastAttendanceAt) ?? null);
+      return daysSince === null || daysSince > 21;
+    }).length;
+    const topStudents: FocusTopStudent[] = [...activeStudentsList]
+      .sort((left, right) => (right.attendanceCount ?? 0) - (left.attendanceCount ?? 0))
+      .slice(0, 5)
+      .map((user) => ({ id: user.id, name: user.displayName, attendanceCount: user.attendanceCount ?? 0 }));
+
+    return {
+      finishedClassCount: classStatusCounts.finished,
+      totalAttendances,
+      avgPerClass,
+      occupancyRate,
+      cancellationRate,
+      byWeekday,
+      peakWeekday,
+      byHour,
+      peakHour,
+      monthlyTrend,
+      professors,
+      topProfessor: professors[0] ?? null,
+      classStatusCounts,
+      topTatame,
+      belts,
+      beltRingGradient,
+      activeStudents: activeStudentsList.length,
+      invitedStudents: students.filter((user) => user.status === 'invited').length,
+      suspendedStudents: students.filter((user) => user.status === 'suspended').length,
+      newStudents,
+      atRiskStudents,
+      topStudents,
+    } satisfies FocusStatistics;
+  }, [classes, academyUsers, academy?.timezone, selectedAcademyId]);
   const activeStudentBase = filteredActiveUsers.filter((user) => user.role === 'student').length;
   const overviewKpis = [
     {
@@ -653,6 +969,124 @@ const SuperadminDashboardView: React.FC<SuperadminDashboardViewProps> = ({
             Leitura consolidada · {formatNumber(totalAcademies)} academias
           </div>
         </div>
+
+        {/* Estatísticas da unidade em foco (mobile) */}
+        {focusAcademyRow && focusStatistics ? (
+          <>
+            <div className="sa-mob-section">
+              <p className="sa-mob-section__label">Estatísticas · {focusAcademyRow.name}</p>
+              <div className="sa-mob-kpi-grid">
+                <div className="sa-mob-kpi-tile">
+                  <p className="sa-mob-kpi-tile__label">Presenças</p>
+                  <p className="sa-mob-kpi-tile__value">{formatNumber(focusStatistics.totalAttendances)}</p>
+                  <p className="sa-mob-kpi-tile__sublabel">{formatNumber(focusStatistics.finishedClassCount)} aulas</p>
+                </div>
+                <div className="sa-mob-kpi-tile">
+                  <p className="sa-mob-kpi-tile__label">Ocupação</p>
+                  <p className="sa-mob-kpi-tile__value">{focusStatistics.occupancyRate}%</p>
+                  <p className="sa-mob-kpi-tile__sublabel">média</p>
+                </div>
+                <div className="sa-mob-kpi-tile">
+                  <p className="sa-mob-kpi-tile__label">Média/aula</p>
+                  <p className="sa-mob-kpi-tile__value">{formatNumber(focusStatistics.avgPerClass)}</p>
+                  <p className="sa-mob-kpi-tile__sublabel">alunos</p>
+                </div>
+                <div className={`sa-mob-kpi-tile ${focusStatistics.atRiskStudents > 0 ? 'sa-mob-kpi-tile--danger' : ''}`}>
+                  <p className="sa-mob-kpi-tile__label">Em risco</p>
+                  <p className="sa-mob-kpi-tile__value">{formatNumber(focusStatistics.atRiskStudents)}</p>
+                  <p className="sa-mob-kpi-tile__sublabel">alunos</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="sa-mob-section">
+              <p className="sa-mob-section__label">
+                Dias mais frequentados{focusStatistics.peakWeekday ? ` · pico ${focusStatistics.peakWeekday.label}` : ''}
+              </p>
+              <FocusBarList
+                emptyLabel="Sem aulas realizadas ainda."
+                items={focusStatistics.byWeekday.map((bucket) => ({
+                  key: bucket.key,
+                  label: bucket.label,
+                  value: bucket.attendances,
+                  caption: `${formatNumber(bucket.classCount)} aulas`,
+                }))}
+              />
+            </div>
+
+            <div className="sa-mob-section">
+              <p className="sa-mob-section__label">
+                Horários de pico{focusStatistics.peakHour ? ` · ${focusStatistics.peakHour.label}` : ''}
+              </p>
+              <FocusBarList
+                emptyLabel="Sem aulas realizadas ainda."
+                items={focusStatistics.byHour.slice(0, 6).map((bucket) => ({
+                  key: bucket.key,
+                  label: bucket.label,
+                  value: bucket.attendances,
+                  caption: `${formatNumber(bucket.classCount)} aulas`,
+                }))}
+              />
+            </div>
+
+            <div className="sa-mob-section">
+              <p className="sa-mob-section__label">Professores mais ativos</p>
+              {focusStatistics.professors.length > 0 ? (
+                <div className="superadmin-detail-list">
+                  {focusStatistics.professors.slice(0, 6).map((professor) => (
+                    <div key={professor.id} className="superadmin-detail-row">
+                      <span>{professor.name}</span>
+                      <strong>{formatNumber(professor.classCount)} aulas · {formatNumber(professor.totalAttendances)} pres.</strong>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="app-empty">Sem aulas realizadas ainda.</div>
+              )}
+            </div>
+
+            <div className="sa-mob-section">
+              <p className="sa-mob-section__label">Faixas da unidade</p>
+              <div className="sa-mob-belt-grid">
+                {focusStatistics.belts.map((entry) => (
+                  <div key={entry.key} className="sa-mob-belt-item">
+                    <span className="sa-mob-belt-dot" style={{ backgroundColor: entry.color }} />
+                    <strong className="sa-mob-belt-count">{formatNumber(entry.total)}</strong>
+                    <p className="sa-mob-belt-name">{entry.label}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {focusStatistics.monthlyTrend.length > 0 ? (
+              <div className="sa-mob-section">
+                <p className="sa-mob-section__label">Tendência mensal</p>
+                <FocusBarList
+                  emptyLabel="Sem histórico de presenças."
+                  items={focusStatistics.monthlyTrend.map((bucket) => ({
+                    key: bucket.key,
+                    label: bucket.label,
+                    value: bucket.attendances,
+                  }))}
+                />
+              </div>
+            ) : null}
+
+            {focusStatistics.topStudents.length > 0 ? (
+              <div className="sa-mob-section">
+                <p className="sa-mob-section__label">Top frequentadores</p>
+                <div className="superadmin-detail-list">
+                  {focusStatistics.topStudents.map((student) => (
+                    <div key={student.id} className="superadmin-detail-row">
+                      <span>{student.name}</span>
+                      <strong>{formatNumber(student.attendanceCount)} presenças</strong>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+          </>
+        ) : null}
 
         {/* KPI 2×2 */}
         <div className="sa-mob-kpi-grid">
@@ -1061,6 +1495,209 @@ const SuperadminDashboardView: React.FC<SuperadminDashboardViewProps> = ({
               </div>
             </div>
           </article>
+        ) : null}
+
+        {focusAcademyRow && focusStatistics ? (
+          <>
+            <div className="sa-row sa-row--triple">
+              <article className="sa-card">
+                <div className="sa-card__head">
+                  <h3 className="sa-card__title">Dias mais frequentados</h3>
+                  <span className="app-badge app-badge--muted">
+                    {focusStatistics.peakWeekday ? `Pico: ${focusStatistics.peakWeekday.label}` : 'Sem dados'}
+                  </span>
+                </div>
+                <FocusBarList
+                  emptyLabel="Sem aulas realizadas ainda."
+                  items={focusStatistics.byWeekday.map((bucket) => ({
+                    key: bucket.key,
+                    label: bucket.label,
+                    value: bucket.attendances,
+                    caption: `${formatNumber(bucket.classCount)} aulas`,
+                  }))}
+                />
+              </article>
+
+              <article className="sa-card">
+                <div className="sa-card__head">
+                  <h3 className="sa-card__title">Horários de pico</h3>
+                  <span className="app-badge app-badge--muted">
+                    {focusStatistics.peakHour ? `Pico: ${focusStatistics.peakHour.label}` : 'Sem dados'}
+                  </span>
+                </div>
+                <FocusBarList
+                  emptyLabel="Sem aulas realizadas ainda."
+                  items={focusStatistics.byHour.slice(0, 8).map((bucket) => ({
+                    key: bucket.key,
+                    label: bucket.label,
+                    value: bucket.attendances,
+                    caption: `${formatNumber(bucket.classCount)} aulas`,
+                  }))}
+                />
+              </article>
+
+              <article className="sa-card">
+                <div className="sa-card__head">
+                  <h3 className="sa-card__title">Tendência mensal</h3>
+                  <TrendingUp size={16} />
+                </div>
+                <FocusBarList
+                  emptyLabel="Sem histórico de presenças."
+                  items={focusStatistics.monthlyTrend.map((bucket) => ({
+                    key: bucket.key,
+                    label: bucket.label,
+                    value: bucket.attendances,
+                  }))}
+                />
+              </article>
+            </div>
+
+            <div className="sa-row sa-row--duo">
+              <article className="sa-card">
+                <div className="sa-card__head">
+                  <h3 className="sa-card__title">Professores mais ativos</h3>
+                  <span className="app-badge app-badge--gold">{formatNumber(focusStatistics.professors.length)}</span>
+                </div>
+                {focusStatistics.professors.length > 0 ? (
+                  <table className="sa-table">
+                    <thead>
+                      <tr>
+                        <th>Professor</th>
+                        <th>Aulas</th>
+                        <th>Presenças</th>
+                        <th>Média</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {focusStatistics.professors.slice(0, 8).map((professor) => (
+                        <tr key={professor.id}>
+                          <td className="sa-table__name">{professor.name}</td>
+                          <td>{formatNumber(professor.classCount)}</td>
+                          <td>{formatNumber(professor.totalAttendances)}</td>
+                          <td>{formatNumber(professor.avgPerClass)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                ) : (
+                  <div className="app-empty">Nenhuma aula realizada com professor registrado.</div>
+                )}
+              </article>
+
+              <article className="sa-card">
+                <div className="sa-card__head">
+                  <h3 className="sa-card__title">Aulas e ocupação</h3>
+                  <BarChart3 size={16} />
+                </div>
+                <div className="superadmin-focus-stats">
+                  <div className="superadmin-mini-stat">
+                    <span>Ocupação média</span>
+                    <strong>{focusStatistics.occupancyRate}%</strong>
+                  </div>
+                  <div className="superadmin-mini-stat">
+                    <span>Presença média/aula</span>
+                    <strong>{formatNumber(focusStatistics.avgPerClass)}</strong>
+                  </div>
+                  <div className="superadmin-mini-stat">
+                    <span>Aulas realizadas</span>
+                    <strong>{formatNumber(focusStatistics.finishedClassCount)}</strong>
+                  </div>
+                  <div className="superadmin-mini-stat">
+                    <span>Cancelamento</span>
+                    <strong>{focusStatistics.cancellationRate}%</strong>
+                  </div>
+                </div>
+                <div className="superadmin-detail-list">
+                  <div className="superadmin-detail-row">
+                    <span>Presenças totais</span>
+                    <strong>{formatNumber(focusStatistics.totalAttendances)}</strong>
+                  </div>
+                  <div className="superadmin-detail-row">
+                    <span>Agendadas / Ao vivo</span>
+                    <strong>
+                      {formatNumber(focusStatistics.classStatusCounts.scheduled)} / {formatNumber(focusStatistics.classStatusCounts.active)}
+                    </strong>
+                  </div>
+                  <div className="superadmin-detail-row">
+                    <span>Canceladas</span>
+                    <strong>{formatNumber(focusStatistics.classStatusCounts.cancelled)}</strong>
+                  </div>
+                  <div className="superadmin-detail-row">
+                    <span>Tatame mais usado</span>
+                    <strong>
+                      {focusStatistics.topTatame
+                        ? `${focusStatistics.topTatame.name} (${formatNumber(focusStatistics.topTatame.classCount)})`
+                        : '—'}
+                    </strong>
+                  </div>
+                </div>
+              </article>
+            </div>
+
+            <div className="sa-row sa-row--duo">
+              <article className="sa-card">
+                <div className="sa-card__head">
+                  <h3 className="sa-card__title">Faixas da unidade</h3>
+                </div>
+                <div className="sa-health">
+                  <div className="sa-donut" style={{ background: focusStatistics.beltRingGradient }}>
+                    <div className="sa-donut__core">
+                      <strong>{formatNumber(focusStatistics.activeStudents)}</strong>
+                      <span>Alunos</span>
+                    </div>
+                  </div>
+                  <ul className="sa-legend sa-legend--compact">
+                    {focusStatistics.belts.map((belt) => (
+                      <li key={belt.key} className="sa-legend__item">
+                        <span className="sa-legend__dot" style={{ background: belt.color }} />
+                        <span className="sa-legend__label">{belt.label}</span>
+                        <span className="sa-legend__inline">
+                          {formatNumber(belt.total)} ({belt.share}%)
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </article>
+
+              <article className="sa-card">
+                <div className="sa-card__head">
+                  <h3 className="sa-card__title">Alunos da unidade</h3>
+                  <Users size={16} />
+                </div>
+                <div className="superadmin-focus-stats">
+                  <div className="superadmin-mini-stat">
+                    <span>Ativos</span>
+                    <strong>{formatNumber(focusStatistics.activeStudents)}</strong>
+                  </div>
+                  <div className="superadmin-mini-stat">
+                    <span>Novos (30d)</span>
+                    <strong>{formatNumber(focusStatistics.newStudents)}</strong>
+                  </div>
+                  <div className="superadmin-mini-stat">
+                    <span>Em risco</span>
+                    <strong>{formatNumber(focusStatistics.atRiskStudents)}</strong>
+                  </div>
+                  <div className="superadmin-mini-stat">
+                    <span>Convidados</span>
+                    <strong>{formatNumber(focusStatistics.invitedStudents)}</strong>
+                  </div>
+                </div>
+                {focusStatistics.topStudents.length > 0 ? (
+                  <div className="superadmin-detail-list">
+                    {focusStatistics.topStudents.map((student) => (
+                      <div key={student.id} className="superadmin-detail-row">
+                        <span>{student.name}</span>
+                        <strong>{formatNumber(student.attendanceCount)} presenças</strong>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="app-empty">Sem alunos ativos para ranquear.</div>
+                )}
+              </article>
+            </div>
+          </>
         ) : null}
       </div>
 

@@ -12,7 +12,7 @@ import LoginView from './views/LoginView';
 import ResetPasswordView from './views/ResetPasswordView';
 import StaffDashboardView from './views/StaffDashboardView';
 import { normalizeBeltId } from './beltCatalog';
-import { logout, signInWithEmail, subscribeToAuthState, updateSignedInEmail } from './services/firebase/auth';
+import { logout, reauthenticateCurrentUser, signInWithEmail, subscribeToAuthState, updateSignedInEmail } from './services/firebase/auth';
 import { toBranch, toUiUser, toUserVideoLibrary } from './services/firebase/adapters';
 import {
   type FirestoreEntity,
@@ -2128,6 +2128,23 @@ const App: React.FC = () => {
     }
   }
 
+  async function handleDeleteMyAccount(currentPassword: string) {
+    try {
+      await reauthenticateCurrentUser(currentPassword);
+      await backendFunctions.deleteMyAccount();
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
+    // Conta excluida no servidor: encerra a sessao local (best-effort) e volta ao login.
+    try {
+      await logout();
+    } catch {
+      // A conta ja foi removida; ignora falha ao encerrar a sessao local.
+    }
+    setActiveTab('home');
+    setStudentSessionAcademyChosen(false);
+  }
+
   async function handleUploadFightVideoAsset(file: File) {
     if (!authUser) {
       throw new Error('Sessao invalida.');
@@ -2771,6 +2788,7 @@ const App: React.FC = () => {
             onSaveProfile={handleSaveOwnProfile}
             onSaveBeltGrade={profile?.role !== 'student' ? handleSaveOwnBeltGrade : undefined}
             onChangeEmail={handleChangeOwnEmail}
+            onDeleteAccount={profile?.role === 'student' ? handleDeleteMyAccount : undefined}
             onOpenNotifications={() => setActiveTab('notifications')}
             onLogout={handleLogout}
             studentMemberships={profile.role === 'student' ? studentMemberships : undefined}

@@ -48,3 +48,13 @@ export async function updateSignedInEmail(currentPassword: string, nextEmail: st
   await reauthenticateWithCredential(currentUser, credential);
   await updateEmail(currentUser, nextEmail.trim());
 }
+
+export async function reauthenticateCurrentUser(currentPassword: string) {
+  const currentUser = firebaseAuth.currentUser;
+  if (!currentUser || !currentUser.email) {
+    throw new Error('Sua sessao expirou. Entre novamente.');
+  }
+
+  const credential = EmailAuthProvider.credential(currentUser.email, currentPassword);
+  await reauthenticateWithCredential(currentUser, credential);
+}

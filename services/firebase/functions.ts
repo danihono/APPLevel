@@ -351,6 +351,9 @@ export const backendFunctions = {
   syncOwnUserEmail: (payload: { email: string }) =>
     callFunction<{ userId: string; email: string }>('syncOwnUserEmail', payload),
 
+  deleteMyAccount: () =>
+    callFunction<{ userId: string; status: 'deleted' }>('deleteMyAccount', {}),
+
   submitFightVideoSubmission: (payload: {
     title: string;
     opponentName?: string;

@@ -6,6 +6,7 @@ import {
   type ProgressionRules,
 } from '../beltCatalog';
 import {
+  AlertTriangle,
   Award,
   Bell,
   Camera,
@@ -19,6 +20,7 @@ import {
   Settings2,
   ShieldCheck,
   Sun,
+  Trash2,
   UserRound,
 } from 'lucide-react';
 import AvatarWithBelt from '../components/AvatarWithBelt';
@@ -51,6 +53,7 @@ interface ProfileViewProps {
   }) => Promise<void>;
   onSaveBeltGrade?: (payload: { belt: string; grade: number; stripes: number; attendanceCountBonus: number }) => Promise<void>;
   onChangeEmail: (nextEmail: string, currentPassword: string) => Promise<void>;
+  onDeleteAccount?: (currentPassword: string) => Promise<void>;
   onOpenNotifications?: () => void;
   onLogout: () => void | Promise<void>;
   studentMemberships?: string[];
@@ -88,6 +91,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({
   onSaveProfile,
   onSaveBeltGrade,
   onChangeEmail,
+  onDeleteAccount,
   onOpenNotifications,
   onLogout,
   studentMemberships,
@@ -173,7 +177,11 @@ const ProfileView: React.FC<ProfileViewProps> = ({
     : `${user.stripes + 1}o Grau - Faixa ${beltLabel(user.belt)}`;
   const currentGradeLabel = user.stripes > 0 ? `${user.stripes}o Grau` : '0 Grau';
   const [activeSection, setActiveSection] = useState<'settings' | 'history' | 'achievements' | null>(null);
-  const [activeStudentSection, setActiveStudentSection] = useState<'dados-pessoais' | 'acesso-email' | 'aparencia' | 'historicos' | null>(null);
+  const [activeStudentSection, setActiveStudentSection] = useState<'dados-pessoais' | 'acesso-email' | 'aparencia' | 'historicos' | 'excluir-conta' | null>(null);
+  const [deletePassword, setDeletePassword] = useState('');
+  const [deleteConfirmChecked, setDeleteConfirmChecked] = useState(false);
+  const [deleteBusy, setDeleteBusy] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
   const staffMenuItems = [
     { id: 'settings' as const, icon: Settings2, label: 'Configurações da conta' },
     { id: 'notifications' as const, icon: Bell, label: 'Notificações' },
@@ -280,6 +288,23 @@ const ProfileView: React.FC<ProfileViewProps> = ({
       setEmailError(submitError instanceof Error ? submitError.message : 'Não foi possível atualizar o e-mail.');
     } finally {
       setEmailBusy(false);
+    }
+  }
+
+  async function handleDeleteSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!onDeleteAccount) {
+      return;
+    }
+    setDeleteBusy(true);
+    setDeleteError('');
+
+    try {
+      await onDeleteAccount(deletePassword);
+      // Em caso de sucesso a sessão é encerrada e o app volta ao login; nada mais a fazer aqui.
+    } catch (submitError) {
+      setDeleteError(submitError instanceof Error ? submitError.message : 'Não foi possível excluir a conta.');
+      setDeleteBusy(false);
     }
   }
 
@@ -950,6 +975,80 @@ const ProfileView: React.FC<ProfileViewProps> = ({
                 Solicitar entrada em outra unidade
               </button>
             )}
+          </div>
+        ) : null}
+
+        {/* Zona de perigo — excluir conta (apenas alunos) */}
+        {onDeleteAccount ? (
+          <div>
+            <button
+              type="button"
+              className="profile-mobile__menu-row w-full text-left"
+              onClick={() => {
+                setActiveStudentSection(activeStudentSection === 'excluir-conta' ? null : 'excluir-conta');
+                setDeleteError('');
+              }}
+            >
+              <div className="profile-mobile__menu-icon" style={{ color: 'var(--color-danger, #ef4444)' }}><Trash2 size={18} /></div>
+              <span className="profile-mobile__menu-label" style={{ color: 'var(--color-danger, #ef4444)' }}>Excluir minha conta</span>
+              <ChevronRight
+                size={18}
+                className={`profile-mobile__menu-arrow transition-transform duration-200 ${activeStudentSection === 'excluir-conta' ? 'rotate-90' : ''}`}
+              />
+            </button>
+
+            {activeStudentSection === 'excluir-conta' ? (
+              <div className="px-4 pb-5 border-t border-white/10">
+                <div className="app-alert app-alert--warning mt-4">
+                  <div className="flex items-start gap-2">
+                    <AlertTriangle size={18} className="shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-sm font-bold">Esta ação é permanente e não pode ser desfeita.</p>
+                      <p className="mt-1 text-xs">
+                        Sua conta, perfil, foto, vídeos enviados e progresso serão excluídos. Registros financeiros e
+                        históricos exigidos por lei são mantidos de forma anonimizada. Saiba mais em{' '}
+                        <a href="/exclusao-de-conta/" target="_blank" rel="noopener noreferrer">exclusão de conta</a>.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <form onSubmit={handleDeleteSubmit} className="mt-4 app-form-grid">
+                  {deleteError ? <div className="app-alert app-alert--error md:col-span-2">{deleteError}</div> : null}
+
+                  <label className="app-field md:col-span-2">
+                    <span className="app-field__label">Confirme sua senha</span>
+                    <input
+                      type="password"
+                      value={deletePassword}
+                      onChange={(event) => setDeletePassword(event.target.value)}
+                      className="app-input"
+                      autoComplete="current-password"
+                      required
+                    />
+                  </label>
+
+                  <label className="flex items-start gap-2 text-xs md:col-span-2">
+                    <input
+                      type="checkbox"
+                      checked={deleteConfirmChecked}
+                      onChange={(event) => setDeleteConfirmChecked(event.target.checked)}
+                      className="mt-0.5"
+                    />
+                    <span>Entendo que minha conta e meus dados pessoais serão excluídos permanentemente.</span>
+                  </label>
+
+                  <button
+                    type="submit"
+                    disabled={deleteBusy || !deleteConfirmChecked || deletePassword.length === 0}
+                    className="app-button app-button--danger app-button--block md:col-span-2"
+                  >
+                    <Trash2 size={16} />
+                    {deleteBusy ? 'Excluindo conta...' : 'Excluir minha conta permanentemente'}
+                  </button>
+                </form>
+              </div>
+            ) : null}
           </div>
         ) : null}
 
