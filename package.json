@@ -17,6 +17,8 @@
     "firebase:deploy": "firebase deploy && npm run firebase:fix-invokers"
   },
   "dependencies": {
+    "@capacitor/core": "^8.4.1",
+    "@capacitor/ios": "^8.4.1",
     "@google/genai": "^1.41.0",
     "firebase": "^12.11.0",
     "html5-qrcode": "^2.3.8",
@@ -26,6 +28,7 @@
     "react-qr-code": "^2.0.18"
   },
   "devDependencies": {
+    "@capacitor/cli": "^8.4.1",
     "@types/node": "^22.14.0",
     "@types/react": "^19.2.14",
     "@vitejs/plugin-react": "^5.0.0",
