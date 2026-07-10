@@ -85,13 +85,6 @@ interface ManagementViewProps {
 
 const staffBeltPresets = ADULT_BELTS;
 
-function isMasterBlack(user: FirestoreEntity<UserRecord>) {
-  const belt = user.belt.trim().toLowerCase();
-  const isBlack = belt === 'black' || belt === 'preta';
-  const isLeader = user.role === 'professor' || user.role === 'superadmin';
-  return isBlack && isLeader;
-}
-
 function FeedbackBlock({ success, error }: { success?: string; error?: string }) {
   return (
     <>
@@ -184,6 +177,7 @@ const ManagementView: React.FC<ManagementViewProps> = ({
   }, [academyUsers, allUsers, focusedAcademy, isSuperAdmin, managedAcademy.id]);
 
   const activeStudents = managedUsers.filter((entry) => entry.role === 'student' && entry.status === 'active');
+  const inactiveStudents = managedUsers.filter((entry) => entry.role === 'student' && entry.status !== 'active');
   const instructors = managedUsers.filter((entry) => entry.role !== 'student');
   const students = managedUsers.filter((entry) => entry.role === 'student');
   const studentRosterUsers = useMemo(() => (
@@ -195,7 +189,6 @@ const ManagementView: React.FC<ManagementViewProps> = ({
       videoLibrary: studentVideoLibraryById.get(entry.id),
     }))
   ), [studentVideoLibraryById, students]);
-  const masterBlackUsers = managedUsers.filter(isMasterBlack);
   const activeClasses = classes.filter((entry) => entry.status === 'active').length;
   const sortedInstructors = useMemo(() => (
     [...instructors].sort((left, right) => {
@@ -530,8 +523,8 @@ const ManagementView: React.FC<ManagementViewProps> = ({
               </article>
 
               <article className="academy-mobile__stat-card">
-                <p className="academy-mobile__stat-value">{masterBlackUsers.length}</p>
-                <p className="academy-mobile__stat-label">Master black</p>
+                <p className="academy-mobile__stat-value">{inactiveStudents.length}</p>
+                <p className="academy-mobile__stat-label">Alunos inativos</p>
               </article>
 
               <article className="academy-mobile__stat-card">
@@ -671,9 +664,9 @@ const ManagementView: React.FC<ManagementViewProps> = ({
           <p className="app-stat-card__value">{hasManagedAcademy ? activeStudents.length : networkStudents}</p>
         </article>
         <article className="app-panel app-panel-pad">
-          <p className="app-stat-card__label">{hasManagedAcademy ? 'Master black' : 'Lideranças'}</p>
-          <p className={`app-stat-card__value ${hasManagedAcademy && masterBlackUsers.length > masterBlackLimit ? 'text-[color:var(--danger)]' : ''}`}>
-            {hasManagedAcademy ? `${masterBlackUsers.length}/${masterBlackLimit}` : networkLeaders}
+          <p className="app-stat-card__label">{hasManagedAcademy ? 'Alunos inativos' : 'Lideranças'}</p>
+          <p className="app-stat-card__value">
+            {hasManagedAcademy ? inactiveStudents.length : networkLeaders}
           </p>
         </article>
         <article className="app-panel app-panel-pad">

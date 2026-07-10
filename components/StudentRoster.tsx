@@ -9,7 +9,7 @@ import type { BeltColor, User } from '../types';
 
 type SortMode = 'name-asc' | 'name-desc' | 'belt-desc' | 'grade-desc';
 type RosterSection = 'list' | 'ranking' | 'deactivated';
-type RankingPeriodPreset = 'official-total' | 'today' | '7d' | '30d' | 'custom';
+type RankingPeriodPreset = 'official-total' | 'mensal' | 'today' | '7d' | '30d' | 'custom';
 
 export interface StudentRosterProps {
   students: User[];
@@ -65,9 +65,15 @@ const saoPauloDateFormatter = new Intl.DateTimeFormat('en-CA', {
   month: '2-digit',
   day: '2-digit',
 });
+const saoPauloMonthFormatter = new Intl.DateTimeFormat('pt-BR', {
+  timeZone: 'America/Sao_Paulo',
+  month: 'long',
+  year: 'numeric',
+});
 
 const rankingPeriodOptions: Array<{ value: RankingPeriodPreset; label: string }> = [
   { value: 'official-total', label: 'Total oficial' },
+  { value: 'mensal', label: 'Mensal' },
   { value: 'today', label: 'Hoje' },
   { value: '7d', label: '7 dias' },
   { value: '30d', label: '30 dias' },
@@ -141,6 +147,11 @@ function formatDateInput(value: string): string {
   return year && month && day ? `${day}/${month}/${year}` : value;
 }
 
+function formatMonthLabel(date: Date): string {
+  const label = saoPauloMonthFormatter.format(date);
+  return label.charAt(0).toLocaleUpperCase('pt-BR') + label.slice(1);
+}
+
 function dateInputToSaoPauloDate(value: string, boundary: 'start' | 'end'): Date {
   const safeValue = /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : RANKING_START_DATE_INPUT;
   const time = boundary === 'start' ? '00:00:00.000' : '23:59:59.999';
@@ -162,6 +173,18 @@ function resolveRankingPeriod(
   customEndDate: string,
 ) {
   const todayInput = toSaoPauloDateInput();
+
+  if (preset === 'mensal') {
+    const monthStartInput = `${todayInput.slice(0, 8)}01`;
+    const startDate = dateInputToSaoPauloDate(monthStartInput, 'start');
+    return {
+      startInput: monthStartInput,
+      endInput: todayInput,
+      startDate,
+      endDate: dateInputToSaoPauloDate(todayInput, 'end'),
+      label: formatMonthLabel(startDate),
+    };
+  }
 
   if (preset === 'today') {
     return {
@@ -309,6 +332,12 @@ const StudentRoster: React.FC<StudentRosterProps> = ({
     [filteredStudents, sortMode],
   );
 
+  const finishedClassIds = useMemo(
+    () => new Set(classes.filter((lesson) => lesson.status === 'finished').map((lesson) => lesson.id)),
+    [classes],
+  );
+  const hasClassData = classes.length > 0;
+
   const periodAttendances = useMemo(() => {
     if (isOfficialTotalRanking) {
       return [];
@@ -325,10 +354,17 @@ const StudentRoster: React.FC<StudentRosterProps> = ({
         return false;
       }
 
+      // Conta apenas presencas de aulas finalizadas pelo professor (status 'finished').
+      // Sem dados de aula carregados (ex.: superadmin em "Toda a rede") o join e ignorado
+      // para nao zerar o ranking de rede.
+      if (hasClassData && !finishedClassIds.has(attendance.classId)) {
+        return false;
+      }
+
       const attendanceMillis = getAttendanceMillis(attendance);
       return attendanceMillis >= startMillis && attendanceMillis <= endMillis;
     });
-  }, [enableAcademyFilter, isOfficialTotalRanking, periodRange.endDate, periodRange.startDate, rankingAttendances, selectedAcademyId]);
+  }, [enableAcademyFilter, finishedClassIds, hasClassData, isOfficialTotalRanking, periodRange.endDate, periodRange.startDate, rankingAttendances, selectedAcademyId]);
 
   const attendanceCountByUserId = useMemo(() => {
     const next = new Map<string, number>();
@@ -612,7 +648,7 @@ const StudentRoster: React.FC<StudentRosterProps> = ({
                 <p className="student-roster__period-note">
                   {isOfficialTotalRanking
                     ? 'Ranking oficial: usa a contagem registrada no perfil do aluno.'
-                    : `Ranking analitico: ${periodRange.label}. Nao altera faixa, grau ou contagem oficial.`}
+                    : `Ranking analitico: ${periodRange.label}. Conta apenas presencas em aulas finalizadas pelo professor. Nao altera faixa, grau ou contagem oficial.`}
                 </p>
               </div>
             ) : null}
