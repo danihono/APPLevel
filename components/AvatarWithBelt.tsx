@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { getBeltMeta } from '../beltCatalog';
+import { getBeltMeta, type BlackBeltProgress } from '../beltCatalog';
 import { cacheAvatar, getCachedAvatar } from '../services/avatarCache';
 import type { BeltColor } from '../types';
 
@@ -9,10 +9,40 @@ interface AvatarWithBeltProps {
   belt: BeltColor;
   stripes: number;
   size?: 'sm' | 'md' | 'lg';
+  // Faixa preta por tempo (padrão IBJJF): quando informado, colore a faixa como
+  // preta / coral / vermelha e usa o grau calculado no lugar dos graus manuais.
+  blackBelt?: BlackBeltProgress | null;
 }
 
-const AvatarWithBelt: React.FC<AvatarWithBeltProps> = ({ avatar, name, belt, stripes, size = 'md' }) => {
+const CORAL_RED = '#c1121f';
+
+const AvatarWithBelt: React.FC<AvatarWithBeltProps> = ({ avatar, name, belt, stripes, size = 'md', blackBelt }) => {
   const beltMeta = getBeltMeta(belt);
+
+  // Resolve a aparência da faixa. Para preta com grau por tempo, coral/vermelha
+  // trocam a cor do corpo; graus 0–6 continuam pretos com marcas brancas.
+  let beltFill = beltMeta.avatarFill;
+  const beltStroke = beltMeta.avatarStroke;
+  let beltBarColor = beltMeta.avatarBarColor;
+  let drawnStripes = Math.min(Math.max(0, stripes), 4);
+
+  if (blackBelt) {
+    if (blackBelt.style === 'vermelha') {
+      beltFill = '#dc2626';
+      beltBarColor = '#7f1010';
+      drawnStripes = 0;
+    } else if (blackBelt.style === 'coral-branca') {
+      beltFill = CORAL_RED;
+      beltBarColor = '#f4f4f5';
+      drawnStripes = 0;
+    } else if (blackBelt.style === 'coral-preta') {
+      beltFill = CORAL_RED;
+      beltBarColor = '#0b0b0f';
+      drawnStripes = 0;
+    } else {
+      drawnStripes = Math.min(blackBelt.degree, 4);
+    }
+  }
 
   const sizeClasses = {
     sm: 'w-12 h-12 text-sm',
@@ -87,25 +117,25 @@ const AvatarWithBelt: React.FC<AvatarWithBeltProps> = ({ avatar, name, belt, str
         className="absolute inset-0 w-full h-full drop-shadow-md pointer-events-none overflow-visible z-10"
       >
         {/* Left Tail */}
-        <path d="M 25 85 Q 10 95 0 105 L 15 110 Q 30 100 40 90 Z" fill={beltMeta.avatarFill} stroke={beltMeta.avatarStroke} strokeWidth="1" />
-        
+        <path d="M 25 85 Q 10 95 0 105 L 15 110 Q 30 100 40 90 Z" fill={beltFill} stroke={beltStroke} strokeWidth="1" />
+
         {/* Black Bar on Left Tail */}
-        <path d="M 7 100 Q 3 103 1 104 L 13 108 Q 15 106 19 103 Z" fill={beltMeta.avatarBarColor} />
-        
+        <path d="M 7 100 Q 3 103 1 104 L 13 108 Q 15 106 19 103 Z" fill={beltBarColor} />
+
         {/* Stripes */}
-        {stripes >= 1 && <line x1="5" y1="101" x2="17" y2="105" stroke="#FFF" strokeWidth="1.5" />}
-        {stripes >= 2 && <line x1="4" y1="102.5" x2="16" y2="106.5" stroke="#FFF" strokeWidth="1.5" />}
-        {stripes >= 3 && <line x1="3" y1="104" x2="15" y2="108" stroke="#FFF" strokeWidth="1.5" />}
-        {stripes >= 4 && <line x1="2" y1="105.5" x2="14" y2="109.5" stroke="#FFF" strokeWidth="1.5" />}
+        {drawnStripes >= 1 && <line x1="5" y1="101" x2="17" y2="105" stroke="#FFF" strokeWidth="1.5" />}
+        {drawnStripes >= 2 && <line x1="4" y1="102.5" x2="16" y2="106.5" stroke="#FFF" strokeWidth="1.5" />}
+        {drawnStripes >= 3 && <line x1="3" y1="104" x2="15" y2="108" stroke="#FFF" strokeWidth="1.5" />}
+        {drawnStripes >= 4 && <line x1="2" y1="105.5" x2="14" y2="109.5" stroke="#FFF" strokeWidth="1.5" />}
 
         {/* Right Tail */}
-        <path d="M 75 85 Q 90 95 100 105 L 85 110 Q 70 100 60 90 Z" fill={beltMeta.avatarFill} stroke={beltMeta.avatarStroke} strokeWidth="1" />
-        
+        <path d="M 75 85 Q 90 95 100 105 L 85 110 Q 70 100 60 90 Z" fill={beltFill} stroke={beltStroke} strokeWidth="1" />
+
         {/* Main Wrap (curves along the bottom edge of the circle) */}
-        <path d="M 8 75 A 46 46 0 0 0 92 75 L 98 85 A 56 56 0 0 1 2 85 Z" fill={beltMeta.avatarFill} stroke={beltMeta.avatarStroke} strokeWidth="1" />
-        
+        <path d="M 8 75 A 46 46 0 0 0 92 75 L 98 85 A 56 56 0 0 1 2 85 Z" fill={beltFill} stroke={beltStroke} strokeWidth="1" />
+
         {/* Knot */}
-        <rect x="40" y="80" width="20" height="12" rx="3" fill={beltMeta.avatarFill} stroke={beltMeta.avatarStroke} strokeWidth="1" />
+        <rect x="40" y="80" width="20" height="12" rx="3" fill={beltFill} stroke={beltStroke} strokeWidth="1" />
         <path d="M 45 80 L 45 92 M 55 80 L 55 92" stroke="rgba(0,0,0,0.1)" strokeWidth="1" />
       </svg>
     </div>

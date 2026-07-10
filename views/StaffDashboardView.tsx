@@ -14,6 +14,8 @@ import type {
   UserRecord,
 } from '../services/firebase/models';
 import { isUnreadNotificationForViewer } from '../services/firebase/notifications';
+import { getBlackBeltProgress, isBlackBelt } from '../beltCatalog';
+import BjjBelt from '../components/BjjBelt';
 import type { User } from '../types';
 
 interface StaffDashboardViewProps {
@@ -116,6 +118,16 @@ const StaffDashboardView: React.FC<StaffDashboardViewProps> = ({
   onNavigateToPending,
 }) => {
   const now = new Date();
+  const blackBeltProgress = isBlackBelt(user.belt) ? getBlackBeltProgress(user.lastGraduation, now) : null;
+  const blackBeltMetaLine = blackBeltProgress
+    ? [
+      blackBeltProgress.degreeLabel || 'Faixa lisa',
+      blackBeltProgress.styleNote,
+      blackBeltProgress.yearsToNextDegree != null && blackBeltProgress.nextDegree != null
+        ? `faltam ${blackBeltProgress.yearsToNextDegree} ${blackBeltProgress.yearsToNextDegree === 1 ? 'ano' : 'anos'} para o ${blackBeltProgress.nextDegree}º grau`
+        : 'Grau máximo alcançado',
+    ].filter(Boolean).join(' · ')
+    : '';
   const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
   const [selectedClassRsvps, setSelectedClassRsvps] = useState<Array<FirestoreEntity<ClassRsvpRecord>>>([]);
   const [selectedClassRsvpsLoading, setSelectedClassRsvpsLoading] = useState(false);
@@ -233,6 +245,21 @@ const StaffDashboardView: React.FC<StaffDashboardViewProps> = ({
           <p className="staff-home__summary">
             Visão do professor com equipe, agenda e pendências da unidade.
           </p>
+
+          {blackBeltProgress ? (
+            <div className="staff-home__belt">
+              <div className="staff-home__belt-head">
+                <span className="staff-home__belt-title">{blackBeltProgress.label}</span>
+                <span className="staff-home__belt-since">
+                  {blackBeltProgress.title} desde: {blackBeltProgress.startDate.getFullYear()}
+                </span>
+              </div>
+              <BjjBelt color={user.belt} stripes={blackBeltProgress.degree} blackBelt={blackBeltProgress} />
+              {blackBeltMetaLine ? (
+                <p className="staff-home__belt-meta">{blackBeltMetaLine}</p>
+              ) : null}
+            </div>
+          ) : null}
         </div>
 
         <div className="staff-home__vision">

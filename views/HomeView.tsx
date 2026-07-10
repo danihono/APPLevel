@@ -1,7 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   beltLabel,
+  getBlackBeltProgress,
   getUserProgressionSummary,
+  isBlackBelt,
   type ProgressionRules,
 } from '../beltCatalog';
 import { Calendar as CalIcon, Sparkles, Trophy } from 'lucide-react';
@@ -30,6 +32,11 @@ const HomeView: React.FC<HomeViewProps> = ({
   const progression = useMemo(
     () => getUserProgressionSummary(user, progressionRules),
     [progressionRules, user],
+  );
+  // Faixa preta: grau por tempo (padrão IBJJF) em vez de progresso por presença.
+  const blackBeltProgress = useMemo(
+    () => (isBlackBelt(user.belt) ? getBlackBeltProgress(user.lastGraduation) : null),
+    [user.belt, user.lastGraduation],
   );
   const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
   const attendedDays = new Set(attendanceDays);
@@ -78,7 +85,7 @@ const HomeView: React.FC<HomeViewProps> = ({
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <span className="app-badge app-badge--gold">Faixa {beltLabel(user.belt)}</span>
+            <span className="app-badge app-badge--gold">{blackBeltProgress ? blackBeltProgress.label : `Faixa ${beltLabel(user.belt)}`}</span>
             <span className="app-badge app-badge--muted">{user.type}</span>
           </div>
         </div>
@@ -97,25 +104,39 @@ const HomeView: React.FC<HomeViewProps> = ({
           </div>
         </div>
         <p className="app-section-copy mt-4">
-          Última graduação em {new Date(user.lastGraduation).toLocaleDateString('pt-BR')}.
+          {blackBeltProgress
+            ? `${blackBeltProgress.title} desde ${blackBeltProgress.startDate.getFullYear()} · ${blackBeltProgress.years} ${blackBeltProgress.years === 1 ? 'ano' : 'anos'} de faixa preta.`
+            : `Última graduação em ${new Date(user.lastGraduation).toLocaleDateString('pt-BR')}.`}
         </p>
 
         <div className="mt-6">
-          <BjjBelt color={user.belt} stripes={user.stripes} />
+          <BjjBelt color={user.belt} stripes={user.stripes} blackBelt={blackBeltProgress} />
         </div>
 
-        <div className="mt-6 space-y-5">
-          <ProgressBar
-            label="Próximo grau"
-            current={progression.stripeCycleProgress}
-            total={progression.stripeCycleTotal}
-          />
-          <ProgressBar
-            label="Próxima faixa"
-            current={progression.beltProgress}
-            total={progression.beltTotal}
-          />
-        </div>
+        {blackBeltProgress ? (
+          <div className="mt-6 space-y-2">
+            <p className="text-lg font-bold">{blackBeltProgress.degreeLabel || 'Faixa preta lisa'}</p>
+            <p className="app-section-copy">
+              {blackBeltProgress.styleNote ? `${blackBeltProgress.styleNote}. ` : ''}
+              {blackBeltProgress.nextDegree != null && blackBeltProgress.yearsToNextDegree != null
+                ? `Faltam ${blackBeltProgress.yearsToNextDegree} ${blackBeltProgress.yearsToNextDegree === 1 ? 'ano' : 'anos'} para o ${blackBeltProgress.nextDegree}º grau.`
+                : 'Grau máximo alcançado.'}
+            </p>
+          </div>
+        ) : (
+          <div className="mt-6 space-y-5">
+            <ProgressBar
+              label="Próximo grau"
+              current={progression.stripeCycleProgress}
+              total={progression.stripeCycleTotal}
+            />
+            <ProgressBar
+              label="Próxima faixa"
+              current={progression.beltProgress}
+              total={progression.beltTotal}
+            />
+          </div>
+        )}
       </section>
 
       <section className="app-panel app-panel--tint app-panel-pad">

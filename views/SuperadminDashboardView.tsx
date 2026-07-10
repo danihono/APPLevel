@@ -561,7 +561,16 @@ const SuperadminDashboardView: React.FC<SuperadminDashboardViewProps> = ({
     }
 
     const timeZone = academy?.timezone || 'America/Sao_Paulo';
-    const finishedClasses = classes.filter((item) => item.status === 'finished');
+    // Uma aula entra nas estatísticas de presença quando foi de fato REALIZADA:
+    // finalizada, em andamento, ou já com check-ins registrados. As presenças
+    // podem ser lançadas enquanto a aula ainda está agendada/ativa e nem sempre
+    // o professor clica em "Finalizar" — antes filtrávamos só status === 'finished',
+    // então unidades que não finalizam a aula viam tudo (dias, horários, presenças) zerado.
+    const heldClasses = classes.filter((item) =>
+      item.status === 'finished'
+      || item.status === 'active'
+      || (item.status !== 'cancelled' && (item.currentAttendanceCount ?? 0) > 0),
+    );
 
     const weekdayBuckets = MONTH_WEEK_HEADER.map((label) => ({ label, attendances: 0, classCount: 0 }));
     const hourBuckets = new Map<number, { attendances: number; classCount: number }>();
@@ -569,7 +578,7 @@ const SuperadminDashboardView: React.FC<SuperadminDashboardViewProps> = ({
     const professorBuckets = new Map<string, FocusProfessor>();
     const tatameBuckets = new Map<string, number>();
 
-    finishedClasses.forEach((item) => {
+    heldClasses.forEach((item) => {
       const attendance = item.currentAttendanceCount ?? 0;
       const start = safeToDate(item.scheduledStart);
 
@@ -641,7 +650,7 @@ const SuperadminDashboardView: React.FC<SuperadminDashboardViewProps> = ({
     const classStatusCounts = {
       scheduled: classes.filter((item) => item.status === 'scheduled').length,
       active: classes.filter((item) => item.status === 'active').length,
-      finished: finishedClasses.length,
+      finished: classes.filter((item) => item.status === 'finished').length,
       cancelled: classes.filter((item) => item.status === 'cancelled').length,
     };
     const cancellationDenominator = classStatusCounts.finished + classStatusCounts.cancelled;
@@ -649,7 +658,7 @@ const SuperadminDashboardView: React.FC<SuperadminDashboardViewProps> = ({
       ? Math.round((classStatusCounts.cancelled / cancellationDenominator) * 100)
       : 0;
 
-    const occupancyClasses = finishedClasses.filter((item) => (item.capacity ?? 0) > 0);
+    const occupancyClasses = heldClasses.filter((item) => (item.capacity ?? 0) > 0);
     const occupancyRate = occupancyClasses.length > 0
       ? Math.round(
         (occupancyClasses.reduce(
@@ -659,9 +668,9 @@ const SuperadminDashboardView: React.FC<SuperadminDashboardViewProps> = ({
       )
       : 0;
 
-    const totalAttendances = finishedClasses.reduce((sum, item) => sum + (item.currentAttendanceCount ?? 0), 0);
-    const avgPerClass = classStatusCounts.finished > 0
-      ? Math.round(totalAttendances / classStatusCounts.finished)
+    const totalAttendances = heldClasses.reduce((sum, item) => sum + (item.currentAttendanceCount ?? 0), 0);
+    const avgPerClass = heldClasses.length > 0
+      ? Math.round(totalAttendances / heldClasses.length)
       : 0;
 
     const topTatameEntry = [...tatameBuckets.entries()].sort((left, right) => right[1] - left[1])[0];
@@ -706,7 +715,7 @@ const SuperadminDashboardView: React.FC<SuperadminDashboardViewProps> = ({
       .map((user) => ({ id: user.id, name: user.displayName, attendanceCount: user.attendanceCount ?? 0 }));
 
     return {
-      finishedClassCount: classStatusCounts.finished,
+      finishedClassCount: heldClasses.length,
       totalAttendances,
       avgPerClass,
       occupancyRate,

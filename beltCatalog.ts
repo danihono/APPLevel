@@ -720,3 +720,186 @@ export function getBeltOptions(type: TrainingType, kidsCategory?: KidsCategory |
 export function isKidsOnlyBelt(value?: string | null): boolean {
   return KIDS_BELTS_BY_CATEGORY.level_infantil.includes(normalizeBeltId(value)) && !ADULT_BELTS.includes(normalizeBeltId(value));
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Faixa preta: progressão POR TEMPO (padrão IBJJF)
+//
+// Depois da faixa preta, os graus não dependem de presença — são concedidos por
+// tempo mínimo de permanência. A partir do 7º grau a faixa muda de aparência
+// (coral vermelha/preta), depois coral vermelha/branca (8º) e vermelha (9º).
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Anos mínimos acumulados desde a faixa preta para cada grau. O índice + 1 = grau.
+// Ex.: BLACK_BELT_DEGREE_YEARS[0] = 3 anos → 1º grau; [6] = 30 anos → 7º grau.
+export const BLACK_BELT_DEGREE_YEARS = [3, 6, 9, 14, 19, 23, 30, 37, 47] as const;
+
+export type BlackBeltStyle = 'preta' | 'coral-preta' | 'coral-branca' | 'vermelha';
+
+export interface BlackBeltProgress {
+  startDate: Date;
+  years: number;                   // anos completos desde a faixa preta
+  degree: number;                  // 0..9
+  style: BlackBeltStyle;
+  title: string;                   // "Faixa Preta" | "Faixa Coral" | "Faixa Vermelha"
+  degreeLabel: string;             // "3º Grau" (vazio no grau 0)
+  styleNote: string;               // "Vermelha e Preta" / "Vermelha e Branca" (coral) ou ""
+  label: string;                   // "Faixa Preta · 3º Grau"
+  nextDegree: number | null;       // próximo grau (null se já no 9º)
+  nextThresholdYears: number | null;
+  yearsToNextDegree: number | null;
+}
+
+export interface BlackBeltVisual {
+  style: BlackBeltStyle;
+  body: string;        // background CSS do corpo da faixa
+  barColor: string;    // barra vermelha que carrega os graus (estilo preta)
+  stripeColor: string; // cor das marcas de grau
+  stripes: number;     // nº de marcas de grau a desenhar (só no estilo preta)
+}
+
+const BLACK_BELT_RED = '#c1121f';
+const BLACK_BELT_RED_DEEP = '#7f1010';
+
+export function getBlackBeltDegreeForYears(years: number): number {
+  const safeYears = Number.isFinite(years) ? Math.max(0, Math.floor(years)) : 0;
+  let degree = 0;
+  for (let i = 0; i < BLACK_BELT_DEGREE_YEARS.length; i += 1) {
+    if (safeYears >= BLACK_BELT_DEGREE_YEARS[i]) {
+      degree = i + 1;
+    } else {
+      break;
+    }
+  }
+  return degree;
+}
+
+export function getBlackBeltStyle(degree: number): BlackBeltStyle {
+  if (degree >= 9) return 'vermelha';
+  if (degree === 8) return 'coral-branca';
+  if (degree === 7) return 'coral-preta';
+  return 'preta';
+}
+
+function buildBlackBeltLabels(degree: number, style: BlackBeltStyle): Pick<BlackBeltProgress, 'title' | 'degreeLabel' | 'styleNote' | 'label'> {
+  const degreeLabel = degree > 0 ? `${degree}º Grau` : '';
+  let title = 'Faixa Preta';
+  let styleNote = '';
+
+  if (style === 'vermelha') {
+    title = 'Faixa Vermelha';
+  } else if (style === 'coral-branca') {
+    title = 'Faixa Coral';
+    styleNote = 'Vermelha e Branca';
+  } else if (style === 'coral-preta') {
+    title = 'Faixa Coral';
+    styleNote = 'Vermelha e Preta';
+  }
+
+  const label = degreeLabel ? `${title} · ${degreeLabel}` : title;
+  return { title, degreeLabel, styleNote, label };
+}
+
+export function getBlackBeltVisual(degree: number): BlackBeltVisual {
+  const style = getBlackBeltStyle(degree);
+
+  if (style === 'vermelha') {
+    return {
+      style,
+      body: `linear-gradient(180deg, #dc2626 0%, ${BLACK_BELT_RED_DEEP} 100%)`,
+      barColor: BLACK_BELT_RED,
+      stripeColor: '#fde68a',
+      stripes: 0,
+    };
+  }
+
+  if (style === 'coral-branca') {
+    return {
+      style,
+      body: `repeating-linear-gradient(90deg, ${BLACK_BELT_RED} 0 13px, #f4f4f5 13px 26px)`,
+      barColor: BLACK_BELT_RED,
+      stripeColor: '#f4f4f5',
+      stripes: 0,
+    };
+  }
+
+  if (style === 'coral-preta') {
+    return {
+      style,
+      body: `repeating-linear-gradient(90deg, ${BLACK_BELT_RED} 0 13px, #0b0b0f 13px 26px)`,
+      barColor: BLACK_BELT_RED,
+      stripeColor: '#f4f4f5',
+      stripes: 0,
+    };
+  }
+
+  // Estilo preta (graus 0–6): corpo preto com barra vermelha carregando as marcas.
+  return {
+    style,
+    body: 'linear-gradient(180deg, #232329 0%, #050507 100%)',
+    barColor: BLACK_BELT_RED,
+    stripeColor: '#ffffff',
+    stripes: Math.max(0, Math.min(6, degree)),
+  };
+}
+
+// Aceita ano (2005 / "2005"), ISO ("2005-04-15") ou Date. Retorna null se inválido.
+function parseFlexibleDate(value?: string | number | Date | null): Date | null {
+  if (value == null || value === '') return null;
+  if (value instanceof Date) return Number.isNaN(value.valueOf()) ? null : value;
+  if (typeof value === 'number') {
+    if (value >= 1900 && value <= 3000) return new Date(value, 0, 1);
+    const fromEpoch = new Date(value);
+    return Number.isNaN(fromEpoch.valueOf()) ? null : fromEpoch;
+  }
+
+  const trimmed = value.trim();
+  if (/^\d{4}$/.test(trimmed)) return new Date(Number(trimmed), 0, 1);
+  const parsed = new Date(trimmed);
+  return Number.isNaN(parsed.valueOf()) ? null : parsed;
+}
+
+function completedYearsBetween(from: Date, to: Date): number {
+  let years = to.getFullYear() - from.getFullYear();
+  const monthDiff = to.getMonth() - from.getMonth();
+  if (monthDiff < 0 || (monthDiff === 0 && to.getDate() < from.getDate())) {
+    years -= 1;
+  }
+  return Math.max(0, years);
+}
+
+// Calcula o grau/estilo/aparência da faixa preta a partir da data em que o aluno
+// recebeu a preta (`since`). Retorna null quando não há data válida.
+export function getBlackBeltProgress(
+  since?: string | number | Date | null,
+  now?: Date,
+): BlackBeltProgress | null {
+  const startDate = parseFlexibleDate(since);
+  if (!startDate) return null;
+
+  const reference = now ?? new Date();
+  const years = completedYearsBetween(startDate, reference);
+  const degree = getBlackBeltDegreeForYears(years);
+  const style = getBlackBeltStyle(degree);
+  const labels = buildBlackBeltLabels(degree, style);
+
+  const nextThresholdYears = degree < BLACK_BELT_DEGREE_YEARS.length
+    ? BLACK_BELT_DEGREE_YEARS[degree]
+    : null;
+  const nextDegree = nextThresholdYears != null ? degree + 1 : null;
+  const yearsToNextDegree = nextThresholdYears != null ? Math.max(0, nextThresholdYears - years) : null;
+
+  return {
+    startDate,
+    years,
+    degree,
+    style,
+    ...labels,
+    nextDegree,
+    nextThresholdYears,
+    yearsToNextDegree,
+  };
+}
+
+export function isBlackBelt(value?: string | null): boolean {
+  return normalizeBeltId(value) === BeltColor.PRETA;
+}

@@ -2,7 +2,9 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ADULT_BELTS,
   beltLabel,
+  getBlackBeltProgress,
   getUserProgressionSummary,
+  isBlackBelt,
   type ProgressionRules,
 } from '../beltCatalog';
 import {
@@ -158,6 +160,11 @@ const ProfileView: React.FC<ProfileViewProps> = ({
     () => getUserProgressionSummary(user, progressionRules),
     [progressionRules, user],
   );
+  // Faixa preta: grau por tempo (padrão IBJJF), calculado a partir da data da preta.
+  const blackBeltProgress = useMemo(
+    () => (isBlackBelt(user.belt) ? getBlackBeltProgress(user.lastGraduation) : null),
+    [user.belt, user.lastGraduation],
+  );
   const stripeTotal = progression.stripeTotal;
   const beltTotal = progression.beltTotal;
   const stripeProgress = progression.stripeProgress;
@@ -175,7 +182,9 @@ const ProfileView: React.FC<ProfileViewProps> = ({
   const nextMilestoneLabel = isNextBeltMilestone
     ? `Próxima faixa - ${beltLabel(user.belt)}`
     : `${user.stripes + 1}o Grau - Faixa ${beltLabel(user.belt)}`;
-  const currentGradeLabel = user.stripes > 0 ? `${user.stripes}o Grau` : '0 Grau';
+  const currentGradeLabel = blackBeltProgress
+    ? (blackBeltProgress.degreeLabel || 'Faixa lisa')
+    : user.stripes > 0 ? `${user.stripes}o Grau` : '0 Grau';
   const [activeSection, setActiveSection] = useState<'settings' | 'history' | 'achievements' | null>(null);
   const [activeStudentSection, setActiveStudentSection] = useState<'dados-pessoais' | 'acesso-email' | 'aparencia' | 'historicos' | 'excluir-conta' | null>(null);
   const [deletePassword, setDeletePassword] = useState('');
@@ -326,6 +335,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({
                 belt={user.belt}
                 stripes={user.stripes}
                 size="lg"
+                blackBelt={blackBeltProgress}
               />
               <span className="absolute bottom-1 right-1 flex h-7 w-7 items-center justify-center rounded-full bg-[color:var(--gold-mid)] text-black shadow-md pointer-events-none">
                 {staffPhotoBusy ? (
@@ -351,7 +361,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({
           </div>
 
           <div className="profile-mobile__tags">
-            <span className="profile-mobile__tag is-gold">Faixa {beltLabel(user.belt)}</span>
+            <span className="profile-mobile__tag is-gold">{blackBeltProgress ? blackBeltProgress.title : `Faixa ${beltLabel(user.belt)}`}</span>
             <span className="profile-mobile__tag">{currentGradeLabel}</span>
             <span className="profile-mobile__tag">{user.type}</span>
           </div>
@@ -624,6 +634,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({
             belt={user.belt}
             stripes={user.stripes}
             size="md"
+            blackBelt={blackBeltProgress}
           />
 
           <div className="min-w-0 flex-1">
@@ -632,8 +643,8 @@ const ProfileView: React.FC<ProfileViewProps> = ({
               {academyName || 'Academia ativa'} • {roleLabel(profile.role)}
             </p>
             <div className="mt-3 flex flex-wrap items-center gap-2">
-              <span className="app-badge app-badge--gold">Faixa {beltLabel(user.belt)}</span>
-              <span className="app-badge app-badge--muted">{user.stripes} graus</span>
+              <span className="app-badge app-badge--gold">{blackBeltProgress ? blackBeltProgress.title : `Faixa ${beltLabel(user.belt)}`}</span>
+              <span className="app-badge app-badge--muted">{blackBeltProgress ? (blackBeltProgress.degreeLabel || 'Faixa lisa') : `${user.stripes} graus`}</span>
               <span className="app-badge app-badge--muted">{user.type}</span>
               {profile.isCompetitor ? <span className="app-badge app-badge--muted">Competidor</span> : null}
             </div>
