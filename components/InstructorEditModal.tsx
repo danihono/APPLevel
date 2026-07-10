@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { ArrowLeft, Eye, EyeOff, KeyRound, Save, ShieldCheck, User } from 'lucide-react';
-import { ADULT_BELTS, beltLabel } from '../beltCatalog';
+import { ADULT_BELTS, beltLabel, getBlackBeltProgress, isBlackBelt } from '../beltCatalog';
 import type { FirestoreEntity } from '../services/firebase/data';
 import type { UserRecord } from '../services/firebase/models';
 
@@ -17,7 +17,23 @@ interface InstructorEditModalProps {
     phone?: string;
     belt?: string;
     grade?: number;
+    lastGraduationDateOverride?: string;
   }) => Promise<void>;
+}
+
+// Converte um Timestamp do Firestore para o formato yyyy-mm-dd do <input type="date">.
+function timestampToInputDate(value?: { toDate?: () => Date; seconds?: number } | null): string {
+  if (!value) return '';
+  const date = typeof value.toDate === 'function'
+    ? value.toDate()
+    : typeof value.seconds === 'number'
+      ? new Date(value.seconds * 1000)
+      : null;
+  if (!date || Number.isNaN(date.valueOf())) return '';
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 }
 
 const InstructorEditModal: React.FC<InstructorEditModalProps> = ({ instructor, onClose, onSave }) => {
@@ -27,6 +43,7 @@ const InstructorEditModal: React.FC<InstructorEditModalProps> = ({ instructor, o
   const [phone, setPhone] = useState(instructor.phone ?? '');
   const [belt, setBelt] = useState(instructor.belt ?? 'white');
   const [grade, setGrade] = useState(instructor.grade ?? 0);
+  const [blackBeltDate, setBlackBeltDate] = useState(timestampToInputDate(instructor.lastGraduationDateOverride));
   const [plainPassword, setPlainPassword] = useState(instructor.plainPassword ?? '');
   const [newPassword, setNewPassword] = useState('');
   const [showPlain, setShowPlain] = useState(false);
@@ -37,6 +54,10 @@ const InstructorEditModal: React.FC<InstructorEditModalProps> = ({ instructor, o
   const [error, setError] = useState('');
 
   const hasStoredPassword = Boolean(instructor.plainPassword);
+  const beltIsBlack = isBlackBelt(belt);
+  // Faixa preta: o grau é calculado por tempo a partir da data da preta.
+  const blackBeltPreview = beltIsBlack ? getBlackBeltProgress(blackBeltDate) : null;
+  const effectiveGrade = beltIsBlack && blackBeltPreview ? blackBeltPreview.degree : grade;
 
   async function handleSave(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -52,7 +73,8 @@ const InstructorEditModal: React.FC<InstructorEditModalProps> = ({ instructor, o
         email: email.trim() !== instructor.email ? email.trim() : undefined,
         phone: phone.trim() || undefined,
         belt: belt || undefined,
-        grade,
+        grade: effectiveGrade,
+        lastGraduationDateOverride: beltIsBlack ? (blackBeltDate || undefined) : undefined,
         plainPassword: newPassword.trim() ? newPassword.trim() : (plainPassword || undefined),
         newPassword: newPassword.trim() || undefined,
       });
@@ -167,17 +189,34 @@ const InstructorEditModal: React.FC<InstructorEditModalProps> = ({ instructor, o
               </select>
             </label>
 
-            <label className="app-field">
-              <span className="app-field__label">Grau</span>
-              <input
-                type="number"
-                min={0}
-                max={6}
-                value={grade}
-                onChange={(e) => setGrade(Math.max(0, Math.floor(Number(e.target.value) || 0)))}
-                className="app-input"
-              />
-            </label>
+            {beltIsBlack ? (
+              <label className="app-field">
+                <span className="app-field__label">Data da faixa preta</span>
+                <input
+                  type="date"
+                  value={blackBeltDate}
+                  onChange={(e) => setBlackBeltDate(e.target.value)}
+                  className="app-input"
+                />
+                <span className="app-field__hint">
+                  {blackBeltPreview
+                    ? `${blackBeltPreview.label} · ${blackBeltPreview.years} ${blackBeltPreview.years === 1 ? 'ano' : 'anos'} de faixa preta${blackBeltPreview.styleNote ? ` (${blackBeltPreview.styleNote})` : ''}.`
+                    : 'Informe a data em que recebeu a preta para calcular o grau por tempo (IBJJF).'}
+                </span>
+              </label>
+            ) : (
+              <label className="app-field">
+                <span className="app-field__label">Grau</span>
+                <input
+                  type="number"
+                  min={0}
+                  max={6}
+                  value={grade}
+                  onChange={(e) => setGrade(Math.max(0, Math.floor(Number(e.target.value) || 0)))}
+                  className="app-input"
+                />
+              </label>
+            )}
           </div>
         </section>
 

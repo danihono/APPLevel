@@ -1733,6 +1733,14 @@ export const adminUpdateInstructorProfile = onCall(callableOptions, async (reque
   if (emailChanged) firestorePatch.email = normalizedEmail;
   if (plainPassword !== undefined) firestorePatch.plainPassword = plainPassword || null;
 
+  // Data da faixa preta (progressão de grau por tempo): grava a data em que o
+  // instrutor recebeu a preta, usada para calcular o grau atual (padrão IBJJF).
+  const instructorData = (request.data as Record<string, unknown> | null) ?? {};
+  if (instructorData.lastGraduationDateOverride !== undefined) {
+    const raw = optionalString(request.data, 'lastGraduationDateOverride');
+    firestorePatch.lastGraduationDateOverride = raw ? Timestamp.fromDate(new Date(raw)) : null;
+  }
+
   await db.collection(COLLECTIONS.users).doc(targetUserId).update(firestorePatch);
 
   return { userId: targetUserId, displayName };

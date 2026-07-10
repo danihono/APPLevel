@@ -200,6 +200,7 @@ export const backendFunctions = {
     phone?: string;
     belt?: string;
     grade?: number;
+    lastGraduationDateOverride?: string;
   }) => callFunction<{ userId: string; displayName: string }>('adminUpdateInstructorProfile', payload),
 
   approveGraduationRequest: (payload: { requestId: string }) =>

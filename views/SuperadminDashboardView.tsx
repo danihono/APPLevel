@@ -42,6 +42,7 @@ interface SuperadminDashboardViewProps {
     phone?: string;
     belt?: string;
     grade?: number;
+    lastGraduationDateOverride?: string;
   }) => Promise<void>;
 }
 

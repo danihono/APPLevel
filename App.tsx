@@ -1798,6 +1798,7 @@ const App: React.FC = () => {
     phone?: string;
     belt?: string;
     grade?: number;
+    lastGraduationDateOverride?: string;
   }) {
     try {
       await backendFunctions.adminUpdateInstructorProfile(payload);
