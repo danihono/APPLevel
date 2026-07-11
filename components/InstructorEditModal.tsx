@@ -18,6 +18,7 @@ interface InstructorEditModalProps {
     belt?: string;
     grade?: number;
     lastGraduationDateOverride?: string;
+    blackBeltDegreeManual?: number | null;
   }) => Promise<void>;
 }
 
@@ -44,6 +45,9 @@ const InstructorEditModal: React.FC<InstructorEditModalProps> = ({ instructor, o
   const [belt, setBelt] = useState(instructor.belt ?? 'white');
   const [grade, setGrade] = useState(instructor.grade ?? 0);
   const [blackBeltDate, setBlackBeltDate] = useState(timestampToInputDate(instructor.lastGraduationDateOverride));
+  const [blackBeltManual, setBlackBeltManual] = useState(
+    instructor.blackBeltDegreeManual == null ? '' : String(instructor.blackBeltDegreeManual),
+  );
   const [plainPassword, setPlainPassword] = useState(instructor.plainPassword ?? '');
   const [newPassword, setNewPassword] = useState('');
   const [showPlain, setShowPlain] = useState(false);
@@ -55,8 +59,12 @@ const InstructorEditModal: React.FC<InstructorEditModalProps> = ({ instructor, o
 
   const hasStoredPassword = Boolean(instructor.plainPassword);
   const beltIsBlack = isBlackBelt(belt);
-  // Faixa preta: o grau é calculado por tempo a partir da data da preta.
-  const blackBeltPreview = beltIsBlack ? getBlackBeltProgress(blackBeltDate) : null;
+  // Faixa preta: grau por tempo a partir da data da preta; override manual (opcional) vence.
+  const manualDegree = blackBeltManual.trim() === ''
+    ? null
+    : Math.max(0, Math.min(9, Math.floor(Number(blackBeltManual) || 0)));
+  const autoBlackBeltDegree = beltIsBlack ? (getBlackBeltProgress(blackBeltDate)?.degree ?? 0) : 0;
+  const blackBeltPreview = beltIsBlack ? getBlackBeltProgress(blackBeltDate, undefined, manualDegree) : null;
   const effectiveGrade = beltIsBlack && blackBeltPreview ? blackBeltPreview.degree : grade;
 
   async function handleSave(event: React.FormEvent<HTMLFormElement>) {
@@ -75,6 +83,7 @@ const InstructorEditModal: React.FC<InstructorEditModalProps> = ({ instructor, o
         belt: belt || undefined,
         grade: effectiveGrade,
         lastGraduationDateOverride: beltIsBlack ? (blackBeltDate || undefined) : undefined,
+        blackBeltDegreeManual: beltIsBlack ? manualDegree : undefined,
         plainPassword: newPassword.trim() ? newPassword.trim() : (plainPassword || undefined),
         newPassword: newPassword.trim() || undefined,
       });
@@ -190,20 +199,38 @@ const InstructorEditModal: React.FC<InstructorEditModalProps> = ({ instructor, o
             </label>
 
             {beltIsBlack ? (
-              <label className="app-field">
-                <span className="app-field__label">Data da faixa preta</span>
-                <input
-                  type="date"
-                  value={blackBeltDate}
-                  onChange={(e) => setBlackBeltDate(e.target.value)}
-                  className="app-input"
-                />
-                <span className="app-field__hint">
-                  {blackBeltPreview
-                    ? `${blackBeltPreview.label} · ${blackBeltPreview.years} ${blackBeltPreview.years === 1 ? 'ano' : 'anos'} de faixa preta${blackBeltPreview.styleNote ? ` (${blackBeltPreview.styleNote})` : ''}.`
-                    : 'Informe a data em que recebeu a preta para calcular o grau por tempo (IBJJF).'}
-                </span>
-              </label>
+              <>
+                <label className="app-field">
+                  <span className="app-field__label">Data da faixa preta</span>
+                  <input
+                    type="date"
+                    value={blackBeltDate}
+                    onChange={(e) => setBlackBeltDate(e.target.value)}
+                    className="app-input"
+                  />
+                  <span className="app-field__hint">
+                    {blackBeltPreview
+                      ? `${blackBeltPreview.label} · ${blackBeltPreview.years} ${blackBeltPreview.years === 1 ? 'ano' : 'anos'} de faixa preta${blackBeltPreview.styleNote ? ` (${blackBeltPreview.styleNote})` : ''}.`
+                      : 'Informe a data em que recebeu a preta para calcular o grau por tempo (IBJJF).'}
+                  </span>
+                </label>
+
+                <label className="app-field">
+                  <span className="app-field__label">Grau manual (opcional)</span>
+                  <input
+                    type="number"
+                    min={0}
+                    max={9}
+                    value={blackBeltManual}
+                    onChange={(e) => setBlackBeltManual(
+                      e.target.value === '' ? '' : String(Math.max(0, Math.min(9, Math.floor(Number(e.target.value) || 0)))),
+                    )}
+                    className="app-input"
+                    placeholder={`Automático (${autoBlackBeltDegree}º)`}
+                  />
+                  <span className="app-field__hint">Deixe vazio para usar o grau automático pela data. Preencha só para ajustar manualmente.</span>
+                </label>
+              </>
             ) : (
               <label className="app-field">
                 <span className="app-field__label">Grau</span>

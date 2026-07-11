@@ -3,6 +3,7 @@ import {
   ADULT_BELTS,
   beltLabel,
   getBlackBeltProgress,
+  getBlackBeltProgressForUser,
   getUserProgressionSummary,
   isBlackBelt,
   type ProgressionRules,
@@ -53,7 +54,7 @@ interface ProfileViewProps {
     isCompetitor?: boolean;
     photoFile?: File | null;
   }) => Promise<void>;
-  onSaveBeltGrade?: (payload: { belt: string; grade: number; stripes: number; attendanceCountBonus: number }) => Promise<void>;
+  onSaveBeltGrade?: (payload: { belt: string; grade: number; stripes: number; attendanceCountBonus: number; blackBeltDate?: string; blackBeltDegreeManual?: number | null }) => Promise<void>;
   onChangeEmail: (nextEmail: string, currentPassword: string) => Promise<void>;
   onDeleteAccount?: (currentPassword: string) => Promise<void>;
   onOpenNotifications?: () => void;
@@ -75,6 +76,14 @@ function roleLabel(role: UserRecord['role']) {
     default:
       return 'Aluno';
   }
+}
+
+// ISO/qualquer data -> yyyy-mm-dd para <input type="date">; '' se vazio/invalido.
+function isoToInputDate(value?: string | null): string {
+  if (!value) return '';
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.valueOf())) return '';
+  return parsed.toISOString().slice(0, 10);
 }
 
 const ProfileView: React.FC<ProfileViewProps> = ({
@@ -116,6 +125,13 @@ const ProfileView: React.FC<ProfileViewProps> = ({
   const [staffBelt, setStaffBelt] = useState(profile.belt);
   const [staffStripes, setStaffStripes] = useState(profile.stripes);
   const [staffAttendanceCountBonus, setStaffAttendanceCountBonus] = useState(profile.attendanceCountBonus ?? 0);
+  // Faixa preta: data da preta + override manual do grau (grau por tempo IBJJF).
+  const [staffBlackBeltDate, setStaffBlackBeltDate] = useState(
+    isoToInputDate(user.lastGraduationDateOverride ?? user.lastGraduation),
+  );
+  const [staffBlackBeltManual, setStaffBlackBeltManual] = useState(
+    user.blackBeltDegreeManual == null ? '' : String(user.blackBeltDegreeManual),
+  );
   const [beltGradeBusy, setBeltGradeBusy] = useState(false);
   const [beltGradeFeedback, setBeltGradeFeedback] = useState('');
   const [beltGradeError, setBeltGradeError] = useState('');
@@ -160,11 +176,20 @@ const ProfileView: React.FC<ProfileViewProps> = ({
     () => getUserProgressionSummary(user, progressionRules),
     [progressionRules, user],
   );
-  // Faixa preta: grau por tempo (padrão IBJJF), calculado a partir da data da preta.
+  // Faixa preta: grau por tempo (padrão IBJJF) + override manual, calculado a partir da data da preta.
   const blackBeltProgress = useMemo(
-    () => (isBlackBelt(user.belt) ? getBlackBeltProgress(user.lastGraduation) : null),
-    [user.belt, user.lastGraduation],
+    () => getBlackBeltProgressForUser(user),
+    [user.belt, user.lastGraduation, user.blackBeltDegreeManual],
   );
+  // Editor rápido de faixa/grau do próprio staff: preta usa data + override manual (opcional).
+  const staffBeltIsBlack = isBlackBelt(staffBelt);
+  const staffBlackBeltManualDegree = staffBlackBeltManual.trim() === ''
+    ? null
+    : Math.max(0, Math.min(9, Math.floor(Number(staffBlackBeltManual) || 0)));
+  const staffAutoBlackDegree = staffBeltIsBlack ? (getBlackBeltProgress(staffBlackBeltDate)?.degree ?? 0) : 0;
+  const staffBlackBeltPreview = staffBeltIsBlack
+    ? getBlackBeltProgress(staffBlackBeltDate, undefined, staffBlackBeltManualDegree)
+    : null;
   const stripeTotal = progression.stripeTotal;
   const beltTotal = progression.beltTotal;
   const stripeProgress = progression.stripeProgress;
@@ -209,7 +234,9 @@ const ProfileView: React.FC<ProfileViewProps> = ({
     setStaffBelt(profile.belt);
     setStaffStripes(profile.stripes);
     setStaffAttendanceCountBonus(profile.attendanceCountBonus ?? 0);
-  }, [profile.attendanceCountBonus, profile.belt, profile.birthDate, profile.cpf, profile.email, profile.firstName, profile.isCompetitor, profile.lastName, profile.phone, profile.stripes]);
+    setStaffBlackBeltDate(isoToInputDate(user.lastGraduationDateOverride ?? user.lastGraduation));
+    setStaffBlackBeltManual(user.blackBeltDegreeManual == null ? '' : String(user.blackBeltDegreeManual));
+  }, [profile.attendanceCountBonus, profile.belt, profile.birthDate, profile.cpf, profile.email, profile.firstName, profile.isCompetitor, profile.lastName, profile.phone, profile.stripes, user.blackBeltDegreeManual, user.lastGraduation, user.lastGraduationDateOverride]);
 
   async function handleBeltGradeSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -217,7 +244,15 @@ const ProfileView: React.FC<ProfileViewProps> = ({
     setBeltGradeFeedback('');
     setBeltGradeError('');
     try {
-      await onSaveBeltGrade!({ belt: staffBelt, grade: staffStripes, stripes: staffStripes, attendanceCountBonus: staffAttendanceCountBonus });
+      const effectiveGrade = staffBeltIsBlack ? (staffBlackBeltPreview?.degree ?? 0) : staffStripes;
+      await onSaveBeltGrade!({
+        belt: staffBelt,
+        grade: effectiveGrade,
+        stripes: effectiveGrade,
+        attendanceCountBonus: staffAttendanceCountBonus,
+        blackBeltDate: staffBeltIsBlack ? (staffBlackBeltDate || undefined) : undefined,
+        blackBeltDegreeManual: staffBeltIsBlack ? staffBlackBeltManualDegree : undefined,
+      });
       setBeltGradeFeedback('Faixa e grau atualizados com sucesso.');
     } catch (err) {
       setBeltGradeError(err instanceof Error ? err.message : 'Não foi possível salvar.');
@@ -456,24 +491,60 @@ const ProfileView: React.FC<ProfileViewProps> = ({
                             ))}
                           </select>
                         </label>
-                        <label className="app-field">
-                          <span className="app-field__label">Grau</span>
-                          <select value={staffStripes} onChange={(e) => setStaffStripes(Number(e.target.value))} className="app-select">
-                            {[1, 2, 3, 4, 5, 6].map((g) => (
-                              <option key={g} value={g}>{g}º grau</option>
-                            ))}
-                          </select>
-                        </label>
-                        <label className="app-field">
-                          <span className="app-field__label">Aulas bônus</span>
-                          <input
-                            type="number"
-                            min="0"
-                            value={staffAttendanceCountBonus}
-                            onChange={(e) => setStaffAttendanceCountBonus(Math.max(0, Number(e.target.value)))}
-                            className="app-input"
-                          />
-                        </label>
+                        {staffBeltIsBlack ? (
+                          <>
+                            <label className="app-field">
+                              <span className="app-field__label">Data da faixa preta</span>
+                              <input
+                                type="date"
+                                value={staffBlackBeltDate}
+                                onChange={(e) => setStaffBlackBeltDate(e.target.value)}
+                                className="app-input"
+                              />
+                              <span className="app-field__hint">
+                                {staffBlackBeltPreview
+                                  ? `${staffBlackBeltPreview.label} · ${staffBlackBeltPreview.years} ${staffBlackBeltPreview.years === 1 ? 'ano' : 'anos'} de faixa preta${staffBlackBeltPreview.styleNote ? ` (${staffBlackBeltPreview.styleNote})` : ''}.`
+                                  : 'Informe a data em que recebeu a preta para calcular o grau por tempo (IBJJF).'}
+                              </span>
+                            </label>
+                            <label className="app-field">
+                              <span className="app-field__label">Grau manual (opcional)</span>
+                              <input
+                                type="number"
+                                min={0}
+                                max={9}
+                                value={staffBlackBeltManual}
+                                onChange={(e) => setStaffBlackBeltManual(
+                                  e.target.value === '' ? '' : String(Math.max(0, Math.min(9, Math.floor(Number(e.target.value) || 0)))),
+                                )}
+                                className="app-input"
+                                placeholder={`Automático (${staffAutoBlackDegree}º)`}
+                              />
+                              <span className="app-field__hint">Deixe vazio para usar o grau automático pela data. Preencha só para ajustar manualmente.</span>
+                            </label>
+                          </>
+                        ) : (
+                          <>
+                            <label className="app-field">
+                              <span className="app-field__label">Grau</span>
+                              <select value={staffStripes} onChange={(e) => setStaffStripes(Number(e.target.value))} className="app-select">
+                                {[1, 2, 3, 4, 5, 6].map((g) => (
+                                  <option key={g} value={g}>{g}º grau</option>
+                                ))}
+                              </select>
+                            </label>
+                            <label className="app-field">
+                              <span className="app-field__label">Aulas bônus</span>
+                              <input
+                                type="number"
+                                min="0"
+                                value={staffAttendanceCountBonus}
+                                onChange={(e) => setStaffAttendanceCountBonus(Math.max(0, Number(e.target.value)))}
+                                className="app-input"
+                              />
+                            </label>
+                          </>
+                        )}
                         <button type="submit" disabled={beltGradeBusy} className="app-button app-button--gold app-button--block app-button--small">
                           <Save size={14} />
                           {beltGradeBusy ? 'Salvando...' : 'Salvar faixa e grau'}

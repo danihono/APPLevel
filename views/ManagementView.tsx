@@ -22,7 +22,7 @@ interface ManagementViewProps {
   studentVideoLibraryById?: Map<string, UserVideo[]>;
   selectedAcademyId?: string;
   onSelectAcademy?: (academyId: string) => void;
-  focusSection?: 'master-black' | null;
+  focusSection?: 'master-black' | 'students' | 'overview' | null;
   onFocusSectionHandled?: () => void;
   onUpdateAcademy: (payload: {
     academyId: string;
@@ -81,6 +81,7 @@ interface ManagementViewProps {
     belt?: string;
     grade?: number;
     lastGraduationDateOverride?: string;
+    blackBeltDegreeManual?: number | null;
   }) => Promise<void>;
 }
 
@@ -276,6 +277,15 @@ const ManagementView: React.FC<ManagementViewProps> = ({
       return academies[0]?.id ?? '';
     });
   }, [academies, isSuperAdmin, managedAcademy.id, role, selectedAcademyId]);
+
+  useEffect(() => {
+    if (focusSection !== 'students' && focusSection !== 'overview') {
+      return;
+    }
+
+    setManagementSection(focusSection);
+    onFocusSectionHandled?.();
+  }, [focusSection, onFocusSectionHandled]);
 
   useEffect(() => {
     if (focusSection !== 'master-black') {

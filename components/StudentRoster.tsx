@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ALL_BELTS, beltLabel, getUserProgressionSummary, type ProgressionRules } from '../beltCatalog';
+import { ALL_BELTS, beltLabel, getBlackBeltProgressForUser, getUserProgressionSummary, type ProgressionRules } from '../beltCatalog';
 import { BarChart3, ChevronRight, List, Search, UserX } from 'lucide-react';
 import AvatarWithBelt from './AvatarWithBelt';
 import StudentDetailView from '../views/StudentDetailView';
@@ -81,6 +81,10 @@ const rankingPeriodOptions: Array<{ value: RankingPeriodPreset; label: string }>
 ];
 
 function getStudentGrade(student: User) {
+  // Faixa preta: grau por tempo (data) + override manual — fonte única, mesmo se stripes/grade
+  // ainda estiver desatualizado (aluno antigo não re-salvo).
+  const blackBelt = getBlackBeltProgressForUser(student);
+  if (blackBelt) return blackBelt.degree;
   return Number(student.grade ?? student.stripes ?? 0);
 }
 
@@ -680,8 +684,9 @@ const StudentRoster: React.FC<StudentRosterProps> = ({
                       avatar={student.avatar}
                       name={student.name}
                       belt={student.belt}
-                      stripes={student.stripes}
+                      stripes={getStudentGrade(student)}
                       size="md"
+                      blackBelt={getBlackBeltProgressForUser(student)}
                     />
                     <p className="student-roster__rank">Faixa {beltLabel(student.belt)}</p>
                     <p className="student-roster__grade">Grau {getStudentGrade(student)}</p>
@@ -789,8 +794,9 @@ const StudentRoster: React.FC<StudentRosterProps> = ({
                   avatar={row.student.avatar}
                   name={row.student.name}
                   belt={row.student.belt}
-                  stripes={row.student.stripes}
+                  stripes={getStudentGrade(row.student)}
                   size="sm"
+                  blackBelt={getBlackBeltProgressForUser(row.student)}
                 />
                 <div className="student-roster__ranking-copy">
                   <h3>{row.student.name}</h3>
@@ -825,8 +831,9 @@ const StudentRoster: React.FC<StudentRosterProps> = ({
                     avatar={student.avatar}
                     name={student.name}
                     belt={student.belt}
-                    stripes={student.stripes}
+                    stripes={getStudentGrade(student)}
                     size="md"
+                    blackBelt={getBlackBeltProgressForUser(student)}
                   />
                   <p className="student-roster__rank">Faixa {beltLabel(student.belt)}</p>
                   <p className="student-roster__grade">Grau {getStudentGrade(student)}</p>

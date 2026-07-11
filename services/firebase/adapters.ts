@@ -173,6 +173,7 @@ export function toUiUser(params: {
     belt: toBeltColor(user.belt),
     grade: user.grade ?? user.stripes ?? 0,
     stripes: user.stripes,
+    blackBeltDegreeManual: user.blackBeltDegreeManual ?? null,
     status: user.status,
     classesToNextStripe: relativeStripeTotal,
     totalClassesToNextBelt: relativeBeltTotal,

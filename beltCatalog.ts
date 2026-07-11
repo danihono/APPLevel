@@ -868,17 +868,26 @@ function completedYearsBetween(from: Date, to: Date): number {
 }
 
 // Calcula o grau/estilo/aparência da faixa preta a partir da data em que o aluno
-// recebeu a preta (`since`). Retorna null quando não há data válida.
+// recebeu a preta (`since`). O grau vem da data por padrão (padrão IBJJF); se
+// `manualDegree` for um número válido (0–9), ele vence — override manual explícito
+// que continua sendo respeitado por todas as telas. Retorna null quando não há
+// nem data válida nem override manual.
 export function getBlackBeltProgress(
   since?: string | number | Date | null,
   now?: Date,
+  manualDegree?: number | null,
 ): BlackBeltProgress | null {
-  const startDate = parseFlexibleDate(since);
-  if (!startDate) return null;
-
   const reference = now ?? new Date();
-  const years = completedYearsBetween(startDate, reference);
-  const degree = getBlackBeltDegreeForYears(years);
+  const startDate = parseFlexibleDate(since);
+  const hasManual = typeof manualDegree === 'number' && Number.isFinite(manualDegree);
+
+  if (!startDate && !hasManual) return null;
+
+  const effectiveStart = startDate ?? reference;
+  const years = completedYearsBetween(effectiveStart, reference);
+  const degree = hasManual
+    ? Math.max(0, Math.min(9, Math.floor(manualDegree as number)))
+    : getBlackBeltDegreeForYears(years);
   const style = getBlackBeltStyle(degree);
   const labels = buildBlackBeltLabels(degree, style);
 
@@ -889,7 +898,7 @@ export function getBlackBeltProgress(
   const yearsToNextDegree = nextThresholdYears != null ? Math.max(0, nextThresholdYears - years) : null;
 
   return {
-    startDate,
+    startDate: effectiveStart,
     years,
     degree,
     style,
@@ -902,4 +911,18 @@ export function getBlackBeltProgress(
 
 export function isBlackBelt(value?: string | null): boolean {
   return normalizeBeltId(value) === BeltColor.PRETA;
+}
+
+// Ponto único para as telas: já valida se é preta e aplica o override manual do grau,
+// mantendo o cálculo do grau conectado à data (e ao override) em todo o app.
+export function getBlackBeltProgressForUser(
+  user: {
+    belt?: string | null;
+    lastGraduation?: string | number | Date | null;
+    blackBeltDegreeManual?: number | null;
+  },
+  now?: Date,
+): BlackBeltProgress | null {
+  if (!isBlackBelt(user.belt)) return null;
+  return getBlackBeltProgress(user.lastGraduation, now, user.blackBeltDegreeManual);
 }

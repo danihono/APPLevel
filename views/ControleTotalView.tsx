@@ -58,7 +58,8 @@ interface ProductFormState {
   category: string;
   description: string;
   purchasePrice: string;
-  salePrice: string;
+  salePriceFilial: string;
+  salePriceDiretoria: string;
   stockCurrent: string;
   stockMinimum: string;
   status: 'active' | 'inactive';
@@ -214,20 +215,38 @@ function initialProductForm(): ProductFormState {
     category: 'Outros',
     description: '',
     purchasePrice: '',
-    salePrice: '',
+    salePriceFilial: '',
+    salePriceDiretoria: '',
     stockCurrent: '0',
     stockMinimum: '0',
     status: 'active',
   };
 }
 
-// Le o preco de venda do produto, com fallback para os campos legados
-// (salePriceFilial/salePriceDiretoria) em docs antigos do Firestore.
-function readProductSalePrice(product: { salePrice?: number; salePriceFilial?: number; salePriceDiretoria?: number }): number {
-  if (typeof product.salePrice === 'number') return product.salePrice;
+type ProductPriceFields = { salePrice?: number; salePriceFilial?: number; salePriceDiretoria?: number };
+
+// Preco de venda para filiais (fallback: preco unico legado, depois diretoria).
+function readProductSalePriceFilial(product: ProductPriceFields): number {
   if (typeof product.salePriceFilial === 'number') return product.salePriceFilial;
+  if (typeof product.salePrice === 'number') return product.salePrice;
   if (typeof product.salePriceDiretoria === 'number') return product.salePriceDiretoria;
   return 0;
+}
+
+// Preco de venda para a diretoria (fallback: preco unico legado, depois filial).
+function readProductSalePriceDiretoria(product: ProductPriceFields): number {
+  if (typeof product.salePriceDiretoria === 'number') return product.salePriceDiretoria;
+  if (typeof product.salePrice === 'number') return product.salePrice;
+  if (typeof product.salePriceFilial === 'number') return product.salePriceFilial;
+  return 0;
+}
+
+// Seleciona o preco conforme o comprador. Produtos so vao para filial/diretoria;
+// qualquer outro caso ('individuo') usa o preco de filial.
+function readProductSalePriceForBuyer(product: ProductPriceFields, buyerType: 'filial' | 'diretoria' | 'individuo'): number {
+  return buyerType === 'diretoria'
+    ? readProductSalePriceDiretoria(product)
+    : readProductSalePriceFilial(product);
 }
 
 function initialServiceForm(academyId: string): ServiceFormState {
@@ -535,7 +554,7 @@ const ControleTotalView: React.FC<ControleTotalViewProps> = ({
   [products]);
 
   function productCatalogPrice(product: FinanceProductRecord): number {
-    return readProductSalePrice(product);
+    return readProductSalePriceForBuyer(product, saleForm.buyerType);
   }
 
   function selectedItemPrice(item: SaleItemFormState): number {
@@ -670,7 +689,8 @@ const ControleTotalView: React.FC<ControleTotalViewProps> = ({
         category: productForm.category,
         description: productForm.description || undefined,
         purchasePrice: asNumber(productForm.purchasePrice),
-        salePrice: asNumber(productForm.salePrice),
+        salePriceFilial: asNumber(productForm.salePriceFilial),
+        salePriceDiretoria: asNumber(productForm.salePriceDiretoria),
         stockCurrent: asNumber(productForm.stockCurrent),
         stockMinimum: asNumber(productForm.stockMinimum),
         status: productForm.status,
@@ -963,7 +983,8 @@ const ControleTotalView: React.FC<ControleTotalViewProps> = ({
                 <label className="app-field"><span className="app-field__label">Descricao</span><textarea className="app-textarea" value={productForm.description} onChange={(event) => setProductForm((current) => ({ ...current, description: event.target.value }))} /></label>
                 <div className="controle-total__mini-grid">
                   <label className="app-field"><span className="app-field__label">Preco de compra</span><input required className="app-input" inputMode="decimal" value={productForm.purchasePrice} onChange={(event) => setProductForm((current) => ({ ...current, purchasePrice: event.target.value }))} /></label>
-                  <label className="app-field"><span className="app-field__label">Preco de venda</span><input required className="app-input" inputMode="decimal" value={productForm.salePrice} onChange={(event) => setProductForm((current) => ({ ...current, salePrice: event.target.value }))} /></label>
+                  <label className="app-field"><span className="app-field__label">Preco de venda (Filial)</span><input required className="app-input" inputMode="decimal" value={productForm.salePriceFilial} onChange={(event) => setProductForm((current) => ({ ...current, salePriceFilial: event.target.value }))} /></label>
+                  <label className="app-field"><span className="app-field__label">Preco de venda (Diretoria)</span><input required className="app-input" inputMode="decimal" value={productForm.salePriceDiretoria} onChange={(event) => setProductForm((current) => ({ ...current, salePriceDiretoria: event.target.value }))} /></label>
                   <label className="app-field"><span className="app-field__label">Estoque atual</span><input className="app-input" inputMode="decimal" value={productForm.stockCurrent} onChange={(event) => setProductForm((current) => ({ ...current, stockCurrent: event.target.value }))} /></label>
                   <label className="app-field"><span className="app-field__label">Estoque minimo</span><input className="app-input" inputMode="decimal" value={productForm.stockMinimum} onChange={(event) => setProductForm((current) => ({ ...current, stockMinimum: event.target.value }))} /></label>
                 </div>
@@ -985,7 +1006,8 @@ const ControleTotalView: React.FC<ControleTotalViewProps> = ({
                             <span className={statusClass(product.status)}>{statusLabel(product.status)}</span>
                             <span className={lowStock ? 'app-badge app-badge--danger' : 'app-badge app-badge--muted'}>Estoque {product.stockCurrent}/{product.stockMinimum}</span>
                             <span className="app-badge app-badge--muted">Compra {formatCurrency(product.purchasePrice)}</span>
-                            <span className="app-badge app-badge--gold">Venda {formatCurrency(readProductSalePrice(product))}</span>
+                            <span className="app-badge app-badge--gold">Venda Filial {formatCurrency(readProductSalePriceFilial(product))}</span>
+                            <span className="app-badge app-badge--gold">Venda Diretoria {formatCurrency(readProductSalePriceDiretoria(product))}</span>
                           </div>
                           {product.priceHistory && product.priceHistory.length > 0 ? (
                             <details className="controle-total__price-history">
@@ -994,7 +1016,7 @@ const ControleTotalView: React.FC<ControleTotalViewProps> = ({
                                 {[...product.priceHistory].reverse().map((entry, entryIndex) => (
                                   <li key={entryIndex}>
                                     <span>{formatDate(toDate(entry.changedAt))}</span>
-                                    <span>Compra {formatCurrency(entry.purchasePrice)} | Venda {formatCurrency(readProductSalePrice(entry))}</span>
+                                    <span>Compra {formatCurrency(entry.purchasePrice)} | Filial {formatCurrency(readProductSalePriceFilial(entry))} | Diretoria {formatCurrency(readProductSalePriceDiretoria(entry))}</span>
                                     {entry.changedBy ? <span>{userById.get(entry.changedBy)?.displayName ?? 'Usuario'}</span> : null}
                                   </li>
                                 ))}
@@ -1009,7 +1031,8 @@ const ControleTotalView: React.FC<ControleTotalViewProps> = ({
                             category: product.category,
                             description: product.description ?? '',
                             purchasePrice: String(product.purchasePrice),
-                            salePrice: String(readProductSalePrice(product)),
+                            salePriceFilial: String(readProductSalePriceFilial(product)),
+                            salePriceDiretoria: String(readProductSalePriceDiretoria(product)),
                             stockCurrent: String(product.stockCurrent),
                             stockMinimum: String(product.stockMinimum),
                             status: product.status,

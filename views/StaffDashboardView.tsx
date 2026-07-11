@@ -14,7 +14,7 @@ import type {
   UserRecord,
 } from '../services/firebase/models';
 import { isUnreadNotificationForViewer } from '../services/firebase/notifications';
-import { getBlackBeltProgress, isBlackBelt } from '../beltCatalog';
+import { getBlackBeltProgressForUser } from '../beltCatalog';
 import BjjBelt from '../components/BjjBelt';
 import type { User } from '../types';
 
@@ -30,7 +30,43 @@ interface StaffDashboardViewProps {
   fightVideoSubmissions: Array<FirestoreEntity<FightVideoSubmissionRecord>>;
   canReviewAllAttendanceRequests?: boolean;
   onNavigateToPending?: () => void;
+  onNavigateToInstructors?: () => void;
+  onNavigateToStudents?: () => void;
+  onNavigateToClasses?: () => void;
+  onNavigateToFrequency?: () => void;
 }
+
+interface StaffKpiCardProps {
+  label: string;
+  value: React.ReactNode;
+  note: string;
+  onClick?: () => void;
+}
+
+const StaffKpiCard: React.FC<StaffKpiCardProps> = ({ label, value, note, onClick }) => {
+  if (!onClick) {
+    return (
+      <article className="staff-home__kpi-card">
+        <p className="staff-home__kpi-label">{label}</p>
+        <p className="staff-home__kpi-value">{value}</p>
+        <p className="staff-home__kpi-note">{note}</p>
+      </article>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="staff-home__kpi-card staff-home__kpi-card--action"
+    >
+      <ChevronRight size={16} className="staff-home__kpi-arrow" aria-hidden="true" />
+      <p className="staff-home__kpi-label">{label}</p>
+      <p className="staff-home__kpi-value">{value}</p>
+      <p className="staff-home__kpi-note">{note}</p>
+    </button>
+  );
+};
 
 function isSameDay(left?: Date | null, right?: Date | null) {
   if (!left || !right) {
@@ -116,9 +152,13 @@ const StaffDashboardView: React.FC<StaffDashboardViewProps> = ({
   fightVideoSubmissions,
   canReviewAllAttendanceRequests = false,
   onNavigateToPending,
+  onNavigateToInstructors,
+  onNavigateToStudents,
+  onNavigateToClasses,
+  onNavigateToFrequency,
 }) => {
   const now = new Date();
-  const blackBeltProgress = isBlackBelt(user.belt) ? getBlackBeltProgress(user.lastGraduation, now) : null;
+  const blackBeltProgress = getBlackBeltProgressForUser(user, now);
   const blackBeltMetaLine = blackBeltProgress
     ? [
       blackBeltProgress.degreeLabel || 'Faixa lisa',
@@ -275,29 +315,33 @@ const StaffDashboardView: React.FC<StaffDashboardViewProps> = ({
         <p className="staff-home__section-label">Visão geral</p>
 
         <div className="staff-home__kpi-grid">
-          <article className="staff-home__kpi-card">
-            <p className="staff-home__kpi-label">Instrutores</p>
-            <p className="staff-home__kpi-value">{instructors.length}</p>
-            <p className="staff-home__kpi-note">Equipe ativa</p>
-          </article>
+          <StaffKpiCard
+            label="Instrutores"
+            value={instructors.length}
+            note="Equipe ativa"
+            onClick={onNavigateToInstructors}
+          />
 
-          <article className="staff-home__kpi-card">
-            <p className="staff-home__kpi-label">Alunos</p>
-            <p className="staff-home__kpi-value">{students.length}</p>
-            <p className="staff-home__kpi-note">Matriculados</p>
-          </article>
+          <StaffKpiCard
+            label="Alunos"
+            value={students.length}
+            note="Matriculados"
+            onClick={onNavigateToStudents}
+          />
 
-          <article className="staff-home__kpi-card">
-            <p className="staff-home__kpi-label">Aulas hoje</p>
-            <p className="staff-home__kpi-value">{todayClasses.length}</p>
-            <p className="staff-home__kpi-note">Agendadas</p>
-          </article>
+          <StaffKpiCard
+            label="Aulas hoje"
+            value={todayClasses.length}
+            note="Agendadas"
+            onClick={onNavigateToClasses}
+          />
 
-          <article className="staff-home__kpi-card">
-            <p className="staff-home__kpi-label">Frequência</p>
-            <p className="staff-home__kpi-value">{monthlyAttendanceRate}%</p>
-            <p className="staff-home__kpi-note">Este mês</p>
-          </article>
+          <StaffKpiCard
+            label="Frequência"
+            value={`${monthlyAttendanceRate}%`}
+            note="Este mês"
+            onClick={onNavigateToFrequency}
+          />
         </div>
       </section>
 

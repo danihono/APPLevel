@@ -160,13 +160,13 @@ export const backendFunctions = {
   setUserRole: (payload: { userId: string; role: AppRole }) =>
     callFunction<{ userId: string; role: AppRole }>('setUserRole', payload),
 
-  updateStudentBeltGrade: (payload: { userId: string; belt: string; grade: number; stripes?: number; kidsCategory?: string; gradeProgress?: number }) =>
+  updateStudentBeltGrade: (payload: { userId: string; belt: string; grade: number; stripes?: number; kidsCategory?: string; gradeProgress?: number; blackBeltDate?: string; blackBeltDegreeManual?: number | null }) =>
     callFunction<{ userId: string; belt: string; grade: number; stripes: number; kidsCategory?: string | null }>('updateStudentBeltGrade', payload),
 
   setStudentAttendanceBonus: (payload: { userId: string; attendanceCountBonus: number }) =>
     callFunction<{ userId: string; attendanceCountBonus: number }>('setStudentAttendanceBonus', payload),
 
-  updateOwnStaffBeltGrade: (payload: { belt: string; grade: number; stripes?: number; attendanceCountBonus?: number }) =>
+  updateOwnStaffBeltGrade: (payload: { belt: string; grade: number; stripes?: number; attendanceCountBonus?: number; blackBeltDate?: string; blackBeltDegreeManual?: number | null }) =>
     callFunction<{ userId: string; belt: string; grade: number; stripes: number; attendanceCountBonus: number }>('updateOwnStaffBeltGrade', payload),
 
   adminUpdateStudentProfile: (payload: {
@@ -201,6 +201,7 @@ export const backendFunctions = {
     belt?: string;
     grade?: number;
     lastGraduationDateOverride?: string;
+    blackBeltDegreeManual?: number | null;
   }) => callFunction<{ userId: string; displayName: string }>('adminUpdateInstructorProfile', payload),
 
   approveGraduationRequest: (payload: { requestId: string }) =>
@@ -563,7 +564,8 @@ export const backendFunctions = {
     category: string;
     description?: string;
     purchasePrice: number;
-    salePrice: number;
+    salePriceFilial: number;
+    salePriceDiretoria: number;
     stockCurrent?: number;
     stockMinimum: number;
     status?: FinanceStatus;

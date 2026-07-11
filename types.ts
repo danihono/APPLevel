@@ -52,6 +52,8 @@ export interface User {
   belt: BeltColor;
   grade: number;
   stripes: number; // 0-4
+  // Faixa preta: override manual do grau (0-9). null/ausente = grau derivado da data da preta.
+  blackBeltDegreeManual?: number | null;
   status?: 'active' | 'invited' | 'suspended';
   classesToNextStripe: number;
   totalClassesToNextBelt: number;

@@ -2,9 +2,12 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   beltLabel,
   getBeltOptions,
+  getBlackBeltProgress,
+  getBlackBeltProgressForUser,
   getUserProgressionSummary,
   inferKidsCategoryFromBirthDate,
   inferTrainingTypeFromBirthDate,
+  isBlackBelt,
   isKidsOnlyBelt,
   kidsCategoryLabel,
   KIDS_CATEGORIES,
@@ -20,6 +23,14 @@ import { subscribeToUserAttendances, subscribeToUserGraduations, type FirestoreE
 import type { AttendanceRecord, ClassRecord, GraduationApprovalRequestRecord, GraduationRecord } from '../services/firebase/models';
 import type { KidsCategory, User } from '../types';
 
+// ISO/qualquer data -> yyyy-mm-dd para <input type="date">; '' se vazio/invalido.
+function isoToInputDate(value?: string | null): string {
+  if (!value) return '';
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.valueOf())) return '';
+  return parsed.toISOString().slice(0, 10);
+}
+
 interface StudentDetailViewProps {
   student: User;
   progressionRules?: ProgressionRules | null;
@@ -27,7 +38,7 @@ interface StudentDetailViewProps {
   classes?: Array<FirestoreEntity<ClassRecord>>;
   onBack: () => void;
   onApproveGraduationRequest?: (requestId: string) => Promise<void>;
-  onUpdateStudentBeltGrade?: (payload: { userId: string; belt: string; grade: number; stripes?: number; kidsCategory?: string; gradeProgress?: number }) => Promise<void>;
+  onUpdateStudentBeltGrade?: (payload: { userId: string; belt: string; grade: number; stripes?: number; kidsCategory?: string; gradeProgress?: number; blackBeltDate?: string; blackBeltDegreeManual?: number | null }) => Promise<void>;
   onSetStudentAttendanceBonus?: (payload: { userId: string; attendanceCountBonus: number }) => Promise<void>;
   onAdminUpdateStudentProfile?: (payload: {
     userId: string;
@@ -144,6 +155,13 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
   const canUseAdultGraduation = inferredKidsCategory == null;
   const [studentBelt, setStudentBelt] = useState(student.belt);
   const [studentGrade, setStudentGrade] = useState(student.stripes);
+  // Faixa preta: data da preta + override manual do grau (grau por tempo IBJJF).
+  const [studentBlackBeltDate, setStudentBlackBeltDate] = useState(
+    isoToInputDate(student.lastGraduationDateOverride ?? student.lastGraduation),
+  );
+  const [studentBlackBeltManual, setStudentBlackBeltManual] = useState(
+    student.blackBeltDegreeManual == null ? '' : String(student.blackBeltDegreeManual),
+  );
   const [studentKidsCategory, setStudentKidsCategory] = useState<KidsCategory | ''>(student.kidsCategory ?? inferredKidsCategory ?? '');
   const [attendanceBonus, setAttendanceBonus] = useState(student.attendanceCountBonus ?? 0);
   const [gradeCurrentClasses, setGradeCurrentClasses] = useState(
@@ -370,6 +388,20 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
   const gradeDisplayTotal = progression.stripeCycleTotal;
   const gradeDisplayProgress = progression.stripeCycleProgress;
 
+  // Estado salvo do aluno (para o avatar/cabeçalho): grau por tempo + override manual.
+  const savedStudentBlackBelt = getBlackBeltProgressForUser(student);
+  // Faixa preta: grau por tempo da data + override manual (opcional). Fonte única do grau.
+  const studentBeltIsBlack = isBlackBelt(studentBelt);
+  const studentBlackBeltManualDegree = studentBlackBeltManual.trim() === ''
+    ? null
+    : Math.max(0, Math.min(9, Math.floor(Number(studentBlackBeltManual) || 0)));
+  const studentAutoBlackDegree = studentBeltIsBlack
+    ? (getBlackBeltProgress(studentBlackBeltDate)?.degree ?? 0)
+    : 0;
+  const studentBlackBeltPreview = studentBeltIsBlack
+    ? getBlackBeltProgress(studentBlackBeltDate, undefined, studentBlackBeltManualDegree)
+    : null;
+
   useEffect(() => {
     if (!studentBeltOptions.length) {
       return;
@@ -414,15 +446,18 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
     setError('');
 
     try {
-      // Envia apenas "aulas no grau atual" (gradeProgress). O backend calcula marco + bonus a partir
-      // da contagem real dele, posicionando o aluno exatamente (inclui aluno colocado manualmente).
+      // Faixa preta: grau por tempo (data da preta) + override manual. Fora da preta, envia
+      // "aulas no grau atual" (gradeProgress) e o backend calcula marco + bonus pela contagem real.
+      const effectiveGrade = studentBeltIsBlack ? (studentBlackBeltPreview?.degree ?? 0) : studentGrade;
       await onUpdateStudentBeltGrade({
         userId: student.id,
         belt: studentBelt,
-        grade: studentGrade,
-        stripes: studentGrade,
+        grade: effectiveGrade,
+        stripes: effectiveGrade,
         kidsCategory: studentTrack === 'Kids' ? studentKidsCategory : '',
-        gradeProgress: gradeCurrentClasses,
+        gradeProgress: studentBeltIsBlack ? undefined : gradeCurrentClasses,
+        blackBeltDate: studentBeltIsBlack ? (studentBlackBeltDate || undefined) : undefined,
+        blackBeltDegreeManual: studentBeltIsBlack ? studentBlackBeltManualDegree : undefined,
       });
       setFeedback('Graduação do aluno atualizada com sucesso.');
     } catch (submitError) {
@@ -540,8 +575,9 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
             avatar={student.avatar}
             name={student.name}
             belt={student.belt}
-            stripes={student.stripes}
+            stripes={savedStudentBlackBelt ? savedStudentBlackBelt.degree : student.stripes}
             size="lg"
+            blackBelt={savedStudentBlackBelt}
           />
         </div>
         {onAdminUpdateStudentPhoto ? (
@@ -805,21 +841,56 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
               ) : null}
             </label>
 
-            <label className="app-field">
-              <span className="app-field__label">Grau</span>
-              <input
-                type="number"
-                min={0}
-                value={studentGrade}
-                onChange={(event) => {
-                  setStudentGrade(Math.max(0, Math.floor(Number(event.target.value) || 0)));
-                  setGradeCurrentClasses(0);
-                }}
-                className="app-input"
-              />
-            </label>
+            {studentBeltIsBlack ? (
+              <>
+                <label className="app-field">
+                  <span className="app-field__label">Data da faixa preta</span>
+                  <input
+                    type="date"
+                    value={studentBlackBeltDate}
+                    onChange={(event) => setStudentBlackBeltDate(event.target.value)}
+                    className="app-input"
+                  />
+                  <span className="app-field__hint">
+                    {studentBlackBeltPreview
+                      ? `${studentBlackBeltPreview.label} · ${studentBlackBeltPreview.years} ${studentBlackBeltPreview.years === 1 ? 'ano' : 'anos'} de faixa preta${studentBlackBeltPreview.styleNote ? ` (${studentBlackBeltPreview.styleNote})` : ''}.`
+                      : 'Informe a data em que recebeu a preta para calcular o grau por tempo (IBJJF).'}
+                  </span>
+                </label>
 
-            {progression.classesPerStripe > 0 ? (
+                <label className="app-field">
+                  <span className="app-field__label">Grau manual (opcional)</span>
+                  <input
+                    type="number"
+                    min={0}
+                    max={9}
+                    value={studentBlackBeltManual}
+                    onChange={(event) => setStudentBlackBeltManual(
+                      event.target.value === '' ? '' : String(Math.max(0, Math.min(9, Math.floor(Number(event.target.value) || 0)))),
+                    )}
+                    className="app-input"
+                    placeholder={`Automático (${studentAutoBlackDegree}º)`}
+                  />
+                  <span className="app-field__hint">Deixe vazio para usar o grau automático pela data. Preencha só para ajustar manualmente.</span>
+                </label>
+              </>
+            ) : (
+              <label className="app-field">
+                <span className="app-field__label">Grau</span>
+                <input
+                  type="number"
+                  min={0}
+                  value={studentGrade}
+                  onChange={(event) => {
+                    setStudentGrade(Math.max(0, Math.floor(Number(event.target.value) || 0)));
+                    setGradeCurrentClasses(0);
+                  }}
+                  className="app-input"
+                />
+              </label>
+            )}
+
+            {!studentBeltIsBlack && progression.classesPerStripe > 0 ? (
               <label className="app-field">
                 <span className="app-field__label">Aulas no grau atual</span>
                 <input

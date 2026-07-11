@@ -139,6 +139,8 @@ export interface UserDoc {
   belt: string;
   stripes: number;
   grade: number;
+  // Faixa preta: override manual do grau (0..9). null/ausente = grau derivado da data da preta.
+  blackBeltDegreeManual?: number | null;
   photoPath?: string;
   attendanceCount: number;
   attendanceCountBonus?: number;

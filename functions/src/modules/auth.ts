@@ -14,6 +14,7 @@ import {
   Role,
   UserDoc,
 } from '../domain/models';
+import { MAX_BLACK_BELT_DEGREE, resolveBlackBeltDegree } from '../lib/blackBelt';
 import { findSingleByFields, getRequestContext, getUserDoc } from '../lib/context';
 import { assertCondition } from '../lib/errors';
 import { auth, db, messaging, storage } from '../lib/firebase';
@@ -139,8 +140,17 @@ async function applyStudentBeltGradeUpdate(params: {
   ruleVersion?: number;
   gradeProgress?: number;
   desiredBonus?: number;
+  blackBeltDate?: string;
+  blackBeltDegreeManual?: number | null;
 }): Promise<Timestamp> {
   const now = Timestamp.now();
+
+  // Faixa preta: grau por TEMPO (data da preta) + override manual — nao progride por presenca.
+  if (normalizeBeltId(params.belt) === 'black') {
+    const { timestamp } = await applyBlackBeltUpdate(params, now);
+    return timestamp;
+  }
+
   let attendanceCountAtBeltStart: number | undefined;
   let attendanceCountBonusToWrite: number | undefined;
 
@@ -192,7 +202,7 @@ async function applyStudentBeltGradeUpdate(params: {
     ...(attendanceCountAtBeltStart !== undefined ? { attendanceCountAtBeltStart } : {}),
     ...(attendanceCountBonusToWrite !== undefined ? { attendanceCountBonus: attendanceCountBonusToWrite } : {}),
     ...(params.hasKidsCategoryField ? { kidsCategory: params.kidsCategory ?? null } : {}),
-    ...(beltChanged ? { lastGraduationDateOverride: now } : {}),
+    ...(beltChanged ? { lastGraduationDateOverride: now, blackBeltDegreeManual: null } : {}),
     ...(beltChanged || stripeChanged ? { lastStripeDateOverride: now, lastGradeApprovalAt: now } : {}),
     updatedAt: now,
   });
@@ -213,6 +223,76 @@ async function applyStudentBeltGradeUpdate(params: {
   }
 
   return now;
+}
+
+// yyyy-mm-dd (input date) ou ISO -> Date; null se vazio/invalido (mesma convencao de new Date(raw)).
+function parseIsoDateOrNull(value?: string | null): Date | null {
+  if (!value) return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  const parsed = new Date(trimmed);
+  return Number.isNaN(parsed.valueOf()) ? null : parsed;
+}
+
+// Faixa preta: a "data da preta" (lastGraduationDateOverride) e a fonte unica do grau.
+// grade/stripes sao derivados (override manual > grau por tempo IBJJF), mantendo tudo coerente
+// em todas as telas. Nada de progresso por presenca aqui.
+async function applyBlackBeltUpdate(
+  params: {
+    targetUserId: string;
+    targetUser: UserDoc;
+    belt: string;
+    kidsCategory?: string;
+    hasKidsCategoryField: boolean;
+    ruleVersion?: number;
+    blackBeltDate?: string;
+    blackBeltDegreeManual?: number | null;
+  },
+  now: Timestamp,
+): Promise<{ timestamp: Timestamp; degree: number }> {
+  const wasBlack = normalizeBeltId(params.targetUser.belt) === 'black';
+
+  // Data desde quando e preta: informada > preservada (se ja era preta) > agora.
+  const providedDate = parseIsoDateOrNull(params.blackBeltDate);
+  const preservedDate = wasBlack ? (params.targetUser.lastGraduationDateOverride?.toDate() ?? null) : null;
+  const sinceDate = providedDate ?? preservedDate ?? now.toDate();
+
+  const manualDegree = typeof params.blackBeltDegreeManual === 'number' && Number.isFinite(params.blackBeltDegreeManual)
+    ? Math.max(0, Math.min(MAX_BLACK_BELT_DEGREE, Math.floor(params.blackBeltDegreeManual)))
+    : null;
+  const degree = resolveBlackBeltDegree({ since: sinceDate, manualDegree, now: now.toDate() });
+
+  const beltChanged = !wasBlack;
+  const degreeChanged = (params.targetUser.stripes ?? 0) !== degree;
+
+  await db.collection(COLLECTIONS.users).doc(params.targetUserId).update({
+    belt: params.belt,
+    grade: degree,
+    stripes: degree,
+    blackBeltDegreeManual: manualDegree,
+    lastGraduationDateOverride: Timestamp.fromDate(sinceDate),
+    ...(params.hasKidsCategoryField ? { kidsCategory: params.kidsCategory ?? null } : {}),
+    ...(beltChanged || degreeChanged ? { lastStripeDateOverride: now, lastGradeApprovalAt: now } : {}),
+    updatedAt: now,
+  });
+
+  // Registra a graduacao apenas na promocao para preta (datada da preta), nao em ajustes de grau.
+  if (beltChanged) {
+    await db.collection(COLLECTIONS.graduations).doc().set({
+      academyId: params.targetUser.academyId,
+      userId: params.targetUserId,
+      previousBelt: params.targetUser.belt,
+      previousStripes: params.targetUser.stripes,
+      newBelt: params.belt,
+      newStripes: degree,
+      attendanceCount: params.targetUser.attendanceCount,
+      promotedAt: Timestamp.fromDate(sinceDate),
+      ruleVersion: params.ruleVersion ?? 1,
+      reason: 'manual_progression',
+    });
+  }
+
+  return { timestamp: now, degree };
 }
 
 async function ensureUniqueIdentity(params: {
@@ -1130,6 +1210,10 @@ export const updateStudentBeltGrade = onCall(callableOptions, async (request) =>
   const gradeProgress = gradeProgressRaw != null
     ? Math.max(0, Math.floor(gradeProgressRaw))
     : undefined;
+  const blackBeltDate = optionalString(request.data, 'blackBeltDate');
+  const blackBeltDegreeManual = Object.prototype.hasOwnProperty.call(data, 'blackBeltDegreeManual')
+    ? optionalNumber(request.data, 'blackBeltDegreeManual') ?? null
+    : undefined;
   const targetUser = await getUserDoc(targetUserId);
 
   assertCondition(targetUser.role === 'student', 'invalid-argument', 'Somente alunos podem ter faixa ou grau alterados.');
@@ -1148,6 +1232,8 @@ export const updateStudentBeltGrade = onCall(callableOptions, async (request) =>
     kidsCategory,
     hasKidsCategoryField,
     gradeProgress,
+    blackBeltDate,
+    blackBeltDegreeManual,
   });
 
   await syncUserDerivedState(targetUserId, targetUser.academyId);
@@ -1223,7 +1309,30 @@ export const updateOwnStaffBeltGrade = onCall(callableOptions, async (request) =
   const attendanceCountBonus = Object.prototype.hasOwnProperty.call(data, 'attendanceCountBonus')
     ? Math.max(0, Math.floor(requiredNumber(request.data, 'attendanceCountBonus')))
     : (actor.user.attendanceCountBonus ?? 0);
+  const blackBeltDate = optionalString(request.data, 'blackBeltDate');
+  const blackBeltDegreeManual = Object.prototype.hasOwnProperty.call(data, 'blackBeltDegreeManual')
+    ? optionalNumber(request.data, 'blackBeltDegreeManual') ?? null
+    : undefined;
   const academyId = actor.user.academyId.trim();
+
+  // Faixa preta: grau por tempo (data da preta) + override manual. Vale com ou sem academia —
+  // nao depende de attendances, entao trata os dois casos igual (corrige o "desde 2026 · 0o").
+  if (belt === 'black') {
+    const { degree } = await applyBlackBeltUpdate({
+      targetUserId: actor.uid,
+      targetUser: actor.user,
+      belt,
+      hasKidsCategoryField: false,
+      blackBeltDate,
+      blackBeltDegreeManual,
+    }, Timestamp.now());
+
+    if (academyId.length > 0) {
+      await syncUserDerivedState(actor.uid, academyId);
+    }
+
+    return { userId: actor.uid, belt, grade: degree, stripes: degree, attendanceCountBonus };
+  }
 
   if (academyId.length > 0) {
     // O helper (via desiredBonus) e a UNICA fonte de marco+bonus — sem update de bonus isolado depois.
@@ -1453,6 +1562,16 @@ export const adminUpdateStudentTimeline = onCall(callableOptions, async (request
   if (data.lastStripeDateOverride !== undefined) {
     const raw = optionalString(request.data, 'lastStripeDateOverride');
     updateFields.lastStripeDateOverride = raw ? Timestamp.fromDate(new Date(raw)) : null;
+  }
+
+  // Faixa preta: a "última graduação" é a data da preta. Se mudou, re-deriva grade/stripes
+  // (grau por tempo + override manual) para o número não ficar solto em relação à data.
+  if (normalizeBeltId(targetUser.belt) === 'black' && data.lastGraduationDateOverride !== undefined) {
+    const raw = optionalString(request.data, 'lastGraduationDateOverride');
+    const since = raw ? new Date(raw) : null;
+    const degree = resolveBlackBeltDegree({ since, manualDegree: targetUser.blackBeltDegreeManual ?? null });
+    updateFields.grade = degree;
+    updateFields.stripes = degree;
   }
 
   await db.collection(COLLECTIONS.users).doc(targetUserId).update(updateFields);
@@ -1739,6 +1858,29 @@ export const adminUpdateInstructorProfile = onCall(callableOptions, async (reque
   if (instructorData.lastGraduationDateOverride !== undefined) {
     const raw = optionalString(request.data, 'lastGraduationDateOverride');
     firestorePatch.lastGraduationDateOverride = raw ? Timestamp.fromDate(new Date(raw)) : null;
+  }
+
+  if (instructorData.blackBeltDegreeManual !== undefined) {
+    const rawManual = optionalNumber(request.data, 'blackBeltDegreeManual');
+    firestorePatch.blackBeltDegreeManual = rawManual == null
+      ? null
+      : Math.max(0, Math.min(MAX_BLACK_BELT_DEGREE, Math.floor(rawManual)));
+  }
+
+  // Faixa preta: grade/stripes são derivados (override manual > grau por tempo da data),
+  // mantendo o número conectado à data. Ao sair da preta, limpa o override manual.
+  if (normalizeBeltId(belt) === 'black') {
+    const rawDate = optionalString(request.data, 'lastGraduationDateOverride');
+    const since = rawDate ? new Date(rawDate) : (targetUser.lastGraduationDateOverride?.toDate() ?? null);
+    const manual = firestorePatch.blackBeltDegreeManual !== undefined
+      ? (firestorePatch.blackBeltDegreeManual as number | null)
+      : (targetUser.blackBeltDegreeManual ?? null);
+    const degree = resolveBlackBeltDegree({ since, manualDegree: manual });
+    firestorePatch.grade = degree;
+    firestorePatch.stripes = degree;
+  } else if (normalizeBeltId(targetUser.belt) === 'black') {
+    firestorePatch.blackBeltDegreeManual = null;
+    firestorePatch.stripes = grade;
   }
 
   await db.collection(COLLECTIONS.users).doc(targetUserId).update(firestorePatch);

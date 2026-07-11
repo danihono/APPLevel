@@ -1,9 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   beltLabel,
-  getBlackBeltProgress,
+  getBlackBeltProgressForUser,
   getUserProgressionSummary,
-  isBlackBelt,
   type ProgressionRules,
 } from '../beltCatalog';
 import { Calendar as CalIcon, Sparkles, Trophy } from 'lucide-react';
@@ -33,10 +32,10 @@ const HomeView: React.FC<HomeViewProps> = ({
     () => getUserProgressionSummary(user, progressionRules),
     [progressionRules, user],
   );
-  // Faixa preta: grau por tempo (padrão IBJJF) em vez de progresso por presença.
+  // Faixa preta: grau por tempo (padrão IBJJF) + override manual, em vez de progresso por presença.
   const blackBeltProgress = useMemo(
-    () => (isBlackBelt(user.belt) ? getBlackBeltProgress(user.lastGraduation) : null),
-    [user.belt, user.lastGraduation],
+    () => getBlackBeltProgressForUser(user),
+    [user.belt, user.lastGraduation, user.blackBeltDegreeManual],
   );
   const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
   const attendedDays = new Set(attendanceDays);
@@ -110,7 +109,7 @@ const HomeView: React.FC<HomeViewProps> = ({
         </p>
 
         <div className="mt-6">
-          <BjjBelt color={user.belt} stripes={user.stripes} blackBelt={blackBeltProgress} />
+          <BjjBelt color={user.belt} stripes={blackBeltProgress ? blackBeltProgress.degree : user.stripes} blackBelt={blackBeltProgress} />
         </div>
 
         {blackBeltProgress ? (

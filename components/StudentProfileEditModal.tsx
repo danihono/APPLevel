@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { ArrowLeft, Save, User, Calendar } from 'lucide-react';
 import type { User as UserType } from '../types';
+import { isBlackBelt } from '../beltCatalog';
 import { useConfirm } from './ConfirmDialog';
 
 interface StudentProfileEditModalProps {
@@ -255,14 +256,18 @@ const StudentProfileEditModal: React.FC<StudentProfileEditModalProps> = ({
             </label>
 
             <label className="app-field">
-              <span className="app-field__label">Última graduação</span>
+              <span className="app-field__label">{isBlackBelt(student.belt) ? 'Data da faixa preta' : 'Última graduação'}</span>
               <input
                 type="date"
                 value={lastGraduationDate}
                 onChange={(e) => setLastGraduationDate(e.target.value)}
                 className="app-input"
               />
-              <span className="app-field__hint">Substitui a data calculada automaticamente pelo sistema</span>
+              <span className="app-field__hint">
+                {isBlackBelt(student.belt)
+                  ? 'Data em que recebeu a preta — define o grau por tempo (IBJJF) e o número de graus.'
+                  : 'Substitui a data calculada automaticamente pelo sistema'}
+              </span>
             </label>
 
             <label className="app-field">

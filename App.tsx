@@ -548,7 +548,7 @@ const App: React.FC = () => {
   const [authReady, setAuthReady] = useState(false);
   const [authUser, setAuthUser] = useState<FirebaseUser | null>(null);
   const [activeTab, setActiveTab] = useState('home');
-  const [managementFocusSection, setManagementFocusSection] = useState<'master-black' | null>(null);
+  const [managementFocusSection, setManagementFocusSection] = useState<'master-black' | 'students' | 'overview' | null>(null);
   const [pendingCheckin, setPendingCheckin] = useState<{ token: string; classId: string } | null>(null);
   const [checkinStatus, setCheckinStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [checkinStep, setCheckinStep] = useState<'initial' | 'confirm'>('initial');
@@ -1799,6 +1799,7 @@ const App: React.FC = () => {
     belt?: string;
     grade?: number;
     lastGraduationDateOverride?: string;
+    blackBeltDegreeManual?: number | null;
   }) {
     try {
       await backendFunctions.adminUpdateInstructorProfile(payload);
@@ -1835,7 +1836,7 @@ const App: React.FC = () => {
     }
   }
 
-  async function handleUpdateStudentBeltGrade(payload: { userId: string; belt: string; grade: number; stripes?: number; kidsCategory?: string; gradeProgress?: number }) {
+  async function handleUpdateStudentBeltGrade(payload: { userId: string; belt: string; grade: number; stripes?: number; kidsCategory?: string; gradeProgress?: number; blackBeltDate?: string; blackBeltDegreeManual?: number | null }) {
     try {
       await backendFunctions.updateStudentBeltGrade(payload);
     } catch (error) {
@@ -2111,7 +2112,7 @@ const App: React.FC = () => {
     }
   }
 
-  async function handleSaveOwnBeltGrade(payload: { belt: string; grade: number; stripes: number; attendanceCountBonus: number }) {
+  async function handleSaveOwnBeltGrade(payload: { belt: string; grade: number; stripes: number; attendanceCountBonus: number; blackBeltDate?: string; blackBeltDegreeManual?: number | null }) {
     if (!authUser) throw new Error('Sessao invalida.');
     try {
       await backendFunctions.updateOwnStaffBeltGrade(payload);
@@ -2542,6 +2543,20 @@ const App: React.FC = () => {
               fightVideoSubmissions={fightVideoSubmissions}
               canReviewAllAttendanceRequests={profile.role === 'superadmin'}
               onNavigateToPending={() => setActiveTab('notifications')}
+              onNavigateToInstructors={() => {
+                setManagementFocusSection('overview');
+                setActiveTab('management');
+              }}
+              onNavigateToStudents={() => {
+                if (isSuperadminProfessorView) {
+                  setActiveTab('students');
+                } else {
+                  setManagementFocusSection('students');
+                  setActiveTab('management');
+                }
+              }}
+              onNavigateToClasses={() => setActiveTab('calendar')}
+              onNavigateToFrequency={() => setActiveTab('calendar')}
             />
           ) : (
             <HomeView

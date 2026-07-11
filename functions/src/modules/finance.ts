@@ -88,13 +88,31 @@ function roundMoney(value: number): number {
   return Math.round((value + Number.EPSILON) * 100) / 100;
 }
 
-// Le o preco de venda do produto, com fallback para os campos legados
-// (salePriceFilial/salePriceDiretoria) presentes em documentos antigos.
-function readProductSalePrice(product: FinanceProductDoc): number {
-  if (typeof product.salePrice === 'number') return product.salePrice;
+type ProductPriceFields = Pick<FinanceProductDoc, 'salePrice' | 'salePriceFilial' | 'salePriceDiretoria'>;
+
+// Preco de venda para filiais. Documentos antigos (preco unico) caem no
+// `salePrice`; se so houver o preco de diretoria, usa-o como ultimo recurso.
+function readProductSalePriceFilial(product: ProductPriceFields): number {
   if (typeof product.salePriceFilial === 'number') return product.salePriceFilial;
+  if (typeof product.salePrice === 'number') return product.salePrice;
   if (typeof product.salePriceDiretoria === 'number') return product.salePriceDiretoria;
   return 0;
+}
+
+// Preco de venda para a diretoria. Mesmo esquema de fallback.
+function readProductSalePriceDiretoria(product: ProductPriceFields): number {
+  if (typeof product.salePriceDiretoria === 'number') return product.salePriceDiretoria;
+  if (typeof product.salePrice === 'number') return product.salePrice;
+  if (typeof product.salePriceFilial === 'number') return product.salePriceFilial;
+  return 0;
+}
+
+// Seleciona o preco do produto conforme o tipo de comprador. Produtos so sao
+// vendidos para 'filial' ou 'diretoria'; qualquer outro caso usa o de filial.
+function readProductSalePriceForBuyer(product: ProductPriceFields, buyerType: FinanceBuyerType): number {
+  return buyerType === 'diretoria'
+    ? readProductSalePriceDiretoria(product)
+    : readProductSalePriceFilial(product);
 }
 
 function requiredMoney(data: unknown, fieldName: string): number {
@@ -311,7 +329,7 @@ async function resolveSaleItems(
     assertCondition(data.status === 'active', 'failed-precondition', `Item ${index + 1} esta inativo.`);
 
     const catalogPrice = item.type === 'product'
-      ? readProductSalePrice(data as FinanceProductDoc)
+      ? readProductSalePriceForBuyer(data as FinanceProductDoc, buyerType)
       : (data as FinanceServiceDoc).salePrice;
     const unitPrice = item.unitPrice ?? catalogPrice;
     assertCondition(item.discount <= unitPrice, 'invalid-argument', `O desconto do item ${index + 1} nao pode superar o valor unitario.`);
@@ -553,7 +571,8 @@ export const upsertFinanceProduct = onCall(callableOptions, async (request) => {
   const category = requiredString(request.data, 'category').trim();
   const description = optionalString(request.data, 'description')?.trim();
   const purchasePrice = requiredMoney(request.data, 'purchasePrice');
-  const salePrice = requiredMoney(request.data, 'salePrice');
+  const salePriceFilial = requiredMoney(request.data, 'salePriceFilial');
+  const salePriceDiretoria = requiredMoney(request.data, 'salePriceDiretoria');
   const stockMinimum = optionalMoney(request.data, 'stockMinimum', 0);
   const stockCurrent = optionalNumber(request.data, 'stockCurrent');
   const status = normalizeStatus(optionalString(request.data, 'status'));
@@ -572,18 +591,23 @@ export const upsertFinanceProduct = onCall(callableOptions, async (request) => {
       : roundMoney(stockCurrent);
     assertCondition(nextStock >= 0, 'invalid-argument', 'Estoque atual nao pode ser negativo.');
 
-    const previousSalePrice = previous ? readProductSalePrice(previous) : undefined;
+    const previousFilial = previous ? readProductSalePriceFilial(previous) : undefined;
+    const previousDiretoria = previous ? readProductSalePriceDiretoria(previous) : undefined;
     // Registra um ponto no historico de precos quando algum preco muda (ou no cadastro inicial).
     const priceChanged = !previous
       || previous.purchasePrice !== purchasePrice
-      || previousSalePrice !== salePrice;
+      || previousFilial !== salePriceFilial
+      || previousDiretoria !== salePriceDiretoria;
     const priceHistory: ProductPriceHistoryEntry[] = [...(previous?.priceHistory ?? [])];
     if (priceChanged) {
       priceHistory.push({
         changedAt: now,
         changedBy: actor.uid,
         purchasePrice,
-        salePrice,
+        // `salePrice` legado = preco de filial, para leitores antigos.
+        salePrice: salePriceFilial,
+        salePriceFilial,
+        salePriceDiretoria,
       });
     }
 
@@ -592,7 +616,10 @@ export const upsertFinanceProduct = onCall(callableOptions, async (request) => {
       category,
       ...(description ? { description } : {}),
       purchasePrice,
-      salePrice,
+      // `salePrice` legado = preco de filial, para leitores antigos.
+      salePrice: salePriceFilial,
+      salePriceFilial,
+      salePriceDiretoria,
       stockCurrent: nextStock,
       stockMinimum,
       status,

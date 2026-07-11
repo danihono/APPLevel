@@ -70,7 +70,7 @@ service cloud.firestore {
       // fecha o bypass do gate de graduacao e da contabilidade marco+bonus.
       allow update: if isAcademyStaff(resource.data.academyId)
         && !request.resource.data.diff(resource.data).affectedKeys().hasAny([
-          'belt', 'stripes', 'grade',
+          'belt', 'stripes', 'grade', 'blackBeltDegreeManual',
           'attendanceCount', 'attendanceCountBonus', 'attendanceCountAtBeltStart',
           'lastGradeApprovalAt', 'lastStripeDateOverride', 'lastGraduationDateOverride',
           'role', 'academyId', 'memberships',

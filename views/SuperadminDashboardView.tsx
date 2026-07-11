@@ -43,6 +43,7 @@ interface SuperadminDashboardViewProps {
     belt?: string;
     grade?: number;
     lastGraduationDateOverride?: string;
+    blackBeltDegreeManual?: number | null;
   }) => Promise<void>;
 }
 
