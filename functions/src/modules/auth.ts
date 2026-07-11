@@ -1294,8 +1294,8 @@ export const setStudentAttendanceBonus = onCall(callableOptions, async (request)
 });
 
 export const updateOwnStaffBeltGrade = onCall(callableOptions, async (request) => {
-  const actor = await getRequestContext(request, 'professor');
-  assertProfessorOrSuperadmin(actor.role);
+  // Só superadmin edita a própria faixa/grau; professor comum não altera a si mesmo.
+  const actor = await getRequestContext(request, 'superadmin');
 
   const data = (request.data as Record<string, unknown> | null) ?? {};
   const belt = normalizeBeltId(requiredString(request.data, 'belt'));

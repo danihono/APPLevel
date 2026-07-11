@@ -2802,7 +2802,7 @@ const App: React.FC = () => {
             isDarkMode={isDarkMode}
             onSetThemeMode={setThemeMode}
             onSaveProfile={handleSaveOwnProfile}
-            onSaveBeltGrade={profile?.role !== 'student' ? handleSaveOwnBeltGrade : undefined}
+            onSaveBeltGrade={isSuperAdmin ? handleSaveOwnBeltGrade : undefined}
             onChangeEmail={handleChangeOwnEmail}
             onDeleteAccount={profile?.role === 'student' ? handleDeleteMyAccount : undefined}
             onOpenNotifications={() => setActiveTab('notifications')}
