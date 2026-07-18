@@ -60,6 +60,7 @@ interface ManagementViewProps {
     phone?: string;
     cpf?: string;
     birthDate?: string;
+    email?: string;
     isCompetitor?: boolean;
   }) => Promise<void>;
   onAdminUpdateStudentTimeline?: (payload: {
