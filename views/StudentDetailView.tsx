@@ -14,11 +14,10 @@ import {
   type ProgressionRules,
 } from '../beltCatalog';
 import { useConfirm } from '../components/ConfirmDialog';
-import { AlertTriangle, ArrowLeft, ArrowDown, ArrowUp, Award, Calendar, Camera, CheckCircle2, ChevronDown, ChevronUp, Clock, Edit, Filter, Mail, QrCode, Save, TrendingUp, UserCheck, UserX, Video, BookOpen, X } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, ArrowDown, ArrowUp, Award, Calendar, Camera, CheckCircle2, ChevronDown, ChevronUp, Clock, Filter, Mail, QrCode, Save, TrendingUp, User as UserIcon, UserCheck, UserX, Video, BookOpen, X } from 'lucide-react';
 import AppVideoContent from '../components/AppVideoContent';
 import AvatarWithBelt from '../components/AvatarWithBelt';
 import ProgressBar from '../components/ProgressBar';
-import StudentProfileEditModal from '../components/StudentProfileEditModal';
 import { subscribeToUserAttendances, subscribeToUserGraduations, type FirestoreEntity } from '../services/firebase/data';
 import type { AttendanceRecord, ClassRecord, GraduationApprovalRequestRecord, GraduationRecord } from '../services/firebase/models';
 import type { KidsCategory, User } from '../types';
@@ -47,6 +46,7 @@ interface StudentDetailViewProps {
     phone?: string;
     cpf?: string;
     birthDate?: string;
+    email?: string;
     isCompetitor?: boolean;
   }) => Promise<void>;
   onAdminUpdateStudentTimeline?: (payload: {
@@ -142,7 +142,6 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
   onAdminSetUserMemberships,
 }) => {
   const confirm = useConfirm();
-  const [showEditModal, setShowEditModal] = useState(false);
   const photoInputRef = useRef<HTMLInputElement>(null);
   const [photoBusy, setPhotoBusy] = useState(false);
   const [photoFeedback, setPhotoFeedback] = useState('');
@@ -164,13 +163,24 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
   );
   const [studentKidsCategory, setStudentKidsCategory] = useState<KidsCategory | ''>(student.kidsCategory ?? inferredKidsCategory ?? '');
   const [attendanceBonus, setAttendanceBonus] = useState(student.attendanceCountBonus ?? 0);
+  // Formulario de dados cadastrais + datas da linha do tempo (edicao completa inline).
+  const [profileFirstName, setProfileFirstName] = useState(student.firstName ?? student.name.split(' ')[0] ?? '');
+  const [profileLastName, setProfileLastName] = useState(student.lastName ?? student.name.split(' ').slice(1).join(' ') ?? '');
+  const [profilePhone, setProfilePhone] = useState(student.phone ?? '');
+  const [profileCpf, setProfileCpf] = useState(student.cpf ?? '');
+  const [profileBirthDate, setProfileBirthDate] = useState(isoToInputDate(student.birthDate));
+  const [profileEmail, setProfileEmail] = useState(student.email ?? '');
+  const [profileIsCompetitor, setProfileIsCompetitor] = useState(student.isCompetitor ?? false);
+  const [editTrainingStartDate, setEditTrainingStartDate] = useState(isoToInputDate(student.trainingStartDate ?? student.startDate));
+  const [editLastGraduationDate, setEditLastGraduationDate] = useState(isoToInputDate(student.lastGraduationDateOverride ?? student.lastGraduation));
+  const [editLastStripeDate, setEditLastStripeDate] = useState(isoToInputDate(student.lastStripeDateOverride ?? student.lastStripeDate));
+  const [profileBusy, setProfileBusy] = useState(false);
   const [gradeCurrentClasses, setGradeCurrentClasses] = useState(
     () => getUserProgressionSummary({ ...student }, progressionRules).stripeCycleProgress,
   );
   const [approveBusy, setApproveBusy] = useState(false);
   const [approveConfirmOpen, setApproveConfirmOpen] = useState(false);
   const [saveBusy, setSaveBusy] = useState(false);
-  const [bonusBusy, setBonusBusy] = useState(false);
   const [deactivateBusy, setDeactivateBusy] = useState(false);
   const [feedback, setFeedback] = useState('');
   const [error, setError] = useState('');
@@ -258,6 +268,16 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
     setStudentKidsCategory(student.kidsCategory ?? inferKidsCategoryFromBirthDate(student.birthDate) ?? '');
     setAttendanceBonus(student.attendanceCountBonus ?? 0);
     setGradeCurrentClasses(getUserProgressionSummary({ ...student }, progressionRules).stripeCycleProgress);
+    setProfileFirstName(student.firstName ?? student.name.split(' ')[0] ?? '');
+    setProfileLastName(student.lastName ?? student.name.split(' ').slice(1).join(' ') ?? '');
+    setProfilePhone(student.phone ?? '');
+    setProfileCpf(student.cpf ?? '');
+    setProfileBirthDate(isoToInputDate(student.birthDate));
+    setProfileEmail(student.email ?? '');
+    setProfileIsCompetitor(student.isCompetitor ?? false);
+    setEditTrainingStartDate(isoToInputDate(student.trainingStartDate ?? student.startDate));
+    setEditLastGraduationDate(isoToInputDate(student.lastGraduationDateOverride ?? student.lastGraduation));
+    setEditLastStripeDate(isoToInputDate(student.lastStripeDateOverride ?? student.lastStripeDate));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [student.id]);
 
@@ -520,37 +540,62 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
     }
   }
 
-  async function handleSaveAttendanceBonus(event: React.FormEvent<HTMLFormElement>) {
+  async function handleSaveFullProfile(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!onAdminUpdateStudentProfile && !onAdminUpdateStudentTimeline) return;
 
-    if (!onSetStudentAttendanceBonus) {
+    const emailTrimmed = profileEmail.trim();
+    const emailChanged =
+      !!emailTrimmed && emailTrimmed.toLowerCase() !== (student.email ?? '').toLowerCase();
+    if (
+      emailChanged
+      && !(await confirm({
+        title: 'Alterar e-mail',
+        message: `Alterar o e-mail de ${student.name} para "${emailTrimmed}"?\n\n`
+          + 'O aluno passará a entrar no app com este novo e-mail.',
+        confirmLabel: 'Alterar e-mail',
+      }))
+    ) {
       return;
     }
 
-    setBonusBusy(true);
+    setProfileBusy(true);
     setFeedback('');
     setError('');
 
     try {
-      await onSetStudentAttendanceBonus({ userId: student.id, attendanceCountBonus: attendanceBonus });
-      setFeedback('Aulas extras salvas com sucesso.');
-    } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : 'Não foi possível salvar as aulas extras.');
-    } finally {
-      setBonusBusy(false);
-    }
-  }
+      if (onAdminUpdateStudentProfile) {
+        await onAdminUpdateStudentProfile({
+          userId: student.id,
+          firstName: profileFirstName.trim() || undefined,
+          lastName: profileLastName.trim() || undefined,
+          phone: profilePhone.trim() || undefined,
+          cpf: profileCpf.trim() || undefined,
+          birthDate: profileBirthDate || undefined,
+          email: emailTrimmed || undefined,
+          isCompetitor: profileIsCompetitor,
+        });
+      }
 
-  if (showEditModal) {
-    return (
-      <StudentProfileEditModal
-        student={student}
-        onClose={() => setShowEditModal(false)}
-        onAdminUpdateStudentProfile={onAdminUpdateStudentProfile}
-        onAdminUpdateStudentTimeline={onAdminUpdateStudentTimeline}
-        onSetStudentAttendanceBonus={onSetStudentAttendanceBonus}
-      />
-    );
+      if (onAdminUpdateStudentTimeline) {
+        await onAdminUpdateStudentTimeline({
+          userId: student.id,
+          trainingStartDate: editTrainingStartDate || undefined,
+          lastGraduationDateOverride: editLastGraduationDate || undefined,
+          lastStripeDateOverride: editLastStripeDate || undefined,
+        });
+      }
+
+      if (onSetStudentAttendanceBonus) {
+        await onSetStudentAttendanceBonus({ userId: student.id, attendanceCountBonus: attendanceBonus });
+      }
+
+      setFeedback('Dados do aluno atualizados com sucesso.');
+    } catch (submitError) {
+      setError(submitError instanceof Error ? submitError.message : 'Não foi possível salvar os dados.');
+    } finally {
+      setProfileBusy(false);
+    }
   }
 
   const latestGraduationIso = liveGraduations[0]?.promotedAt?.toDate?.()?.toISOString();
@@ -616,17 +661,6 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
           </div>
         </div>
 
-        {(onAdminUpdateStudentProfile || onAdminUpdateStudentTimeline) ? (
-          <button
-            type="button"
-            onClick={() => setShowEditModal(true)}
-            className="app-button app-button--ghost mt-4 w-full"
-          >
-            <Edit size={16} />
-            Editar dados completos
-          </button>
-        ) : null}
-
         {student.status === 'suspended' ? (
           <div className="mt-4 space-y-3">
             <div className="app-alert app-alert--error flex items-center gap-2">
@@ -657,6 +691,174 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
           </button>
         ) : null)}
       </section>
+
+      {(onAdminUpdateStudentProfile || onAdminUpdateStudentTimeline) ? (
+        <form onSubmit={handleSaveFullProfile} className="space-y-6">
+          <section className="app-panel app-panel-pad">
+            <div className="flex items-center gap-3">
+              <div className="app-icon-shell">
+                <UserIcon size={18} />
+              </div>
+              <div>
+                <p className="app-section-label">Dados pessoais</p>
+                <h2 className="text-xl font-bold">Informações cadastrais</h2>
+              </div>
+            </div>
+
+            <div className="mt-6 app-grid-2">
+              <label className="app-field">
+                <span className="app-field__label">Nome</span>
+                <input
+                  type="text"
+                  value={profileFirstName}
+                  onChange={(e) => setProfileFirstName(e.target.value)}
+                  className="app-input"
+                  placeholder="Nome"
+                />
+              </label>
+
+              <label className="app-field">
+                <span className="app-field__label">Sobrenome</span>
+                <input
+                  type="text"
+                  value={profileLastName}
+                  onChange={(e) => setProfileLastName(e.target.value)}
+                  className="app-input"
+                  placeholder="Sobrenome"
+                />
+              </label>
+
+              <label className="app-field">
+                <span className="app-field__label">Telefone</span>
+                <input
+                  type="tel"
+                  value={profilePhone}
+                  onChange={(e) => setProfilePhone(e.target.value)}
+                  className="app-input"
+                  placeholder="(11) 99999-9999"
+                />
+              </label>
+
+              <label className="app-field">
+                <span className="app-field__label">CPF</span>
+                <input
+                  type="text"
+                  value={profileCpf}
+                  onChange={(e) => setProfileCpf(e.target.value)}
+                  className="app-input"
+                  placeholder="000.000.000-00"
+                />
+              </label>
+
+              <label className="app-field">
+                <span className="app-field__label">Data de nascimento</span>
+                <input
+                  type="date"
+                  value={profileBirthDate}
+                  onChange={(e) => setProfileBirthDate(e.target.value)}
+                  className="app-input"
+                />
+              </label>
+
+              <label className="app-field">
+                <span className="app-field__label">E-mail</span>
+                <input
+                  type="email"
+                  value={profileEmail}
+                  onChange={(e) => setProfileEmail(e.target.value)}
+                  className="app-input"
+                  placeholder="aluno@email.com"
+                />
+                <span className="app-field__hint">Alterar o e-mail muda o login do aluno: ele passará a entrar com o novo e-mail.</span>
+              </label>
+            </div>
+
+            <label className="mt-4 flex items-center gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={profileIsCompetitor}
+                onChange={(e) => setProfileIsCompetitor(e.target.checked)}
+                className="h-4 w-4 rounded"
+              />
+              <span className="text-sm font-medium">Aluno competidor</span>
+            </label>
+          </section>
+
+          <section className="app-panel app-panel-pad">
+            <div className="flex items-center gap-3">
+              <div className="app-icon-shell">
+                <Calendar size={18} />
+              </div>
+              <div>
+                <p className="app-section-label">Histórico</p>
+                <h2 className="text-xl font-bold">Datas da linha do tempo</h2>
+              </div>
+            </div>
+
+            <p className="mt-4 text-sm text-[color:var(--text-muted)]">
+              Corrija as datas que aparecem na linha do tempo do aluno. Util para alunos cadastrados depois de ja terem iniciado os treinos.
+            </p>
+
+            <div className="mt-6 space-y-4">
+              <label className="app-field">
+                <span className="app-field__label">Início dos treinos</span>
+                <input
+                  type="date"
+                  value={editTrainingStartDate}
+                  onChange={(e) => setEditTrainingStartDate(e.target.value)}
+                  className="app-input"
+                />
+                <span className="app-field__hint">Data real em que o aluno começou a treinar na academia</span>
+              </label>
+
+              <label className="app-field">
+                <span className="app-field__label">{isBlackBelt(student.belt) ? 'Data da faixa preta' : 'Última graduação'}</span>
+                <input
+                  type="date"
+                  value={editLastGraduationDate}
+                  onChange={(e) => setEditLastGraduationDate(e.target.value)}
+                  className="app-input"
+                />
+                <span className="app-field__hint">
+                  {isBlackBelt(student.belt)
+                    ? 'Data em que recebeu a preta — define o grau por tempo (IBJJF) e o número de graus.'
+                    : 'Substitui a data calculada automaticamente pelo sistema'}
+                </span>
+              </label>
+
+              <label className="app-field">
+                <span className="app-field__label">Último grau recebido</span>
+                <input
+                  type="date"
+                  value={editLastStripeDate}
+                  onChange={(e) => setEditLastStripeDate(e.target.value)}
+                  className="app-input"
+                />
+                <span className="app-field__hint">Substitui a data calculada automaticamente pelo sistema</span>
+              </label>
+
+              {onSetStudentAttendanceBonus ? (
+                <label className="app-field">
+                  <span className="app-field__label">Aulas anteriores</span>
+                  <input
+                    type="number"
+                    min={0}
+                    value={attendanceBonus}
+                    onChange={(e) => setAttendanceBonus(Math.max(0, Math.floor(Number(e.target.value) || 0)))}
+                    className="app-input"
+                  />
+                  <span className="app-field__hint">Aulas realizadas antes do cadastro no sistema</span>
+                </label>
+              ) : null}
+            </div>
+          </section>
+
+          <button type="submit" disabled={profileBusy} className="app-button app-button--gold">
+            <Save size={16} />
+            {profileBusy ? 'Salvando...' : 'Salvar dados do aluno'}
+          </button>
+        </form>
+      ) : null}
 
       {viewerRole === 'superadmin' && academies && academies.length > 0 && onAdminSetUserMemberships ? (
         <section className="app-panel app-panel-pad">

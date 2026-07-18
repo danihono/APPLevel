@@ -36,6 +36,7 @@ export interface StudentRosterProps {
     phone?: string;
     cpf?: string;
     birthDate?: string;
+    email?: string;
     isCompetitor?: boolean;
   }) => Promise<void>;
   onAdminUpdateStudentTimeline?: (payload: {
