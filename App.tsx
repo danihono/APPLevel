@@ -2447,8 +2447,21 @@ const App: React.FC = () => {
 
   const resolvedAcademy = academy ?? buildFallbackAcademy(profile.id);
   const branch = toBranch(resolvedAcademy);
-  const attendanceThisMonth = attendances.filter((attendance) => isSameMonth(attendance.checkedInAt));
-  const attendanceDays = [...new Set(attendanceThisMonth.map((attendance) => attendance.checkedInAt?.toDate().getDate()).filter(Boolean))] as number[];
+  const classStartById = new Map(
+    classes
+      .filter((lesson) => lesson.scheduledStart)
+      .map((lesson) => [lesson.id, lesson.scheduledStart!.toDate()]),
+  );
+  // Presenca conta no dia/mes da aula (nao do lancamento): presenca dada pelo
+  // professor depois da aula continua no mes certo.
+  const attendanceDate = (attendance: FirestoreEntity<AttendanceRecord>) =>
+    classStartById.get(attendance.classId) ?? attendance.checkedInAt?.toDate();
+  const now = new Date();
+  const attendanceThisMonth = attendances.filter((attendance) => {
+    const date = attendanceDate(attendance);
+    return !!date && date.getFullYear() === now.getFullYear() && date.getMonth() === now.getMonth();
+  });
+  const attendanceDays = [...new Set(attendanceThisMonth.map((attendance) => attendanceDate(attendance)?.getDate()).filter(Boolean))] as number[];
   const studentSourceUsers = isSuperadminNetworkView ? allUsers : academyUsers;
   const students = studentSourceUsers
     .filter((user) => user.role === 'student' && user.status !== 'suspended')
@@ -2469,11 +2482,6 @@ const App: React.FC = () => {
       videoLibrary: studentVideoLibraryById.get(user.id),
     }));
   const classNameById = new Map(classes.map((lesson) => [lesson.id, lesson.title]));
-  const classStartById = new Map(
-    classes
-      .filter((lesson) => lesson.scheduledStart)
-      .map((lesson) => [lesson.id, lesson.scheduledStart!.toDate()]),
-  );
   const finishedClassesThisMonth = classes.filter((lesson) => lesson.status === 'finished' && isSameMonth(lesson.scheduledStart));
   const attendedFinishedClassIds = new Set(
     attendanceThisMonth

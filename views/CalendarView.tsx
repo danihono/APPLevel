@@ -483,6 +483,7 @@ const DesktopMonthGrid: React.FC<MonthGridProps> = React.memo(function DesktopMo
   onSelectDay,
   onOpenClass,
   nowMs,
+  attendedDays,
 }) {
   const [overflowDay, setOverflowDay] = useState<{ date: Date; classes: Array<FirestoreEntity<ClassRecord>> } | null>(null);
 
@@ -524,6 +525,10 @@ const DesktopMonthGrid: React.FC<MonthGridProps> = React.memo(function DesktopMo
             <span className="app-calendar-month-day__number">
               {cell.getDate()}
             </span>
+
+            {attendedDays?.has(key) ? (
+              <span className="app-calendar-month-day__dot app-calendar-month-day__dot--green" aria-hidden="true" />
+            ) : null}
 
             {dayClasses.length > 0 ? (
               <span className="app-calendar-month-day__count">
@@ -1135,13 +1140,24 @@ const CalendarView: React.FC<CalendarViewProps> = ({
     [attendances, currentUserId],
   );
 
+  const classStartById = useMemo(() => {
+    const records = new Map<string, Date>();
+    classes.forEach((entry) => {
+      if (entry.scheduledStart) records.set(entry.id, entry.scheduledStart.toDate());
+    });
+    return records;
+  }, [classes]);
+
+  // A bolinha usa a data da aula (nao a do lancamento): presenca dada pelo
+  // professor depois da aula ainda cai no dia certo do calendario.
   const myAttendedDays = useMemo(() => {
     const keys = new Set<string>();
     myAttendances.forEach((entry) => {
-      if (entry.checkedInAt) keys.add(toDateKey(entry.checkedInAt.toDate()));
+      const date = classStartById.get(entry.classId) ?? entry.checkedInAt?.toDate();
+      if (date) keys.add(toDateKey(date));
     });
     return keys;
-  }, [myAttendances]);
+  }, [classStartById, myAttendances]);
 
   const attendanceByUserId = useMemo(() => {
     const records = new Map<string, FirestoreEntity<AttendanceRecord>>();
@@ -1610,6 +1626,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                     onSelectDay={selectCalendarDay}
                     onOpenClass={openClassDetailsFromGrid}
                     nowMs={nowMs}
+                    attendedDays={!isStaff ? myAttendedDays : undefined}
                   />
                 </div>
               </section>
