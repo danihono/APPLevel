@@ -1299,6 +1299,20 @@ const CalendarView: React.FC<CalendarViewProps> = ({
     }
   }
 
+  async function handleToggleStudentRsvp(classId: string, studentId: string) {
+    const busyKey = `rsvp_${studentId}`;
+    setStudentErrorById((prev) => ({ ...prev, [studentId]: '' }));
+    setBusyByClass((prev) => ({ ...prev, [busyKey]: true }));
+    try {
+      await backendFunctions.toggleClassRsvp({ classId, targetUserId: studentId });
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : 'Erro ao atualizar confirmação.';
+      setStudentErrorById((prev) => ({ ...prev, [studentId]: msg }));
+    } finally {
+      setBusyByClass((prev) => ({ ...prev, [busyKey]: false }));
+    }
+  }
+
   async function handleMarkStudentPresent(classId: string, studentId: string) {
     const busyKey = `manual_${studentId}`;
     setStudentErrorById((prev) => ({ ...prev, [studentId]: '' }));
@@ -1935,6 +1949,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                           const record = entry.record;
                           const markBusy = !!busyByClass[`manual_${entry.userId}`];
                           const removeBusy = !!busyByClass[`remove_${entry.userId}`];
+                          const rsvpBusy = !!busyByClass[`rsvp_${entry.userId}`];
                           const studentError = studentErrorById[entry.userId] ?? '';
                           return (
                             <div key={entry.userId} className="app-list-card" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -1977,6 +1992,16 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                                   style={{ fontSize: '0.7rem', padding: '4px 10px', flexShrink: 0 }}
                                 >
                                   {removeBusy ? '...' : 'Desmarcar'}
+                                </button>
+                              ) : selectedClass.status === 'scheduled' ? (
+                                <button
+                                  type="button"
+                                  disabled={rsvpBusy}
+                                  onClick={() => void handleToggleStudentRsvp(selectedClass.id, entry.userId)}
+                                  className="app-button app-button--solid-danger app-button--small"
+                                  style={{ fontSize: '0.7rem', padding: '4px 10px', flexShrink: 0 }}
+                                >
+                                  {rsvpBusy ? '...' : 'Remover'}
                                 </button>
                               ) : (
                                 <button
@@ -2074,6 +2099,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                           const record = attendanceByUserId.get(student.id);
                           const markBusy = !!busyByClass[`manual_${student.id}`];
                           const removeBusy = !!busyByClass[`remove_${student.id}`];
+                          const rsvpBusy = !!busyByClass[`rsvp_${student.id}`];
                           const studentError = studentErrorById[student.id] ?? '';
                           return (
                             <div key={student.id} className="app-list-card" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -2125,6 +2151,16 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                                     style={{ fontSize: '0.7rem', padding: '4px 10px' }}
                                   >
                                     {removeBusy ? '...' : 'Desmarcar'}
+                                  </button>
+                                ) : selectedClass.status === 'scheduled' ? (
+                                  <button
+                                    type="button"
+                                    disabled={rsvpBusy}
+                                    onClick={() => void handleToggleStudentRsvp(selectedClass.id, student.id)}
+                                    className="app-button app-button--gold app-button--small"
+                                    style={{ fontSize: '0.7rem', padding: '4px 10px' }}
+                                  >
+                                    {rsvpBusy ? '...' : 'Adicionar'}
                                   </button>
                                 ) : (
                                   <button

@@ -543,7 +543,7 @@ export const backendFunctions = {
     unlockedLessonId?: string;
   }>('submitLessonQuiz', payload),
 
-  toggleClassRsvp: (payload: { classId: string }) =>
+  toggleClassRsvp: (payload: { classId: string; targetUserId?: string }) =>
     callFunction<{ rsvped: boolean; rsvpCount: number }>('toggleClassRsvp', payload),
 
   deactivateStudent: (payload: { userId: string }) =>
