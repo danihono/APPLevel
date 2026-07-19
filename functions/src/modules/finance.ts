@@ -115,6 +115,33 @@ function readProductSalePriceForBuyer(product: ProductPriceFields, buyerType: Fi
     : readProductSalePriceFilial(product);
 }
 
+type ServicePriceFields = Pick<FinanceServiceDoc, 'salePrice' | 'salePriceFilial' | 'salePriceDiretoria'>;
+
+// Preco de venda de servico para filiais. Documentos antigos (preco unico) caem
+// no `salePrice`; se so houver o preco de diretoria, usa-o como ultimo recurso.
+function readServiceSalePriceFilial(service: ServicePriceFields): number {
+  if (typeof service.salePriceFilial === 'number') return service.salePriceFilial;
+  if (typeof service.salePrice === 'number') return service.salePrice;
+  if (typeof service.salePriceDiretoria === 'number') return service.salePriceDiretoria;
+  return 0;
+}
+
+// Preco de venda de servico para a diretoria. Mesmo esquema de fallback.
+function readServiceSalePriceDiretoria(service: ServicePriceFields): number {
+  if (typeof service.salePriceDiretoria === 'number') return service.salePriceDiretoria;
+  if (typeof service.salePrice === 'number') return service.salePrice;
+  if (typeof service.salePriceFilial === 'number') return service.salePriceFilial;
+  return 0;
+}
+
+// Seleciona o preco do servico conforme o comprador. Diretoria usa o preco de
+// diretoria; filial e individuo usam o preco de filial.
+function readServiceSalePriceForBuyer(service: ServicePriceFields, buyerType: FinanceBuyerType): number {
+  return buyerType === 'diretoria'
+    ? readServiceSalePriceDiretoria(service)
+    : readServiceSalePriceFilial(service);
+}
+
 function requiredMoney(data: unknown, fieldName: string): number {
   const value = roundMoney(requiredNumber(data, fieldName));
   assertCondition(value >= 0, 'invalid-argument', `O campo "${fieldName}" nao pode ser negativo.`);
@@ -330,7 +357,7 @@ async function resolveSaleItems(
 
     const catalogPrice = item.type === 'product'
       ? readProductSalePriceForBuyer(data as FinanceProductDoc, buyerType)
-      : (data as FinanceServiceDoc).salePrice;
+      : readServiceSalePriceForBuyer(data as FinanceServiceDoc, buyerType);
     const unitPrice = item.unitPrice ?? catalogPrice;
     assertCondition(item.discount <= unitPrice, 'invalid-argument', `O desconto do item ${index + 1} nao pode superar o valor unitario.`);
 
@@ -719,7 +746,8 @@ export const upsertFinanceService = onCall(callableOptions, async (request) => {
   const category = optionalString(request.data, 'category')?.trim();
   const description = optionalString(request.data, 'description')?.trim();
   const cost = requiredMoney(request.data, 'cost');
-  const salePrice = requiredMoney(request.data, 'salePrice');
+  const salePriceFilial = requiredMoney(request.data, 'salePriceFilial');
+  const salePriceDiretoria = requiredMoney(request.data, 'salePriceDiretoria');
   const status = normalizeStatus(optionalString(request.data, 'status'));
   const now = Timestamp.now();
   await assertAcademyOrCatalog(academyId);
@@ -739,7 +767,9 @@ export const upsertFinanceService = onCall(callableOptions, async (request) => {
     ...(category ? { category } : {}),
     ...(description ? { description } : {}),
     cost,
-    salePrice,
+    salePrice: salePriceFilial,
+    salePriceFilial,
+    salePriceDiretoria,
     status,
     createdBy: previous?.createdBy ?? actor.uid,
     createdAt: previous?.createdAt ?? now,
@@ -790,7 +820,7 @@ export const createFinanceSale = onCall(callableOptions, async (request) => {
   const saleType = resolveSaleType(parsedItems, parseSaleType(optionalString(request.data, 'saleType')?.trim()));
   // Validacao cruzada saleType x buyerType:
   //  - Produto: comprador eh uma Filial (revende) ou a propria Diretoria (estoque interno).
-  //  - Servico: comprador eh uma Filial (atacado de servicos) ou um Individuo (cliente final).
+  //  - Servico: comprador eh uma Filial (atacado de servicos), a Diretoria (uso interno) ou um Individuo (cliente final).
   if (saleType === 'product') {
     assertCondition(
       buyerType === 'filial' || buyerType === 'diretoria',
@@ -799,9 +829,9 @@ export const createFinanceSale = onCall(callableOptions, async (request) => {
     );
   } else {
     assertCondition(
-      buyerType === 'filial' || buyerType === 'individuo',
+      buyerType === 'filial' || buyerType === 'diretoria' || buyerType === 'individuo',
       'invalid-argument',
-      'Venda de servico exige comprador Filial ou Individuo.',
+      'Venda de servico exige comprador Filial, Diretoria ou Individuo.',
     );
   }
   // buyerAcademyId identifica a filial compradora quando buyerType==='filial'.

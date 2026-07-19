@@ -500,6 +500,8 @@ export interface FinanceServiceRecord {
   description?: string;
   cost: number;
   salePrice: number;
+  salePriceFilial?: number;
+  salePriceDiretoria?: number;
   status: FinanceStatus;
   createdBy?: string;
   createdAt?: Timestamp;

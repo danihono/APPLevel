@@ -72,7 +72,8 @@ interface ServiceFormState {
   category: string;
   description: string;
   cost: string;
-  salePrice: string;
+  salePriceFilial: string;
+  salePriceDiretoria: string;
   status: 'active' | 'inactive';
 }
 
@@ -249,6 +250,32 @@ function readProductSalePriceForBuyer(product: ProductPriceFields, buyerType: 'f
     : readProductSalePriceFilial(product);
 }
 
+type ServicePriceFields = { salePrice?: number; salePriceFilial?: number; salePriceDiretoria?: number };
+
+// Preco de venda de servico para filiais (fallback: preco unico legado, depois diretoria).
+function readServiceSalePriceFilial(service: ServicePriceFields): number {
+  if (typeof service.salePriceFilial === 'number') return service.salePriceFilial;
+  if (typeof service.salePrice === 'number') return service.salePrice;
+  if (typeof service.salePriceDiretoria === 'number') return service.salePriceDiretoria;
+  return 0;
+}
+
+// Preco de venda de servico para a diretoria (fallback: preco unico legado, depois filial).
+function readServiceSalePriceDiretoria(service: ServicePriceFields): number {
+  if (typeof service.salePriceDiretoria === 'number') return service.salePriceDiretoria;
+  if (typeof service.salePrice === 'number') return service.salePrice;
+  if (typeof service.salePriceFilial === 'number') return service.salePriceFilial;
+  return 0;
+}
+
+// Seleciona o preco do servico conforme o comprador. Diretoria usa o preco de
+// diretoria; filial e individuo usam o preco de filial.
+function readServiceSalePriceForBuyer(service: ServicePriceFields, buyerType: 'filial' | 'diretoria' | 'individuo'): number {
+  return buyerType === 'diretoria'
+    ? readServiceSalePriceDiretoria(service)
+    : readServiceSalePriceFilial(service);
+}
+
 function initialServiceForm(academyId: string): ServiceFormState {
   return {
     serviceId: '',
@@ -257,7 +284,8 @@ function initialServiceForm(academyId: string): ServiceFormState {
     category: 'Mensalidade',
     description: '',
     cost: '',
-    salePrice: '',
+    salePriceFilial: '',
+    salePriceDiretoria: '',
     status: 'active',
   };
 }
@@ -563,7 +591,8 @@ const ControleTotalView: React.FC<ControleTotalViewProps> = ({
       const product = productById.get(item.itemId);
       return product ? productCatalogPrice(product) : 0;
     }
-    return serviceById.get(item.itemId)?.salePrice ?? 0;
+    const service = serviceById.get(item.itemId);
+    return service ? readServiceSalePriceForBuyer(service, saleForm.buyerType) : 0;
   }
 
   const salePreview = saleForm.items.reduce((totals, item) => {
@@ -709,7 +738,8 @@ const ControleTotalView: React.FC<ControleTotalViewProps> = ({
         category: serviceForm.category || undefined,
         description: serviceForm.description || undefined,
         cost: asNumber(serviceForm.cost),
-        salePrice: asNumber(serviceForm.salePrice),
+        salePriceFilial: asNumber(serviceForm.salePriceFilial),
+        salePriceDiretoria: asNumber(serviceForm.salePriceDiretoria),
         status: serviceForm.status,
       });
       setServiceForm(initialServiceForm(serviceForm.academyId));
@@ -1063,7 +1093,8 @@ const ControleTotalView: React.FC<ControleTotalViewProps> = ({
                 <label className="app-field"><span className="app-field__label">Descricao</span><textarea className="app-textarea" value={serviceForm.description} onChange={(event) => setServiceForm((current) => ({ ...current, description: event.target.value }))} /></label>
                 <div className="controle-total__mini-grid">
                   <label className="app-field"><span className="app-field__label">Custo</span><input required className="app-input" inputMode="decimal" value={serviceForm.cost} onChange={(event) => setServiceForm((current) => ({ ...current, cost: event.target.value }))} /></label>
-                  <label className="app-field"><span className="app-field__label">Preco de venda</span><input required className="app-input" inputMode="decimal" value={serviceForm.salePrice} onChange={(event) => setServiceForm((current) => ({ ...current, salePrice: event.target.value }))} /></label>
+                  <label className="app-field"><span className="app-field__label">Preco de venda (Filial)</span><input required className="app-input" inputMode="decimal" value={serviceForm.salePriceFilial} onChange={(event) => setServiceForm((current) => ({ ...current, salePriceFilial: event.target.value }))} /></label>
+                  <label className="app-field"><span className="app-field__label">Preco de venda (Diretoria)</span><input required className="app-input" inputMode="decimal" value={serviceForm.salePriceDiretoria} onChange={(event) => setServiceForm((current) => ({ ...current, salePriceDiretoria: event.target.value }))} /></label>
                 </div>
                 <label className="app-field"><span className="app-field__label">Status</span><select className="app-select" value={serviceForm.status} onChange={(event) => setServiceForm((current) => ({ ...current, status: event.target.value as ServiceFormState['status'] }))}><option value="active">Ativo</option><option value="inactive">Inativo</option></select></label>
                 <button type="submit" disabled={busy === 'service'} className="app-button app-button--gold"><ReceiptText size={18} /> Salvar servico</button>
@@ -1090,7 +1121,8 @@ const ControleTotalView: React.FC<ControleTotalViewProps> = ({
                           category: service.category ?? 'Mensalidade',
                           description: service.description ?? '',
                           cost: String(service.cost),
-                          salePrice: String(service.salePrice),
+                          salePriceFilial: String(readServiceSalePriceFilial(service)),
+                          salePriceDiretoria: String(readServiceSalePriceDiretoria(service)),
                           status: service.status,
                         })}><Edit3 size={17} /></button>
                         <button type="button" className="app-button app-button--danger app-button--icon" title="Excluir ou inativar" onClick={() => void runAction('delete-service', () => backendFunctions.deleteOrArchiveFinanceService({ serviceId: service.id }).then(() => undefined))}><Trash2 size={17} /></button>
@@ -1140,7 +1172,7 @@ const ControleTotalView: React.FC<ControleTotalViewProps> = ({
                 <label className="app-field"><span className="app-field__label">Tipo de venda</span><select className="app-select" value={saleForm.saleType} onChange={(event) => selectSaleType(event.target.value as SaleFormState['saleType'])}><option value="product">Produto</option><option value="service">Servico</option></select></label>
                 <label className="app-field"><span className="app-field__label">Tipo de comprador</span><select className="app-select" value={saleForm.buyerType} onChange={(event) => selectSaleBuyerType(event.target.value as SaleFormState['buyerType'])}>
                   <option value="filial">Filial</option>
-                  {saleForm.saleType === 'product' ? <option value="diretoria">Diretoria</option> : null}
+                  <option value="diretoria">Diretoria</option>
                   {saleForm.saleType === 'service' ? <option value="individuo">Individuo</option> : null}
                 </select></label>
                 {saleForm.buyerType === 'filial' ? (
