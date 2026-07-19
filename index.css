@@ -109,7 +109,15 @@ body::after {
   mix-blend-mode: soft-light;
   pointer-events: none;
   z-index: -1;
-  animation: grain-shift 18s steps(6) infinite;
+}
+
+/* Desktop: remove as camadas fixas de blur/ruído do fundo — custo alto de
+   repaint em telas grandes e visual mais limpo para o shell flat. */
+@media (min-width: 980px) {
+  body::before,
+  body::after {
+    display: none;
+  }
 }
 
 html.dark body {
@@ -310,7 +318,7 @@ img {
   position: relative;
 }
 
-.app-shell--superadmin {
+.app-shell--desk {
   padding-bottom: 8.5rem;
   --superadmin-sidebar-width: 18.75rem;
   --superadmin-sidebar-collapsed-width: 5.75rem;
@@ -319,7 +327,7 @@ img {
   --superadmin-sidebar-motion-ease: cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.app-shell--superadmin.is-sidebar-collapsed {
+.app-shell--desk.is-sidebar-collapsed {
   --superadmin-sidebar-width: var(--superadmin-sidebar-collapsed-width);
 }
 
@@ -4723,6 +4731,18 @@ html.dark .graduation-celebration__route {
   gap: 1rem;
 }
 
+/* Em telas médias+ os formulários/listas voltam a fluir em colunas —
+   as views já usam md:col-span-2 esperando estes grids com colunas. */
+@media (min-width: 760px) {
+  .app-grid-2 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .app-grid-3 {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
 .text-right {
   text-align: right;
 }
@@ -6483,22 +6503,24 @@ html.dark .controle-total__stock-card {
 }
 
 @media (min-width: 980px) {
-  .app-shell--superadmin {
+  /* .app-shell.app-shell--desk: precisa vencer o `.app-shell` do bloco
+     @media (min-width: 720px), que aparece depois no arquivo. */
+  .app-shell.app-shell--desk {
     padding: 1.25rem 1.25rem 1.5rem calc(var(--superadmin-sidebar-width) + var(--superadmin-sidebar-gap));
     transition: padding-left var(--superadmin-sidebar-motion-duration) var(--superadmin-sidebar-motion-ease);
     will-change: padding-left;
   }
 
-  .app-shell--superadmin .app-frame--wide {
+  .app-shell--desk .app-frame--wide {
     width: min(100%, 98rem);
     margin: 0 auto 0 0;
   }
 
-  .app-shell--superadmin .app-desktop-shell {
+  .app-shell--desk .app-desktop-shell {
     display: block;
   }
 
-  .app-shell--superadmin .app-sidebar {
+  .app-shell--desk .app-sidebar {
     display: flex;
     flex-direction: column;
     gap: 0;
@@ -6525,26 +6547,26 @@ html.dark .controle-total__stock-card {
     transform: translateZ(0);
   }
 
-  .app-shell--superadmin.is-sidebar-collapsed .app-sidebar {
+  .app-shell--desk.is-sidebar-collapsed .app-sidebar {
     padding-inline: 0.65rem;
   }
 
-  .app-shell--superadmin .app-topbar {
+  .app-shell--desk .app-topbar {
     margin-bottom: 1rem;
   }
 
-  .app-shell--superadmin .app-main {
+  .app-shell--desk .app-main {
     padding-bottom: 0;
   }
 
-  .app-toolbar--superadmin {
+  .app-toolbar--desk {
     display: none;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .app-shell--superadmin,
-  .app-shell--superadmin .app-sidebar,
+  .app-shell--desk,
+  .app-shell--desk .app-sidebar,
   .app-sidebar__header,
   .app-sidebar__brand,
   .app-sidebar__brand-copy,
@@ -6574,11 +6596,6 @@ html.dark .controle-total__stock-card {
   }
 }
 
-@media (min-width: 980px) {
-  .app-shell--superadmin {
-    padding: 1.25rem 1.25rem 1.5rem calc(var(--superadmin-sidebar-width) + var(--superadmin-sidebar-gap));
-  }
-}
 
 @media (max-width: 719px) {
   .app-shell {
@@ -8017,15 +8034,16 @@ html.dark .profile-mobile__menu-icon {
 }
 
 /* =====================================================================
-   SUPERADMIN · DESKTOP — TEMA FLAT (SaaS limpo)
-   Tudo escopado em .app-shell--superadmin. Não afeta aluno/professor
-   nem o restante do app. Como os componentes (.app-panel, .sa-*,
-   .controle-total__*, .app-button…) leem os tokens abaixo, redefini-los
-   aqui reestiliza toda a área do superadmin de uma vez.
+   TEMA FLAT (SaaS limpo) — escopado em .app-shell--flat
+   O Layout aplica .app-shell--flat sempre para o superadmin e, para
+   professor/admin, apenas em viewport desktop (≥980px). O mobile de
+   professor/aluno mantém o visual glass. Como os componentes
+   (.app-panel, .sa-*, .controle-total__*, .app-button…) leem os tokens
+   abaixo, redefini-los aqui reestiliza a área inteira de uma vez.
    ===================================================================== */
 
 /* ---- 1. Paleta flat: tokens re-escopados (claro) ---- */
-.app-shell--superadmin {
+.app-shell--flat {
   --bg: #f5f6f8;
   --bg-deep: #eef0f3;
   --bg-contrast: #e6e9ee;
@@ -8061,7 +8079,7 @@ html.dark .profile-mobile__menu-icon {
 }
 
 /* ---- 1b. Paleta flat (escuro) ---- */
-html.dark .app-shell--superadmin {
+html.dark .app-shell--flat {
   --bg: #0f1216;
   --bg-deep: #0b0e11;
   --bg-contrast: #15191e;
@@ -8088,58 +8106,58 @@ html.dark .app-shell--superadmin {
 }
 
 /* ---- 2. Remover o "vidro" (blur) dentro do superadmin ---- */
-.app-shell--superadmin .app-panel,
-.app-shell--superadmin .app-button,
-.app-shell--superadmin .app-sidebar__button,
-.app-shell--superadmin .app-sidebar__collapse,
-.app-shell--superadmin .app-segment,
-.app-shell--superadmin .app-toolbar,
-.app-shell--superadmin .app-input,
-.app-shell--superadmin .app-select,
-.app-shell--superadmin .app-textarea,
-.app-shell--superadmin .sa-card,
-.app-shell--superadmin .sa-kpi-card {
+.app-shell--flat .app-panel,
+.app-shell--flat .app-button,
+.app-shell--flat .app-sidebar__button,
+.app-shell--flat .app-sidebar__collapse,
+.app-shell--flat .app-segment,
+.app-shell--flat .app-toolbar,
+.app-shell--flat .app-input,
+.app-shell--flat .app-select,
+.app-shell--flat .app-textarea,
+.app-shell--flat .sa-card,
+.app-shell--flat .sa-kpi-card {
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
 }
 
 /* ---- 3. Cards/painéis sólidos e planos ---- */
-.app-shell--superadmin .app-panel {
+.app-shell--flat .app-panel {
   background: var(--surface-strong);
   border: 1px solid var(--border);
   border-radius: var(--sa-radius);
   box-shadow: var(--shadow-panel);
 }
-.app-shell--superadmin .app-panel::before {
+.app-shell--flat .app-panel::before {
   display: none;
 }
-.app-shell--superadmin .app-panel--hero {
+.app-shell--flat .app-panel--hero {
   background: var(--surface-strong);
   border-color: var(--border);
 }
 
-.app-shell--superadmin .sa-card,
-.app-shell--superadmin .sa-kpi-card {
+.app-shell--flat .sa-card,
+.app-shell--flat .sa-kpi-card {
   border-radius: var(--sa-radius);
   box-shadow: var(--shadow-panel);
 }
 
 /* KPI tiles do Controle Total — corrige o tile branco no tema escuro */
-.app-shell--superadmin .controle-total__kpi-tile {
+.app-shell--flat .controle-total__kpi-tile {
   background: var(--surface-strong);
   border-radius: var(--sa-radius);
   box-shadow: var(--shadow-panel);
 }
-.app-shell--superadmin .controle-total__kpi-tile::before {
+.app-shell--flat .controle-total__kpi-tile::before {
   opacity: 0.5;
 }
-.app-shell--superadmin .controle-total__kpi-tile:hover {
+.app-shell--flat .controle-total__kpi-tile:hover {
   transform: none;
   box-shadow: var(--shadow-soft);
 }
 
 /* ---- 4. Sidebar do superadmin (nav limpa) ---- */
-.app-shell--superadmin .app-sidebar__button {
+.app-shell--flat .app-sidebar__button {
   background: transparent;
   border: 1px solid transparent;
   border-radius: var(--sa-radius-sm);
@@ -8147,24 +8165,24 @@ html.dark .app-shell--superadmin {
   min-height: 3.1rem;
   color: var(--text-muted);
 }
-.app-shell--superadmin .app-sidebar__button:hover,
-.app-shell--superadmin .app-sidebar__button:focus-visible {
+.app-shell--flat .app-sidebar__button:hover,
+.app-shell--flat .app-sidebar__button:focus-visible {
   transform: none;
   background: var(--surface-pressed);
   border-color: var(--border);
   color: var(--text-strong);
 }
-.app-shell--superadmin .app-sidebar__button.is-active {
+.app-shell--flat .app-sidebar__button.is-active {
   background: rgba(232, 175, 72, 0.12);
   border-color: rgba(232, 175, 72, 0.32);
   box-shadow: inset 3px 0 0 var(--gold-mid);
   color: var(--text-strong);
 }
-html.dark .app-shell--superadmin .app-sidebar__button.is-active {
+html.dark .app-shell--flat .app-sidebar__button.is-active {
   background: rgba(232, 175, 72, 0.14);
   border-color: rgba(232, 175, 72, 0.3);
 }
-.app-shell--superadmin .app-sidebar__collapse {
+.app-shell--flat .app-sidebar__collapse {
   background: var(--surface-pressed);
   border: 1px solid var(--border);
   border-radius: var(--sa-radius-sm);
@@ -8172,23 +8190,23 @@ html.dark .app-shell--superadmin .app-sidebar__button.is-active {
 }
 
 /* ---- 5. Botões / segmentos / inputs planos ---- */
-.app-shell--superadmin .app-button {
+.app-shell--flat .app-button {
   border-radius: var(--sa-radius-sm);
   box-shadow: var(--shadow-soft);
   min-height: 2.85rem;
 }
-.app-shell--superadmin .app-button::before {
+.app-shell--flat .app-button::before {
   display: none;
 }
 
 /* Segmented control (abas do Controle Total) */
-.app-shell--superadmin .app-segment {
+.app-shell--flat .app-segment {
   background: var(--surface-pressed);
   border: 1px solid var(--border);
   border-radius: var(--sa-radius-sm);
   box-shadow: none;
 }
-.app-shell--superadmin .app-segment__button.is-active {
+.app-shell--flat .app-segment__button.is-active {
   transform: none;
   background: rgba(232, 175, 72, 0.16);
   color: var(--gold-ink);
@@ -8196,51 +8214,51 @@ html.dark .app-shell--superadmin .app-sidebar__button.is-active {
   box-shadow: none;
 }
 
-.app-shell--superadmin .app-input,
-.app-shell--superadmin .app-select,
-.app-shell--superadmin .app-textarea {
+.app-shell--flat .app-input,
+.app-shell--flat .app-select,
+.app-shell--flat .app-textarea {
   background: var(--surface);
   border: 1px solid var(--border-strong);
   border-radius: var(--sa-radius-sm);
   box-shadow: none;
 }
-.app-shell--superadmin .app-input:focus,
-.app-shell--superadmin .app-select:focus,
-.app-shell--superadmin .app-textarea:focus {
+.app-shell--flat .app-input:focus,
+.app-shell--flat .app-select:focus,
+.app-shell--flat .app-textarea:focus {
   transform: none;
   border-color: var(--gold-mid);
   box-shadow: 0 0 0 3px rgba(232, 175, 72, 0.18);
 }
 
 /* ---- 6. Tipografia: hierarquia consistente ---- */
-.app-shell--superadmin .controle-total__hero h2,
-.app-shell--superadmin .controle-total h3 {
+.app-shell--flat .controle-total__hero h2,
+.app-shell--flat .controle-total h3 {
   font-weight: 800;
 }
 /* Valores de KPI/stat: sem font-weight herdavam 400 (Sora fino) e, grandes
    sobre branco, pareciam cinza-claro/ilegíveis. A cor já herda --text-strong;
    só o peso resolve — e assim o vermelho de alerta (.text-[color:var(--danger)])
    continua valendo. */
-.app-shell--superadmin .app-stat-card__value,
-.app-shell--superadmin .controle-total__kpi-tile__value {
+.app-shell--flat .app-stat-card__value,
+.app-shell--flat .controle-total__kpi-tile__value {
   font-weight: 800;
 }
-.app-shell--superadmin .sa-kpi-card__value,
-.app-shell--superadmin .app-stat-card__value,
-.app-shell--superadmin .controle-total__kpi-tile__value,
-.app-shell--superadmin .sa-donut__core strong,
-.app-shell--superadmin .sa-legend__value,
-.app-shell--superadmin .sa-table tbody td {
+.app-shell--flat .sa-kpi-card__value,
+.app-shell--flat .app-stat-card__value,
+.app-shell--flat .controle-total__kpi-tile__value,
+.app-shell--flat .sa-donut__core strong,
+.app-shell--flat .sa-legend__value,
+.app-shell--flat .sa-table tbody td {
   font-variant-numeric: tabular-nums;
 }
 
 /* ---- 7. Contraste pontual ---- */
 /* ouro legível como texto sobre branco */
-.app-shell--superadmin .app-badge--gold {
+.app-shell--flat .app-badge--gold {
   color: var(--gold-ink);
 }
 /* donut: contorno para o anel ficar visível sobre card branco */
-.app-shell--superadmin .sa-donut::after {
+.app-shell--flat .sa-donut::after {
   content: '';
   position: absolute;
   inset: 0;
@@ -8249,18 +8267,573 @@ html.dark .app-shell--superadmin .app-sidebar__button.is-active {
   pointer-events: none;
 }
 /* legenda/pontos de faixa: borda para faixa "branca" não sumir */
-.app-shell--superadmin .sa-legend__dot,
-.app-shell--superadmin .sa-mob-belt-dot {
+.app-shell--flat .sa-legend__dot,
+.app-shell--flat .sa-mob-belt-dot {
   box-shadow: inset 0 0 0 1px rgba(16, 24, 40, 0.18);
 }
-html.dark .app-shell--superadmin .sa-legend__dot,
-html.dark .app-shell--superadmin .sa-mob-belt-dot {
+html.dark .app-shell--flat .sa-legend__dot,
+html.dark .app-shell--flat .sa-mob-belt-dot {
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.22);
 }
 /* foco visível dourado em ambos os temas */
-.app-shell--superadmin a:focus-visible,
-.app-shell--superadmin button:focus-visible,
-.app-shell--superadmin [role='tab']:focus-visible {
+.app-shell--flat a:focus-visible,
+.app-shell--flat button:focus-visible,
+.app-shell--flat [role='tab']:focus-visible {
   outline: 2px solid var(--gold-glow);
   outline-offset: 2px;
+}
+
+/* =====================================================================
+   DESKTOP ≥980px — REFINAMENTO POR TELA (escopo .app-shell--desk)
+   O shell desktop (sidebar fixa + frame largo) agora vale para
+   superadmin, professor e admin. As regras abaixo reorganizam as views
+   construídas mobile-first em grids de 2–4 colunas, achatam raios e
+   sombras para o padrão flat e adicionam estados de hover/foco.
+   ===================================================================== */
+@media (min-width: 980px) {
+  /* ---- Scrollbars discretas no desktop ---- */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(102, 112, 133, 0.45) transparent;
+  }
+
+  *::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  *::-webkit-scrollbar-thumb {
+    border-radius: 999px;
+    border: 2px solid transparent;
+    background: rgba(102, 112, 133, 0.4);
+    background-clip: padding-box;
+  }
+
+  /* ---- Chrome do shell ---- */
+  .app-shell--desk .view-shell {
+    gap: 1.4rem;
+  }
+
+  .app-shell--desk .app-pagebar {
+    padding-bottom: 1rem;
+  }
+
+  .app-shell--desk .app-pagebar__title {
+    font-size: 1.7rem;
+    letter-spacing: -0.02em;
+  }
+
+  /* Chip da unidade no pagebar (professor/admin) — vira pill flat */
+  .app-shell--desk .app-pagebar .app-mobile-header__unit {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55rem;
+    max-width: 20rem;
+    padding: 0.55rem 0.95rem;
+    border-radius: 999px;
+    border: 1px solid var(--border-strong);
+    background: var(--surface-strong);
+    box-shadow: none;
+  }
+
+  .app-shell--desk .app-pagebar .app-mobile-header__unit-name {
+    color: var(--text-strong);
+    font-size: 0.85rem;
+  }
+
+  .app-shell--desk .app-pagebar .app-mobile-header__unit svg {
+    color: var(--text-soft);
+  }
+
+  /* ---- Componentes genéricos ---- */
+  .app-shell--desk .app-stat-grid {
+    grid-template-columns: repeat(auto-fit, minmax(13.5rem, 1fr));
+  }
+
+  .app-shell--flat .app-button {
+    transition: background 140ms ease, border-color 140ms ease, box-shadow 140ms ease, transform 140ms ease;
+  }
+
+  .app-shell--flat .app-button:hover {
+    transform: translateY(-1px);
+  }
+
+  .app-shell--flat .app-panel {
+    transition: border-color 160ms ease, box-shadow 160ms ease;
+  }
+
+  .app-shell--flat .learning-superadmin-panel {
+    background: var(--surface-strong);
+    border-color: var(--border);
+    border-radius: 1rem;
+  }
+
+  /* ---- Início do professor (staff-home) ---- */
+  .app-shell--desk .staff-home {
+    gap: 1.35rem;
+  }
+
+  .app-shell--desk .staff-home__hero {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 2rem;
+    padding: 1.9rem 2.2rem;
+    border-radius: 1.25rem;
+    box-shadow: 0 10px 30px rgba(12, 12, 18, 0.18);
+  }
+
+  .app-shell--desk .staff-home__kpi-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 1rem;
+  }
+
+  .app-shell--desk .staff-home__kpi-card,
+  .app-shell--desk .staff-home__class-row,
+  .app-shell--desk .staff-home__empty {
+    border-radius: 1rem;
+    border: 1px solid var(--border);
+    background: var(--surface-strong);
+    box-shadow: var(--shadow-panel);
+  }
+
+  .app-shell--desk .staff-home__kpi-card:hover,
+  .app-shell--desk .staff-home__class-row:hover {
+    transform: translateY(-1px);
+    border-color: rgba(232, 175, 72, 0.45);
+  }
+
+  .app-shell--desk .staff-home__list {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.9rem;
+  }
+
+  .app-shell--desk .staff-home__empty {
+    grid-column: 1 / -1;
+  }
+
+  .app-shell--desk .staff-home__lesson-backdrop {
+    align-items: center;
+  }
+
+  .app-shell--desk .staff-home__lesson-sheet {
+    border-radius: 1.25rem;
+  }
+
+  /* ---- Avisos (notice-mobile) ---- */
+  .app-shell--desk .notice-mobile {
+    gap: 1.35rem;
+  }
+
+  .app-shell--desk .notice-mobile__hero {
+    padding: 1.6rem 2rem 0;
+    border-radius: 1.25rem;
+    box-shadow: 0 10px 30px rgba(12, 12, 18, 0.18);
+  }
+
+  .app-shell--desk .notice-mobile__tabs {
+    gap: 1.9rem;
+    justify-content: flex-start;
+  }
+
+  .app-shell--desk .notice-mobile__tab {
+    flex: 0 0 auto;
+    font-size: 0.9rem;
+  }
+
+  .app-shell--desk .notice-mobile__list {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem;
+    align-items: start;
+  }
+
+  .app-shell--desk .notice-mobile__notice-card,
+  .app-shell--desk .notice-mobile__request-card,
+  .app-shell--desk .notice-mobile__compose-card,
+  .app-shell--desk .notice-mobile__empty {
+    border-radius: 1rem;
+    border: 1px solid var(--border);
+    background: var(--surface-strong);
+    box-shadow: var(--shadow-panel);
+  }
+
+  .app-shell--desk .notice-mobile__notice-card:hover,
+  .app-shell--desk .notice-mobile__request-card:hover {
+    border-color: rgba(232, 175, 72, 0.45);
+  }
+
+  .app-shell--desk .notice-mobile__compose-card,
+  .app-shell--desk .notice-mobile__empty {
+    grid-column: 1 / -1;
+  }
+
+  .app-shell--desk .notice-mobile__compose-card {
+    max-width: 54rem;
+  }
+
+  /* ---- Academia (academy-mobile) ---- */
+  .app-shell--desk .academy-mobile__hero {
+    padding: 1.9rem 2.2rem;
+    border-radius: 1.25rem;
+    box-shadow: 0 10px 30px rgba(12, 12, 18, 0.18);
+  }
+
+  .app-shell--desk .academy-mobile__stats {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 1rem;
+  }
+
+  .app-shell--desk .academy-mobile__stat-card,
+  .app-shell--desk .academy-mobile__instructor-card,
+  .app-shell--desk .academy-mobile__empty {
+    border-radius: 1rem;
+    border: 1px solid var(--border);
+    background: var(--surface-strong);
+    box-shadow: var(--shadow-panel);
+  }
+
+  .app-shell--desk .academy-mobile__list {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.9rem;
+  }
+
+  .app-shell--desk .academy-mobile__empty {
+    grid-column: 1 / -1;
+  }
+
+  /* ---- Perfil (profile-mobile): identidade à esquerda, menu à direita ---- */
+  .app-shell--desk .profile-mobile {
+    display: grid;
+    grid-template-columns: minmax(0, 24rem) minmax(0, 1fr);
+    gap: 1.25rem;
+    align-items: start;
+  }
+
+  .app-shell--desk .profile-mobile__hero {
+    grid-column: 1;
+    border-radius: 1.25rem;
+  }
+
+  .app-shell--desk .profile-mobile__kpis {
+    grid-column: 1;
+  }
+
+  .app-shell--desk .profile-mobile__progress-card {
+    grid-column: 1;
+  }
+
+  .app-shell--desk .profile-mobile__menu-card {
+    grid-column: 2;
+    grid-row: 1 / span 3;
+  }
+
+  .app-shell--desk .profile-mobile__footer {
+    grid-column: 1 / -1;
+  }
+
+  .app-shell--desk .profile-mobile__kpi-card,
+  .app-shell--desk .profile-mobile__progress-card,
+  .app-shell--desk .profile-mobile__menu-card {
+    border-radius: 1rem;
+    border: 1px solid var(--border);
+    background: var(--surface-strong);
+    box-shadow: var(--shadow-panel);
+  }
+
+  /* ---- Alunos (student roster) ---- */
+  .app-shell--desk .student-roster__cards {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.9rem;
+  }
+
+  .app-shell--desk .student-roster__card:hover {
+    border-color: rgba(232, 175, 72, 0.45);
+  }
+
+  /* ---- Controle Total ---- */
+  .app-shell--desk .controle-total__catalog-grid {
+    grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+    align-items: start;
+  }
+}
+
+/* ---- Calendário desktop: mês em foco + dia selecionado lado a lado ---- */
+@media (min-width: 1280px) {
+  .app-shell--desk .calendar-desktop {
+    display: grid;
+    grid-template-columns: minmax(0, 1.45fr) minmax(21rem, 0.55fr);
+    gap: 1.25rem;
+    align-items: start;
+  }
+
+  .app-shell--desk .calendar-desktop > * {
+    grid-column: 1 / -1;
+  }
+
+  .app-shell--desk .calendar-desktop > .calendar-desktop__month {
+    grid-column: 1;
+  }
+
+  .app-shell--desk .calendar-desktop > .calendar-desktop__day {
+    grid-column: 2;
+    position: sticky;
+    top: 1.25rem;
+    max-height: calc(100vh - 2.5rem);
+    overflow-y: auto;
+  }
+}
+
+@media (min-width: 1400px) {
+  .app-shell--desk .student-roster__cards {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .app-shell--desk .notice-mobile__list {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .app-shell--desk .notice-mobile__compose-card {
+    grid-column: 1 / -1;
+  }
+}
+
+/* =====================================================================
+   DESKTOP · ITERAÇÃO 2 — mais cor e calendário refinado
+   Sidebar escura premium (preto + dourado), tintas suaves no fundo,
+   acentos coloridos nos KPIs e células do calendário redesenhadas.
+   ===================================================================== */
+@media (min-width: 980px) {
+  /* ---- Fundo com tintas suaves (menos "tudo branco") ---- */
+  .app-shell--flat.app-shell--desk {
+    background:
+      radial-gradient(64rem 26rem at 6% -8%, rgba(232, 175, 72, 0.1), transparent),
+      radial-gradient(52rem 22rem at 102% -2%, rgba(75, 127, 215, 0.06), transparent),
+      radial-gradient(70rem 30rem at 50% 112%, rgba(232, 175, 72, 0.05), transparent),
+      var(--bg);
+  }
+
+  html.dark .app-shell--flat.app-shell--desk {
+    background:
+      radial-gradient(64rem 26rem at 6% -8%, rgba(232, 175, 72, 0.08), transparent),
+      radial-gradient(52rem 22rem at 102% -2%, rgba(93, 155, 245, 0.05), transparent),
+      var(--bg);
+  }
+
+  /* ---- Sidebar escura premium (preto + dourado, liga com os heros) ---- */
+  .app-shell--flat .app-sidebar.app-panel {
+    --text-strong: #f7f4ee;
+    --text-muted: #cfccd8;
+    --text-soft: #9a99ab;
+    --border: rgba(255, 255, 255, 0.08);
+    --border-strong: rgba(255, 255, 255, 0.16);
+    --surface-pressed: rgba(255, 255, 255, 0.07);
+    border: 0;
+    border-radius: 0 1.4rem 1.4rem 0;
+    background:
+      radial-gradient(circle at 88% -6%, rgba(232, 175, 72, 0.18), transparent 36%),
+      radial-gradient(circle at -10% 110%, rgba(232, 175, 72, 0.1), transparent 30%),
+      linear-gradient(196deg, #14161d 0%, #0c0e13 58%, #16110a 125%);
+    box-shadow: 0 14px 44px rgba(4, 5, 9, 0.4);
+  }
+
+  .app-shell--flat .app-sidebar__title {
+    color: #fdf9ef;
+  }
+
+  .app-shell--flat .app-sidebar .app-kicker {
+    color: var(--gold-glow);
+  }
+
+  .app-shell--flat .app-sidebar__button {
+    color: var(--text-muted);
+  }
+
+  .app-shell--flat .app-sidebar__button:hover,
+  .app-shell--flat .app-sidebar__button:focus-visible {
+    background: rgba(255, 255, 255, 0.06);
+    border-color: rgba(255, 255, 255, 0.1);
+    color: #fdf9ef;
+  }
+
+  .app-shell--flat .app-sidebar__button.is-active {
+    background: rgba(232, 175, 72, 0.16);
+    border-color: rgba(232, 175, 72, 0.32);
+    box-shadow: inset 3px 0 0 var(--gold-mid);
+    color: #fdf3cf;
+  }
+
+  .app-shell--flat .app-sidebar__icon {
+    background: rgba(232, 175, 72, 0.12);
+    color: var(--gold-glow);
+  }
+
+  .app-shell--flat .app-sidebar__collapse {
+    background: rgba(255, 255, 255, 0.06);
+    border-color: rgba(255, 255, 255, 0.12);
+    color: #cfccd8;
+  }
+
+  /* ---- Labels de seção em dourado (hierarquia com cor) ---- */
+  .app-shell--flat .app-section-label,
+  .app-shell--desk .staff-home__section-label,
+  .app-shell--desk .academy-mobile__section-label,
+  .app-shell--desk .profile-mobile__section-label {
+    color: var(--gold-ink, #97701b);
+  }
+
+  /* Dentro de contextos escuros (heros/sheets escuros) o label volta a claro */
+  .app-shell--desk .staff-home__hero .staff-home__section-label,
+  .app-shell--desk .notice-mobile__hero .app-section-label {
+    color: rgba(255, 255, 255, 0.66);
+  }
+
+  /* ---- Acentos coloridos nos cards de KPI ---- */
+  .app-shell--desk .staff-home__kpi-card,
+  .app-shell--desk .academy-mobile__stat-card,
+  .app-shell--desk .profile-mobile__kpi-card {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .app-shell--desk .staff-home__kpi-card::before,
+  .app-shell--desk .academy-mobile__stat-card::before,
+  .app-shell--desk .profile-mobile__kpi-card::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    background: linear-gradient(180deg, #e8af48, #c49746);
+  }
+
+  .app-shell--desk .staff-home__kpi-grid > :nth-child(2)::before,
+  .app-shell--desk .academy-mobile__stats > :nth-child(4)::before {
+    background: linear-gradient(180deg, #6a9bef, #3f6fc4);
+  }
+
+  .app-shell--desk .staff-home__kpi-grid > :nth-child(3)::before {
+    background: linear-gradient(180deg, #a78bfa, #7c5cd6);
+  }
+
+  .app-shell--desk .staff-home__kpi-grid > :nth-child(4)::before,
+  .app-shell--desk .academy-mobile__stats > :nth-child(2)::before,
+  .app-shell--desk .profile-mobile__kpis > :nth-child(2)::before {
+    background: linear-gradient(180deg, #34d399, #1f9f6e);
+  }
+
+  .app-shell--desk .academy-mobile__stats > :nth-child(3)::before {
+    background: linear-gradient(180deg, #fb8b7a, #d05a4a);
+  }
+
+  /* ---- Calendário: células dos dias redesenhadas ---- */
+  .app-shell--desk .app-calendar-month-grid {
+    gap: 0.45rem;
+  }
+
+  .app-shell--desk .app-calendar-month-header {
+    padding: 0.5rem 0.35rem 0.7rem;
+    font-size: 0.66rem;
+    color: var(--text-soft);
+  }
+
+  .app-shell--desk .app-calendar-month-pad,
+  .app-shell--desk .app-calendar-month-day {
+    min-height: 6.9rem;
+  }
+
+  .app-shell--desk .app-calendar-month-day {
+    padding: 0.55rem;
+    gap: 0.35rem;
+    border-radius: 0.85rem;
+    border: 1px solid var(--divider);
+    background: var(--surface);
+    box-shadow: none;
+    transition: border-color 140ms ease, background 140ms ease;
+  }
+
+  .app-shell--desk .app-calendar-month-day:hover {
+    border-color: rgba(232, 175, 72, 0.5);
+    background: rgba(232, 175, 72, 0.05);
+  }
+
+  .app-shell--desk .app-calendar-month-day.is-today {
+    border-color: rgba(232, 175, 72, 0.55);
+    background: var(--surface);
+    box-shadow: inset 0 2px 0 var(--gold-mid);
+  }
+
+  .app-shell--desk .app-calendar-month-day.is-selected {
+    border-color: rgba(232, 175, 72, 0.62);
+    background: rgba(232, 175, 72, 0.1);
+    box-shadow: inset 0 2px 0 var(--gold-mid);
+  }
+
+  .app-shell--desk .app-calendar-month-day__number {
+    width: 1.7rem;
+    height: 1.7rem;
+    font-size: 0.78rem;
+    background: transparent;
+    color: var(--text-muted);
+  }
+
+  .app-shell--desk .app-calendar-month-day.is-today .app-calendar-month-day__number {
+    background: linear-gradient(135deg, #e8af48, #c49746);
+    color: #241507;
+  }
+
+  .app-shell--desk .app-calendar-month-day.is-selected .app-calendar-month-day__number {
+    background: linear-gradient(135deg, #e8af48, #c49746);
+    color: #241507;
+  }
+
+  .app-shell--desk .app-calendar-month-day__count,
+  .app-shell--desk .app-calendar-month-day__empty {
+    display: none;
+  }
+
+  .app-shell--desk .app-calendar-month-day__content {
+    margin-top: 0.1rem;
+    gap: 0.3rem;
+  }
+
+  .app-shell--desk .app-calendar-month-day__preview {
+    display: block;
+    min-width: 0;
+    padding: 0.32rem 0.5rem 0.38rem 0.55rem;
+    border-radius: 0.5rem;
+    border-width: 1px 1px 1px 3px;
+    border-style: solid;
+  }
+
+  .app-shell--desk .app-calendar-month-day__preview-time {
+    font-size: 0.62rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+  }
+
+  .app-shell--desk .app-calendar-month-day__preview-title {
+    margin: 0.14rem 0 0;
+    overflow: hidden;
+    font-size: 0.72rem;
+    font-weight: 600;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  .app-shell--desk .app-calendar-month-day__more {
+    font-size: 0.64rem;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--gold-ink, #97701b);
+  }
 }

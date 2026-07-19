@@ -1497,7 +1497,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
   );
 
   return (
-    <div className="view-shell">
+    <div className={`view-shell ${!isCompactMonthGrid ? 'calendar-desktop' : ''}`.trim()}>
       {feedbackToast ? (
         <div className="fixed top-24 left-4 right-4 z-[72] mx-auto max-w-lg">
           <div className="app-toast text-sm">
@@ -1603,7 +1603,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
             </>
           ) : (
             <>
-              <section className="app-panel app-panel-pad">
+              <section className="app-panel app-panel-pad calendar-desktop__month">
                 <div className="flex flex-wrap items-start justify-between gap-4">
                   <div>
                     <p className="app-section-label">Mês em foco</p>
@@ -1645,7 +1645,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                 </div>
               </section>
 
-              <section className="app-panel app-panel-pad">
+              <section className="app-panel app-panel-pad calendar-desktop__day">
                 <div className="flex flex-wrap items-start justify-between gap-4">
                   <div>
                     <p className="app-section-label">{sameCalendarDay(selectedDay, today) ? 'Agenda de hoje' : 'Dia selecionado'}</p>

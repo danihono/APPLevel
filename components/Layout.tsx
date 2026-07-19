@@ -43,6 +43,27 @@ interface NavItem {
 }
 
 const SUPERADMIN_SIDEBAR_STORAGE_KEY = 'applevel:superadmin-sidebar-collapsed';
+const DESKTOP_VIEWPORT_QUERY = '(min-width: 980px)';
+
+const useIsDesktopViewport = () => {
+  const [isDesktopViewport, setIsDesktopViewport] = useState(() => {
+    if (typeof window === 'undefined') {
+      return false;
+    }
+
+    return window.matchMedia(DESKTOP_VIEWPORT_QUERY).matches;
+  });
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia(DESKTOP_VIEWPORT_QUERY);
+    const handleChange = (event: MediaQueryListEvent) => setIsDesktopViewport(event.matches);
+
+    mediaQuery.addEventListener('change', handleChange);
+    return () => mediaQuery.removeEventListener('change', handleChange);
+  }, []);
+
+  return isDesktopViewport;
+};
 
 const pageMeta: Record<string, { kicker: string; title: string; description: string }> = {
   home: {
@@ -180,8 +201,12 @@ const Layout: React.FC<LayoutProps> = ({
   const isProfessorVision = isSuperAdmin && superadminViewMode === 'professor';
   const isStaff =
     navigationRole === UserRole.PROFESSOR ||
+    navigationRole === UserRole.ADMIN ||
     navigationRole === UserRole.SUPERADMIN;
-  const sidebarCollapsed = isSuperAdmin && isSidebarCollapsed;
+  const isDesktopShell = isSuperAdmin || navigationRole === UserRole.PROFESSOR || navigationRole === UserRole.ADMIN;
+  const isDesktopViewport = useIsDesktopViewport();
+  const isFlatShell = isSuperAdmin || (isDesktopShell && isDesktopViewport);
+  const sidebarCollapsed = isDesktopShell && isSidebarCollapsed;
 
   const navItems = useMemo<NavItem[]>(() => (
     navigationRole === UserRole.SUPERADMIN
@@ -225,7 +250,7 @@ const Layout: React.FC<LayoutProps> = ({
   const currentPage = navigationRole === UserRole.SUPERADMIN
     ? (superadminPageMeta[activeTab] ?? superadminPageMeta.home)
     : (pageMeta[activeTab] ?? pageMeta.home);
-  const isWideLayout = isSuperAdmin;
+  const isWideLayout = isDesktopShell;
   const canToggleVision = isSuperAdmin && Boolean(onSetSuperadminViewMode);
   const showSuperadminAcademyPicker = canToggleVision && !isProfessorVision && Boolean(onSelectAcademy);
   const professorVisionDisabled = superadminAcademies.length === 0;
@@ -322,7 +347,7 @@ const Layout: React.FC<LayoutProps> = ({
   }, [activeTab, navItems]);
 
   useEffect(() => {
-    if (!isSuperAdmin || typeof window === 'undefined') {
+    if (!isDesktopShell || typeof window === 'undefined') {
       return;
     }
 
@@ -331,7 +356,16 @@ const Layout: React.FC<LayoutProps> = ({
     } catch {
       // Ignore storage write failures so the layout still works in restricted browsers.
     }
-  }, [isSidebarCollapsed, isSuperAdmin]);
+  }, [isSidebarCollapsed, isDesktopShell]);
+
+  const sidebarIdentity = isSuperAdmin
+    ? {
+      title: isProfessorVision ? 'Visão professor' : 'Superadmin',
+      subtitle: isProfessorVision ? 'Operação por unidade' : 'Controle da rede',
+    }
+    : navigationRole === UserRole.ADMIN
+      ? { title: 'Administração', subtitle: 'Gestão da academia' }
+      : { title: 'Professor', subtitle: mobileUnitLabel || 'Operação da academia' };
 
   const renderDesktopSidebar = () => (
     <aside className={`app-sidebar app-panel ${sidebarCollapsed ? 'app-sidebar--collapsed' : ''}`}>
@@ -340,9 +374,9 @@ const Layout: React.FC<LayoutProps> = ({
           <img src="/logo3.png" alt="APPLevel" className="h-20 w-20 object-contain flex-shrink-0" />
           <div className="app-sidebar__brand-copy" aria-hidden={sidebarCollapsed}>
             <p className="app-kicker">Plataforma APPLevel</p>
-            <h2 className="app-sidebar__title">{isProfessorVision ? 'Visão professor' : 'Superadmin'}</h2>
+            <h2 className="app-sidebar__title">{sidebarIdentity.title}</h2>
             <p className="mt-1 text-xs text-[color:var(--text-soft)]">
-              {isProfessorVision ? 'Operação por unidade' : 'Controle da rede'}
+              {sidebarIdentity.subtitle}
             </p>
           </div>
         </div>
@@ -359,7 +393,7 @@ const Layout: React.FC<LayoutProps> = ({
         </button>
       </div>
 
-      <nav className="app-sidebar__nav" aria-label="Navegação do superadmin">
+      <nav className="app-sidebar__nav" aria-label="Navegação principal">
         {navItems.map((item) => {
           const Icon = item.icon;
           const isActive = activeTab === item.id;
@@ -389,14 +423,20 @@ const Layout: React.FC<LayoutProps> = ({
 
   return (
     <div
-      className={`app-shell ${isSuperAdmin ? 'app-shell--superadmin' : ''} ${sidebarCollapsed ? 'is-sidebar-collapsed' : ''}`.trim()}
+      className={[
+        'app-shell',
+        isSuperAdmin ? 'app-shell--superadmin' : '',
+        isDesktopShell ? 'app-shell--desk' : '',
+        isFlatShell ? 'app-shell--flat' : '',
+        sidebarCollapsed ? 'is-sidebar-collapsed' : '',
+      ].filter(Boolean).join(' ')}
     >
       <div className={`app-frame ${isWideLayout ? 'app-frame--wide' : ''}`}>
-        <div className={isSuperAdmin ? 'app-desktop-shell' : ''}>
-          {isSuperAdmin ? renderDesktopSidebar() : null}
+        <div className={isDesktopShell ? 'app-desktop-shell' : ''}>
+          {isDesktopShell ? renderDesktopSidebar() : null}
 
-          <div className={isSuperAdmin ? 'app-content-shell' : ''}>
-            <header className={`app-topbar ${isSuperAdmin ? 'app-topbar--superadmin' : ''}`.trim()}>
+          <div className={isDesktopShell ? 'app-content-shell' : ''}>
+            <header className={`app-topbar ${isSuperAdmin ? 'app-topbar--superadmin' : ''} ${isDesktopShell ? 'app-topbar--desk' : ''}`.trim()}>
               <div
                 className="app-mobile-header"
                 title={mobileUnitLabel}
@@ -471,6 +511,12 @@ const Layout: React.FC<LayoutProps> = ({
                       {renderVisionSwitch()}
                     </div>
                   ) : null}
+
+                  {!isSuperAdmin && isDesktopShell ? (
+                    <div className="app-pagebar__context app-pagebar__context--unit">
+                      {renderUnitChip()}
+                    </div>
+                  ) : null}
                 </div>
               </div>
 
@@ -481,7 +527,7 @@ const Layout: React.FC<LayoutProps> = ({
         </div>
       </div>
 
-      <nav className={`app-toolbar safe-area-bottom ${isSuperAdmin ? 'app-toolbar--superadmin' : ''}`} aria-label="Navegação principal">
+      <nav className={`app-toolbar safe-area-bottom ${isSuperAdmin ? 'app-toolbar--superadmin' : ''} ${isDesktopShell ? 'app-toolbar--desk' : ''}`.trim()} aria-label="Navegação principal">
         <div className="app-toolbar__surface">
           <div className="app-toolbar__track" ref={navTrackRef}>
             <div
