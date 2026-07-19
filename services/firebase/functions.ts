@@ -584,7 +584,8 @@ export const backendFunctions = {
     category?: string;
     description?: string;
     cost: number;
-    salePrice: number;
+    salePriceFilial: number;
+    salePriceDiretoria: number;
     status?: FinanceStatus;
   }) => callFunction<{ serviceId: string; status: FinanceStatus }>('upsertFinanceService', payload),
 
