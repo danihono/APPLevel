@@ -104,6 +104,7 @@ function drawKpiCards(doc: jsPDF, report: FinanceReport, startY: number): number
     `Pendencias: ${formatBRL(s.pendencias)}`,
     `Lucro bruto: ${formatBRL(s.lucroBruto)}`,
     `Ticket medio: ${formatBRL(s.ticketMedio)}`,
+    `Vales em aberto: ${formatBRL(s.valesAbertos)}`,
     `Qtd. vendas: ${s.qtdVendas}`,
   ];
   secondary.forEach((line) => {

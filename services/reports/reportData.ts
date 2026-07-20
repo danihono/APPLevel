@@ -11,6 +11,7 @@ import type {
   FinanceRevenueRecord,
   FinanceSaleItemRecord,
   FinanceSaleRecord,
+  FinanceWithdrawalRecord,
 } from '../firebase/models';
 import { LEVEL_CATALOG_ID } from '../firebase/models';
 
@@ -20,7 +21,8 @@ export type ReportBlock =
   | 'pagamentos'
   | 'receitas'
   | 'despesas'
-  | 'maisVendidos';
+  | 'maisVendidos'
+  | 'vales';
 
 export const REPORT_BLOCK_LABELS: Record<ReportBlock, string> = {
   resumo: 'Resumo',
@@ -29,6 +31,7 @@ export const REPORT_BLOCK_LABELS: Record<ReportBlock, string> = {
   receitas: 'Receitas (entradas)',
   despesas: 'Despesas (saidas)',
   maisVendidos: 'Mais vendidos',
+  vales: 'Vales (retiradas)',
 };
 
 export interface ReportColumn {
@@ -60,6 +63,7 @@ export interface ReportSummary {
   ticketMedio: number;
   lucroBruto: number; // total das vendas - custo dos itens vendidos
   qtdVendas: number;
+  valesAbertos: number; // saldo a receber de vales nao cancelados
 }
 
 export interface FinanceReport {
@@ -87,6 +91,7 @@ export interface BuildReportParams {
   payments: Array<FirestoreEntity<FinancePaymentRecord>>;
   revenues: Array<FirestoreEntity<FinanceRevenueRecord>>;
   expenses: Array<FirestoreEntity<FinanceExpenseRecord>>;
+  withdrawals: Array<FirestoreEntity<FinanceWithdrawalRecord>>;
   startValue: string; // YYYY-MM-DD
   endValue: string; // YYYY-MM-DD
   academyId: string; // '' = todas as filiais
@@ -196,6 +201,12 @@ export function buildFinanceReport(params: BuildReportParams): FinanceReport {
       isWithin(toDate(expense.paidAt ?? expense.dueDate ?? expense.createdAt), startValue, endValue),
   );
 
+  const scopedWithdrawals = params.withdrawals.filter(
+    (withdrawal) =>
+      matchesAcademy(withdrawal.academyId, academyId) &&
+      isWithin(toDate(withdrawal.withdrawnAt ?? withdrawal.createdAt), startValue, endValue),
+  );
+
   const nonCancelledSales = scopedSales.filter((sale) => sale.paymentStatus !== 'cancelled');
 
   // Itens das vendas no escopo (para lucro bruto e "mais vendidos").
@@ -211,6 +222,9 @@ export function buildFinanceReport(params: BuildReportParams): FinanceReport {
   const pendencias = round2(nonCancelledSales.reduce((sum, s) => sum + s.balanceDue, 0));
   const lucroBruto = round2(vendasTotal - custoItens);
   const qtdVendas = nonCancelledSales.length;
+  const valesAbertos = round2(
+    scopedWithdrawals.filter((w) => w.status !== 'cancelled').reduce((sum, w) => sum + (w.balanceDue ?? 0), 0),
+  );
   const ticketMedio = qtdVendas > 0 ? round2(vendasTotal / qtdVendas) : 0;
 
   const summary: ReportSummary = {
@@ -223,6 +237,7 @@ export function buildFinanceReport(params: BuildReportParams): FinanceReport {
     ticketMedio,
     lucroBruto,
     qtdVendas,
+    valesAbertos,
   };
 
   const tables: ReportTable[] = [];
@@ -371,6 +386,32 @@ export function buildFinanceReport(params: BuildReportParams): FinanceReport {
       ],
       totalKey: 'total',
       rows: topServicos.map((s) => ({ servico: s.name, quantidade: s.quantity, total: round2(s.total) })),
+    });
+  }
+
+  if (blocks.includes('vales')) {
+    tables.push({
+      id: 'vales',
+      title: 'Vales (retiradas)',
+      columns: [
+        { key: 'data', label: 'Data' },
+        { key: 'quemRetirou', label: 'Quem retirou' },
+        { key: 'itens', label: 'Itens' },
+        { key: 'total', label: 'Total', money: true },
+        { key: 'recebido', label: 'Recebido', money: true },
+        { key: 'saldo', label: 'Saldo', money: true },
+        { key: 'status', label: 'Status' },
+      ],
+      totalKey: 'saldo',
+      rows: scopedWithdrawals.map((withdrawal) => ({
+        data: (toDate(withdrawal.withdrawnAt ?? withdrawal.createdAt) ?? new Date()).toLocaleDateString('pt-BR'),
+        quemRetirou: withdrawal.debtorName,
+        itens: withdrawal.items.map((item) => `${item.quantity}x ${item.productName}`).join(', '),
+        total: round2(withdrawal.total),
+        recebido: round2(withdrawal.amountReceived),
+        saldo: round2(withdrawal.balanceDue),
+        status: statusLabel(withdrawal.status),
+      })),
     });
   }
 

@@ -321,5 +321,10 @@ service cloud.firestore {
       allow read: if isSuperAdmin();
       allow write: if false;
     }
+
+    match /finance_withdrawals/{withdrawalId} {
+      allow read: if isSuperAdmin();
+      allow write: if false;
+    }
   }
 }

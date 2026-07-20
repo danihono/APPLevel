@@ -30,6 +30,7 @@ import type {
   FinanceServiceRecord,
   GraduationApprovalRequestRecord,
   GraduationRecord,
+  FinanceWithdrawalRecord,
   InventoryMovementRecord,
   JoinRequestRecord,
   LearningCourseRecord,
@@ -835,6 +836,23 @@ export function subscribeToInventoryMovements(
       const records = snapshot.docs
         .map((item) => mapDoc<InventoryMovementRecord>(item))
         .sort((left, right) => toMillis(right.createdAt) - toMillis(left.createdAt));
+      listener(records);
+    },
+    onError,
+  );
+}
+
+export function subscribeToFinanceWithdrawals(
+  academyId: string | undefined,
+  listener: (records: Array<FirestoreEntity<FinanceWithdrawalRecord>>) => void,
+  onError?: (error: Error) => void,
+) {
+  return onSnapshot(
+    buildAcademyScopedQuery('finance_withdrawals', academyId),
+    (snapshot) => {
+      const records = snapshot.docs
+        .map((item) => mapDoc<FinanceWithdrawalRecord>(item))
+        .sort((left, right) => toMillis(right.withdrawnAt ?? right.createdAt) - toMillis(left.withdrawnAt ?? left.createdAt));
       listener(records);
     },
     onError,

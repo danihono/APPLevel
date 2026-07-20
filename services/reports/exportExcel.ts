@@ -155,6 +155,7 @@ async function addSummarySheet(workbook: Workbook, report: FinanceReport): Promi
     ['Pendencias (a receber)', s.pendencias, true],
     ['Lucro bruto', s.lucroBruto, true],
     ['Ticket medio', s.ticketMedio, true],
+    ['Vales em aberto', s.valesAbertos, true],
     ['Qtd. de vendas', s.qtdVendas, false],
   ];
   kpis.forEach(([label, value, money], idx) => {

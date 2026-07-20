@@ -612,6 +612,24 @@ export const backendFunctions = {
   cancelFinanceSale: (payload: { saleId: string; reason?: string }) =>
     callFunction<{ saleId: string; paymentStatus: 'cancelled' }>('cancelFinanceSale', payload),
 
+  createStockWithdrawal: (payload: {
+    debtorUserId: string;
+    items: Array<{ productId: string; quantity: number; unitValue?: number }>;
+    withdrawnAt?: string;
+    notes?: string;
+  }) => callFunction<{ withdrawalId: string; total: number; status: FinanceSalePaymentStatus }>('createStockWithdrawal', payload),
+
+  settleStockWithdrawal: (payload: {
+    withdrawalId: string;
+    amount: number;
+    paymentMethod: string;
+    paymentDate?: string;
+    notes?: string;
+  }) => callFunction<{ withdrawalId: string; status: FinanceSalePaymentStatus; balanceDue: number }>('settleStockWithdrawal', payload),
+
+  cancelStockWithdrawal: (payload: { withdrawalId: string; reason?: string }) =>
+    callFunction<{ withdrawalId: string; status: 'cancelled' }>('cancelStockWithdrawal', payload),
+
   upsertManualRevenue: (payload: {
     revenueId?: string;
     academyId: string;

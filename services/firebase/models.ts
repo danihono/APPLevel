@@ -25,7 +25,7 @@ export type LearningLessonBlockType = 'youtube' | 'uploaded_video' | 'pdf' | 'im
 export type FinanceStatus = 'active' | 'inactive';
 export type FinanceSalePaymentStatus = 'paid' | 'partial' | 'pending' | 'cancelled';
 export type FinanceSaleItemType = 'product' | 'service';
-export type FinanceRevenueOrigin = 'sale' | 'product' | 'service' | 'manual' | 'estorno';
+export type FinanceRevenueOrigin = 'sale' | 'product' | 'service' | 'manual' | 'estorno' | 'vale';
 export type FinanceRevenueStatus = 'received' | 'reversed';
 export type FinanceExpenseStatus = 'paid' | 'pending' | 'overdue';
 export type InventoryMovementType =
@@ -33,7 +33,9 @@ export type InventoryMovementType =
   | 'manual_adjustment'
   | 'sale_decrement'
   | 'sale_cancel_reversal'
-  | 'sale_edit_adjustment';
+  | 'sale_edit_adjustment'
+  | 'withdrawal_decrement'
+  | 'withdrawal_return';
 
 export interface AcademyRecord {
   id: string;
@@ -619,6 +621,33 @@ export interface InventoryMovementRecord {
   reason?: string;
   createdBy?: string;
   createdAt?: Timestamp;
+}
+
+export interface FinanceWithdrawalItemRecord {
+  productId: string;
+  productName: string;
+  quantity: number;
+  unitValue: number;
+  total: number;
+}
+
+export interface FinanceWithdrawalRecord {
+  academyId: string;
+  debtorUserId: string;
+  debtorName: string;
+  items: FinanceWithdrawalItemRecord[];
+  total: number;
+  amountReceived: number;
+  balanceDue: number;
+  status: FinanceSalePaymentStatus;
+  notes?: string;
+  withdrawnAt?: Timestamp;
+  cancelledAt?: Timestamp;
+  cancelledBy?: string;
+  cancelReason?: string;
+  createdBy?: string;
+  createdAt?: Timestamp;
+  updatedAt?: Timestamp;
 }
 
 export interface CreateAcademyPayload {
