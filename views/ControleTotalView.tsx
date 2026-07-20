@@ -6,6 +6,7 @@ import {
   CreditCard,
   DollarSign,
   Edit3,
+  FileDown,
   Filter,
   Package,
   Plus,
@@ -30,8 +31,13 @@ import {
   type InventoryMovementRecord,
   type UserRecord,
 } from '../services/firebase/models';
+import {
+  buildFinanceReport,
+  REPORT_BLOCK_LABELS,
+  type ReportBlock,
+} from '../services/reports/reportData';
 
-type ControleTab = 'dashboard' | 'catalog' | 'list' | 'stock';
+type ControleTab = 'dashboard' | 'catalog' | 'list' | 'stock' | 'reports';
 type CatalogMode = 'product' | 'service';
 type ListType = 'all' | 'sale' | 'payment' | 'revenue' | 'expense' | 'stock';
 type SortMode = 'newest' | 'oldest' | 'value_desc' | 'value_asc';
@@ -366,6 +372,19 @@ const ControleTotalView: React.FC<ControleTotalViewProps> = ({
   const [purchaseForm, setPurchaseForm] = useState<PurchaseFormState>(() => initialPurchaseForm());
   const [stockAcademyId, setStockAcademyId] = useState('');
   const [stockEdits, setStockEdits] = useState<Record<string, string>>({});
+  const [reportStart, setReportStart] = useState(monthStartInputValue());
+  const [reportEnd, setReportEnd] = useState(dateInputValue());
+  const [reportAcademyId, setReportAcademyId] = useState('');
+  const [reportFormat, setReportFormat] = useState<'excel' | 'pdf'>('excel');
+  const [reportBlocks, setReportBlocks] = useState<Record<ReportBlock, boolean>>({
+    resumo: true,
+    vendas: true,
+    pagamentos: true,
+    receitas: true,
+    despesas: true,
+    maisVendidos: true,
+  });
+  const [reportBusy, setReportBusy] = useState(false);
 
   const students = useMemo(() => users.filter((user) => user.role === 'student'), [users]);
   const staff = useMemo(() => users.filter((user) => user.role === 'professor' || user.role === 'superadmin'), [users]);
@@ -825,6 +844,45 @@ const ControleTotalView: React.FC<ControleTotalViewProps> = ({
     });
   }
 
+  const selectedReportBlocks = (Object.keys(reportBlocks) as ReportBlock[]).filter((block) => reportBlocks[block]);
+
+  async function handleGenerateReport() {
+    if (reportBusy) return;
+    if (selectedReportBlocks.length === 0) {
+      setFeedback('Selecione ao menos um bloco para o relatorio.');
+      return;
+    }
+    setReportBusy(true);
+    setFeedback('Gerando relatorio...');
+    try {
+      const report = buildFinanceReport({
+        academies,
+        sales,
+        saleItems,
+        payments,
+        revenues,
+        expenses,
+        startValue: reportStart,
+        endValue: reportEnd,
+        academyId: reportAcademyId,
+        blocks: selectedReportBlocks,
+      });
+      if (reportFormat === 'excel') {
+        const { exportFinanceReportExcel } = await import('../services/reports/exportExcel');
+        await exportFinanceReportExcel(report);
+      } else {
+        const { exportFinanceReportPdf } = await import('../services/reports/exportPdf');
+        await exportFinanceReportPdf(report);
+      }
+      setFeedback('Relatorio gerado com sucesso.');
+    } catch (error) {
+      console.error('Falha ao gerar relatorio', error);
+      setFeedback('Nao foi possivel gerar o relatorio.');
+    } finally {
+      setReportBusy(false);
+    }
+  }
+
   const renderAcademySelect = (
     value: string,
     onChange: (value: string) => void,
@@ -866,6 +924,9 @@ const ControleTotalView: React.FC<ControleTotalViewProps> = ({
         </button>
         <button type="button" role="tab" className={`app-segment__button ${activeTab === 'stock' ? 'is-active' : ''}`} onClick={() => setActiveTab('stock')}>
           <Package size={18} /> Estoque
+        </button>
+        <button type="button" role="tab" className={`app-segment__button ${activeTab === 'reports' ? 'is-active' : ''}`} onClick={() => setActiveTab('reports')}>
+          <FileDown size={18} /> Relatorios
         </button>
       </div>
 
@@ -1405,6 +1466,59 @@ const ControleTotalView: React.FC<ControleTotalViewProps> = ({
               ))}
               {timeline.filter((entry) => entry.type === 'stock' && (!stockAcademyId || entry.academyId === stockAcademyId)).length === 0 ? <div className="app-empty">Nenhuma movimentacao de estoque no periodo selecionado.</div> : null}
             </div>
+          </section>
+        </div>
+      ) : null}
+
+      {activeTab === 'reports' ? (
+        <div className="controle-total__stack">
+          <section className="app-panel app-panel-pad controle-total__filters">
+            <label className="app-field">
+              <span className="app-field__label">Filial</span>
+              {renderAcademySelect(reportAcademyId, setReportAcademyId, true, true)}
+            </label>
+            <label className="app-field">
+              <span className="app-field__label">Inicio</span>
+              <input className="app-input" type="date" value={reportStart} onChange={(event) => setReportStart(event.target.value)} />
+            </label>
+            <label className="app-field">
+              <span className="app-field__label">Fim</span>
+              <input className="app-input" type="date" value={reportEnd} onChange={(event) => setReportEnd(event.target.value)} />
+            </label>
+          </section>
+
+          <section className="app-panel app-panel-pad controle-total__stack">
+            <div className="controle-total__section-heading">
+              <strong>Blocos do relatorio</strong>
+            </div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '16px' }}>
+              {(['resumo', 'vendas', 'pagamentos', 'receitas', 'despesas', 'maisVendidos'] as ReportBlock[]).map((block) => (
+                <label key={block} style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                  <input
+                    type="checkbox"
+                    checked={reportBlocks[block]}
+                    onChange={(event) => setReportBlocks((current) => ({ ...current, [block]: event.target.checked }))}
+                  />
+                  <span>{REPORT_BLOCK_LABELS[block]}</span>
+                </label>
+              ))}
+            </div>
+
+            <div className="controle-total__section-heading">
+              <strong>Formato</strong>
+            </div>
+            <div className="app-segment" role="tablist" aria-label="Formato do relatorio">
+              <button type="button" role="tab" className={`app-segment__button ${reportFormat === 'excel' ? 'is-active' : ''}`} onClick={() => setReportFormat('excel')}>
+                Excel (.xlsx)
+              </button>
+              <button type="button" role="tab" className={`app-segment__button ${reportFormat === 'pdf' ? 'is-active' : ''}`} onClick={() => setReportFormat('pdf')}>
+                PDF
+              </button>
+            </div>
+
+            <button type="button" className="app-button app-button--gold" disabled={reportBusy} onClick={handleGenerateReport}>
+              <FileDown size={18} /> {reportBusy ? 'Gerando...' : 'Gerar relatorio'}
+            </button>
           </section>
         </div>
       ) : null}
