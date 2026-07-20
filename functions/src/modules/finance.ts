@@ -18,8 +18,10 @@ import {
   type InventoryMovementDoc,
   type InventoryMovementType,
   type ProductPriceHistoryEntry,
+  type FinanceWithdrawalDoc,
+  type FinanceWithdrawalItemDoc,
 } from '../domain/models';
-import { getRequestContext } from '../lib/context';
+import { getRequestContext, getUserDoc } from '../lib/context';
 import { assertCondition } from '../lib/errors';
 import { db } from '../lib/firebase';
 import { optionalNumber, optionalString, optionalTimestamp, requiredNumber, requiredString } from '../lib/payload';
@@ -1300,4 +1302,233 @@ export const markExpensePaid = onCall(callableOptions, async (request) => {
     expenseId,
     status: 'paid' as const,
   };
+});
+
+
+// ---------------------------------------------------------------------------
+// Vales / retiradas de estoque com acerto
+// ---------------------------------------------------------------------------
+
+const MAX_WITHDRAWAL_ITEMS = 80;
+
+interface ParsedWithdrawalItem {
+  productId: string;
+  quantity: number;
+  unitValue?: number;
+}
+
+function parseWithdrawalItems(data: unknown): ParsedWithdrawalItem[] {
+  const rawItems = requestField(data, 'items');
+  assertCondition(Array.isArray(rawItems), 'invalid-argument', 'Informe ao menos um item na retirada.');
+  assertCondition(rawItems.length > 0, 'invalid-argument', 'Informe ao menos um item na retirada.');
+  assertCondition(
+    rawItems.length <= MAX_WITHDRAWAL_ITEMS,
+    'invalid-argument',
+    `A retirada aceita no maximo ${MAX_WITHDRAWAL_ITEMS} itens.`,
+  );
+
+  return rawItems.map((entry, index) => {
+    assertCondition(entry && typeof entry === 'object', 'invalid-argument', `O item ${index + 1} esta invalido.`);
+    const productId = requiredString(entry, 'productId').trim();
+    const quantity = requiredPositiveQuantity(entry, 'quantity');
+    const unitValueRaw = optionalNumber(entry, 'unitValue');
+    if (unitValueRaw != null) {
+      assertCondition(unitValueRaw >= 0, 'invalid-argument', `O valor unitario do item ${index + 1} nao pode ser negativo.`);
+    }
+    return { productId, quantity, unitValue: unitValueRaw == null ? undefined : roundMoney(unitValueRaw) };
+  });
+}
+
+// Cria um "vale": baixa o estoque dos itens retirados e registra um valor a
+// receber atrelado a quem retirou (equipe/diretoria). Nenhuma receita e criada
+// aqui; a entrada no caixa acontece no acerto (settleStockWithdrawal).
+export const createStockWithdrawal = onCall(callableOptions, async (request) => {
+  const actor = await getRequestContext(request, 'superadmin');
+  const debtorUserId = requiredString(request.data, 'debtorUserId').trim();
+  const parsedItems = parseWithdrawalItems(request.data);
+  const withdrawnAt = optionalTimestamp(request.data, 'withdrawnAt') ?? Timestamp.now();
+  const notes = optionalString(request.data, 'notes')?.trim();
+
+  // Somente equipe/diretoria pode ser o responsavel pela retirada.
+  const debtor = await getUserDoc(debtorUserId);
+  assertCondition(
+    debtor.role === 'professor' || debtor.role === 'admin' || debtor.role === 'superadmin',
+    'failed-precondition',
+    'O responsavel pela retirada deve ser da equipe (professor, admin ou diretoria).',
+  );
+  const debtorName = debtor.displayName;
+
+  const now = Timestamp.now();
+  const withdrawalRef = db.collection(COLLECTIONS.financeWithdrawals).doc();
+  let total = 0;
+  let items: FinanceWithdrawalItemDoc[] = [];
+
+  await db.runTransaction(async (transaction) => {
+    // Firestore exige todos os reads antes dos writes.
+    const uniqueIds = Array.from(new Set(parsedItems.map((item) => item.productId)));
+    const productRefs = new Map(uniqueIds.map((id) => [id, db.collection(COLLECTIONS.financeProducts).doc(id)] as const));
+    const products = new Map<string, FinanceProductDoc>();
+    for (const id of uniqueIds) {
+      const snap = await transaction.get(productRefs.get(id)!);
+      assertCondition(snap.exists, 'not-found', 'Produto nao encontrado.');
+      products.set(id, snap.data() as FinanceProductDoc);
+    }
+
+    // Quantidade agregada por produto (um decremento por doc).
+    const qtyByProduct = new Map<string, number>();
+    for (const item of parsedItems) {
+      qtyByProduct.set(item.productId, (qtyByProduct.get(item.productId) ?? 0) + item.quantity);
+    }
+
+    total = 0;
+    items = [];
+    for (const item of parsedItems) {
+      const product = products.get(item.productId)!;
+      assertCondition(product.status === 'active', 'failed-precondition', `Produto inativo: ${product.name}.`);
+      const unitValue = item.unitValue ?? roundMoney(readProductSalePriceForBuyer(product, 'diretoria'));
+      const lineTotal = roundMoney(unitValue * item.quantity);
+      total = roundMoney(total + lineTotal);
+      items.push({ productId: item.productId, productName: product.name, quantity: item.quantity, unitValue, total: lineTotal });
+    }
+
+    for (const id of uniqueIds) {
+      applyProductStockChange(transaction, productRefs.get(id)!, products.get(id)!, {
+        academyId: LEVEL_CATALOG_ID,
+        quantityDelta: -(qtyByProduct.get(id) ?? 0),
+        movementType: 'withdrawal_decrement',
+        reason: `Vale - ${debtorName}`,
+        actorUid: actor.uid,
+        now,
+      });
+    }
+
+    const withdrawal: FinanceWithdrawalDoc = {
+      academyId: LEVEL_CATALOG_ID,
+      debtorUserId,
+      debtorName,
+      items,
+      total,
+      amountReceived: 0,
+      balanceDue: total,
+      status: 'pending',
+      ...(notes ? { notes } : {}),
+      withdrawnAt,
+      createdBy: actor.uid,
+      createdAt: now,
+      updatedAt: now,
+    };
+    transaction.set(withdrawalRef, withdrawal);
+  });
+
+  return { withdrawalId: withdrawalRef.id, total, status: 'pending' as const };
+});
+
+// Registra um pagamento (parcial ou total) de um vale. Cada acerto gera uma
+// receita (entrada no caixa) com origin 'vale' e recalcula o saldo/status.
+export const settleStockWithdrawal = onCall(callableOptions, async (request) => {
+  const actor = await getRequestContext(request, 'superadmin');
+  const withdrawalId = requiredString(request.data, 'withdrawalId').trim();
+  const amount = positiveMoney(request.data, 'amount');
+  const paymentMethod = optionalString(request.data, 'paymentMethod')?.trim() || DEFAULT_PAYMENT_METHOD;
+  const paymentDate = optionalTimestamp(request.data, 'paymentDate') ?? Timestamp.now();
+  const notes = optionalString(request.data, 'notes')?.trim();
+  const withdrawalRef = db.collection(COLLECTIONS.financeWithdrawals).doc(withdrawalId);
+  const now = Timestamp.now();
+  let status: FinanceSalePaymentStatus = 'pending';
+  let balanceDue = 0;
+
+  await db.runTransaction(async (transaction) => {
+    const snap = await transaction.get(withdrawalRef);
+    assertCondition(snap.exists, 'not-found', 'Vale nao encontrado.');
+    const withdrawal = snap.data() as FinanceWithdrawalDoc;
+    assertCondition(withdrawal.status !== 'cancelled', 'failed-precondition', 'Vale cancelado nao recebe pagamento.');
+    assertCondition(amount <= withdrawal.balanceDue, 'invalid-argument', 'Pagamento maior que o saldo do vale.');
+
+    const nextAmountReceived = roundMoney(withdrawal.amountReceived + amount);
+    balanceDue = roundMoney(withdrawal.total - nextAmountReceived);
+    status = calculatePaymentStatus(withdrawal.total, nextAmountReceived);
+
+    const revenueRef = db.collection(COLLECTIONS.financeRevenues).doc();
+    const revenue: FinanceRevenueDoc = {
+      academyId: withdrawal.academyId,
+      category: 'Vale',
+      description: `Acerto de vale - ${withdrawal.debtorName}${notes ? ` - ${notes}` : ''}`,
+      amount,
+      receivedAt: paymentDate,
+      paymentMethod,
+      origin: 'vale',
+      status: 'received',
+      createdBy: actor.uid,
+      createdAt: now,
+      updatedAt: now,
+    };
+    transaction.set(revenueRef, revenue);
+
+    transaction.update(withdrawalRef, {
+      amountReceived: nextAmountReceived,
+      balanceDue,
+      status,
+      paymentMethod,
+      updatedAt: now,
+    });
+  });
+
+  return { withdrawalId, status, balanceDue };
+});
+
+// Cancela um vale devolvendo os produtos ao estoque. So permitido enquanto nada
+// foi recebido (acerto ainda nao iniciado).
+export const cancelStockWithdrawal = onCall(callableOptions, async (request) => {
+  const actor = await getRequestContext(request, 'superadmin');
+  const withdrawalId = requiredString(request.data, 'withdrawalId').trim();
+  const reason = optionalString(request.data, 'reason')?.trim();
+  const withdrawalRef = db.collection(COLLECTIONS.financeWithdrawals).doc(withdrawalId);
+  const now = Timestamp.now();
+
+  await db.runTransaction(async (transaction) => {
+    const snap = await transaction.get(withdrawalRef);
+    assertCondition(snap.exists, 'not-found', 'Vale nao encontrado.');
+    const withdrawal = snap.data() as FinanceWithdrawalDoc;
+    assertCondition(withdrawal.status !== 'cancelled', 'failed-precondition', 'Vale ja cancelado.');
+    assertCondition(
+      withdrawal.amountReceived === 0,
+      'failed-precondition',
+      'Nao e possivel devolver um vale que ja teve pagamento. Conclua o acerto.',
+    );
+
+    const qtyByProduct = new Map<string, number>();
+    for (const item of withdrawal.items) {
+      qtyByProduct.set(item.productId, (qtyByProduct.get(item.productId) ?? 0) + item.quantity);
+    }
+    const uniqueIds = Array.from(qtyByProduct.keys());
+    const productRefs = new Map(uniqueIds.map((id) => [id, db.collection(COLLECTIONS.financeProducts).doc(id)] as const));
+    const products = new Map<string, FinanceProductDoc>();
+    for (const id of uniqueIds) {
+      const psnap = await transaction.get(productRefs.get(id)!);
+      if (psnap.exists) products.set(id, psnap.data() as FinanceProductDoc);
+    }
+
+    for (const id of uniqueIds) {
+      const product = products.get(id);
+      if (!product) continue; // produto excluido: nao ha estoque para devolver
+      applyProductStockChange(transaction, productRefs.get(id)!, product, {
+        academyId: LEVEL_CATALOG_ID,
+        quantityDelta: qtyByProduct.get(id) ?? 0,
+        movementType: 'withdrawal_return',
+        reason: reason || `Devolucao do vale - ${withdrawal.debtorName}`,
+        actorUid: actor.uid,
+        now,
+      });
+    }
+
+    transaction.update(withdrawalRef, {
+      status: 'cancelled',
+      cancelledAt: now,
+      cancelledBy: actor.uid,
+      ...(reason ? { cancelReason: reason } : {}),
+      updatedAt: now,
+    });
+  });
+
+  return { withdrawalId, status: 'cancelled' as const };
 });

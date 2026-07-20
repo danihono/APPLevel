@@ -28,6 +28,7 @@ import {
   type FinanceSaleItemRecord,
   type FinanceSaleRecord,
   type FinanceServiceRecord,
+  type FinanceWithdrawalRecord,
   type InventoryMovementRecord,
   type UserRecord,
 } from '../services/firebase/models';
@@ -37,9 +38,9 @@ import {
   type ReportBlock,
 } from '../services/reports/reportData';
 
-type ControleTab = 'dashboard' | 'catalog' | 'list' | 'stock' | 'reports';
+type ControleTab = 'dashboard' | 'catalog' | 'list' | 'stock' | 'vales' | 'reports';
 type CatalogMode = 'product' | 'service';
-type ListType = 'all' | 'sale' | 'payment' | 'revenue' | 'expense' | 'stock';
+type ListType = 'all' | 'sale' | 'payment' | 'revenue' | 'expense' | 'stock' | 'withdrawal';
 type SortMode = 'newest' | 'oldest' | 'value_desc' | 'value_asc';
 type ActionMode = 'sale' | 'purchase' | null;
 
@@ -54,6 +55,7 @@ interface ControleTotalViewProps {
   revenues: Array<FirestoreEntity<FinanceRevenueRecord>>;
   expenses: Array<FirestoreEntity<FinanceExpenseRecord>>;
   inventoryMovements: Array<FirestoreEntity<InventoryMovementRecord>>;
+  withdrawals: Array<FirestoreEntity<FinanceWithdrawalRecord>>;
   selectedAcademyId: string;
   onSelectAcademy: (academyId: string) => void;
 }
@@ -348,6 +350,7 @@ const ControleTotalView: React.FC<ControleTotalViewProps> = ({
   revenues,
   expenses,
   inventoryMovements,
+  withdrawals,
   selectedAcademyId,
   onSelectAcademy,
 }) => {
@@ -372,6 +375,13 @@ const ControleTotalView: React.FC<ControleTotalViewProps> = ({
   const [purchaseForm, setPurchaseForm] = useState<PurchaseFormState>(() => initialPurchaseForm());
   const [stockAcademyId, setStockAcademyId] = useState('');
   const [stockEdits, setStockEdits] = useState<Record<string, string>>({});
+  const [withdrawalDebtorId, setWithdrawalDebtorId] = useState('');
+  const [withdrawalItems, setWithdrawalItems] = useState<Array<{ productId: string; quantity: string; unitValue: string }>>([{ productId: '', quantity: '1', unitValue: '' }]);
+  const [withdrawalNotes, setWithdrawalNotes] = useState('');
+  const [settleTarget, setSettleTarget] = useState('');
+  const [settleAmount, setSettleAmount] = useState('');
+  const [settleMethod, setSettleMethod] = useState(paymentMethods[0]);
+  const [settleDate, setSettleDate] = useState(dateInputValue());
   const [reportStart, setReportStart] = useState(monthStartInputValue());
   const [reportEnd, setReportEnd] = useState(dateInputValue());
   const [reportAcademyId, setReportAcademyId] = useState('');
@@ -383,11 +393,14 @@ const ControleTotalView: React.FC<ControleTotalViewProps> = ({
     receitas: true,
     despesas: true,
     maisVendidos: true,
+    vales: true,
   });
   const [reportBusy, setReportBusy] = useState(false);
 
   const students = useMemo(() => users.filter((user) => user.role === 'student'), [users]);
   const staff = useMemo(() => users.filter((user) => user.role === 'professor' || user.role === 'superadmin'), [users]);
+  const withdrawalDebtors = useMemo(() => users.filter((user) => user.role === 'professor' || user.role === 'admin' || user.role === 'superadmin'), [users]);
+  const valesEmAberto = useMemo(() => withdrawals.filter((item) => item.status !== 'cancelled').reduce((total, item) => total + (item.balanceDue ?? 0), 0), [withdrawals]);
   const salesById = useMemo(() => new Map(sales.map((sale) => [sale.id, sale])), [sales]);
   const productById = useMemo(() => new Map(products.map((product) => [product.id, product])), [products]);
   const serviceById = useMemo(() => new Map(services.map((service) => [service.id, service])), [services]);
@@ -409,6 +422,12 @@ const ControleTotalView: React.FC<ControleTotalViewProps> = ({
       (!academyFilter || expense.academyId === academyFilter)
       && isWithin(toDate(expense.paidAt ?? expense.dueDate ?? expense.createdAt), dashboardStart, dashboardEnd)
     ));
+    const scopedWithdrawals = withdrawals.filter((item) => (
+      (!academyFilter || item.academyId === academyFilter)
+      && item.status !== 'cancelled'
+      && isWithin(toDate(item.withdrawnAt ?? item.createdAt), dashboardStart, dashboardEnd)
+    ));
+    const valesAbertos = scopedWithdrawals.reduce((total, item) => total + (item.balanceDue ?? 0), 0);
     const revenueTotal = scopedRevenues.reduce((total, revenue) => total + revenue.amount, 0);
     const expenseTotal = scopedExpenses.reduce((total, expense) => total + expense.amount, 0);
     const pendingTotal = scopedSales
@@ -461,6 +480,7 @@ const ControleTotalView: React.FC<ControleTotalViewProps> = ({
       filialSalesTotal,
       revenueTotal,
       pendingTotal,
+      valesAbertos,
       expenseTotal,
       grossProfit: ticketSales.reduce((total, sale) => {
         const items = saleItems.filter((item) => item.saleId === sale.id);
@@ -476,7 +496,7 @@ const ControleTotalView: React.FC<ControleTotalViewProps> = ({
       topAcademies: [...academyRevenue.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5),
       topCustomers: [...customerTotals.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5),
     };
-  }, [dashboardAcademyId, dashboardEnd, dashboardStart, expenses, products, revenues, saleItems, sales]);
+  }, [dashboardAcademyId, dashboardEnd, dashboardStart, expenses, products, revenues, saleItems, sales, withdrawals]);
 
   const filteredProducts = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
@@ -569,6 +589,20 @@ const ControleTotalView: React.FC<ControleTotalViewProps> = ({
       });
     });
 
+    withdrawals.forEach((withdrawal) => {
+      const itemsLabel = withdrawal.items.map((item) => `${item.quantity}x ${item.productName}`).join(', ');
+      entries.push({
+        id: `withdrawal:${withdrawal.id}`,
+        type: 'withdrawal',
+        title: `Vale - ${withdrawal.debtorName}`,
+        subtitle: `${itemsLabel} | ${statusLabel(withdrawal.status)}`,
+        academyId: withdrawal.academyId,
+        date: toDate(withdrawal.withdrawnAt ?? withdrawal.createdAt) ?? new Date(0),
+        value: -withdrawal.total,
+        status: withdrawal.status,
+      });
+    });
+
     return entries
       .filter((entry) => (!academyFilter || entry.academyId === academyFilter))
       .filter((entry) => listType === 'all' || entry.type === listType)
@@ -580,7 +614,7 @@ const ControleTotalView: React.FC<ControleTotalViewProps> = ({
         if (sortMode === 'value_asc') return left.value - right.value;
         return right.date.getTime() - left.date.getTime();
       });
-  }, [academies, expenses, inventoryMovements, listAcademyId, listEnd, listStart, listType, payments, revenues, sales, salesById, searchTerm, sortMode]);
+  }, [academies, expenses, inventoryMovements, listAcademyId, listEnd, listStart, listType, payments, revenues, sales, salesById, searchTerm, sortMode, withdrawals]);
 
   // Produtos sao do catalogo global da Level. Servicos podem ser do catalogo
   // Central (vendaveis para qualquer filial - ex.: emissao de certificado) ou
@@ -862,6 +896,7 @@ const ControleTotalView: React.FC<ControleTotalViewProps> = ({
         payments,
         revenues,
         expenses,
+        withdrawals,
         startValue: reportStart,
         endValue: reportEnd,
         academyId: reportAcademyId,
@@ -881,6 +916,66 @@ const ControleTotalView: React.FC<ControleTotalViewProps> = ({
     } finally {
       setReportBusy(false);
     }
+  }
+
+  function submitWithdrawal(event: React.FormEvent) {
+    event.preventDefault();
+    if (!withdrawalDebtorId) {
+      setFeedback('Selecione quem esta retirando.');
+      return;
+    }
+    const items = withdrawalItems
+      .filter((item) => item.productId && asNumber(item.quantity) > 0)
+      .map((item) => ({
+        productId: item.productId,
+        quantity: asNumber(item.quantity),
+        ...(item.unitValue.trim() ? { unitValue: asNumber(item.unitValue) } : {}),
+      }));
+    if (items.length === 0) {
+      setFeedback('Adicione ao menos um produto com quantidade valida.');
+      return;
+    }
+    void runAction('withdrawal', async () => {
+      await backendFunctions.createStockWithdrawal({
+        debtorUserId: withdrawalDebtorId,
+        items,
+        notes: withdrawalNotes.trim() || undefined,
+      });
+      setWithdrawalDebtorId('');
+      setWithdrawalItems([{ productId: '', quantity: '1', unitValue: '' }]);
+      setWithdrawalNotes('');
+    });
+  }
+
+  function startSettle(withdrawal: FirestoreEntity<FinanceWithdrawalRecord>) {
+    setSettleTarget(withdrawal.id);
+    setSettleAmount(String(withdrawal.balanceDue ?? 0));
+    setSettleMethod(paymentMethods[0]);
+    setSettleDate(dateInputValue());
+  }
+
+  function submitSettle(withdrawalId: string) {
+    const amount = asNumber(settleAmount);
+    if (amount <= 0) {
+      setFeedback('Informe um valor maior que zero.');
+      return;
+    }
+    void runAction('settle', async () => {
+      await backendFunctions.settleStockWithdrawal({
+        withdrawalId,
+        amount,
+        paymentMethod: settleMethod,
+        paymentDate: settleDate || undefined,
+      });
+      setSettleTarget('');
+      setSettleAmount('');
+    });
+  }
+
+  function cancelWithdrawal(withdrawalId: string) {
+    void runAction('cancelVale', async () => {
+      await backendFunctions.cancelStockWithdrawal({ withdrawalId });
+    });
   }
 
   const renderAcademySelect = (
@@ -925,6 +1020,9 @@ const ControleTotalView: React.FC<ControleTotalViewProps> = ({
         <button type="button" role="tab" className={`app-segment__button ${activeTab === 'stock' ? 'is-active' : ''}`} onClick={() => setActiveTab('stock')}>
           <Package size={18} /> Estoque
         </button>
+        <button type="button" role="tab" className={`app-segment__button ${activeTab === 'vales' ? 'is-active' : ''}`} onClick={() => setActiveTab('vales')}>
+          <ReceiptText size={18} /> Vales
+        </button>
         <button type="button" role="tab" className={`app-segment__button ${activeTab === 'reports' ? 'is-active' : ''}`} onClick={() => setActiveTab('reports')}>
           <FileDown size={18} /> Relatorios
         </button>
@@ -959,6 +1057,7 @@ const ControleTotalView: React.FC<ControleTotalViewProps> = ({
               ['Lucro bruto', dashboardMetrics.grossProfit, <BarChart3 key="icon" size={18} />, 'gross'],
               ['Lucro liquido', dashboardMetrics.netProfit, <CheckCircle2 key="icon" size={18} />, 'net'],
               ['Ticket medio', dashboardMetrics.averageTicket, <ReceiptText key="icon" size={18} />, 'ticket'],
+              ['Vales em aberto', dashboardMetrics.valesAbertos, <CreditCard key="icon" size={18} />, 'vale'],
               ['Estoque baixo', dashboardMetrics.lowStock.length, <AlertTriangle key="icon" size={18} />, 'stock'],
             ] as Array<[string, number, React.ReactNode, string]>).map(([label, value, icon, tone]) => (
               <article key={label} className={`controle-total__kpi-tile controle-total__kpi-tile--${tone}`}>
@@ -1204,7 +1303,7 @@ const ControleTotalView: React.FC<ControleTotalViewProps> = ({
             <label className="app-field"><span className="app-field__label">Filial</span>{renderAcademySelect(listAcademyId, setListAcademyId, true)}</label>
             <label className="app-field"><span className="app-field__label">Inicio</span><input className="app-input" type="date" value={listStart} onChange={(event) => setListStart(event.target.value)} /></label>
             <label className="app-field"><span className="app-field__label">Fim</span><input className="app-input" type="date" value={listEnd} onChange={(event) => setListEnd(event.target.value)} /></label>
-            <label className="app-field"><span className="app-field__label">Tipo</span><select className="app-select" value={listType} onChange={(event) => setListType(event.target.value as ListType)}><option value="all">Todos</option><option value="sale">Vendas</option><option value="payment">Pagamentos</option><option value="stock">Estoque</option></select></label>
+            <label className="app-field"><span className="app-field__label">Tipo</span><select className="app-select" value={listType} onChange={(event) => setListType(event.target.value as ListType)}><option value="all">Todos</option><option value="sale">Vendas</option><option value="payment">Pagamentos</option><option value="withdrawal">Vales</option><option value="stock">Estoque</option></select></label>
             <label className="app-field"><span className="app-field__label">Ordenar</span><select className="app-select" value={sortMode} onChange={(event) => setSortMode(event.target.value as SortMode)}><option value="newest">Mais recentes</option><option value="oldest">Mais antigas</option><option value="value_desc">Maior valor</option><option value="value_asc">Menor valor</option></select></label>
           </section>
 
@@ -1492,7 +1591,7 @@ const ControleTotalView: React.FC<ControleTotalViewProps> = ({
               <strong>Blocos do relatorio</strong>
             </div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '16px' }}>
-              {(['resumo', 'vendas', 'pagamentos', 'receitas', 'despesas', 'maisVendidos'] as ReportBlock[]).map((block) => (
+              {(['resumo', 'vendas', 'pagamentos', 'receitas', 'despesas', 'maisVendidos', 'vales'] as ReportBlock[]).map((block) => (
                 <label key={block} style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
                   <input
                     type="checkbox"
@@ -1519,6 +1618,106 @@ const ControleTotalView: React.FC<ControleTotalViewProps> = ({
             <button type="button" className="app-button app-button--gold" disabled={reportBusy} onClick={handleGenerateReport}>
               <FileDown size={18} /> {reportBusy ? 'Gerando...' : 'Gerar relatorio'}
             </button>
+          </section>
+        </div>
+      ) : null}
+
+      {activeTab === 'vales' ? (
+        <div className="controle-total__stack">
+          <form onSubmit={submitWithdrawal} className="app-panel app-panel-pad controle-total__stack">
+            <div className="controle-total__section-heading">
+              <strong>Registrar retirada (vale)</strong>
+            </div>
+            <label className="app-field">
+              <span className="app-field__label">Quem retirou (equipe)</span>
+              <select required className="app-select" value={withdrawalDebtorId} onChange={(event) => setWithdrawalDebtorId(event.target.value)}>
+                <option value="">- Selecionar -</option>
+                {withdrawalDebtors.map((member) => <option key={member.id} value={member.id}>{member.displayName}</option>)}
+              </select>
+            </label>
+
+            <div className="controle-total__items-editor">
+              <div className="controle-total__section-heading">
+                <strong>Itens retirados</strong>
+                <button type="button" className="app-button app-button--ghost app-button--small" onClick={() => setWithdrawalItems((current) => [...current, { productId: '', quantity: '1', unitValue: '' }])}>
+                  <Plus size={16} /> Adicionar
+                </button>
+              </div>
+              {withdrawalItems.map((item, index) => (
+                <div key={index} className="controle-total__sale-item-row">
+                  <div className="controle-total__sale-item">
+                    <select required className="app-select" value={item.productId} onChange={(event) => {
+                      const product = productById.get(event.target.value);
+                      const price = product ? readProductSalePriceForBuyer(product, 'diretoria') : 0;
+                      setWithdrawalItems((current) => current.map((entry, entryIndex) => entryIndex === index ? { ...entry, productId: event.target.value, unitValue: product ? String(price) : '' } : entry));
+                    }}>
+                      <option value="">Selecionar produto</option>
+                      {availableProducts.map((product) => <option key={product.id} value={product.id}>{product.name} ({product.stockCurrent} em estoque)</option>)}
+                    </select>
+                    <input className="app-input" inputMode="decimal" placeholder="Qtd" value={item.quantity} onChange={(event) => setWithdrawalItems((current) => current.map((entry, entryIndex) => entryIndex === index ? { ...entry, quantity: event.target.value } : entry))} />
+                    <input className="app-input" inputMode="decimal" placeholder="Valor unit." value={item.unitValue} onChange={(event) => setWithdrawalItems((current) => current.map((entry, entryIndex) => entryIndex === index ? { ...entry, unitValue: event.target.value } : entry))} />
+                    {withdrawalItems.length > 1 ? (
+                      <button type="button" className="app-button app-button--ghost app-button--small" aria-label="Remover item" onClick={() => setWithdrawalItems((current) => current.filter((_, entryIndex) => entryIndex !== index))}><Trash2 size={16} /></button>
+                    ) : null}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <label className="app-field">
+              <span className="app-field__label">Observacao</span>
+              <input className="app-input" value={withdrawalNotes} onChange={(event) => setWithdrawalNotes(event.target.value)} placeholder="Opcional" />
+            </label>
+
+            <button type="submit" className="app-button app-button--gold" disabled={!!busy}>
+              <Package size={18} /> Registrar retirada
+            </button>
+          </form>
+
+          <section className="app-panel app-panel-pad controle-total__stack">
+            <div className="controle-total__section-heading">
+              <strong>Vales</strong>
+              <span className="app-badge app-badge--gold">Em aberto: {formatCurrency(valesEmAberto)}</span>
+            </div>
+            {withdrawals.length === 0 ? <div className="app-empty">Nenhum vale registrado.</div> : null}
+            {withdrawals.map((withdrawal) => {
+              const itemsLabel = withdrawal.items.map((item) => `${item.quantity}x ${item.productName}`).join(', ');
+              const canSettle = withdrawal.status !== 'cancelled' && withdrawal.balanceDue > 0;
+              const canReturn = withdrawal.status !== 'cancelled' && withdrawal.amountReceived === 0;
+              return (
+                <article key={withdrawal.id} style={{ border: '1px solid rgba(128,128,128,0.25)', borderRadius: '12px', padding: '14px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px' }}>
+                    <div>
+                      <strong>{withdrawal.debtorName}</strong>
+                      <p style={{ margin: '2px 0', opacity: 0.8 }}>{itemsLabel}</p>
+                      <p style={{ margin: 0, fontSize: '0.85em', opacity: 0.6 }}>{formatDate(toDate(withdrawal.withdrawnAt ?? withdrawal.createdAt))}</p>
+                    </div>
+                    <span className={statusClass(withdrawal.status)}>{statusLabel(withdrawal.status)}</span>
+                  </div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '16px' }}>
+                    <span>Total {formatCurrency(withdrawal.total)}</span>
+                    <span>Recebido {formatCurrency(withdrawal.amountReceived)}</span>
+                    <strong>Saldo {formatCurrency(withdrawal.balanceDue)}</strong>
+                  </div>
+                  {settleTarget === withdrawal.id ? (
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', alignItems: 'center' }}>
+                      <input className="app-input" inputMode="decimal" placeholder="Valor" value={settleAmount} onChange={(event) => setSettleAmount(event.target.value)} style={{ maxWidth: '140px' }} />
+                      <select className="app-select" value={settleMethod} onChange={(event) => setSettleMethod(event.target.value)} style={{ maxWidth: '180px' }}>
+                        {paymentMethods.map((method) => <option key={method} value={method}>{method}</option>)}
+                      </select>
+                      <input className="app-input" type="date" value={settleDate} onChange={(event) => setSettleDate(event.target.value)} style={{ maxWidth: '170px' }} />
+                      <button type="button" className="app-button app-button--gold app-button--small" disabled={!!busy} onClick={() => submitSettle(withdrawal.id)}>Confirmar</button>
+                      <button type="button" className="app-button app-button--ghost app-button--small" onClick={() => setSettleTarget('')}>Fechar</button>
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                      {canSettle ? <button type="button" className="app-button app-button--small" onClick={() => startSettle(withdrawal)}>Receber</button> : null}
+                      {canReturn ? <button type="button" className="app-button app-button--ghost app-button--small" disabled={!!busy} onClick={() => cancelWithdrawal(withdrawal.id)}>Devolver ao estoque</button> : null}
+                    </div>
+                  )}
+                </article>
+              );
+            })}
           </section>
         </div>
       ) : null}

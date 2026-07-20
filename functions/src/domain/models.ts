@@ -26,6 +26,7 @@ export const COLLECTIONS = {
   financeRevenues: 'finance_revenues',
   financeExpenses: 'finance_expenses',
   inventoryMovements: 'inventory_movements',
+  financeWithdrawals: 'finance_withdrawals',
   missions: 'missions',
   notifications: 'notifications',
   rankings: 'rankings',
@@ -64,7 +65,7 @@ export type KidsCategory = 'level_infantil';
 export type FinanceStatus = 'active' | 'inactive';
 export type FinanceSalePaymentStatus = 'paid' | 'partial' | 'pending' | 'cancelled';
 export type FinanceSaleItemType = 'product' | 'service';
-export type FinanceRevenueOrigin = 'sale' | 'product' | 'service' | 'manual' | 'estorno';
+export type FinanceRevenueOrigin = 'sale' | 'product' | 'service' | 'manual' | 'estorno' | 'vale';
 export type FinanceRevenueStatus = 'received' | 'reversed';
 export type FinanceExpenseStatus = 'paid' | 'pending' | 'overdue';
 export type InventoryMovementType =
@@ -72,7 +73,9 @@ export type InventoryMovementType =
   | 'manual_adjustment'
   | 'sale_decrement'
   | 'sale_cancel_reversal'
-  | 'sale_edit_adjustment';
+  | 'sale_edit_adjustment'
+  | 'withdrawal_decrement'
+  | 'withdrawal_return';
 
 export interface ProgressionMilestone {
   belt: string;
@@ -624,6 +627,35 @@ export interface InventoryMovementDoc {
   reason?: string;
   createdBy: string;
   createdAt: FirebaseFirestore.Timestamp;
+}
+
+// Item de uma retirada de estoque com acerto ("vale").
+export interface FinanceWithdrawalItemDoc {
+  productId: string;
+  productName: string;
+  quantity: number;
+  unitValue: number;
+  total: number;
+}
+
+// Retirada de estoque que gera um valor a receber ("vale") atrelado a quem retirou.
+export interface FinanceWithdrawalDoc {
+  academyId: string;
+  debtorUserId: string;
+  debtorName: string;
+  items: FinanceWithdrawalItemDoc[];
+  total: number;
+  amountReceived: number;
+  balanceDue: number;
+  status: FinanceSalePaymentStatus;
+  notes?: string;
+  withdrawnAt: FirebaseFirestore.Timestamp;
+  cancelledAt?: FirebaseFirestore.Timestamp;
+  cancelledBy?: string;
+  cancelReason?: string;
+  createdBy: string;
+  createdAt: FirebaseFirestore.Timestamp;
+  updatedAt: FirebaseFirestore.Timestamp;
 }
 
 export interface NotificationDoc {

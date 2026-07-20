@@ -34,6 +34,7 @@ import {
   subscribeToFinanceServices,
   subscribeToGraduationRequests,
   subscribeToInventoryMovements,
+  subscribeToFinanceWithdrawals,
   subscribeToJoinRequests,
   subscribeToLearningCourses,
   subscribeToLearningLessonBlocks,
@@ -82,6 +83,7 @@ import type {
   GraduationApprovalRequestRecord,
   GraduationRecord,
   InventoryMovementRecord,
+  FinanceWithdrawalRecord,
   JoinRequestRecord,
   LearningCourseRecord,
   LearningLessonBlockRecord,
@@ -587,6 +589,7 @@ const App: React.FC = () => {
   const [financeRevenues, setFinanceRevenues] = useState<Array<FirestoreEntity<FinanceRevenueRecord>>>([]);
   const [financeExpenses, setFinanceExpenses] = useState<Array<FirestoreEntity<FinanceExpenseRecord>>>([]);
   const [inventoryMovements, setInventoryMovements] = useState<Array<FirestoreEntity<InventoryMovementRecord>>>([]);
+  const [financeWithdrawals, setFinanceWithdrawals] = useState<Array<FirestoreEntity<FinanceWithdrawalRecord>>>([]);
   const [isSuspended, setIsSuspended] = useState(false);
   const unreadNotificationsCount = useMemo(
     () => notifications.filter((entry) => isUnreadNotificationForViewer(entry, {
@@ -924,6 +927,7 @@ const App: React.FC = () => {
       setFinanceRevenues([]);
       setFinanceExpenses([]);
       setInventoryMovements([]);
+      setFinanceWithdrawals([]);
       return;
     }
 
@@ -936,6 +940,7 @@ const App: React.FC = () => {
       subscribeToFinanceRevenues(undefined, setFinanceRevenues, (error) => reportSessionError('data:subscribeToFinanceRevenues', error)),
       subscribeToFinanceExpenses(undefined, setFinanceExpenses, (error) => reportSessionError('data:subscribeToFinanceExpenses', error)),
       subscribeToInventoryMovements(undefined, setInventoryMovements, (error) => reportSessionError('data:subscribeToInventoryMovements', error)),
+      subscribeToFinanceWithdrawals(undefined, setFinanceWithdrawals, (error) => reportSessionError('data:subscribeToFinanceWithdrawals', error)),
     ];
 
     return () => {
@@ -2588,6 +2593,7 @@ const App: React.FC = () => {
             revenues={financeRevenues}
             expenses={financeExpenses}
             inventoryMovements={inventoryMovements}
+            withdrawals={financeWithdrawals}
             selectedAcademyId={selectedAcademyId}
             onSelectAcademy={setSelectedAcademyId}
           />
