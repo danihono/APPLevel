@@ -98,8 +98,9 @@ service cloud.firestore {
     }
 
     match /class_rsvps/{rsvpId} {
-      allow read: if isAcademyStaff(resource.data.academyId)
-        || isSelf(resource.data.userId);
+      // Lista de confirmados e compartilhada entre colegas da mesma academia:
+      // qualquer usuario da academia pode ler (mesmo padrao da colecao classes).
+      allow read: if sameAcademy(resource.data.academyId);
 
       allow create: if signedIn()
         && isStudent()
