@@ -180,3 +180,18 @@ export function optionalTimestamp(data: unknown, fieldName: string): Timestamp |
   );
   return timestamp;
 }
+
+// Fuso fora do padrao IANA ("Brasilia", "GMT-3", "BRT") faz o Intl.DateTimeFormat lancar
+// no cliente, zerando as estatisticas por dia/horario da unidade.
+export function isValidTimeZone(value: string | undefined | null): boolean {
+  if (!value || !value.trim()) {
+    return false;
+  }
+
+  try {
+    new Intl.DateTimeFormat('en-US', { timeZone: value });
+    return true;
+  } catch {
+    return false;
+  }
+}

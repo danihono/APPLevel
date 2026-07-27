@@ -19,6 +19,7 @@ import { findSingleByFields, getRequestContext, getUserDoc } from '../lib/contex
 import { assertCondition } from '../lib/errors';
 import { auth, db, messaging, storage } from '../lib/firebase';
 import {
+  isValidTimeZone,
   optionalBoolean,
   optionalNumber,
   optionalString,
@@ -765,6 +766,13 @@ export const createAcademy = onCall(callableOptions, async (request) => {
   const name = requiredString(request.data, 'name');
   const slug = optionalString(request.data, 'slug') ?? name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
   const timezone = optionalString(request.data, 'timezone') ?? 'America/Sao_Paulo';
+  // Fuso fora do padrao IANA quebra o Intl.DateTimeFormat no cliente e zera as
+  // estatisticas por dia/horario da unidade.
+  assertCondition(
+    isValidTimeZone(timezone),
+    'invalid-argument',
+    `Fuso horario invalido: "${timezone}". Use um identificador IANA, como America/Sao_Paulo.`,
+  );
   const classCheckinWindowMinutes = optionalNumber(request.data, 'classCheckinWindowMinutes') ?? 15;
   const masterBlackLimit = optionalNumber(request.data, 'masterBlackLimit') ?? 1;
   const ownerUserId = optionalString(request.data, 'ownerUserId');

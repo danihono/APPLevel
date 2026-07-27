@@ -3445,6 +3445,15 @@ html.dark .app-chip {
   line-height: 1.55;
 }
 
+.app-field__hint--danger {
+  color: #b4402f;
+  font-weight: 600;
+}
+
+html.dark .app-field__hint--danger {
+  color: #ff9a86;
+}
+
 .app-input,
 .app-select,
 .app-textarea {
@@ -4925,6 +4934,17 @@ html.dark .graduation-celebration__route {
   font-size: 0.78rem;
   color: var(--text-muted);
   margin-top: 0.2rem;
+}
+
+.sa-warning-note {
+  margin-top: 0.4rem;
+  padding: 0.4rem 0.65rem;
+  border-radius: 0.6rem;
+  border: 1px solid rgba(232, 175, 72, 0.45);
+  background: rgba(232, 175, 72, 0.12);
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-strong);
 }
 
 /* Card */

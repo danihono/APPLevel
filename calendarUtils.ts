@@ -1,5 +1,21 @@
 export const MONTH_WEEK_HEADER = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sab', 'Dom'] as const;
 
+// `academy.timezone` alimenta Intl.DateTimeFormat. Valores fora do padrao IANA
+// ("Brasilia", "GMT-3", "BRT") fazem o construtor lancar RangeError e zeram as
+// estatisticas por dia/horario da Central.
+export function isValidTimeZone(value: string | undefined | null): boolean {
+  if (!value || !value.trim()) {
+    return false;
+  }
+
+  try {
+    new Intl.DateTimeFormat('en-US', { timeZone: value });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 // Periodo das estatisticas da Central. Fica aqui (e nao na view) porque o App precisa do
 // mesmo calculo para dimensionar a assinatura de presencas sem importar a view lazy.
 export type FocusPeriodPreset = '30d' | '3m' | '12m' | 'total';

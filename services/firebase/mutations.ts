@@ -11,6 +11,7 @@ import {
 } from 'firebase/storage';
 import { firebaseDb, firebaseStorage } from './client';
 import { cacheAvatar, compressAvatarImage } from '../avatarCache';
+import { isValidTimeZone } from '../../calendarUtils';
 
 type EditableUserProfile = {
   firstName?: string;
@@ -143,6 +144,12 @@ export async function updateAcademySettings(
     masterBlackLimit?: number;
   },
 ) {
+  // Fuso invalido zera as estatisticas por dia/horario da Central sem nenhum erro visivel —
+  // barramos na escrita para o dado nunca chegar corrompido no documento.
+  if (payload.timezone !== undefined && !isValidTimeZone(payload.timezone)) {
+    throw new Error(`Fuso horário inválido: "${payload.timezone}". Use um identificador IANA, como America/Sao_Paulo.`);
+  }
+
   await updateDoc(doc(firebaseDb, 'academies', academyId), {
     ...(payload.name !== undefined ? { name: payload.name.trim() } : {}),
     ...(payload.timezone !== undefined ? { timezone: payload.timezone.trim() } : {}),

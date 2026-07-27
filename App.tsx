@@ -593,6 +593,7 @@ const App: React.FC = () => {
   const [attendances, setAttendances] = useState<Array<FirestoreEntity<AttendanceRecord>>>([]);
   const [rankingAttendances, setRankingAttendances] = useState<Array<FirestoreEntity<AttendanceRecord>>>([]);
   const [focusPeriod, setFocusPeriod] = useState<FocusPeriodPreset>('3m');
+  const [rankingAttendancesError, setRankingAttendancesError] = useState<string | null>(null);
   const [attendanceRequests, setAttendanceRequests] = useState<Array<FirestoreEntity<AttendanceRequestRecord>>>([]);
   const [joinRequests, setJoinRequests] = useState<Array<FirestoreEntity<JoinRequestRecord>>>([]);
   const [graduationRequests, setGraduationRequests] = useState<Array<FirestoreEntity<GraduationApprovalRequestRecord>>>([]);
@@ -1361,6 +1362,7 @@ const App: React.FC = () => {
 
     if (!profile || !sessionValidated || profile.role === 'student' || !needsRankingAttendances) {
       setRankingAttendances([]);
+      setRankingAttendancesError(null);
       return;
     }
 
@@ -1370,8 +1372,11 @@ const App: React.FC = () => {
 
     if (profile.role !== 'superadmin' && !scopedAcademyId) {
       setRankingAttendances([]);
+      setRankingAttendancesError(null);
       return;
     }
+
+    setRankingAttendancesError(null);
 
     return subscribeToRankingAttendances(
       {
@@ -1380,8 +1385,16 @@ const App: React.FC = () => {
           isSuperadminCentral ? resolveFocusPeriod(focusPeriod).startDate : undefined,
         ),
       },
-      setRankingAttendances,
-      (error) => reportSessionError('data:subscribeToRankingAttendances', error),
+      (records) => {
+        setRankingAttendancesError(null);
+        setRankingAttendances(records);
+      },
+      // A falha fica visivel no proprio painel: um indice ausente aqui zera as presencas
+      // sem nenhuma pista de que a consulta e que nao voltou.
+      (error) => {
+        setRankingAttendancesError(getErrorMessage(error));
+        reportSessionError('data:subscribeToRankingAttendances', error);
+      },
     );
   }, [activeTab, focusPeriod, profile, selectedAcademyId, sessionValidated]);
 
@@ -2567,6 +2580,7 @@ const App: React.FC = () => {
               academyUsers={academyUsers}
               classes={classes}
               attendances={rankingAttendances}
+              attendancesError={rankingAttendancesError}
               focusPeriod={focusPeriod}
               onFocusPeriodChange={setFocusPeriod}
               competitions={competitions}

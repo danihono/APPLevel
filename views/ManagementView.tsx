@@ -10,6 +10,7 @@ import type { AcademyRecord, ClassRecord, UserRecord } from '../services/firebas
 import InstructorEditModal from '../components/InstructorEditModal';
 import StudentRoster from '../components/StudentRoster';
 import { useConfirm } from '../components/ConfirmDialog';
+import { isValidTimeZone } from '../calendarUtils';
 import { UserRole, type UserVideo } from '../types';
 
 interface ManagementViewProps {
@@ -87,6 +88,53 @@ interface ManagementViewProps {
 }
 
 const staffBeltPresets = ADULT_BELTS;
+
+// O campo era texto livre, e valores como "Brasilia" ou "GMT-3" quebram o
+// Intl.DateTimeFormat — o que zerava silenciosamente as estatisticas por dia/hora da
+// Central. Lista fechada de fusos IANA do Brasil.
+const TIMEZONE_OPTIONS: Array<{ value: string; label: string }> = [
+  { value: 'America/Sao_Paulo', label: 'São Paulo / Brasília (GMT-3)' },
+  { value: 'America/Bahia', label: 'Salvador (GMT-3)' },
+  { value: 'America/Recife', label: 'Recife (GMT-3)' },
+  { value: 'America/Fortaleza', label: 'Fortaleza (GMT-3)' },
+  { value: 'America/Belem', label: 'Belém (GMT-3)' },
+  { value: 'America/Campo_Grande', label: 'Campo Grande (GMT-4)' },
+  { value: 'America/Cuiaba', label: 'Cuiabá (GMT-4)' },
+  { value: 'America/Manaus', label: 'Manaus (GMT-4)' },
+  { value: 'America/Porto_Velho', label: 'Porto Velho (GMT-4)' },
+  { value: 'America/Boa_Vista', label: 'Boa Vista (GMT-4)' },
+  { value: 'America/Rio_Branco', label: 'Rio Branco (GMT-5)' },
+  { value: 'America/Noronha', label: 'Fernando de Noronha (GMT-2)' },
+];
+
+// Mantem o valor ja gravado como opcao para nao trocar o fuso da unidade sem o usuario
+// perceber — mesmo quando ele e invalido, sinalizado no rotulo.
+function TimezoneSelect({ value, onChange }: { value: string; onChange: (next: string) => void }) {
+  const knownValues = new Set(TIMEZONE_OPTIONS.map((option) => option.value));
+  const current = (value ?? '').trim();
+  const showCurrentAsExtra = !!current && !knownValues.has(current);
+
+  return (
+    <>
+      <select value={current} onChange={(event) => onChange(event.target.value)} className="app-select">
+        {current ? null : <option value="">Selecione um fuso</option>}
+        {showCurrentAsExtra ? (
+          <option value={current}>
+            {current} {isValidTimeZone(current) ? '(atual)' : '(atual · inválido)'}
+          </option>
+        ) : null}
+        {TIMEZONE_OPTIONS.map((option) => (
+          <option key={option.value} value={option.value}>{option.label}</option>
+        ))}
+      </select>
+      {showCurrentAsExtra && !isValidTimeZone(current) ? (
+        <span className="app-field__hint app-field__hint--danger">
+          Fuso inválido: as estatísticas por dia e horário ficam zeradas até corrigir.
+        </span>
+      ) : null}
+    </>
+  );
+}
 
 function FeedbackBlock({ success, error }: { success?: string; error?: string }) {
   return (
@@ -805,7 +853,7 @@ const ManagementView: React.FC<ManagementViewProps> = ({
                 </label>
                 <label className="app-field">
                   <span className="app-field__label">Timezone</span>
-                  <input value={academyTimezone} onChange={(event) => setAcademyTimezone(event.target.value)} className="app-input" />
+                  <TimezoneSelect value={academyTimezone} onChange={setAcademyTimezone} />
                 </label>
                 <label className="app-field">
                   <span className="app-field__label">Status</span>
@@ -859,7 +907,7 @@ const ManagementView: React.FC<ManagementViewProps> = ({
                 </label>
                 <label className="app-field">
                   <span className="app-field__label">Timezone</span>
-                  <input value={academyCreateTimezone} onChange={(event) => setAcademyCreateTimezone(event.target.value)} className="app-input" />
+                  <TimezoneSelect value={academyCreateTimezone} onChange={setAcademyCreateTimezone} />
                 </label>
                 <label className="app-field">
                   <span className="app-field__label">Limite master black</span>

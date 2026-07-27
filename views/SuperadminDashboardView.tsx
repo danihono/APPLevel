@@ -35,6 +35,7 @@ interface SuperadminDashboardViewProps {
   academyUsers: Array<FirestoreEntity<UserRecord>>;
   classes: Array<FirestoreEntity<ClassRecord>>;
   attendances?: Array<FirestoreEntity<AttendanceRecord>>;
+  attendancesError?: string | null;
   // O periodo vive no App porque ele dimensiona a assinatura de presencas no Firestore.
   focusPeriod: FocusPeriodPreset;
   onFocusPeriodChange: (preset: FocusPeriodPreset) => void;
@@ -227,6 +228,8 @@ const WEEKDAY_SHORT_TO_INDEX: Record<string, number> = {
 
 const MONTH_LABELS_PT = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'] as const;
 
+const DEFAULT_TIME_ZONE = 'America/Sao_Paulo';
+
 interface ZonedParts {
   weekdayIndex: number;
   hour: number;
@@ -234,18 +237,53 @@ interface ZonedParts {
   monthLabel: string;
 }
 
+function buildZonedFormatter(timeZone: string): Intl.DateTimeFormat {
+  return new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    weekday: 'short',
+    hour: '2-digit',
+    hour12: false,
+    year: 'numeric',
+    month: '2-digit',
+  });
+}
+
+interface ResolvedTimeZone {
+  formatter: Intl.DateTimeFormat;
+  timeZone: string;
+  requested: string;
+  isValid: boolean;
+}
+
+// `academy.timezone` e texto livre: valores como "Brasilia", "GMT-3" ou "BRT" fazem o
+// Intl.DateTimeFormat lancar RangeError. Antes isso derrubava a conversao de TODA aula em
+// silencio — dias/horarios/tendencia ficavam zerados mesmo com centenas de aulas. Agora
+// validamos uma vez, caimos para America/Sao_Paulo e avisamos na tela.
+function resolveTimeZone(candidate: string | undefined): ResolvedTimeZone {
+  const requested = (candidate ?? '').trim();
+
+  if (requested) {
+    try {
+      return { formatter: buildZonedFormatter(requested), timeZone: requested, requested, isValid: true };
+    } catch {
+      // valor invalido — segue para o padrao
+    }
+  }
+
+  return {
+    formatter: buildZonedFormatter(DEFAULT_TIME_ZONE),
+    timeZone: DEFAULT_TIME_ZONE,
+    requested,
+    isValid: !requested,
+  };
+}
+
 // Deriva dia-da-semana (0=Seg..6=Dom), hora e mês de uma data NA TIMEZONE da academia.
 // Usa Intl.DateTimeFormat porque getDay()/getHours() usariam o fuso do navegador.
-function getZonedParts(date: Date, timeZone: string): ZonedParts | null {
+// Recebe o formatter pronto: são centenas de aulas por cálculo, uma instância só.
+function getZonedParts(date: Date, formatter: Intl.DateTimeFormat): ZonedParts | null {
   try {
-    const parts = new Intl.DateTimeFormat('en-US', {
-      timeZone,
-      weekday: 'short',
-      hour: '2-digit',
-      hour12: false,
-      year: 'numeric',
-      month: '2-digit',
-    }).formatToParts(date);
+    const parts = formatter.formatToParts(date);
 
     const lookup = (type: string) => parts.find((part) => part.type === type)?.value ?? '';
     const weekdayIndex = WEEKDAY_SHORT_TO_INDEX[lookup('weekday')] ?? -1;
@@ -328,6 +366,11 @@ interface FocusStatistics {
   // Diagnostico do estado vazio: quantas aulas a unidade tem no total (sem filtro de
   // periodo) e quantas entraram no periodo escolhido.
   loadedClassCount: number;
+  // Preenchido quando `academy.timezone` nao e um fuso IANA valido.
+  timeZoneWarning: string | null;
+  // Presencas que os proprios perfis dos alunos declaram — independe da consulta de
+  // presencas, entao serve para distinguir "sem check-in" de "nao carregou".
+  profileAttendanceTotal: number;
 }
 
 // Lista de barras horizontais reaproveitada por desktop e mobile.
@@ -366,6 +409,7 @@ const SuperadminDashboardView: React.FC<SuperadminDashboardViewProps> = ({
   academyUsers,
   classes,
   attendances = [],
+  attendancesError = null,
   focusPeriod,
   onFocusPeriodChange,
   competitions,
@@ -585,7 +629,7 @@ const SuperadminDashboardView: React.FC<SuperadminDashboardViewProps> = ({
       return null;
     }
 
-    const timeZone = academy?.timezone || 'America/Sao_Paulo';
+    const zone = resolveTimeZone(academy?.timezone);
     const nowMillis = Date.now();
     const classById = new Map(classes.map((item) => [item.id, item]));
 
@@ -660,7 +704,7 @@ const SuperadminDashboardView: React.FC<SuperadminDashboardViewProps> = ({
       const start = safeToDate(item.scheduledStart);
 
       if (start) {
-        const zoned = getZonedParts(start, timeZone);
+        const zoned = getZonedParts(start, zone.formatter);
         if (zoned) {
           const fallbackAttendances = usesClassCounterFallback ? (item.currentAttendanceCount ?? 0) : 0;
 
@@ -695,7 +739,7 @@ const SuperadminDashboardView: React.FC<SuperadminDashboardViewProps> = ({
     });
 
     periodAttendances.forEach(({ referenceDate }) => {
-      const zoned = getZonedParts(referenceDate, timeZone);
+      const zoned = getZonedParts(referenceDate, zone.formatter);
       if (!zoned) {
         return;
       }
@@ -856,6 +900,10 @@ const SuperadminDashboardView: React.FC<SuperadminDashboardViewProps> = ({
       periodLabel: focusPeriodRange.label,
       usesClassCounterFallback,
       loadedClassCount: classes.length,
+      timeZoneWarning: zone.isValid
+        ? null
+        : `Fuso horário "${zone.requested}" não é reconhecido — usando ${zone.timeZone}. Corrija em Gestão › Academia.`,
+      profileAttendanceTotal: activeStudentsList.reduce((sum, user) => sum + (user.attendanceCount ?? 0), 0),
     } satisfies FocusStatistics;
   }, [attendances, classes, academyUsers, academy?.timezone, focusPeriod, focusPeriodRange, selectedAcademyId]);
   // Explica POR QUE um card está vazio: sem aula cadastrada, sem aula no período escolhido,
@@ -866,7 +914,13 @@ const SuperadminDashboardView: React.FC<SuperadminDashboardViewProps> = ({
       ? 'Nenhuma aula cadastrada nesta unidade.'
       : focusStatistics.finishedClassCount === 0
         ? `Nenhuma aula realizada em "${focusStatistics.periodLabel}". A unidade tem ${formatNumber(focusStatistics.loadedClassCount)} aulas no histórico — experimente um período maior.`
-        : `${formatNumber(focusStatistics.finishedClassCount)} aulas realizadas no período, nenhuma presença registrada.`;
+        : attendancesError
+          ? `Não foi possível carregar as presenças: ${attendancesError}`
+          : focusStatistics.profileAttendanceTotal > 0
+            // Os perfis somam presenças mas a consulta não trouxe nenhuma: o problema está no
+            // acesso aos documentos (índice/regra/janela), não na ausência de check-in.
+            ? `${formatNumber(focusStatistics.finishedClassCount)} aulas no período. Os alunos somam ${formatNumber(focusStatistics.profileAttendanceTotal)} presenças no perfil, mas nenhuma foi carregada — verifique os índices do Firestore.`
+            : `${formatNumber(focusStatistics.finishedClassCount)} aulas realizadas no período, nenhum check-in registrado.`;
   const focusHasNoAttendances = !!focusStatistics && focusStatistics.totalAttendances === 0;
 
   // Mesmo seletor renderizado no painel desktop e no bloco mobile.
@@ -1135,6 +1189,9 @@ const SuperadminDashboardView: React.FC<SuperadminDashboardViewProps> = ({
                 {focusStatistics.periodLabel}
                 {focusStatistics.usesClassCounterFallback ? ' · via contador da aula' : ''}
               </p>
+              {focusStatistics.timeZoneWarning ? (
+                <p className="sa-warning-note">{focusStatistics.timeZoneWarning}</p>
+              ) : null}
               <div className="sa-mob-kpi-grid">
                 <div className="sa-mob-kpi-tile">
                   <p className="sa-mob-kpi-tile__label">Presenças</p>
@@ -1671,6 +1728,9 @@ const SuperadminDashboardView: React.FC<SuperadminDashboardViewProps> = ({
                   {focusStatistics.periodLabel}
                   {focusStatistics.usesClassCounterFallback ? ' · via contador da aula' : ''}
                 </p>
+                {focusStatistics.timeZoneWarning ? (
+                  <p className="sa-warning-note">{focusStatistics.timeZoneWarning}</p>
+                ) : null}
               </div>
               {focusPeriodChips}
             </div>
