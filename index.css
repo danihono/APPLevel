@@ -3251,6 +3251,11 @@ html.dark .app-segment {
   transform: translateY(-1px);
 }
 
+/* Filtro que hoje nao retorna nenhum item (ex.: "Minhas" sem aula atribuida ao usuario). */
+.app-segment__button.is-empty:not(.is-active) {
+  opacity: 0.55;
+}
+
 html.dark .app-segment__button.is-active {
   color: #fdf6e9;
   background: linear-gradient(160deg, #6b4a26, #43301a);
@@ -4908,6 +4913,20 @@ html.dark .graduation-celebration__route {
   grid-template-columns: minmax(0, 1.12fr) minmax(0, 1fr);
 }
 
+.sa-focus-period {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.sa-focus-period__hint {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  margin-top: 0.2rem;
+}
+
 /* Card */
 .sa-card {
   display: flex;
@@ -4925,6 +4944,16 @@ html.dark .graduation-celebration__route {
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
+}
+
+.sa-card__subhead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-top: 1rem;
+  font-size: 0.85rem;
+  color: var(--text-muted);
 }
 
 .sa-card__title {
@@ -7154,6 +7183,12 @@ html.dark .controle-total__stock-card {
     text-transform: uppercase;
     color: #b0a090;
     margin-bottom: 0.5rem;
+  }
+
+  .sa-mob-section__hint {
+    font-size: 0.7rem;
+    color: #b0a090;
+    margin: 0.35rem 0 0.6rem;
   }
 
   /* Radar de atenção */

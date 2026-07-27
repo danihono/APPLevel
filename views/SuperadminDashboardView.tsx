@@ -16,6 +16,7 @@ import {
 import type { FirestoreEntity } from '../services/firebase/data';
 import type {
   AcademyRecord,
+  AttendanceRecord,
   ClassRecord,
   CompetitionRecord,
   UserRecord,
@@ -28,6 +29,7 @@ interface SuperadminDashboardViewProps {
   academy: FirestoreEntity<AcademyRecord> | null;
   academyUsers: Array<FirestoreEntity<UserRecord>>;
   classes: Array<FirestoreEntity<ClassRecord>>;
+  attendances?: Array<FirestoreEntity<AttendanceRecord>>;
   competitions: Array<FirestoreEntity<CompetitionRecord>>;
   selectedAcademyId: string;
   onEnterAcademy: (academyId: string) => void;
@@ -259,6 +261,49 @@ function getZonedParts(date: Date, timeZone: string): ZonedParts | null {
   }
 }
 
+type FocusPeriodPreset = '30d' | '3m' | '12m' | 'total';
+
+const focusPeriodOptions: Array<{ value: FocusPeriodPreset; label: string }> = [
+  { value: '30d', label: '30 dias' },
+  { value: '3m', label: '3 meses' },
+  { value: '12m', label: '12 meses' },
+  { value: 'total', label: 'Tudo' },
+];
+
+interface FocusPeriod {
+  startMillis: number;
+  endMillis: number;
+  label: string;
+}
+
+// Janela do periodo em foco. O fim e sempre "agora" e o inicio recua a partir da data
+// atual; aulas/presencas futuras (aula agendada para amanha) ficam de fora das
+// estatisticas de frequencia por definicao.
+function resolveFocusPeriod(preset: FocusPeriodPreset): FocusPeriod {
+  const now = new Date();
+  const endMillis = now.getTime();
+
+  if (preset === 'total') {
+    return { startMillis: Number.NEGATIVE_INFINITY, endMillis, label: 'Todo o historico' };
+  }
+
+  const start = new Date(now);
+  if (preset === '30d') {
+    start.setDate(start.getDate() - 30);
+  } else {
+    start.setMonth(start.getMonth() - (preset === '3m' ? 3 : 12));
+  }
+  start.setHours(0, 0, 0, 0);
+
+  const option = focusPeriodOptions.find((entry) => entry.value === preset);
+
+  return {
+    startMillis: start.getTime(),
+    endMillis,
+    label: `Ultimos ${option?.label ?? preset}`,
+  };
+}
+
 interface FocusBar {
   key: string;
   label: string;
@@ -311,6 +356,10 @@ interface FocusStatistics {
   newStudents: number;
   atRiskStudents: number;
   topStudents: FocusTopStudent[];
+  periodLabel: string;
+  // true quando nao ha documentos de presenca carregados no periodo e os numeros
+  // vieram do contador desnormalizado da aula (currentAttendanceCount).
+  usesClassCounterFallback: boolean;
 }
 
 // Lista de barras horizontais reaproveitada por desktop e mobile.
@@ -348,6 +397,7 @@ const SuperadminDashboardView: React.FC<SuperadminDashboardViewProps> = ({
   academy,
   academyUsers,
   classes,
+  attendances = [],
   competitions,
   selectedAcademyId,
   onEnterAcademy,
@@ -357,6 +407,7 @@ const SuperadminDashboardView: React.FC<SuperadminDashboardViewProps> = ({
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [sortMode, setSortMode] = useState<SortMode>('attention');
+  const [focusPeriod, setFocusPeriod] = useState<FocusPeriodPreset>('3m');
   const [editingInstructor, setEditingInstructor] = useState<FirestoreEntity<UserRecord> | null>(null);
 
   const usersByAcademyId = useMemo(() => {
@@ -555,23 +606,79 @@ const SuperadminDashboardView: React.FC<SuperadminDashboardViewProps> = ({
   const focusOpenCompetitions = competitions.filter((item) => item.status === 'published').length;
   const focusFinishedCompetitions = competitions.filter((item) => item.status === 'finished').length;
 
+  const focusPeriodRange = useMemo(() => resolveFocusPeriod(focusPeriod), [focusPeriod]);
+
   // Estatísticas detalhadas da unidade em foco — calculadas no cliente a partir das
-  // aulas/usuários já carregados quando uma academia está selecionada.
+  // presenças reais (coleção `attendances`) da janela em foco, com as aulas entrando
+  // como fonte de horário/professor/tatame.
   const focusStatistics = useMemo<FocusStatistics | null>(() => {
     if (!selectedAcademyId) {
       return null;
     }
 
     const timeZone = academy?.timezone || 'America/Sao_Paulo';
-    // Uma aula entra nas estatísticas de presença quando foi de fato REALIZADA:
-    // finalizada, em andamento, ou já com check-ins registrados. As presenças
-    // podem ser lançadas enquanto a aula ainda está agendada/ativa e nem sempre
-    // o professor clica em "Finalizar" — antes filtrávamos só status === 'finished',
-    // então unidades que não finalizam a aula viam tudo (dias, horários, presenças) zerado.
-    const heldClasses = classes.filter((item) =>
-      item.status === 'finished'
-      || item.status === 'active'
-      || (item.status !== 'cancelled' && (item.currentAttendanceCount ?? 0) > 0),
+    const nowMillis = Date.now();
+    const classById = new Map(classes.map((item) => [item.id, item]));
+
+    // Data de referência da presença: o horário da aula (melhor para "horários de pico");
+    // quando a aula não está carregada, o próprio check-in.
+    const periodAttendances = attendances
+      .filter((entry) => entry.academyId === selectedAcademyId && entry.countsAsAttendance !== false)
+      .map((entry) => {
+        const lesson = classById.get(entry.classId);
+        const referenceDate = safeToDate(lesson?.scheduledStart)
+          ?? safeToDate(entry.checkedInAt)
+          ?? safeToDate(entry.createdAt)
+          ?? null;
+        return { entry, referenceDate };
+      })
+      .filter((item): item is { entry: FirestoreEntity<AttendanceRecord>; referenceDate: Date } => {
+        if (!item.referenceDate) {
+          return false;
+        }
+        const millis = item.referenceDate.getTime();
+        return millis >= focusPeriodRange.startMillis && millis <= focusPeriodRange.endMillis;
+      });
+
+    const attendanceCountByClassId = new Map<string, number>();
+    periodAttendances.forEach(({ entry }) => {
+      attendanceCountByClassId.set(entry.classId, (attendanceCountByClassId.get(entry.classId) ?? 0) + 1);
+    });
+
+    // Uma aula entra nas estatísticas quando foi de fato REALIZADA dentro do período:
+    // finalizada, em andamento, com check-ins, ou simplesmente porque o horário dela já
+    // passou — muitos professores nunca clicam em "Finalizar", e antes essas unidades
+    // viam dias, horários e tendência zerados.
+    const heldClasses = classes.filter((item) => {
+      if (item.status === 'cancelled') {
+        return false;
+      }
+
+      const start = safeToDate(item.scheduledStart);
+      const startMillis = start ? start.getTime() : null;
+
+      if (startMillis === null) {
+        return (attendanceCountByClassId.get(item.id) ?? 0) > 0;
+      }
+
+      if (startMillis < focusPeriodRange.startMillis || startMillis > focusPeriodRange.endMillis) {
+        return false;
+      }
+
+      return item.status === 'finished'
+        || item.status === 'active'
+        || (attendanceCountByClassId.get(item.id) ?? 0) > 0
+        || (item.currentAttendanceCount ?? 0) > 0
+        || startMillis < nowMillis;
+    });
+
+    // Sem nenhum documento de presença no período (ainda carregando, ou base antiga sem
+    // check-in registrado) caímos no contador desnormalizado da aula para não regredir.
+    const usesClassCounterFallback = periodAttendances.length === 0;
+    const attendancesForClass = (item: FirestoreEntity<ClassRecord>) => (
+      usesClassCounterFallback
+        ? (item.currentAttendanceCount ?? 0)
+        : (attendanceCountByClassId.get(item.id) ?? 0)
     );
 
     const weekdayBuckets = MONTH_WEEK_HEADER.map((label) => ({ label, attendances: 0, classCount: 0 }));
@@ -581,22 +688,23 @@ const SuperadminDashboardView: React.FC<SuperadminDashboardViewProps> = ({
     const tatameBuckets = new Map<string, number>();
 
     heldClasses.forEach((item) => {
-      const attendance = item.currentAttendanceCount ?? 0;
       const start = safeToDate(item.scheduledStart);
 
       if (start) {
         const zoned = getZonedParts(start, timeZone);
         if (zoned) {
-          weekdayBuckets[zoned.weekdayIndex].attendances += attendance;
+          const fallbackAttendances = usesClassCounterFallback ? (item.currentAttendanceCount ?? 0) : 0;
+
           weekdayBuckets[zoned.weekdayIndex].classCount += 1;
+          weekdayBuckets[zoned.weekdayIndex].attendances += fallbackAttendances;
 
           const hourBucket = hourBuckets.get(zoned.hour) ?? { attendances: 0, classCount: 0 };
-          hourBucket.attendances += attendance;
           hourBucket.classCount += 1;
+          hourBucket.attendances += fallbackAttendances;
           hourBuckets.set(zoned.hour, hourBucket);
 
           const monthBucket = monthBuckets.get(zoned.monthKey) ?? { label: zoned.monthLabel, attendances: 0 };
-          monthBucket.attendances += attendance;
+          monthBucket.attendances += fallbackAttendances;
           monthBuckets.set(zoned.monthKey, monthBucket);
         }
       }
@@ -608,13 +716,30 @@ const SuperadminDashboardView: React.FC<SuperadminDashboardViewProps> = ({
       const professorBucket = professorBuckets.get(professorId)
         ?? { id: professorId, name: resolvedName, classCount: 0, totalAttendances: 0, avgPerClass: 0 };
       professorBucket.classCount += 1;
-      professorBucket.totalAttendances += attendance;
+      professorBucket.totalAttendances += attendancesForClass(item);
       professorBuckets.set(professorId, professorBucket);
 
       const tatame = (item.tatame || '').trim();
       if (tatame) {
         tatameBuckets.set(tatame, (tatameBuckets.get(tatame) ?? 0) + 1);
       }
+    });
+
+    periodAttendances.forEach(({ referenceDate }) => {
+      const zoned = getZonedParts(referenceDate, timeZone);
+      if (!zoned) {
+        return;
+      }
+
+      weekdayBuckets[zoned.weekdayIndex].attendances += 1;
+
+      const hourBucket = hourBuckets.get(zoned.hour) ?? { attendances: 0, classCount: 0 };
+      hourBucket.attendances += 1;
+      hourBuckets.set(zoned.hour, hourBucket);
+
+      const monthBucket = monthBuckets.get(zoned.monthKey) ?? { label: zoned.monthLabel, attendances: 0 };
+      monthBucket.attendances += 1;
+      monthBuckets.set(zoned.monthKey, monthBucket);
     });
 
     const byWeekday: FocusBar[] = weekdayBuckets.map((bucket, index) => ({
@@ -664,13 +789,15 @@ const SuperadminDashboardView: React.FC<SuperadminDashboardViewProps> = ({
     const occupancyRate = occupancyClasses.length > 0
       ? Math.round(
         (occupancyClasses.reduce(
-          (sum, item) => sum + Math.min(1, (item.currentAttendanceCount ?? 0) / (item.capacity || 1)),
+          (sum, item) => sum + Math.min(1, attendancesForClass(item) / (item.capacity || 1)),
           0,
         ) / occupancyClasses.length) * 100,
       )
       : 0;
 
-    const totalAttendances = heldClasses.reduce((sum, item) => sum + (item.currentAttendanceCount ?? 0), 0);
+    const totalAttendances = usesClassCounterFallback
+      ? heldClasses.reduce((sum, item) => sum + (item.currentAttendanceCount ?? 0), 0)
+      : periodAttendances.length;
     const avgPerClass = heldClasses.length > 0
       ? Math.round(totalAttendances / heldClasses.length)
       : 0;
@@ -711,10 +838,28 @@ const SuperadminDashboardView: React.FC<SuperadminDashboardViewProps> = ({
       const daysSince = getDaysSince(safeToDate(user.lastAttendanceAt) ?? null);
       return daysSince === null || daysSince > 21;
     }).length;
-    const topStudents: FocusTopStudent[] = [...activeStudentsList]
-      .sort((left, right) => (right.attendanceCount ?? 0) - (left.attendanceCount ?? 0))
-      .slice(0, 5)
-      .map((user) => ({ id: user.id, name: user.displayName, attendanceCount: user.attendanceCount ?? 0 }));
+    // "Tudo" mantém o total oficial do aluno (inclui bônus manual). Nos demais períodos
+    // o ranking vem das presenças da janela escolhida.
+    const userById = new Map(academyUsers.map((user) => [user.id, user]));
+    const attendanceCountByUserId = new Map<string, number>();
+    periodAttendances.forEach(({ entry }) => {
+      attendanceCountByUserId.set(entry.userId, (attendanceCountByUserId.get(entry.userId) ?? 0) + 1);
+    });
+
+    const topStudents: FocusTopStudent[] = focusPeriod === 'total' || usesClassCounterFallback
+      ? [...activeStudentsList]
+        .sort((left, right) => (right.attendanceCount ?? 0) - (left.attendanceCount ?? 0))
+        .slice(0, 5)
+        .map((user) => ({ id: user.id, name: user.displayName, attendanceCount: user.attendanceCount ?? 0 }))
+      : [...attendanceCountByUserId.entries()]
+        .filter(([userId]) => (userById.get(userId)?.role ?? 'student') === 'student')
+        .sort((left, right) => right[1] - left[1])
+        .slice(0, 5)
+        .map(([userId, attendanceCount]) => ({
+          id: userId,
+          name: userById.get(userId)?.displayName ?? 'Aluno',
+          attendanceCount,
+        }));
 
     return {
       finishedClassCount: heldClasses.length,
@@ -739,8 +884,26 @@ const SuperadminDashboardView: React.FC<SuperadminDashboardViewProps> = ({
       newStudents,
       atRiskStudents,
       topStudents,
+      periodLabel: focusPeriodRange.label,
+      usesClassCounterFallback,
     } satisfies FocusStatistics;
-  }, [classes, academyUsers, academy?.timezone, selectedAcademyId]);
+  }, [attendances, classes, academyUsers, academy?.timezone, focusPeriod, focusPeriodRange, selectedAcademyId]);
+  // Mesmo seletor renderizado no painel desktop e no bloco mobile.
+  const focusPeriodChips = (
+    <div className="app-chip-row" role="group" aria-label="Periodo das estatisticas">
+      {focusPeriodOptions.map((option) => (
+        <button
+          key={option.value}
+          type="button"
+          onClick={() => setFocusPeriod(option.value)}
+          className={`app-chip ${focusPeriod === option.value ? 'is-active' : ''}`}
+        >
+          {option.label}
+        </button>
+      ))}
+    </div>
+  );
+
   const activeStudentBase = filteredActiveUsers.filter((user) => user.role === 'student').length;
   const overviewKpis = [
     {
@@ -986,6 +1149,11 @@ const SuperadminDashboardView: React.FC<SuperadminDashboardViewProps> = ({
           <>
             <div className="sa-mob-section">
               <p className="sa-mob-section__label">Estatísticas · {focusAcademyRow.name}</p>
+              {focusPeriodChips}
+              <p className="sa-mob-section__hint">
+                {focusStatistics.periodLabel}
+                {focusStatistics.usesClassCounterFallback ? ' · via contador da aula' : ''}
+              </p>
               <div className="sa-mob-kpi-grid">
                 <div className="sa-mob-kpi-tile">
                   <p className="sa-mob-kpi-tile__label">Presenças</p>
@@ -1083,9 +1251,11 @@ const SuperadminDashboardView: React.FC<SuperadminDashboardViewProps> = ({
               </div>
             ) : null}
 
-            {focusStatistics.topStudents.length > 0 ? (
-              <div className="sa-mob-section">
-                <p className="sa-mob-section__label">Top frequentadores</p>
+            <div className="sa-mob-section">
+              <p className="sa-mob-section__label">Top frequentadores</p>
+              {focusPeriodChips}
+              <p className="sa-mob-section__hint">{focusStatistics.periodLabel}</p>
+              {focusStatistics.topStudents.length > 0 ? (
                 <div className="superadmin-detail-list">
                   {focusStatistics.topStudents.map((student) => (
                     <div key={student.id} className="superadmin-detail-row">
@@ -1094,8 +1264,10 @@ const SuperadminDashboardView: React.FC<SuperadminDashboardViewProps> = ({
                     </div>
                   ))}
                 </div>
-              </div>
-            ) : null}
+              ) : (
+                <div className="app-empty">Sem presenças registradas neste período.</div>
+              )}
+            </div>
           </>
         ) : null}
 
@@ -1510,6 +1682,17 @@ const SuperadminDashboardView: React.FC<SuperadminDashboardViewProps> = ({
 
         {focusAcademyRow && focusStatistics ? (
           <>
+            <div className="sa-focus-period">
+              <div>
+                <p className="app-section-label">Período das estatísticas</p>
+                <p className="sa-focus-period__hint">
+                  {focusStatistics.periodLabel}
+                  {focusStatistics.usesClassCounterFallback ? ' · via contador da aula' : ''}
+                </p>
+              </div>
+              {focusPeriodChips}
+            </div>
+
             <div className="sa-row sa-row--triple">
               <article className="sa-card">
                 <div className="sa-card__head">
@@ -1694,6 +1877,10 @@ const SuperadminDashboardView: React.FC<SuperadminDashboardViewProps> = ({
                     <strong>{formatNumber(focusStatistics.invitedStudents)}</strong>
                   </div>
                 </div>
+                <div className="sa-card__subhead">
+                  <strong>Top frequentadores</strong>
+                  <span className="app-badge app-badge--muted">{focusStatistics.periodLabel}</span>
+                </div>
                 {focusStatistics.topStudents.length > 0 ? (
                   <div className="superadmin-detail-list">
                     {focusStatistics.topStudents.map((student) => (
@@ -1704,7 +1891,7 @@ const SuperadminDashboardView: React.FC<SuperadminDashboardViewProps> = ({
                     ))}
                   </div>
                 ) : (
-                  <div className="app-empty">Sem alunos ativos para ranquear.</div>
+                  <div className="app-empty">Sem presenças registradas neste período.</div>
                 )}
               </article>
             </div>

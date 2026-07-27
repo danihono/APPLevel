@@ -984,12 +984,37 @@ const CalendarView: React.FC<CalendarViewProps> = ({
     };
   }, [scannerOpen, scannerClassId, onRegisterAttendance]);
 
+  // "Minhas" casa pelo id do professor da aula. Aulas legadas/importadas podem ter um
+  // professorId que não corresponde a ninguém da unidade — nesse caso (e só nesse) caímos
+  // no nome gravado na aula, para o professor não perder a própria agenda.
+  const professorIdSet = useMemo(() => new Set(professors.map((entry) => entry.id)), [professors]);
+  const normalizedCurrentUserName = (currentUserName ?? '').trim().toLocaleLowerCase('pt-BR');
+  const isMyClass = useCallback(
+    (entry: FirestoreEntity<ClassRecord>) => {
+      if (entry.professorId === currentUserId) {
+        return true;
+      }
+
+      if (!normalizedCurrentUserName || professorIdSet.has(entry.professorId)) {
+        return false;
+      }
+
+      return (entry.professorName ?? '').trim().toLocaleLowerCase('pt-BR') === normalizedCurrentUserName;
+    },
+    [currentUserId, normalizedCurrentUserName, professorIdSet],
+  );
+
+  const myClassCount = useMemo(
+    () => (isStaff ? classes.filter(isMyClass).length : 0),
+    [classes, isMyClass, isStaff],
+  );
+
   const filteredClasses = useMemo(
     () =>
       [...classes]
         .filter((entry) => {
           if (view === 'minhas' && isStaff) {
-            return entry.professorId === currentUserId;
+            return isMyClass(entry);
           }
           if (userRole === UserRole.ALUNO) {
             return isClassVisibleForStudent(entry.description, currentUserKidsCategory);
@@ -1000,7 +1025,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
         .filter((entry) => filterProfessor === 'all' || entry.professorId === filterProfessor)
         .filter((entry) => filterTatame === 'all' || entry.tatame === filterTatame)
         .sort(sortClasses),
-    [classes, currentUserId, currentUserKidsCategory, isStaff, userRole, view, filterType, filterProfessor, filterTatame],
+    [classes, currentUserKidsCategory, isMyClass, isStaff, userRole, view, filterType, filterProfessor, filterTatame],
   );
 
   const unfinishedClasses = useMemo(
@@ -1012,7 +1037,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
       return [...classes]
         .filter((entry) => {
           // Superadmin vê todas as aulas da academia; professor só as próprias
-          if (!isSuperAdmin && entry.professorId !== currentUserId) {
+          if (!isSuperAdmin && !isMyClass(entry)) {
             return false;
           }
 
@@ -1035,7 +1060,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
         })
         .sort(sortClasses);
     },
-    [classes, currentUserId, filterProfessor, filterTatame, filterType, isStaff, isSuperAdmin, nowMs],
+    [classes, filterProfessor, filterTatame, filterType, isMyClass, isStaff, isSuperAdmin, nowMs],
   );
 
   const classesByDay = useMemo(() => {
@@ -1237,11 +1262,15 @@ const CalendarView: React.FC<CalendarViewProps> = ({
   }, [pendingPresencaStudents, presencaBeltFilter, presencaSearch, presencaStudentTypeFilter]);
 
   const isMineView = isStaff && view === 'minhas';
+  // Sem nenhuma aula atribuída ao usuário (caso típico do superadmin em visão professor),
+  // "Minhas" resultaria numa lista vazia sem explicação — avisamos e apontamos o "Todas".
+  const hasNoOwnClasses = isStaff && myClassCount === 0;
+  const noOwnClassesMessage = 'Nenhuma aula desta unidade está atribuída a você. Toque em "Todas" para ver a agenda completa.';
   const selectedDayEmptyMessage = isMineView
-    ? 'Você não tem aulas programadas nesta data.'
+    ? (hasNoOwnClasses ? noOwnClassesMessage : 'Você não tem aulas programadas nesta data.')
     : 'Nenhuma aula programada para esta data.';
   const todayEmptyMessage = isMineView
-    ? 'Você não tem aulas programadas para hoje.'
+    ? (hasNoOwnClasses ? noOwnClassesMessage : 'Você não tem aulas programadas para hoje.')
     : 'Nenhuma aula programada para hoje.';
   const unfinishedEmptyMessage = 'Nenhuma aula não finalizada para você.';
 
@@ -1666,7 +1695,8 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                         <button
                           type="button"
                           onClick={() => setView('minhas')}
-                          className={`app-segment__button ${view === 'minhas' ? 'is-active' : ''}`}
+                          title={hasNoOwnClasses ? noOwnClassesMessage : undefined}
+                          className={`app-segment__button ${view === 'minhas' ? 'is-active' : ''} ${hasNoOwnClasses ? 'is-empty' : ''}`}
                         >
                           Minhas
                         </button>
@@ -1755,7 +1785,8 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                   <button
                     type="button"
                     onClick={() => setView('minhas')}
-                    className={`app-segment__button ${view === 'minhas' ? 'is-active' : ''}`}
+                    title={hasNoOwnClasses ? noOwnClassesMessage : undefined}
+                    className={`app-segment__button ${view === 'minhas' ? 'is-active' : ''} ${hasNoOwnClasses ? 'is-empty' : ''}`}
                   >
                     Minhas
                   </button>

@@ -9,7 +9,7 @@ import type { BeltColor, User } from '../types';
 
 type SortMode = 'name-asc' | 'name-desc' | 'belt-desc' | 'grade-desc';
 type RosterSection = 'list' | 'ranking' | 'deactivated';
-type RankingPeriodPreset = 'official-total' | 'mensal' | 'today' | '7d' | '30d' | 'custom';
+type RankingPeriodPreset = 'official-total' | 'mensal' | 'today' | '7d' | '30d' | '3m' | 'custom';
 
 export interface StudentRosterProps {
   students: User[];
@@ -73,6 +73,7 @@ const saoPauloMonthFormatter = new Intl.DateTimeFormat('pt-BR', {
 });
 
 const rankingPeriodOptions: Array<{ value: RankingPeriodPreset; label: string }> = [
+  { value: '3m', label: '3 meses' },
   { value: 'official-total', label: 'Total oficial' },
   { value: 'mensal', label: 'Mensal' },
   { value: 'today', label: 'Hoje' },
@@ -168,6 +169,13 @@ function addDaysToInput(value: string, days: number): string {
   return toSaoPauloDateInput(new Date(baseDate.getTime() + days * MILLISECONDS_PER_DAY));
 }
 
+function addMonthsToInput(value: string, months: number): string {
+  const baseDate = dateInputToSaoPauloDate(value, 'start');
+  const shifted = new Date(baseDate);
+  shifted.setMonth(shifted.getMonth() + months);
+  return toSaoPauloDateInput(shifted);
+}
+
 function clampRankingStart(value: string): string {
   return value && value >= RANKING_START_DATE_INPUT ? value : RANKING_START_DATE_INPUT;
 }
@@ -198,6 +206,19 @@ function resolveRankingPeriod(
       startDate: dateInputToSaoPauloDate(todayInput, 'start'),
       endDate: dateInputToSaoPauloDate(todayInput, 'end'),
       label: `Hoje (${formatDateInput(todayInput)})`,
+    };
+  }
+
+  // "3 meses" nao passa por clampRankingStart de proposito: o padrao do ranking precisa
+  // cobrir 3 meses de verdade, mesmo quando a janela comeca antes da epoca oficial.
+  if (preset === '3m') {
+    const startInput = addMonthsToInput(todayInput, -3);
+    return {
+      startInput,
+      endInput: todayInput,
+      startDate: dateInputToSaoPauloDate(startInput, 'start'),
+      endDate: dateInputToSaoPauloDate(todayInput, 'end'),
+      label: `Ultimos 3 meses (${formatDateInput(startInput)} ate ${formatDateInput(todayInput)})`,
     };
   }
 
@@ -284,7 +305,7 @@ const StudentRoster: React.FC<StudentRosterProps> = ({
   const [filterType, setFilterType] = useState<'ALL' | 'Adulto' | 'Kids'>('ALL');
   const [filterGrade, setFilterGrade] = useState<'ALL' | string>('ALL');
   const [sortMode, setSortMode] = useState<SortMode>('name-asc');
-  const [rankingPeriod, setRankingPeriod] = useState<RankingPeriodPreset>('official-total');
+  const [rankingPeriod, setRankingPeriod] = useState<RankingPeriodPreset>('3m');
   const [customStartDate, setCustomStartDate] = useState(RANKING_START_DATE_INPUT);
   const [customEndDate, setCustomEndDate] = useState(toSaoPauloDateInput());
   const [internalSelectedStudentId, setInternalSelectedStudentId] = useState(selectedStudentId);
@@ -337,8 +358,26 @@ const StudentRoster: React.FC<StudentRosterProps> = ({
     [filteredStudents, sortMode],
   );
 
+  // Aula "realizada": finalizada, em andamento, ou que simplesmente já passou do horário —
+  // muitos professores nunca clicam em "Finalizar", e exigir status 'finished' zerava o
+  // ranking por período dessas unidades (mesma regra usada na Central).
   const finishedClassIds = useMemo(
-    () => new Set(classes.filter((lesson) => lesson.status === 'finished').map((lesson) => lesson.id)),
+    () => new Set(
+      classes
+        .filter((lesson) => {
+          if (lesson.status === 'cancelled') {
+            return false;
+          }
+
+          if (lesson.status === 'finished' || lesson.status === 'active') {
+            return true;
+          }
+
+          const start = lesson.scheduledStart?.toDate();
+          return !!start && start.getTime() < Date.now();
+        })
+        .map((lesson) => lesson.id),
+    ),
     [classes],
   );
   const hasClassData = classes.length > 0;
@@ -653,7 +692,7 @@ const StudentRoster: React.FC<StudentRosterProps> = ({
                 <p className="student-roster__period-note">
                   {isOfficialTotalRanking
                     ? 'Ranking oficial: usa a contagem registrada no perfil do aluno.'
-                    : `Ranking analitico: ${periodRange.label}. Conta apenas presencas em aulas finalizadas pelo professor. Nao altera faixa, grau ou contagem oficial.`}
+                    : `Ranking analitico: ${periodRange.label}. Conta presencas de aulas ja realizadas. Nao altera faixa, grau ou contagem oficial.`}
                 </p>
               </div>
             ) : null}

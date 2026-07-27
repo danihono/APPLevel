@@ -125,6 +125,18 @@ type ValidatedSessionSnapshot = {
 const SUPERADMIN_NETWORK_TABS = new Set(['home', 'controle-total', 'notifications', 'students', 'management', 'learning', 'profile']);
 const SUPERADMIN_PROFESSOR_TABS = new Set(['home', 'calendar', 'students', 'management', 'notifications', 'learning', 'profile']);
 const RANKING_START_DATE = new Date('2026-05-06T00:00:00.000-03:00');
+const RANKING_LOOKBACK_MONTHS = 3;
+
+// A epoca do ranking oficial (RANKING_START_DATE) e fixa, mas os filtros por periodo
+// (ex.: "ultimos 3 meses" em Alunos e na Central) podem comecar antes dela. A assinatura
+// precisa cobrir a janela mais antiga que qualquer preset consegue pedir, senao o periodo
+// aparece truncado.
+function getRankingSubscriptionStart(): Date {
+  const lookback = new Date();
+  lookback.setMonth(lookback.getMonth() - RANKING_LOOKBACK_MONTHS);
+  lookback.setHours(0, 0, 0, 0);
+  return lookback.getTime() < RANKING_START_DATE.getTime() ? lookback : RANKING_START_DATE;
+}
 
 function getGraduationCelebrationStorageKey(userId: string): string {
   return `${GRADUATION_CELEBRATION_STORAGE_PREFIX}:${userId}`;
@@ -1331,7 +1343,12 @@ const App: React.FC = () => {
   }, [allAcademies, authUser, profile, selectedAcademyId, sessionValidated, superadminDirectoryLoading, academyAccessRetryNonce]);
 
   useEffect(() => {
-    if (!profile || !sessionValidated || profile.role === 'student' || activeTab !== 'students') {
+    // A Central do superadmin (aba 'home') tambem consome as presencas reais da unidade
+    // em foco para montar dias/horarios/tendencia e o top frequentadores por periodo.
+    const needsRankingAttendances = activeTab === 'students'
+      || (profile?.role === 'superadmin' && activeTab === 'home');
+
+    if (!profile || !sessionValidated || profile.role === 'student' || !needsRankingAttendances) {
       setRankingAttendances([]);
       return;
     }
@@ -1348,7 +1365,7 @@ const App: React.FC = () => {
     return subscribeToRankingAttendances(
       {
         academyId: scopedAcademyId,
-        startDate: RANKING_START_DATE,
+        startDate: getRankingSubscriptionStart(),
       },
       setRankingAttendances,
       (error) => reportSessionError('data:subscribeToRankingAttendances', error),
@@ -2536,6 +2553,7 @@ const App: React.FC = () => {
               academy={academy}
               academyUsers={academyUsers}
               classes={classes}
+              attendances={rankingAttendances}
               competitions={competitions}
               selectedAcademyId={selectedAcademyId}
               onEnterAcademy={setSelectedAcademyId}
