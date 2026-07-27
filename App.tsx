@@ -12,6 +12,7 @@ import LoginView from './views/LoginView';
 import ResetPasswordView from './views/ResetPasswordView';
 import StaffDashboardView from './views/StaffDashboardView';
 import { normalizeBeltId } from './beltCatalog';
+import { resolveFocusPeriod, type FocusPeriodPreset } from './calendarUtils';
 import { logout, reauthenticateCurrentUser, signInWithEmail, subscribeToAuthState, updateSignedInEmail } from './services/firebase/auth';
 import { toBranch, toUiUser, toUserVideoLibrary } from './services/firebase/adapters';
 import {
@@ -130,12 +131,21 @@ const RANKING_LOOKBACK_MONTHS = 3;
 // A epoca do ranking oficial (RANKING_START_DATE) e fixa, mas os filtros por periodo
 // (ex.: "ultimos 3 meses" em Alunos e na Central) podem comecar antes dela. A assinatura
 // precisa cobrir a janela mais antiga que qualquer preset consegue pedir, senao o periodo
-// aparece truncado.
-function getRankingSubscriptionStart(): Date {
+// aparece truncado. `periodStart` vem do periodo escolhido na Central — sem ele, "12 meses"
+// e "Tudo" mostrariam os mesmos ~3 meses do padrao.
+function getRankingSubscriptionStart(periodStart?: Date): Date {
   const lookback = new Date();
   lookback.setMonth(lookback.getMonth() - RANKING_LOOKBACK_MONTHS);
   lookback.setHours(0, 0, 0, 0);
-  return lookback.getTime() < RANKING_START_DATE.getTime() ? lookback : RANKING_START_DATE;
+
+  const candidates = [RANKING_START_DATE, lookback];
+  if (periodStart) {
+    candidates.push(periodStart);
+  }
+
+  return candidates.reduce((earliest, candidate) => (
+    candidate.getTime() < earliest.getTime() ? candidate : earliest
+  ));
 }
 
 function getGraduationCelebrationStorageKey(userId: string): string {
@@ -582,6 +592,7 @@ const App: React.FC = () => {
   const [academyUsers, setAcademyUsers] = useState<Array<FirestoreEntity<UserRecord>>>([]);
   const [attendances, setAttendances] = useState<Array<FirestoreEntity<AttendanceRecord>>>([]);
   const [rankingAttendances, setRankingAttendances] = useState<Array<FirestoreEntity<AttendanceRecord>>>([]);
+  const [focusPeriod, setFocusPeriod] = useState<FocusPeriodPreset>('3m');
   const [attendanceRequests, setAttendanceRequests] = useState<Array<FirestoreEntity<AttendanceRequestRecord>>>([]);
   const [joinRequests, setJoinRequests] = useState<Array<FirestoreEntity<JoinRequestRecord>>>([]);
   const [graduationRequests, setGraduationRequests] = useState<Array<FirestoreEntity<GraduationApprovalRequestRecord>>>([]);
@@ -1345,8 +1356,8 @@ const App: React.FC = () => {
   useEffect(() => {
     // A Central do superadmin (aba 'home') tambem consome as presencas reais da unidade
     // em foco para montar dias/horarios/tendencia e o top frequentadores por periodo.
-    const needsRankingAttendances = activeTab === 'students'
-      || (profile?.role === 'superadmin' && activeTab === 'home');
+    const isSuperadminCentral = profile?.role === 'superadmin' && activeTab === 'home';
+    const needsRankingAttendances = activeTab === 'students' || isSuperadminCentral;
 
     if (!profile || !sessionValidated || profile.role === 'student' || !needsRankingAttendances) {
       setRankingAttendances([]);
@@ -1365,12 +1376,14 @@ const App: React.FC = () => {
     return subscribeToRankingAttendances(
       {
         academyId: scopedAcademyId,
-        startDate: getRankingSubscriptionStart(),
+        startDate: getRankingSubscriptionStart(
+          isSuperadminCentral ? resolveFocusPeriod(focusPeriod).startDate : undefined,
+        ),
       },
       setRankingAttendances,
       (error) => reportSessionError('data:subscribeToRankingAttendances', error),
     );
-  }, [activeTab, profile, selectedAcademyId, sessionValidated]);
+  }, [activeTab, focusPeriod, profile, selectedAcademyId, sessionValidated]);
 
   useEffect(() => {
     if (!profile || !sessionValidated || activeTab !== 'learning') {
@@ -2554,6 +2567,8 @@ const App: React.FC = () => {
               academyUsers={academyUsers}
               classes={classes}
               attendances={rankingAttendances}
+              focusPeriod={focusPeriod}
+              onFocusPeriodChange={setFocusPeriod}
               competitions={competitions}
               selectedAcademyId={selectedAcademyId}
               onEnterAcademy={setSelectedAcademyId}

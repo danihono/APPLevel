@@ -1,6 +1,11 @@
 import React, { useMemo, useState } from 'react';
 import { getBeltMeta } from '../beltCatalog';
-import { MONTH_WEEK_HEADER } from '../calendarUtils';
+import {
+  FOCUS_PERIOD_OPTIONS,
+  MONTH_WEEK_HEADER,
+  resolveFocusPeriod,
+  type FocusPeriodPreset,
+} from '../calendarUtils';
 import {
   Activity,
   AlertTriangle,
@@ -30,6 +35,9 @@ interface SuperadminDashboardViewProps {
   academyUsers: Array<FirestoreEntity<UserRecord>>;
   classes: Array<FirestoreEntity<ClassRecord>>;
   attendances?: Array<FirestoreEntity<AttendanceRecord>>;
+  // O periodo vive no App porque ele dimensiona a assinatura de presencas no Firestore.
+  focusPeriod: FocusPeriodPreset;
+  onFocusPeriodChange: (preset: FocusPeriodPreset) => void;
   competitions: Array<FirestoreEntity<CompetitionRecord>>;
   selectedAcademyId: string;
   onEnterAcademy: (academyId: string) => void;
@@ -261,49 +269,6 @@ function getZonedParts(date: Date, timeZone: string): ZonedParts | null {
   }
 }
 
-type FocusPeriodPreset = '30d' | '3m' | '12m' | 'total';
-
-const focusPeriodOptions: Array<{ value: FocusPeriodPreset; label: string }> = [
-  { value: '30d', label: '30 dias' },
-  { value: '3m', label: '3 meses' },
-  { value: '12m', label: '12 meses' },
-  { value: 'total', label: 'Tudo' },
-];
-
-interface FocusPeriod {
-  startMillis: number;
-  endMillis: number;
-  label: string;
-}
-
-// Janela do periodo em foco. O fim e sempre "agora" e o inicio recua a partir da data
-// atual; aulas/presencas futuras (aula agendada para amanha) ficam de fora das
-// estatisticas de frequencia por definicao.
-function resolveFocusPeriod(preset: FocusPeriodPreset): FocusPeriod {
-  const now = new Date();
-  const endMillis = now.getTime();
-
-  if (preset === 'total') {
-    return { startMillis: Number.NEGATIVE_INFINITY, endMillis, label: 'Todo o historico' };
-  }
-
-  const start = new Date(now);
-  if (preset === '30d') {
-    start.setDate(start.getDate() - 30);
-  } else {
-    start.setMonth(start.getMonth() - (preset === '3m' ? 3 : 12));
-  }
-  start.setHours(0, 0, 0, 0);
-
-  const option = focusPeriodOptions.find((entry) => entry.value === preset);
-
-  return {
-    startMillis: start.getTime(),
-    endMillis,
-    label: `Ultimos ${option?.label ?? preset}`,
-  };
-}
-
 interface FocusBar {
   key: string;
   label: string;
@@ -360,6 +325,9 @@ interface FocusStatistics {
   // true quando nao ha documentos de presenca carregados no periodo e os numeros
   // vieram do contador desnormalizado da aula (currentAttendanceCount).
   usesClassCounterFallback: boolean;
+  // Diagnostico do estado vazio: quantas aulas a unidade tem no total (sem filtro de
+  // periodo) e quantas entraram no periodo escolhido.
+  loadedClassCount: number;
 }
 
 // Lista de barras horizontais reaproveitada por desktop e mobile.
@@ -398,6 +366,8 @@ const SuperadminDashboardView: React.FC<SuperadminDashboardViewProps> = ({
   academyUsers,
   classes,
   attendances = [],
+  focusPeriod,
+  onFocusPeriodChange,
   competitions,
   selectedAcademyId,
   onEnterAcademy,
@@ -407,7 +377,6 @@ const SuperadminDashboardView: React.FC<SuperadminDashboardViewProps> = ({
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [sortMode, setSortMode] = useState<SortMode>('attention');
-  const [focusPeriod, setFocusPeriod] = useState<FocusPeriodPreset>('3m');
   const [editingInstructor, setEditingInstructor] = useState<FirestoreEntity<UserRecord> | null>(null);
 
   const usersByAcademyId = useMemo(() => {
@@ -886,16 +855,28 @@ const SuperadminDashboardView: React.FC<SuperadminDashboardViewProps> = ({
       topStudents,
       periodLabel: focusPeriodRange.label,
       usesClassCounterFallback,
+      loadedClassCount: classes.length,
     } satisfies FocusStatistics;
   }, [attendances, classes, academyUsers, academy?.timezone, focusPeriod, focusPeriodRange, selectedAcademyId]);
+  // Explica POR QUE um card está vazio: sem aula cadastrada, sem aula no período escolhido,
+  // ou aulas realizadas sem nenhuma presença lançada. Reaproveitado no desktop e no mobile.
+  const focusEmptyLabel = !focusStatistics
+    ? 'Sem dados.'
+    : focusStatistics.loadedClassCount === 0
+      ? 'Nenhuma aula cadastrada nesta unidade.'
+      : focusStatistics.finishedClassCount === 0
+        ? `Nenhuma aula realizada em "${focusStatistics.periodLabel}". A unidade tem ${formatNumber(focusStatistics.loadedClassCount)} aulas no histórico — experimente um período maior.`
+        : `${formatNumber(focusStatistics.finishedClassCount)} aulas realizadas no período, nenhuma presença registrada.`;
+  const focusHasNoAttendances = !!focusStatistics && focusStatistics.totalAttendances === 0;
+
   // Mesmo seletor renderizado no painel desktop e no bloco mobile.
   const focusPeriodChips = (
     <div className="app-chip-row" role="group" aria-label="Periodo das estatisticas">
-      {focusPeriodOptions.map((option) => (
+      {FOCUS_PERIOD_OPTIONS.map((option) => (
         <button
           key={option.value}
           type="button"
-          onClick={() => setFocusPeriod(option.value)}
+          onClick={() => onFocusPeriodChange(option.value)}
           className={`app-chip ${focusPeriod === option.value ? 'is-active' : ''}`}
         >
           {option.label}
@@ -1182,8 +1163,9 @@ const SuperadminDashboardView: React.FC<SuperadminDashboardViewProps> = ({
               <p className="sa-mob-section__label">
                 Dias mais frequentados{focusStatistics.peakWeekday ? ` · pico ${focusStatistics.peakWeekday.label}` : ''}
               </p>
+              {focusHasNoAttendances ? <p className="sa-mob-section__hint">{focusEmptyLabel}</p> : null}
               <FocusBarList
-                emptyLabel="Sem aulas realizadas ainda."
+                emptyLabel={focusEmptyLabel}
                 items={focusStatistics.byWeekday.map((bucket) => ({
                   key: bucket.key,
                   label: bucket.label,
@@ -1198,7 +1180,7 @@ const SuperadminDashboardView: React.FC<SuperadminDashboardViewProps> = ({
                 Horários de pico{focusStatistics.peakHour ? ` · ${focusStatistics.peakHour.label}` : ''}
               </p>
               <FocusBarList
-                emptyLabel="Sem aulas realizadas ainda."
+                emptyLabel={focusEmptyLabel}
                 items={focusStatistics.byHour.slice(0, 6).map((bucket) => ({
                   key: bucket.key,
                   label: bucket.label,
@@ -1220,7 +1202,7 @@ const SuperadminDashboardView: React.FC<SuperadminDashboardViewProps> = ({
                   ))}
                 </div>
               ) : (
-                <div className="app-empty">Sem aulas realizadas ainda.</div>
+                <div className="app-empty">{focusEmptyLabel}</div>
               )}
             </div>
 
@@ -1241,7 +1223,7 @@ const SuperadminDashboardView: React.FC<SuperadminDashboardViewProps> = ({
               <div className="sa-mob-section">
                 <p className="sa-mob-section__label">Tendência mensal</p>
                 <FocusBarList
-                  emptyLabel="Sem histórico de presenças."
+                  emptyLabel={focusEmptyLabel}
                   items={focusStatistics.monthlyTrend.map((bucket) => ({
                     key: bucket.key,
                     label: bucket.label,
@@ -1698,11 +1680,14 @@ const SuperadminDashboardView: React.FC<SuperadminDashboardViewProps> = ({
                 <div className="sa-card__head">
                   <h3 className="sa-card__title">Dias mais frequentados</h3>
                   <span className="app-badge app-badge--muted">
-                    {focusStatistics.peakWeekday ? `Pico: ${focusStatistics.peakWeekday.label}` : 'Sem dados'}
+                    {focusStatistics.peakWeekday
+                      ? `Pico: ${focusStatistics.peakWeekday.label}`
+                      : `${formatNumber(focusStatistics.finishedClassCount)} aulas`}
                   </span>
                 </div>
+                {focusHasNoAttendances ? <p className="sa-focus-period__hint">{focusEmptyLabel}</p> : null}
                 <FocusBarList
-                  emptyLabel="Sem aulas realizadas ainda."
+                  emptyLabel={focusEmptyLabel}
                   items={focusStatistics.byWeekday.map((bucket) => ({
                     key: bucket.key,
                     label: bucket.label,
@@ -1716,11 +1701,13 @@ const SuperadminDashboardView: React.FC<SuperadminDashboardViewProps> = ({
                 <div className="sa-card__head">
                   <h3 className="sa-card__title">Horários de pico</h3>
                   <span className="app-badge app-badge--muted">
-                    {focusStatistics.peakHour ? `Pico: ${focusStatistics.peakHour.label}` : 'Sem dados'}
+                    {focusStatistics.peakHour
+                      ? `Pico: ${focusStatistics.peakHour.label}`
+                      : `${formatNumber(focusStatistics.finishedClassCount)} aulas`}
                   </span>
                 </div>
                 <FocusBarList
-                  emptyLabel="Sem aulas realizadas ainda."
+                  emptyLabel={focusEmptyLabel}
                   items={focusStatistics.byHour.slice(0, 8).map((bucket) => ({
                     key: bucket.key,
                     label: bucket.label,
@@ -1736,7 +1723,7 @@ const SuperadminDashboardView: React.FC<SuperadminDashboardViewProps> = ({
                   <TrendingUp size={16} />
                 </div>
                 <FocusBarList
-                  emptyLabel="Sem histórico de presenças."
+                  emptyLabel={focusEmptyLabel}
                   items={focusStatistics.monthlyTrend.map((bucket) => ({
                     key: bucket.key,
                     label: bucket.label,
