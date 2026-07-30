@@ -573,6 +573,7 @@ const App: React.FC = () => {
   const [authUser, setAuthUser] = useState<FirebaseUser | null>(null);
   const [activeTab, setActiveTab] = useState('home');
   const [managementFocusSection, setManagementFocusSection] = useState<'master-black' | 'students' | 'overview' | null>(null);
+  const [studentsFocusSection, setStudentsFocusSection] = useState<'list' | 'ranking' | 'deactivated' | null>(null);
   const [pendingCheckin, setPendingCheckin] = useState<{ token: string; classId: string } | null>(null);
   const [checkinStatus, setCheckinStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [checkinStep, setCheckinStep] = useState<'initial' | 'confirm'>('initial');
@@ -2616,7 +2617,11 @@ const App: React.FC = () => {
                 }
               }}
               onNavigateToClasses={() => setActiveTab('calendar')}
-              onNavigateToFrequency={() => setActiveTab('calendar')}
+              onNavigateToInactiveStudents={() => {
+                setSelectedStudentId('');
+                setStudentsFocusSection('deactivated');
+                setActiveTab('students');
+              }}
             />
           ) : (
             <HomeView
@@ -2745,6 +2750,8 @@ const App: React.FC = () => {
             onAdminUpdateStudentPhoto={handleAdminUpdateStudentPhoto}
             onDeactivateStudent={handleDeactivateStudent}
             onActivateStudent={handleActivateStudent}
+            focusSection={studentsFocusSection}
+            onFocusSectionHandled={() => setStudentsFocusSection(null)}
             viewerRole={isSuperAdmin ? 'superadmin' : 'professor'}
             onAdminSetUserMemberships={isSuperAdmin ? handleAdminSetUserMemberships : undefined}
           />

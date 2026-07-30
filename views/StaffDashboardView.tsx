@@ -33,7 +33,7 @@ interface StaffDashboardViewProps {
   onNavigateToInstructors?: () => void;
   onNavigateToStudents?: () => void;
   onNavigateToClasses?: () => void;
-  onNavigateToFrequency?: () => void;
+  onNavigateToInactiveStudents?: () => void;
 }
 
 interface StaffKpiCardProps {
@@ -75,15 +75,6 @@ function isSameDay(left?: Date | null, right?: Date | null) {
 
   return left.getDate() === right.getDate()
     && left.getMonth() === right.getMonth()
-    && left.getFullYear() === right.getFullYear();
-}
-
-function isSameMonth(left?: Date | null, right?: Date | null) {
-  if (!left || !right) {
-    return false;
-  }
-
-  return left.getMonth() === right.getMonth()
     && left.getFullYear() === right.getFullYear();
 }
 
@@ -155,7 +146,7 @@ const StaffDashboardView: React.FC<StaffDashboardViewProps> = ({
   onNavigateToInstructors,
   onNavigateToStudents,
   onNavigateToClasses,
-  onNavigateToFrequency,
+  onNavigateToInactiveStudents,
 }) => {
   const now = new Date();
   const blackBeltProgress = getBlackBeltProgressForUser(user, now);
@@ -188,37 +179,14 @@ const StaffDashboardView: React.FC<StaffDashboardViewProps> = ({
     () => academyUsers.filter((entry) => entry.role !== 'student' && entry.status === 'active'),
     [academyUsers],
   );
-  const students = useMemo(
-    () => academyUsers.filter((entry) => entry.role === 'student'),
+  const activeStudents = useMemo(
+    () => academyUsers.filter((entry) => entry.role === 'student' && entry.status !== 'suspended'),
     [academyUsers],
   );
-
-  const monthlyAttendanceRate = useMemo(() => {
-    const trackedClasses = classes.filter((lesson) => {
-      const start = lesson.scheduledStart?.toDate();
-
-      if (!start) {
-        return false;
-      }
-
-      return isSameMonth(start, now)
-        && start.getTime() <= now.getTime()
-        && lesson.status !== 'cancelled'
-        && (lesson.capacity ?? 0) > 0;
-    });
-
-    const totalCapacity = trackedClasses.reduce((sum, lesson) => sum + (lesson.capacity ?? 0), 0);
-    if (totalCapacity === 0) {
-      return 0;
-    }
-
-    const totalAttendance = trackedClasses.reduce(
-      (sum, lesson) => sum + Math.min(lesson.currentAttendanceCount, lesson.capacity ?? lesson.currentAttendanceCount),
-      0,
-    );
-
-    return Math.max(0, Math.min(100, Math.round((totalAttendance / totalCapacity) * 100)));
-  }, [classes, now]);
+  const inactiveStudents = useMemo(
+    () => academyUsers.filter((entry) => entry.role === 'student' && entry.status === 'suspended'),
+    [academyUsers],
+  );
 
   const unreadNotifications = useMemo(
     () => notifications.filter((entry) => isUnreadNotificationForViewer(entry, {
@@ -324,8 +292,8 @@ const StaffDashboardView: React.FC<StaffDashboardViewProps> = ({
 
           <StaffKpiCard
             label="Alunos"
-            value={students.length}
-            note="Matriculados"
+            value={activeStudents.length}
+            note="Ativos"
             onClick={onNavigateToStudents}
           />
 
@@ -337,10 +305,10 @@ const StaffDashboardView: React.FC<StaffDashboardViewProps> = ({
           />
 
           <StaffKpiCard
-            label="Frequência"
-            value={`${monthlyAttendanceRate}%`}
-            note="Este mês"
-            onClick={onNavigateToFrequency}
+            label="Inativos"
+            value={inactiveStudents.length}
+            note="Desativados"
+            onClick={onNavigateToInactiveStudents}
           />
         </div>
       </section>

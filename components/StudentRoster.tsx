@@ -48,6 +48,8 @@ export interface StudentRosterProps {
   onAdminUpdateStudentPhoto?: (payload: { userId: string; photoFile: File }) => Promise<void>;
   onDeactivateStudent?: (userId: string) => Promise<void>;
   onActivateStudent?: (userId: string) => Promise<void>;
+  focusSection?: RosterSection | null;
+  onFocusSectionHandled?: () => void;
   viewerRole?: 'professor' | 'superadmin';
   onAdminSetUserMemberships?: (payload: { userId: string; memberships: string[] }) => Promise<void>;
   kicker?: string;
@@ -291,6 +293,8 @@ const StudentRoster: React.FC<StudentRosterProps> = ({
   onAdminUpdateStudentPhoto,
   onDeactivateStudent,
   onActivateStudent,
+  focusSection,
+  onFocusSectionHandled,
   viewerRole,
   onAdminSetUserMemberships,
   kicker = 'Roster',
@@ -309,6 +313,7 @@ const StudentRoster: React.FC<StudentRosterProps> = ({
   const [customStartDate, setCustomStartDate] = useState(RANKING_START_DATE_INPUT);
   const [customEndDate, setCustomEndDate] = useState(toSaoPauloDateInput());
   const [internalSelectedStudentId, setInternalSelectedStudentId] = useState(selectedStudentId);
+  const canManageDeactivated = Boolean(onDeactivateStudent || onActivateStudent);
   const shouldChooseAcademyFirst = requireAcademySelection && !selectedAcademyId;
   const showAcademyFilter = (enableAcademyFilter || requireAcademySelection) && academies.length > 0;
   const academyNameById = useMemo(() => new Map(academies.map((entry) => [entry.id, entry.name])), [academies]);
@@ -488,6 +493,20 @@ const StudentRoster: React.FC<StudentRosterProps> = ({
     }
   }, [internalSelectedStudentId, onSelectStudent, allStudents]);
 
+  useEffect(() => {
+    if (!focusSection) {
+      return;
+    }
+
+    if (focusSection === 'deactivated' && !canManageDeactivated) {
+      onFocusSectionHandled?.();
+      return;
+    }
+
+    setActiveSection(focusSection);
+    onFocusSectionHandled?.();
+  }, [canManageDeactivated, focusSection, onFocusSectionHandled]);
+
   const selectedStudent = internalSelectedStudentId
     ? allStudents.find((student) => student.id === internalSelectedStudentId) ?? null
     : null;
@@ -557,7 +576,7 @@ const StudentRoster: React.FC<StudentRosterProps> = ({
             <BarChart3 size={16} />
             Ranking
           </button>
-          {(onDeactivateStudent || onActivateStudent) ? (
+          {canManageDeactivated ? (
             <button
               type="button"
               role="tab"
