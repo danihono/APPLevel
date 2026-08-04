@@ -3454,6 +3454,49 @@ html.dark .app-field__hint--danger {
   color: #ff9a86;
 }
 
+/* Lista de unidades do cadastro (LoginView). A cor e declarada explicitamente em
+   cada texto: sem isso o nome da academia herda a cor e some no mobile. */
+.signup-units {
+  margin-top: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  border: 1px solid var(--border-strong);
+  border-radius: 0.75rem;
+  max-height: 220px;
+  overflow-y: auto;
+  color: var(--text-strong);
+}
+
+.signup-units__option {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  padding: 0.5rem 0.625rem;
+  border: 1px solid transparent;
+  border-radius: 0.5rem;
+  background: transparent;
+  color: var(--text-strong);
+  cursor: pointer;
+  transition: background 200ms ease, border-color 200ms ease;
+}
+
+.signup-units__option--checked {
+  background: rgba(232, 175, 72, 0.12);
+  border-color: rgba(232, 175, 72, 0.5);
+}
+
+html.dark .signup-units__option--checked {
+  background: rgba(232, 175, 72, 0.16);
+  border-color: rgba(232, 175, 72, 0.42);
+}
+
+.signup-units__name {
+  font-weight: 600;
+  color: var(--text-strong);
+}
+
 .app-input,
 .app-select,
 .app-textarea {

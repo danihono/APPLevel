@@ -561,41 +561,20 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onRequestReactivation, i
                   ) : academyOptions.length === 0 ? (
                     <div className="app-note" style={{ marginTop: '0.5rem' }}>Nenhuma unidade disponível no momento.</div>
                   ) : (
-                    <div
-                      style={{
-                        marginTop: '0.5rem',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: '0.5rem',
-                        border: '1px solid rgba(148, 163, 184, 0.3)',
-                        borderRadius: '0.75rem',
-                        padding: '0.75rem',
-                        maxHeight: '220px',
-                        overflowY: 'auto',
-                      }}
-                    >
+                    <div className="signup-units">
                       {academyOptions.map((academyOption) => {
                         const checked = selectedAcademyIds.includes(academyOption.academyId);
                         return (
                           <label
                             key={academyOption.academyId}
-                            style={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: '0.625rem',
-                              padding: '0.5rem 0.625rem',
-                              borderRadius: '0.5rem',
-                              cursor: 'pointer',
-                              background: checked ? 'rgba(217, 175, 92, 0.12)' : 'transparent',
-                              border: checked ? '1px solid rgba(217, 175, 92, 0.5)' : '1px solid transparent',
-                            }}
+                            className={`signup-units__option${checked ? ' signup-units__option--checked' : ''}`}
                           >
                             <input
                               type="checkbox"
                               checked={checked}
                               onChange={() => toggleAcademySelection(academyOption.academyId)}
                             />
-                            <span style={{ fontWeight: 600 }}>{academyOption.name}</span>
+                            <span className="signup-units__name">{academyOption.name}</span>
                           </label>
                         );
                       })}
