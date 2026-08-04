@@ -16,6 +16,7 @@ import {
   Trash2,
   X,
 } from 'lucide-react';
+import DateField from '../components/DateField';
 import type { FirestoreEntity } from '../services/firebase/data';
 import { backendFunctions, type FinanceSaleItemPayload } from '../services/firebase/functions';
 import {
@@ -1039,11 +1040,11 @@ const ControleTotalView: React.FC<ControleTotalViewProps> = ({
             </label>
             <label className="app-field">
               <span className="app-field__label">Inicio</span>
-              <input className="app-input" type="date" value={dashboardStart} onChange={(event) => setDashboardStart(event.target.value)} />
+              <DateField value={dashboardStart} onChange={setDashboardStart} />
             </label>
             <label className="app-field">
               <span className="app-field__label">Fim</span>
-              <input className="app-input" type="date" value={dashboardEnd} onChange={(event) => setDashboardEnd(event.target.value)} />
+              <DateField value={dashboardEnd} onChange={setDashboardEnd} />
             </label>
           </section>
 
@@ -1301,8 +1302,14 @@ const ControleTotalView: React.FC<ControleTotalViewProps> = ({
         <div className="controle-total__stack">
           <section className="app-panel app-panel-pad controle-total__filters">
             <label className="app-field"><span className="app-field__label">Filial</span>{renderAcademySelect(listAcademyId, setListAcademyId, true)}</label>
-            <label className="app-field"><span className="app-field__label">Inicio</span><input className="app-input" type="date" value={listStart} onChange={(event) => setListStart(event.target.value)} /></label>
-            <label className="app-field"><span className="app-field__label">Fim</span><input className="app-input" type="date" value={listEnd} onChange={(event) => setListEnd(event.target.value)} /></label>
+            <label className="app-field">
+              <span className="app-field__label">Inicio</span>
+              <DateField value={listStart} onChange={setListStart} />
+            </label>
+            <label className="app-field">
+              <span className="app-field__label">Fim</span>
+              <DateField value={listEnd} onChange={setListEnd} />
+            </label>
             <label className="app-field"><span className="app-field__label">Tipo</span><select className="app-select" value={listType} onChange={(event) => setListType(event.target.value as ListType)}><option value="all">Todos</option><option value="sale">Vendas</option><option value="payment">Pagamentos</option><option value="withdrawal">Vales</option><option value="stock">Estoque</option></select></label>
             <label className="app-field"><span className="app-field__label">Ordenar</span><select className="app-select" value={sortMode} onChange={(event) => setSortMode(event.target.value as SortMode)}><option value="newest">Mais recentes</option><option value="oldest">Mais antigas</option><option value="value_desc">Maior valor</option><option value="value_asc">Menor valor</option></select></label>
           </section>
@@ -1351,9 +1358,15 @@ const ControleTotalView: React.FC<ControleTotalViewProps> = ({
                 ) : (
                   <label className="app-field"><span className="app-field__label">Rotulo do comprador</span><input required className="app-input" value={saleForm.customerName} placeholder="Nome do comprador" onChange={(event) => setSaleForm((current) => ({ ...current, customerName: event.target.value }))} /></label>
                 )}
-                <label className="app-field"><span className="app-field__label">Data</span><input className="app-input" type="date" value={saleForm.saleDate} onChange={(event) => setSaleForm((current) => ({ ...current, saleDate: event.target.value }))} /></label>
+                <label className="app-field">
+                  <span className="app-field__label">Data</span>
+                  <DateField value={saleForm.saleDate} onChange={(value) => setSaleForm((current) => ({ ...current, saleDate: value }))} />
+                </label>
                 <label className="app-field"><span className="app-field__label">Responsavel pela compra</span><select className="app-select" value={saleForm.sellerId} onChange={(event) => selectSeller(event.target.value)}><option value="">- Selecionar -</option>{staff.map((entry) => <option key={entry.id} value={entry.id}>{entry.displayName}</option>)}</select></label>
-                <label className="app-field"><span className="app-field__label">Vencimento</span><input className="app-input" type="date" value={saleForm.dueDate} onChange={(event) => setSaleForm((current) => ({ ...current, dueDate: event.target.value }))} /></label>
+                <label className="app-field">
+                  <span className="app-field__label">Vencimento</span>
+                  <DateField value={saleForm.dueDate} onChange={(value) => setSaleForm((current) => ({ ...current, dueDate: value }))} />
+                </label>
 
                 <div className="controle-total__items-editor controle-total__span-2">
                   <div className="controle-total__section-heading">
@@ -1406,7 +1419,10 @@ const ControleTotalView: React.FC<ControleTotalViewProps> = ({
 
                 <label className="app-field"><span className="app-field__label">Forma de pagamento</span><select className="app-select" value={saleForm.paymentMethod} onChange={(event) => setSaleForm((current) => ({ ...current, paymentMethod: event.target.value }))}>{paymentMethods.map((entry) => <option key={entry}>{entry}</option>)}</select></label>
                 <label className="app-field"><span className="app-field__label">Valor recebido</span><input className="app-input" inputMode="decimal" placeholder={formatCurrency(salePreview.total)} value={saleForm.receivedAmount} onChange={(event) => setSaleForm((current) => ({ ...current, receivedAmount: event.target.value }))} /></label>
-                <label className="app-field"><span className="app-field__label">Data pagamento</span><input className="app-input" type="date" value={saleForm.paymentDate} onChange={(event) => setSaleForm((current) => ({ ...current, paymentDate: event.target.value }))} /></label>
+                <label className="app-field">
+                  <span className="app-field__label">Data pagamento</span>
+                  <DateField value={saleForm.paymentDate} onChange={(value) => setSaleForm((current) => ({ ...current, paymentDate: value }))} />
+                </label>
                 <label className="app-field controle-total__span-2"><span className="app-field__label">Observacoes</span><input className="app-input" value={saleForm.notes} onChange={(event) => setSaleForm((current) => ({ ...current, notes: event.target.value }))} /></label>
 
                 <div className="controle-total__sale-total">
@@ -1578,11 +1594,11 @@ const ControleTotalView: React.FC<ControleTotalViewProps> = ({
             </label>
             <label className="app-field">
               <span className="app-field__label">Inicio</span>
-              <input className="app-input" type="date" value={reportStart} onChange={(event) => setReportStart(event.target.value)} />
+              <DateField value={reportStart} onChange={setReportStart} />
             </label>
             <label className="app-field">
               <span className="app-field__label">Fim</span>
-              <input className="app-input" type="date" value={reportEnd} onChange={(event) => setReportEnd(event.target.value)} />
+              <DateField value={reportEnd} onChange={setReportEnd} />
             </label>
           </section>
 
@@ -1705,7 +1721,7 @@ const ControleTotalView: React.FC<ControleTotalViewProps> = ({
                       <select className="app-select" value={settleMethod} onChange={(event) => setSettleMethod(event.target.value)} style={{ maxWidth: '180px' }}>
                         {paymentMethods.map((method) => <option key={method} value={method}>{method}</option>)}
                       </select>
-                      <input className="app-input" type="date" value={settleDate} onChange={(event) => setSettleDate(event.target.value)} style={{ maxWidth: '170px' }} />
+                      <DateField value={settleDate} onChange={setSettleDate} style={{ maxWidth: '210px' }} />
                       <button type="button" className="app-button app-button--gold app-button--small" disabled={!!busy} onClick={() => submitSettle(withdrawal.id)}>Confirmar</button>
                       <button type="button" className="app-button app-button--ghost app-button--small" onClick={() => setSettleTarget('')}>Fechar</button>
                     </div>

@@ -17,6 +17,7 @@ import { useConfirm } from '../components/ConfirmDialog';
 import { AlertTriangle, ArrowLeft, ArrowDown, ArrowUp, Award, Calendar, Camera, CheckCircle2, ChevronDown, ChevronUp, Clock, Filter, Mail, QrCode, Save, TrendingUp, User as UserIcon, UserCheck, UserX, Video, BookOpen, X } from 'lucide-react';
 import AppVideoContent from '../components/AppVideoContent';
 import AvatarWithBelt from '../components/AvatarWithBelt';
+import DateField from '../components/DateField';
 import ProgressBar from '../components/ProgressBar';
 import { subscribeToUserAttendances, subscribeToUserGraduations, type FirestoreEntity } from '../services/firebase/data';
 import type { AttendanceRecord, ClassRecord, GraduationApprovalRequestRecord, GraduationRecord } from '../services/firebase/models';
@@ -752,12 +753,7 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
 
               <label className="app-field">
                 <span className="app-field__label">Data de nascimento</span>
-                <input
-                  type="date"
-                  value={profileBirthDate}
-                  onChange={(e) => setProfileBirthDate(e.target.value)}
-                  className="app-input"
-                />
+                <DateField value={profileBirthDate} onChange={setProfileBirthDate} />
               </label>
 
               <label className="app-field">
@@ -802,23 +798,13 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
             <div className="mt-6 space-y-4">
               <label className="app-field">
                 <span className="app-field__label">Início dos treinos</span>
-                <input
-                  type="date"
-                  value={editTrainingStartDate}
-                  onChange={(e) => setEditTrainingStartDate(e.target.value)}
-                  className="app-input"
-                />
+                <DateField value={editTrainingStartDate} onChange={setEditTrainingStartDate} />
                 <span className="app-field__hint">Data real em que o aluno começou a treinar na academia</span>
               </label>
 
               <label className="app-field">
                 <span className="app-field__label">{isBlackBelt(student.belt) ? 'Data da faixa preta' : 'Última graduação'}</span>
-                <input
-                  type="date"
-                  value={editLastGraduationDate}
-                  onChange={(e) => setEditLastGraduationDate(e.target.value)}
-                  className="app-input"
-                />
+                <DateField value={editLastGraduationDate} onChange={setEditLastGraduationDate} />
                 <span className="app-field__hint">
                   {isBlackBelt(student.belt)
                     ? 'Data em que recebeu a preta — define o grau por tempo (IBJJF) e o número de graus.'
@@ -828,12 +814,7 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
 
               <label className="app-field">
                 <span className="app-field__label">Último grau recebido</span>
-                <input
-                  type="date"
-                  value={editLastStripeDate}
-                  onChange={(e) => setEditLastStripeDate(e.target.value)}
-                  className="app-input"
-                />
+                <DateField value={editLastStripeDate} onChange={setEditLastStripeDate} />
                 <span className="app-field__hint">Substitui a data calculada automaticamente pelo sistema</span>
               </label>
 
@@ -1047,12 +1028,7 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
               <>
                 <label className="app-field">
                   <span className="app-field__label">Data da faixa preta</span>
-                  <input
-                    type="date"
-                    value={studentBlackBeltDate}
-                    onChange={(event) => setStudentBlackBeltDate(event.target.value)}
-                    className="app-input"
-                  />
+                  <DateField value={studentBlackBeltDate} onChange={setStudentBlackBeltDate} />
                   <span className="app-field__hint">
                     {studentBlackBeltPreview
                       ? `${studentBlackBeltPreview.label} · ${studentBlackBeltPreview.years} ${studentBlackBeltPreview.years === 1 ? 'ano' : 'anos'} de faixa preta${studentBlackBeltPreview.styleNote ? ` (${studentBlackBeltPreview.styleNote})` : ''}.`
@@ -1249,21 +1225,11 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
               <div className="app-grid-2">
                 <label className="app-field">
                   <span className="app-field__label">De</span>
-                  <input
-                    type="date"
-                    value={historyCustomFrom}
-                    onChange={(event) => setHistoryCustomFrom(event.target.value)}
-                    className="app-input"
-                  />
+                  <DateField value={historyCustomFrom} onChange={setHistoryCustomFrom} />
                 </label>
                 <label className="app-field">
                   <span className="app-field__label">Até</span>
-                  <input
-                    type="date"
-                    value={historyCustomTo}
-                    onChange={(event) => setHistoryCustomTo(event.target.value)}
-                    className="app-input"
-                  />
+                  <DateField value={historyCustomTo} onChange={setHistoryCustomTo} />
                 </label>
               </div>
             ) : null}

@@ -1,6 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Check, ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { buildMonthGrid, MONTH_WEEK_HEADER, stripDate, toDateKey } from '../calendarUtils';
+import DateField from './DateField';
+import TimeField from './TimeField';
 import type { CreateClassScheduleBatchResult } from '../services/firebase/functions';
 
 const TATAME_OPTIONS = [
@@ -451,24 +453,12 @@ const CreateClassModal: React.FC<CreateClassModalProps> = ({
                 <div className="app-form-grid">
                   <label className="app-field">
                     <span className="app-field__label">Data inicial</span>
-                    <input
-                      type="date"
-                      value={recurringStart}
-                      onChange={(event) => setRecurringStart(event.target.value)}
-                      className="app-input"
-                      required
-                    />
+                    <DateField value={recurringStart} onChange={setRecurringStart} required />
                   </label>
 
                   <label className="app-field">
                     <span className="app-field__label">Data final</span>
-                    <input
-                      type="date"
-                      value={recurringEnd}
-                      onChange={(event) => setRecurringEnd(event.target.value)}
-                      className="app-input"
-                      required
-                    />
+                    <DateField value={recurringEnd} onChange={setRecurringEnd} required />
                   </label>
                 </div>
 
@@ -516,7 +506,7 @@ const CreateClassModal: React.FC<CreateClassModalProps> = ({
             <div className="app-form-grid">
               <label className="app-field">
                 <span className="app-field__label">Horário</span>
-                <input type="time" value={time} onChange={(event) => setTime(event.target.value)} className="app-input" required />
+                <TimeField value={time} onChange={setTime} required />
               </label>
 
               <label className="app-field">

@@ -11,6 +11,7 @@ import {
   Weight,
 } from 'lucide-react';
 import AppVideoContent from '../components/AppVideoContent';
+import DateField from '../components/DateField';
 import { formatDateLabel } from '../services/firebase/adapters';
 import type { FirestoreEntity } from '../services/firebase/data';
 import type {
@@ -367,12 +368,7 @@ const CompetitionView: React.FC<CompetitionViewProps> = ({
 
                 <label className="app-field">
                   <span className="app-field__label">Data da luta</span>
-                  <input
-                    type="date"
-                    value={occurredAt}
-                    onChange={(event) => setOccurredAt(event.target.value)}
-                    className="app-input"
-                  />
+                  <DateField value={occurredAt} onChange={setOccurredAt} />
                 </label>
 
                 <label className="app-field">

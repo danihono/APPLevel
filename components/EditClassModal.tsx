@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { X } from 'lucide-react';
+import DateField from './DateField';
+import TimeField from './TimeField';
 import type { FirestoreEntity } from '../services/firebase/data';
 import type { UpdateRecurringClassSeriesResult } from '../services/firebase/functions';
 import type { ClassRecord } from '../services/firebase/models';
@@ -201,25 +203,13 @@ const EditClassModal: React.FC<EditClassModalProps> = ({ lesson, professors, onC
 
           <label className="app-field">
             <span className="app-field__label">Data</span>
-            <input
-              type="date"
-              value={date}
-              onChange={(event) => setDate(event.target.value)}
-              className="app-input"
-              required
-            />
+            <DateField value={date} onChange={setDate} required />
           </label>
 
           <div className="app-form-grid">
             <label className="app-field">
               <span className="app-field__label">Horario</span>
-              <input
-                type="time"
-                value={time}
-                onChange={(event) => setTime(event.target.value)}
-                className="app-input"
-                required
-              />
+              <TimeField value={time} onChange={setTime} required />
             </label>
 
             <label className="app-field">

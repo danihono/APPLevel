@@ -12,6 +12,7 @@ import {
 import { Bell, BellRing, CheckCircle2, ChevronDown, ChevronUp, ClipboardCheck, GraduationCap, Send, Trash2, X, XCircle } from 'lucide-react';
 import { useConfirm } from '../components/ConfirmDialog';
 import AppVideoContent from '../components/AppVideoContent';
+import DateField from '../components/DateField';
 import type { FirestoreEntity } from '../services/firebase/data';
 import type {
   AcademyRecord,
@@ -1091,11 +1092,9 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
                         </label>
                         <label className="app-field">
                           <span className="app-field__label">Nascimento</span>
-                          <input
-                            type="date"
-                            className="app-input"
+                          <DateField
                             value={editingDraft.birthDate}
-                            onChange={(event) => setEditingDraft({ ...editingDraft, birthDate: event.target.value })}
+                            onChange={(value) => setEditingDraft({ ...editingDraft, birthDate: value })}
                           />
                         </label>
                         <label className="app-field">
@@ -1832,11 +1831,9 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
                                 </label>
                                 <label className="app-field">
                                   <span className="app-field__label">Nascimento</span>
-                                  <input
-                                    type="date"
-                                    className="app-input"
+                                  <DateField
                                     value={editingDraft.birthDate}
-                                    onChange={(event) => setEditingDraft({ ...editingDraft, birthDate: event.target.value })}
+                                    onChange={(value) => setEditingDraft({ ...editingDraft, birthDate: value })}
                                   />
                                 </label>
                                 <label className="app-field">

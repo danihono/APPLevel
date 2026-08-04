@@ -27,6 +27,7 @@ import {
   UserRound,
 } from 'lucide-react';
 import AvatarWithBelt from '../components/AvatarWithBelt';
+import DateField from '../components/DateField';
 import ProgressBar from '../components/ProgressBar';
 import type { FirestoreEntity } from '../services/firebase/data';
 import type { AttendanceRecord, GraduationRecord, UserRecord } from '../services/firebase/models';
@@ -495,12 +496,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({
                           <>
                             <label className="app-field">
                               <span className="app-field__label">Data da faixa preta</span>
-                              <input
-                                type="date"
-                                value={staffBlackBeltDate}
-                                onChange={(e) => setStaffBlackBeltDate(e.target.value)}
-                                className="app-input"
-                              />
+                              <DateField value={staffBlackBeltDate} onChange={setStaffBlackBeltDate} />
                               <span className="app-field__hint">
                                 {staffBlackBeltPreview
                                   ? `${staffBlackBeltPreview.label} · ${staffBlackBeltPreview.years} ${staffBlackBeltPreview.years === 1 ? 'ano' : 'anos'} de faixa preta${staffBlackBeltPreview.styleNote ? ` (${staffBlackBeltPreview.styleNote})` : ''}.`
@@ -793,7 +789,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({
 
                   <label className="app-field">
                     <span className="app-field__label">Nascimento</span>
-                    <input type="date" value={birthDate} onChange={(event) => setBirthDate(event.target.value)} className="app-input" required />
+                    <DateField value={birthDate} onChange={setBirthDate} required />
                   </label>
 
                   <label className="app-field">

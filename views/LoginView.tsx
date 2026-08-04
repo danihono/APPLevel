@@ -6,6 +6,7 @@ import {
   inferTrainingTypeFromBirthDate,
   kidsCategoryLabel,
 } from '../beltCatalog';
+import DateField from '../components/DateField';
 import { requestPasswordReset } from '../services/firebase/auth';
 import { backendFunctions, isRetryableSignupAcademyFetchError } from '../services/firebase/functions';
 
@@ -543,7 +544,7 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onRequestReactivation, i
 
                 <label className="app-field">
                   <span className="app-field__label">Data de nascimento</span>
-                  <input type="date" value={birthDate} onChange={(event) => setBirthDate(event.target.value)} className="app-input" required />
+                  <DateField value={birthDate} onChange={setBirthDate} required />
                   <span className="app-field__hint">
                     Trilha detectada: {trainingType}
                     {trainingType === 'Kids' ? ` • ${kidsCategoryLabel(inferredKidsCategory)}` : ''}

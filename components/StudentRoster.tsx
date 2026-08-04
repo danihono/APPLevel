@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { ALL_BELTS, beltLabel, getBlackBeltProgressForUser, getUserProgressionSummary, type ProgressionRules } from '../beltCatalog';
 import { BarChart3, ChevronRight, List, Search, UserX } from 'lucide-react';
 import AvatarWithBelt from './AvatarWithBelt';
+import DateField from './DateField';
 import StudentDetailView from '../views/StudentDetailView';
 import type { FirestoreEntity } from '../services/firebase/data';
 import type { AttendanceRecord, ClassRecord, GraduationApprovalRequestRecord } from '../services/firebase/models';
@@ -685,24 +686,20 @@ const StudentRoster: React.FC<StudentRosterProps> = ({
                   <div className="student-roster__date-grid">
                     <label className="app-field">
                       <span className="app-field__label">Inicio</span>
-                      <input
-                        type="date"
+                      <DateField
                         min={RANKING_START_DATE_INPUT}
                         max={currentDateInput}
                         value={customStartDate}
-                        onChange={(event) => setCustomStartDate(clampRankingStart(event.target.value))}
-                        className="app-input"
+                        onChange={(value) => setCustomStartDate(clampRankingStart(value))}
                       />
                     </label>
                     <label className="app-field">
                       <span className="app-field__label">Fim</span>
-                      <input
-                        type="date"
+                      <DateField
                         min={clampRankingStart(customStartDate)}
                         max={currentDateInput}
                         value={customEndDate}
-                        onChange={(event) => setCustomEndDate(event.target.value)}
-                        className="app-input"
+                        onChange={setCustomEndDate}
                       />
                     </label>
                   </div>

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { ArrowLeft, Eye, EyeOff, KeyRound, Save, ShieldCheck, User } from 'lucide-react';
 import { ADULT_BELTS, beltLabel, getBlackBeltProgress, isBlackBelt } from '../beltCatalog';
+import DateField from './DateField';
 import type { FirestoreEntity } from '../services/firebase/data';
 import type { UserRecord } from '../services/firebase/models';
 
@@ -202,12 +203,7 @@ const InstructorEditModal: React.FC<InstructorEditModalProps> = ({ instructor, o
               <>
                 <label className="app-field">
                   <span className="app-field__label">Data da faixa preta</span>
-                  <input
-                    type="date"
-                    value={blackBeltDate}
-                    onChange={(e) => setBlackBeltDate(e.target.value)}
-                    className="app-input"
-                  />
+                  <DateField value={blackBeltDate} onChange={setBlackBeltDate} />
                   <span className="app-field__hint">
                     {blackBeltPreview
                       ? `${blackBeltPreview.label} · ${blackBeltPreview.years} ${blackBeltPreview.years === 1 ? 'ano' : 'anos'} de faixa preta${blackBeltPreview.styleNote ? ` (${blackBeltPreview.styleNote})` : ''}.`
