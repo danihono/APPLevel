@@ -86,6 +86,10 @@ import {
   upsertMission,
 } from './modules/missions';
 import {
+  backfillLearningAudience,
+  deleteLearningCourse,
+  deleteLearningLesson,
+  deleteLearningTrack,
   markLearningBlockComplete,
   recordLessonPlayback,
   recordLearningBlockPlayback,
@@ -139,6 +143,10 @@ export {
   createUserWithRole,
   createUserWithRole as createUser,
   deleteClassSchedule,
+  backfillLearningAudience,
+  deleteLearningCourse,
+  deleteLearningLesson,
+  deleteLearningTrack,
   deleteOrArchiveFinanceProduct,
   deleteOrArchiveFinanceService,
   evaluateUserProgression,

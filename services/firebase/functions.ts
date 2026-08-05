@@ -11,6 +11,7 @@ import type {
   FinanceSalePaymentStatus,
   FinanceStatus,
   JoinRequestStatus,
+  LearningAudienceConfig,
   LearningContentStatus,
   LearningLessonBlockType,
   NotificationChannel,
@@ -438,6 +439,7 @@ export const backendFunctions = {
     description?: string;
     order: number;
     status: LearningContentStatus;
+    audience?: LearningAudienceConfig;
   }) => callFunction<{ trackId: string; status: LearningContentStatus }>('upsertLearningTrack', payload),
 
   upsertLearningCourse: (payload: {
@@ -447,6 +449,7 @@ export const backendFunctions = {
     description?: string;
     order: number;
     status: LearningContentStatus;
+    audience?: LearningAudienceConfig;
   }) => callFunction<{ courseId: string; trackId: string; status: LearningContentStatus }>('upsertLearningCourse', payload),
 
   upsertLearningLesson: (payload: {
@@ -459,13 +462,31 @@ export const backendFunctions = {
     order: number;
     status: LearningContentStatus;
     passingScore: number;
-    contentBlockCount: number;
+    audience?: LearningAudienceConfig;
+    contentBlockCount?: number;
   }) => callFunction<{
     lessonId: string;
     courseId: string;
     trackId: string;
     status: LearningContentStatus;
   }>('upsertLearningLesson', payload),
+
+  deleteLearningTrack: (payload: { trackId: string }) =>
+    callFunction<{ trackId: string }>('deleteLearningTrack', payload),
+
+  deleteLearningCourse: (payload: { courseId: string }) =>
+    callFunction<{ courseId: string }>('deleteLearningCourse', payload),
+
+  deleteLearningLesson: (payload: { lessonId: string }) =>
+    callFunction<{
+      lessonId: string;
+      blockCount: number;
+      progressCount: number;
+      attemptCount: number;
+    }>('deleteLearningLesson', payload),
+
+  backfillLearningAudience: () =>
+    callFunction<{ trackCount: number }>('backfillLearningAudience', {}),
 
   replaceLearningLessonBlocks: (payload: {
     lessonId: string;
@@ -495,7 +516,14 @@ export const backendFunctions = {
     lessonId: string;
     currentSeconds: number;
     durationSeconds: number;
-  }) => callFunction<{ lessonId: string; watchPercent: number; quizReady: boolean }>('recordLessonPlayback', payload),
+  }) => callFunction<{
+    lessonId: string;
+    blockId: string;
+    watchPercent: number;
+    contentCompletionPercent: number;
+    contentCompleted: boolean;
+    quizReady: boolean;
+  }>('recordLessonPlayback', payload),
 
   recordLearningBlockPlayback: (payload: {
     lessonId: string;

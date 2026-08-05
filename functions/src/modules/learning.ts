@@ -2,6 +2,7 @@ import { Timestamp } from 'firebase-admin/firestore';
 import { onCall } from 'firebase-functions/v2/https';
 import {
   COLLECTIONS,
+  LearningAudienceConfig,
   LearningContentStatus,
   LearningCourseDoc,
   LearningLessonBlockDoc,
@@ -22,12 +23,20 @@ import {
   requiredNumber,
   requiredString,
 } from '../lib/payload';
+import {
+  LEGACY_TRACK_AUDIENCE,
+  assertLearningAudience,
+  computeEffectiveAudience,
+  parseAudience,
+} from '../services/learningAudience';
 
 const callableOptions = { region: 'southamerica-east1', invoker: 'public' as const };
 const DEFAULT_REQUIRED_WATCH_PERCENT = 80;
 const LEGACY_VIDEO_BLOCK_ID = 'legacy-youtube';
 
 type ResolvedLessonBlock = LearningLessonBlockDoc & { id: string };
+
+type LearningActor = Awaited<ReturnType<typeof getRequestContext>>;
 
 type PublishedLessonContext = {
   track: LearningTrackDoc;
@@ -89,10 +98,6 @@ function normalizeBlockType(value: string): LearningLessonBlockType {
   );
 
   return value;
-}
-
-function assertProfessorOnly(actorRole: string): void {
-  assertCondition(actorRole === 'professor', 'permission-denied', 'Somente professores podem consumir o Learning Hub.');
 }
 
 function isYouTubeUrl(value: string): boolean {
@@ -317,10 +322,18 @@ async function listOrderedTrackLessons(trackId: string): Promise<OrderedTrackLes
     });
 }
 
-function assertPublishedContext(context: PublishedLessonContext): void {
+/**
+ * Ponto unico de enforcement do consumo: exige conteudo publicado em toda a
+ * hierarquia e que o usuario pertenca ao publico-alvo efetivo do modulo.
+ */
+function assertPublishedContext(
+  context: PublishedLessonContext,
+  actor: LearningActor,
+): void {
   assertCondition(context.track.status === 'published', 'failed-precondition', 'A trilha ainda nao foi publicada.');
   assertCondition(context.course.status === 'published', 'failed-precondition', 'O curso ainda nao foi publicado.');
   assertCondition(context.lesson.status === 'published', 'failed-precondition', 'O modulo ainda nao foi publicado.');
+  assertLearningAudience(actor, context.track, context.course, context.lesson);
 }
 
 async function ensureLessonUnlocked(params: {
@@ -503,7 +516,7 @@ function findNextLessonId(orderedLessons: OrderedTrackLesson[], lessonId: string
 }
 
 function buildProgressPayload(params: {
-  actor: Awaited<ReturnType<typeof getRequestContext>>;
+  actor: LearningActor;
   lessonId: string;
   context: PublishedLessonContext;
   existing?: LearningProgressDoc;
@@ -566,7 +579,7 @@ function getDefaultVideoBlock(context: PublishedLessonContext): ResolvedLessonBl
 }
 
 async function recordVideoProgress(params: {
-  actor: Awaited<ReturnType<typeof getRequestContext>>;
+  actor: LearningActor;
   lessonId: string;
   blockId: string;
   currentSeconds: number;
@@ -577,7 +590,7 @@ async function recordVideoProgress(params: {
   const progressRef = db.collection(COLLECTIONS.learningProgress).doc(progressDocId(params.actor.uid, params.lessonId));
   const block = context.blocks.find((entry) => entry.id === params.blockId);
 
-  assertPublishedContext(context);
+  assertPublishedContext(context, params.actor);
   await ensureLessonUnlocked({
     userId: params.actor.uid,
     lessonId: params.lessonId,
@@ -633,6 +646,109 @@ async function recordVideoProgress(params: {
   };
 }
 
+type PendingWrite = {
+  ref: FirebaseFirestore.DocumentReference;
+  data: FirebaseFirestore.UpdateData<FirebaseFirestore.DocumentData>;
+};
+
+async function commitInChunks(writes: PendingWrite[]): Promise<void> {
+  for (let index = 0; index < writes.length; index += 400) {
+    const batch = db.batch();
+    writes.slice(index, index + 400).forEach((write) => {
+      batch.update(write.ref, write.data);
+    });
+    await batch.commit();
+  }
+}
+
+function sameStringList(left: string[] | undefined, right: string[]): boolean {
+  const current = left ?? [];
+  return current.length === right.length && current.every((entry, index) => entry === right[index]);
+}
+
+/**
+ * Recalcula o publico efetivo denormalizado dos modulos e blocos de uma trilha.
+ * Chamado depois de alterar a audiencia de uma trilha ou curso, ja que os filhos
+ * em modo `inherit` dependem do pai. Escreve apenas o que mudou.
+ */
+async function cascadeAudience(trackId: string, options?: { courseId?: string }): Promise<void> {
+  const trackSnap = await db.collection(COLLECTIONS.learningTracks).doc(trackId).get();
+  if (!trackSnap.exists) {
+    return;
+  }
+
+  const track = trackSnap.data() as LearningTrackDoc;
+  const [coursesSnapshot, lessonsSnapshot, blocksSnapshot] = await Promise.all([
+    db.collection(COLLECTIONS.learningCourses).where('trackId', '==', trackId).get(),
+    db.collection(COLLECTIONS.learningLessons).where('trackId', '==', trackId).get(),
+    db.collection(COLLECTIONS.learningLessonBlocks).where('trackId', '==', trackId).get(),
+  ]);
+
+  const courseById = new Map(
+    coursesSnapshot.docs.map((doc) => [doc.id, doc.data() as LearningCourseDoc]),
+  );
+  const effectiveByLessonId = new Map<string, { roles: string[]; belts: string[] }>();
+  const now = Timestamp.now();
+  const writes: PendingWrite[] = [];
+
+  lessonsSnapshot.docs.forEach((doc) => {
+    const lesson = doc.data() as LearningLessonDoc;
+    if (options?.courseId && lesson.courseId !== options.courseId) {
+      return;
+    }
+
+    const course = courseById.get(lesson.courseId);
+    if (!course) {
+      return;
+    }
+
+    const effective = computeEffectiveAudience(track, course, lesson);
+    effectiveByLessonId.set(doc.id, effective);
+
+    if (
+      sameStringList(lesson.effectiveAudienceRoles, effective.roles)
+      && sameStringList(lesson.effectiveAudienceBelts, effective.belts)
+    ) {
+      return;
+    }
+
+    writes.push({
+      ref: doc.ref,
+      data: {
+        effectiveAudienceRoles: effective.roles,
+        effectiveAudienceBelts: effective.belts,
+        updatedAt: now,
+      },
+    });
+  });
+
+  blocksSnapshot.docs.forEach((doc) => {
+    const block = doc.data() as LearningLessonBlockDoc;
+    const effective = effectiveByLessonId.get(block.lessonId);
+    if (!effective) {
+      return;
+    }
+
+    if (
+      sameStringList(block.effectiveAudienceRoles, effective.roles)
+      && sameStringList(block.effectiveAudienceBelts, effective.belts)
+    ) {
+      return;
+    }
+
+    writes.push({
+      ref: doc.ref,
+      data: {
+        effectiveAudienceRoles: effective.roles,
+        effectiveAudienceBelts: effective.belts,
+        updatedAt: now,
+      },
+    });
+  });
+
+  await commitInChunks(writes);
+}
+
 export const upsertLearningTrack = onCall(callableOptions, async (request) => {
   await getRequestContext(request, 'superadmin');
   const trackId = optionalString(request.data, 'trackId');
@@ -640,22 +756,36 @@ export const upsertLearningTrack = onCall(callableOptions, async (request) => {
   const description = optionalString(request.data, 'description');
   const order = normalizePositiveInteger(requiredNumber(request.data, 'order'), 'order');
   const status = normalizeContentStatus(requiredString(request.data, 'status'));
+  // A trilha e a raiz da hierarquia: precisa sempre definir o proprio publico.
+  const audience = parseAudience(request.data, { allowInherit: false });
   const now = Timestamp.now();
   const trackRef = trackId
     ? db.collection(COLLECTIONS.learningTracks).doc(trackId)
     : db.collection(COLLECTIONS.learningTracks).doc();
   const existing = trackId ? await trackRef.get() : null;
+  const existingTrack = existing?.exists ? (existing.data() as LearningTrackDoc) : undefined;
+  // Trilha nova sem audiencia informada = aberta a todos. Trilha ja existente que
+  // ainda nao tem audiencia e conteudo legado: mantem o alcance antigo (professor),
+  // para que publicar ou reordenar nao alargue o publico sem querer.
+  const fallbackAudience: LearningAudienceConfig = existingTrack
+    ? LEGACY_TRACK_AUDIENCE
+    : { mode: 'custom', roles: [], belts: [] };
+  const effectiveAudience: LearningAudienceConfig = audience
+    ?? existingTrack?.audience
+    ?? fallbackAudience;
 
   const payload: LearningTrackDoc = {
     title,
     description,
     order,
     status,
+    audience: effectiveAudience,
     createdAt: (existing?.get('createdAt') as FirebaseFirestore.Timestamp | undefined) ?? now,
     updatedAt: now,
   };
 
   await trackRef.set(payload, { merge: true });
+  await cascadeAudience(trackRef.id);
 
   return {
     trackId: trackRef.id,
@@ -671,6 +801,7 @@ export const upsertLearningCourse = onCall(callableOptions, async (request) => {
   const description = optionalString(request.data, 'description');
   const order = normalizePositiveInteger(requiredNumber(request.data, 'order'), 'order');
   const status = normalizeContentStatus(requiredString(request.data, 'status'));
+  const audience = parseAudience(request.data);
   const now = Timestamp.now();
   const courseRef = courseId
     ? db.collection(COLLECTIONS.learningCourses).doc(courseId)
@@ -685,17 +816,24 @@ export const upsertLearningCourse = onCall(callableOptions, async (request) => {
     assertCondition(existing.get('trackId') === trackId, 'failed-precondition', 'Nao e possivel mover um curso para outra trilha no v1.');
   }
 
+  const existingCourse = existing?.exists ? (existing.data() as LearningCourseDoc) : undefined;
+  const effectiveAudience: LearningAudienceConfig = audience
+    ?? existingCourse?.audience
+    ?? { mode: 'inherit', roles: [], belts: [] };
+
   const payload: LearningCourseDoc = {
     trackId,
     title,
     description,
     order,
     status,
+    audience: effectiveAudience,
     createdAt: (existing?.get('createdAt') as FirebaseFirestore.Timestamp | undefined) ?? now,
     updatedAt: now,
   };
 
   await courseRef.set(payload, { merge: true });
+  await cascadeAudience(trackId, { courseId: courseRef.id });
 
   return {
     courseId: courseRef.id,
@@ -715,6 +853,7 @@ export const upsertLearningLesson = onCall(callableOptions, async (request) => {
   const order = normalizePositiveInteger(requiredNumber(request.data, 'order'), 'order');
   const status = normalizeContentStatus(requiredString(request.data, 'status'));
   const passingScore = normalizePercentage(requiredNumber(request.data, 'passingScore'), 'passingScore');
+  const audience = parseAudience(request.data);
   const hintedContentBlockCount = normalizePositiveInteger(optionalNumber(request.data, 'contentBlockCount') ?? (videoUrl ? 1 : 0), 'contentBlockCount');
   const now = Timestamp.now();
 
@@ -759,6 +898,12 @@ export const upsertLearningLesson = onCall(callableOptions, async (request) => {
     );
   }
 
+  const track = trackSnap.data() as LearningTrackDoc;
+  const effectiveAudience: LearningAudienceConfig = audience
+    ?? existingLesson?.audience
+    ?? { mode: 'inherit', roles: [], belts: [] };
+  const denormalizedAudience = computeEffectiveAudience(track, course, { audience: effectiveAudience });
+
   const payload: LearningLessonDoc = {
     trackId,
     courseId,
@@ -767,6 +912,9 @@ export const upsertLearningLesson = onCall(callableOptions, async (request) => {
     ...(legacyVideoUrl ? { videoUrl: legacyVideoUrl } : {}),
     order,
     status,
+    audience: effectiveAudience,
+    effectiveAudienceRoles: denormalizedAudience.roles,
+    effectiveAudienceBelts: denormalizedAudience.belts,
     passingScore,
     requiredWatchPercent: DEFAULT_REQUIRED_WATCH_PERCENT,
     quizQuestionCount: Array.isArray(quizSnap?.get('questions')) ? (quizSnap?.get('questions') as unknown[]).length : ((existingLesson?.quizQuestionCount) ?? 0),
@@ -785,6 +933,22 @@ export const upsertLearningLesson = onCall(callableOptions, async (request) => {
     });
   }
 
+  // Blocos ja gravados herdam o publico do modulo.
+  storedBlocks.forEach((block) => {
+    if (
+      sameStringList(block.effectiveAudienceRoles, denormalizedAudience.roles)
+      && sameStringList(block.effectiveAudienceBelts, denormalizedAudience.belts)
+    ) {
+      return;
+    }
+
+    batch.update(db.collection(COLLECTIONS.learningLessonBlocks).doc(block.id), {
+      effectiveAudienceRoles: denormalizedAudience.roles,
+      effectiveAudienceBelts: denormalizedAudience.belts,
+      updatedAt: now,
+    });
+  });
+
   await batch.commit();
 
   return {
@@ -802,7 +966,16 @@ export const replaceLearningLessonBlocks = onCall(callableOptions, async (reques
   const now = Timestamp.now();
   const lessonSnap = await getLessonOrThrow(lessonId);
   const lesson = lessonSnap.data() as LearningLessonDoc;
-  const existingBlocks = await listLessonBlocks(lessonId);
+  const [trackSnap, courseSnap, existingBlocks] = await Promise.all([
+    getTrackOrThrow(lesson.trackId),
+    getCourseOrThrow(lesson.courseId),
+    listLessonBlocks(lessonId),
+  ]);
+  const denormalizedAudience = computeEffectiveAudience(
+    trackSnap.data() as LearningTrackDoc,
+    courseSnap.data() as LearningCourseDoc,
+    lesson,
+  );
 
   if (lesson.status === 'published') {
     assertCondition(parsedBlocks.length > 0, 'failed-precondition', 'Um modulo publicado precisa ter ao menos um bloco de conteudo.');
@@ -831,6 +1004,8 @@ export const replaceLearningLessonBlocks = onCall(callableOptions, async (reques
       ...(block.mimeType ? { mimeType: block.mimeType } : {}),
       ...(block.fileName ? { fileName: block.fileName } : {}),
       ...(block.thumbnailUrl ? { thumbnailUrl: block.thumbnailUrl } : {}),
+      effectiveAudienceRoles: denormalizedAudience.roles,
+      effectiveAudienceBelts: denormalizedAudience.belts,
       createdAt: previousBlock?.createdAt ?? now,
       updatedAt: now,
     };
@@ -903,8 +1078,7 @@ export const upsertLessonQuiz = onCall(callableOptions, async (request) => {
 });
 
 export const recordLearningBlockPlayback = onCall(callableOptions, async (request) => {
-  const actor = await getRequestContext(request, 'professor');
-  assertProfessorOnly(actor.role);
+  const actor = await getRequestContext(request, 'student');
 
   const lessonId = requiredString(request.data, 'lessonId');
   const blockId = requiredString(request.data, 'blockId');
@@ -921,8 +1095,7 @@ export const recordLearningBlockPlayback = onCall(callableOptions, async (reques
 });
 
 export const recordLessonPlayback = onCall(callableOptions, async (request) => {
-  const actor = await getRequestContext(request, 'professor');
-  assertProfessorOnly(actor.role);
+  const actor = await getRequestContext(request, 'student');
 
   const lessonId = requiredString(request.data, 'lessonId');
   const currentSeconds = normalizePositiveInteger(requiredNumber(request.data, 'currentSeconds'), 'currentSeconds');
@@ -940,8 +1113,7 @@ export const recordLessonPlayback = onCall(callableOptions, async (request) => {
 });
 
 export const markLearningBlockComplete = onCall(callableOptions, async (request) => {
-  const actor = await getRequestContext(request, 'professor');
-  assertProfessorOnly(actor.role);
+  const actor = await getRequestContext(request, 'student');
 
   const lessonId = requiredString(request.data, 'lessonId');
   const blockId = requiredString(request.data, 'blockId');
@@ -950,7 +1122,7 @@ export const markLearningBlockComplete = onCall(callableOptions, async (request)
   const progressRef = db.collection(COLLECTIONS.learningProgress).doc(progressDocId(actor.uid, lessonId));
   const block = context.blocks.find((entry) => entry.id === blockId);
 
-  assertPublishedContext(context);
+  assertPublishedContext(context, actor);
   await ensureLessonUnlocked({
     userId: actor.uid,
     lessonId,
@@ -1000,8 +1172,7 @@ export const markLearningBlockComplete = onCall(callableOptions, async (request)
 });
 
 export const startLessonQuiz = onCall(callableOptions, async (request) => {
-  const actor = await getRequestContext(request, 'professor');
-  assertProfessorOnly(actor.role);
+  const actor = await getRequestContext(request, 'student');
 
   const lessonId = requiredString(request.data, 'lessonId');
   const context = await getLessonContext(lessonId, true);
@@ -1009,7 +1180,7 @@ export const startLessonQuiz = onCall(callableOptions, async (request) => {
   const progressSnapshot = await db.collection(COLLECTIONS.learningProgress).doc(progressDocId(actor.uid, lessonId)).get();
   const progress = progressSnapshot.data() as LearningProgressDoc | undefined;
 
-  assertPublishedContext(context);
+  assertPublishedContext(context, actor);
   await ensureLessonUnlocked({
     userId: actor.uid,
     lessonId,
@@ -1027,8 +1198,7 @@ export const startLessonQuiz = onCall(callableOptions, async (request) => {
 });
 
 export const submitLessonQuiz = onCall(callableOptions, async (request) => {
-  const actor = await getRequestContext(request, 'professor');
-  assertProfessorOnly(actor.role);
+  const actor = await getRequestContext(request, 'student');
 
   const lessonId = requiredString(request.data, 'lessonId');
   const answers = parseAnswerIndexes(request.data);
@@ -1038,7 +1208,7 @@ export const submitLessonQuiz = onCall(callableOptions, async (request) => {
   const existingProgressSnapshot = await progressRef.get();
   const existingProgress = existingProgressSnapshot.data() as LearningProgressDoc | undefined;
 
-  assertPublishedContext(context);
+  assertPublishedContext(context, actor);
   await ensureLessonUnlocked({
     userId: actor.uid,
     lessonId,
@@ -1111,5 +1281,116 @@ export const submitLessonQuiz = onCall(callableOptions, async (request) => {
     scorePercent,
     passed,
     unlockedLessonId,
+  };
+});
+
+async function deleteQueryInChunks(query: FirebaseFirestore.Query): Promise<number> {
+  const snapshot = await query.get();
+
+  for (let index = 0; index < snapshot.docs.length; index += 400) {
+    const batch = db.batch();
+    snapshot.docs.slice(index, index + 400).forEach((doc) => {
+      batch.delete(doc.ref);
+    });
+    await batch.commit();
+  }
+
+  return snapshot.size;
+}
+
+/**
+ * Recalcula o publico efetivo de todo o catalogo.
+ * Necessario uma vez para o conteudo criado antes da segmentacao por
+ * publico-alvo, que ainda nao tem os campos denormalizados usados pelas
+ * queries e pelas regras do Firestore. E idempotente e pode ser repetido.
+ */
+export const backfillLearningAudience = onCall(callableOptions, async (request) => {
+  await getRequestContext(request, 'superadmin');
+  const tracksSnapshot = await db.collection(COLLECTIONS.learningTracks).get();
+
+  for (const trackDoc of tracksSnapshot.docs) {
+    const track = trackDoc.data() as LearningTrackDoc;
+    if (!track.audience) {
+      // Conteudo legado era visivel so para professores — preserva isso.
+      await trackDoc.ref.update({
+        audience: LEGACY_TRACK_AUDIENCE,
+        updatedAt: Timestamp.now(),
+      });
+    }
+
+    await cascadeAudience(trackDoc.id);
+  }
+
+  return { trackCount: tracksSnapshot.size };
+});
+
+export const deleteLearningTrack = onCall(callableOptions, async (request) => {
+  await getRequestContext(request, 'superadmin');
+  const trackId = requiredString(request.data, 'trackId');
+  const trackSnap = await getTrackOrThrow(trackId);
+
+  const coursesSnapshot = await db.collection(COLLECTIONS.learningCourses)
+    .where('trackId', '==', trackId)
+    .limit(1)
+    .get();
+
+  assertCondition(
+    coursesSnapshot.empty,
+    'failed-precondition',
+    'Exclua os cursos desta trilha antes de excluir a trilha.',
+  );
+
+  await trackSnap.ref.delete();
+
+  return { trackId };
+});
+
+export const deleteLearningCourse = onCall(callableOptions, async (request) => {
+  await getRequestContext(request, 'superadmin');
+  const courseId = requiredString(request.data, 'courseId');
+  const courseSnap = await getCourseOrThrow(courseId);
+
+  const lessonsSnapshot = await db.collection(COLLECTIONS.learningLessons)
+    .where('courseId', '==', courseId)
+    .limit(1)
+    .get();
+
+  assertCondition(
+    lessonsSnapshot.empty,
+    'failed-precondition',
+    'Exclua os modulos deste curso antes de excluir o curso.',
+  );
+
+  await courseSnap.ref.delete();
+
+  return { courseId };
+});
+
+/**
+ * Exclui o modulo junto com blocos, quiz, progresso e tentativas.
+ * O progresso dos usuarios naquele modulo e perdido por definicao — a UI
+ * confirma a acao antes de chamar.
+ */
+export const deleteLearningLesson = onCall(callableOptions, async (request) => {
+  await getRequestContext(request, 'superadmin');
+  const lessonId = requiredString(request.data, 'lessonId');
+  const lessonSnap = await getLessonOrThrow(lessonId);
+
+  const [blockCount, progressCount, attemptCount] = await Promise.all([
+    deleteQueryInChunks(db.collection(COLLECTIONS.learningLessonBlocks).where('lessonId', '==', lessonId)),
+    deleteQueryInChunks(db.collection(COLLECTIONS.learningProgress).where('lessonId', '==', lessonId)),
+    deleteQueryInChunks(db.collection(COLLECTIONS.learningQuizAttempts).where('lessonId', '==', lessonId)),
+  ]);
+
+  const batch = db.batch();
+  batch.delete(db.collection(COLLECTIONS.learningQuizzes).doc(lessonId));
+  batch.delete(lessonSnap.ref);
+  await batch.commit();
+
+  return {
+    lessonId,
+    blockCount,
+    progressCount,
+    attemptCount,
   };
 });

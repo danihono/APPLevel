@@ -12,6 +12,7 @@ import LoginView from './views/LoginView';
 import ResetPasswordView from './views/ResetPasswordView';
 import StaffDashboardView from './views/StaffDashboardView';
 import { normalizeBeltId } from './beltCatalog';
+import { normalizeAudienceRole } from './learningAudience';
 import { resolveFocusPeriod, type FocusPeriodPreset } from './calendarUtils';
 import { logout, reauthenticateCurrentUser, signInWithEmail, subscribeToAuthState, updateSignedInEmail } from './services/firebase/auth';
 import { toBranch, toUiUser, toUserVideoLibrary } from './services/firebase/adapters';
@@ -86,6 +87,7 @@ import type {
   InventoryMovementRecord,
   FinanceWithdrawalRecord,
   JoinRequestRecord,
+  LearningAudienceConfig,
   LearningCourseRecord,
   LearningLessonBlockRecord,
   LearningLessonRecord,
@@ -1410,7 +1412,16 @@ const App: React.FC = () => {
       return;
     }
 
-    if (profile.role !== 'professor' && profile.role !== 'superadmin') {
+    const isSuperadminAuthor = profile.role === 'superadmin';
+    const publishedOnly = !isSuperadminAuthor;
+    // Alunos, professores e admins so enxergam o conteudo direcionado ao seu
+    // publico. O filtro precisa estar na query porque as regras do Firestore
+    // rejeitam consultas mais amplas do que a permissao.
+    const audienceRole = isSuperadminAuthor
+      ? undefined
+      : (normalizeAudienceRole(profile.role) ?? undefined);
+
+    if (!isSuperadminAuthor && !audienceRole) {
       setLearningTracks([]);
       setLearningCourses([]);
       setLearningLessons([]);
@@ -1420,7 +1431,6 @@ const App: React.FC = () => {
       return;
     }
 
-    const publishedOnly = profile.role === 'professor';
     const unsubscribers = [
       subscribeToLearningTracks(
         { publishedOnly },
@@ -1433,16 +1443,17 @@ const App: React.FC = () => {
         (error) => reportSessionError('data:subscribeToLearningCourses', error),
       ),
       subscribeToLearningLessons(
-        { publishedOnly },
+        { publishedOnly, audienceRole },
         setLearningLessons,
         (error) => reportSessionError('data:subscribeToLearningLessons', error),
       ),
       subscribeToLearningLessonBlocks(
+        { audienceRole },
         setLearningLessonBlocks,
         (error) => reportSessionError('data:subscribeToLearningLessonBlocks', error),
       ),
       subscribeToLearningProgress(
-        profile.role === 'superadmin'
+        isSuperadminAuthor
           ? { academyId: selectedAcademyId || undefined }
           : { userId: profile.id },
         setLearningProgress,
@@ -1985,6 +1996,7 @@ const App: React.FC = () => {
     description?: string;
     order: number;
     status: 'draft' | 'published';
+    audience?: LearningAudienceConfig;
   }) {
     try {
       return await backendFunctions.upsertLearningTrack(payload);
@@ -2000,6 +2012,7 @@ const App: React.FC = () => {
     description?: string;
     order: number;
     status: 'draft' | 'published';
+    audience?: LearningAudienceConfig;
   }) {
     try {
       return await backendFunctions.upsertLearningCourse(payload);
@@ -2018,10 +2031,43 @@ const App: React.FC = () => {
     order: number;
     status: 'draft' | 'published';
     passingScore: number;
-    contentBlockCount: number;
+    audience?: LearningAudienceConfig;
+    contentBlockCount?: number;
   }) {
     try {
       return await backendFunctions.upsertLearningLesson(payload);
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
+  }
+
+  async function handleDeleteLearningTrack(trackId: string) {
+    try {
+      return await backendFunctions.deleteLearningTrack({ trackId });
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
+  }
+
+  async function handleDeleteLearningCourse(courseId: string) {
+    try {
+      return await backendFunctions.deleteLearningCourse({ courseId });
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
+  }
+
+  async function handleDeleteLearningLesson(lessonId: string) {
+    try {
+      return await backendFunctions.deleteLearningLesson({ lessonId });
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
+  }
+
+  async function handleBackfillLearningAudience() {
+    try {
+      return await backendFunctions.backfillLearningAudience();
     } catch (error) {
       throw new Error(getErrorMessage(error));
     }
@@ -2830,6 +2876,8 @@ const App: React.FC = () => {
             academyName={resolvedAcademy.name}
             userName={actingUser.name}
             userRole={viewUserRole}
+            viewerRole={profile.role}
+            viewerBelt={currentUser.belt}
             selectedAcademyId={selectedAcademyId}
             selectedAcademy={focusedLearningAcademy}
             academies={allAcademies}
@@ -2845,6 +2893,10 @@ const App: React.FC = () => {
             onUpsertTrack={handleUpsertLearningTrack}
             onUpsertCourse={handleUpsertLearningCourse}
             onUpsertLesson={handleUpsertLearningLesson}
+            onDeleteTrack={handleDeleteLearningTrack}
+            onDeleteCourse={handleDeleteLearningCourse}
+            onDeleteLesson={handleDeleteLearningLesson}
+            onBackfillAudience={handleBackfillLearningAudience}
             onReplaceLessonBlocks={handleReplaceLearningLessonBlocks}
             onUpsertQuiz={handleUpsertLessonQuiz}
             onUploadLearningAsset={handleUploadLearningAsset}

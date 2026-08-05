@@ -22,6 +22,7 @@ export type FightVideoSourceKind = 'youtube' | 'external' | 'upload';
 export type FightVideoSubmissionStatus = 'pending' | 'approved' | 'rejected';
 export type LearningContentStatus = 'draft' | 'published';
 export type LearningLessonBlockType = 'youtube' | 'uploaded_video' | 'pdf' | 'image';
+export type LearningAudienceRole = 'student' | 'professor';
 export type FinanceStatus = 'active' | 'inactive';
 export type FinanceSalePaymentStatus = 'paid' | 'partial' | 'pending' | 'cancelled';
 export type FinanceSaleItemType = 'product' | 'service';
@@ -358,11 +359,23 @@ export interface FightVideoSubmissionRecord {
   notificationDismissedAt?: Timestamp;
 }
 
+/**
+ * Publico-alvo de um conteudo do Learning Hub.
+ * `mode: 'inherit'` (curso/modulo) reaproveita a audiencia do pai.
+ * Listas vazias significam "sem restricao naquele eixo".
+ */
+export interface LearningAudienceConfig {
+  mode: 'inherit' | 'custom';
+  roles: LearningAudienceRole[];
+  belts: string[];
+}
+
 export interface LearningTrackRecord {
   title: string;
   description?: string;
   order: number;
   status: LearningContentStatus;
+  audience?: LearningAudienceConfig;
   createdAt?: Timestamp;
   updatedAt?: Timestamp;
 }
@@ -373,6 +386,7 @@ export interface LearningCourseRecord {
   description?: string;
   order: number;
   status: LearningContentStatus;
+  audience?: LearningAudienceConfig;
   createdAt?: Timestamp;
   updatedAt?: Timestamp;
 }
@@ -385,6 +399,10 @@ export interface LearningLessonRecord {
   videoUrl?: string;
   order: number;
   status: LearningContentStatus;
+  audience?: LearningAudienceConfig;
+  // Publico efetivo (trilha ∩ curso ∩ modulo) gravado pelo backend.
+  effectiveAudienceRoles?: string[];
+  effectiveAudienceBelts?: string[];
   passingScore: number;
   requiredWatchPercent: number;
   quizQuestionCount: number;
@@ -405,6 +423,8 @@ export interface LearningLessonBlockRecord {
   mimeType?: string;
   fileName?: string;
   thumbnailUrl?: string;
+  effectiveAudienceRoles?: string[];
+  effectiveAudienceBelts?: string[];
   createdAt?: Timestamp;
   updatedAt?: Timestamp;
 }

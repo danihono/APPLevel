@@ -579,16 +579,26 @@ export function subscribeToLearningCourses(
   );
 }
 
+/**
+ * `audienceRole` filtra pelo publico efetivo denormalizado. As regras do
+ * Firestore exigem exatamente essa condicao para quem nao e superadmin, entao a
+ * query precisa carregar o mesmo filtro — regra do Firestore rejeita, nao filtra.
+ */
 export function subscribeToLearningLessons(
   params: {
     publishedOnly: boolean;
+    audienceRole?: string;
   },
   listener: (records: Array<FirestoreEntity<LearningLessonRecord>>) => void,
   onError?: (error: Error) => void,
 ) {
   const baseCollection = collection(firebaseDb, 'learning_lessons');
-  const learningLessonQuery = params.publishedOnly
-    ? query(baseCollection, where('status', '==', 'published'))
+  const constraints = [
+    ...(params.publishedOnly ? [where('status', '==', 'published')] : []),
+    ...(params.audienceRole ? [where('effectiveAudienceRoles', 'array-contains', params.audienceRole)] : []),
+  ];
+  const learningLessonQuery = constraints.length > 0
+    ? query(baseCollection, ...constraints)
     : baseCollection;
 
   return onSnapshot(
@@ -604,11 +614,24 @@ export function subscribeToLearningLessons(
 }
 
 export function subscribeToLearningLessonBlocks(
+  params: {
+    trackId?: string;
+    audienceRole?: string;
+  },
   listener: (records: Array<FirestoreEntity<LearningLessonBlockRecord>>) => void,
   onError?: (error: Error) => void,
 ) {
+  const baseCollection = collection(firebaseDb, 'learning_lesson_blocks');
+  const constraints = [
+    ...(params.trackId ? [where('trackId', '==', params.trackId)] : []),
+    ...(params.audienceRole ? [where('effectiveAudienceRoles', 'array-contains', params.audienceRole)] : []),
+  ];
+  const learningBlockQuery = constraints.length > 0
+    ? query(baseCollection, ...constraints)
+    : baseCollection;
+
   return onSnapshot(
-    collection(firebaseDb, 'learning_lesson_blocks'),
+    learningBlockQuery,
     (snapshot) => {
       const records = snapshot.docs
         .map((item) => mapDoc<LearningLessonBlockRecord>(item))

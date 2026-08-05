@@ -5,6 +5,8 @@ interface ProgressBarProps {
   current: number;
   total: number;
   color?: string;
+  /** "classes" mostra "3 de 10 aulas"; "percent" mostra "45%". */
+  unit?: 'classes' | 'percent';
 }
 
 function resolveTone(color?: string) {
@@ -27,7 +29,7 @@ function resolveTone(color?: string) {
   return 'progress-fill';
 }
 
-const ProgressBar: React.FC<ProgressBarProps> = ({ label, current, total, color }) => {
+const ProgressBar: React.FC<ProgressBarProps> = ({ label, current, total, color, unit = 'classes' }) => {
   const safeTotal = total <= 0 ? 1 : total;
   const percentage = Math.min((current / safeTotal) * 100, 100);
 
@@ -36,7 +38,7 @@ const ProgressBar: React.FC<ProgressBarProps> = ({ label, current, total, color 
       {label ? (
         <div className="progress-shell__top">
           <span>{label}</span>
-          <strong>{current} de {total} aulas</strong>
+          <strong>{unit === 'percent' ? `${Math.round(percentage)}%` : `${current} de ${total} aulas`}</strong>
         </div>
       ) : null}
       <div className="progress-track">

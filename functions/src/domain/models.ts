@@ -61,6 +61,7 @@ export type FightVideoSourceKind = 'youtube' | 'external' | 'upload';
 export type FightVideoSubmissionStatus = 'pending' | 'approved' | 'rejected';
 export type LearningContentStatus = 'draft' | 'published';
 export type LearningLessonBlockType = 'youtube' | 'uploaded_video' | 'pdf' | 'image';
+export type LearningAudienceRole = 'student' | 'professor';
 export type KidsCategory = 'level_infantil';
 export type FinanceStatus = 'active' | 'inactive';
 export type FinanceSalePaymentStatus = 'paid' | 'partial' | 'pending' | 'cancelled';
@@ -369,11 +370,23 @@ export interface FightVideoSubmissionDoc {
   notificationDismissedAt?: FirebaseFirestore.Timestamp;
 }
 
+/**
+ * Publico-alvo de um conteudo do Learning Hub.
+ * `mode: 'inherit'` (curso/modulo) reaproveita a audiencia do pai.
+ * Listas vazias significam "sem restricao naquele eixo".
+ */
+export interface LearningAudienceConfig {
+  mode: 'inherit' | 'custom';
+  roles: LearningAudienceRole[];
+  belts: string[];
+}
+
 export interface LearningTrackDoc {
   title: string;
   description?: string;
   order: number;
   status: LearningContentStatus;
+  audience?: LearningAudienceConfig;
   createdAt: FirebaseFirestore.Timestamp;
   updatedAt: FirebaseFirestore.Timestamp;
 }
@@ -384,6 +397,7 @@ export interface LearningCourseDoc {
   description?: string;
   order: number;
   status: LearningContentStatus;
+  audience?: LearningAudienceConfig;
   createdAt: FirebaseFirestore.Timestamp;
   updatedAt: FirebaseFirestore.Timestamp;
 }
@@ -396,6 +410,11 @@ export interface LearningLessonDoc {
   videoUrl?: string;
   order: number;
   status: LearningContentStatus;
+  audience?: LearningAudienceConfig;
+  // Publico efetivo (trilha ∩ curso ∩ modulo) denormalizado pelo backend
+  // para que as regras do Firestore filtrem sem leituras em cascata.
+  effectiveAudienceRoles?: string[];
+  effectiveAudienceBelts?: string[];
   passingScore: number;
   requiredWatchPercent: number;
   quizQuestionCount: number;
@@ -416,6 +435,8 @@ export interface LearningLessonBlockDoc {
   mimeType?: string;
   fileName?: string;
   thumbnailUrl?: string;
+  effectiveAudienceRoles?: string[];
+  effectiveAudienceBelts?: string[];
   createdAt: FirebaseFirestore.Timestamp;
   updatedAt: FirebaseFirestore.Timestamp;
 }

@@ -38,6 +38,22 @@ service cloud.firestore {
       return signedIn() && role() == 'student';
     }
 
+    // Papel usado na segmentacao do Learning Hub. `admin` consome como professor,
+    // espelhando `normalizeRole` das Cloud Functions.
+    function audienceRole() {
+      return role() == 'admin' ? 'professor' : role();
+    }
+
+    // O publico efetivo e gravado ja expandido pelo backend (nunca vazio), entao
+    // a condicao aqui casa exatamente com o `array-contains` usado nas queries.
+    // A faixa nao esta nos custom claims, por isso o filtro por faixa e aplicado
+    // no cliente e imposto pelas callables de consumo.
+    function inLearningAudience() {
+      return signedIn()
+        && resource.data.effectiveAudienceRoles is list
+        && resource.data.effectiveAudienceRoles.hasAny([audienceRole()]);
+    }
+
     function sameAcademy(targetAcademyId) {
       return isSuperAdmin() || (signedIn() && academyId() != '' && academyId() == targetAcademyId);
     }
@@ -218,41 +234,31 @@ service cloud.firestore {
       allow delete: if (isAdmin() && sameAcademy(resource.data.academyId)) || isSuperAdmin();
     }
 
+    // Trilhas e cursos so carregam metadado (titulo, ordem, publico-alvo). Ficam
+    // legiveis para qualquer usuario logado da rede quando publicados; o conteudo
+    // de fato mora nos modulos e blocos, filtrados por publico-alvo abaixo.
     match /learning_tracks/{trackId} {
       allow read: if isSuperAdmin()
-        || (
-          signedIn()
-          && isAdmin()
-          && resource.data.status == 'published'
-        );
+        || (signedIn() && resource.data.status == 'published');
       allow write: if false;
     }
 
     match /learning_courses/{courseId} {
       allow read: if isSuperAdmin()
-        || (
-          signedIn()
-          && isAdmin()
-          && resource.data.status == 'published'
-        );
+        || (signedIn() && resource.data.status == 'published');
       allow write: if false;
     }
 
     match /learning_lessons/{lessonId} {
       allow read: if isSuperAdmin()
-        || (
-          signedIn()
-          && isAdmin()
-          && resource.data.status == 'published'
-        );
+        || (resource.data.status == 'published' && inLearningAudience());
       allow write: if false;
     }
 
     match /learning_lesson_blocks/{blockId} {
       allow read: if isSuperAdmin()
         || (
-          signedIn()
-          && isAdmin()
+          inLearningAudience()
           && get(/databases/$(database)/documents/learning_lessons/$(resource.data.lessonId)).data.status == 'published'
         );
       allow write: if false;
@@ -267,7 +273,6 @@ service cloud.firestore {
       allow read: if isSuperAdmin()
         || (
           signedIn()
-          && isAdmin()
           && resource.data.userId == request.auth.uid
         );
       allow write: if false;
@@ -277,7 +282,6 @@ service cloud.firestore {
       allow read: if isSuperAdmin()
         || (
           signedIn()
-          && isAdmin()
           && resource.data.userId == request.auth.uid
         );
       allow write: if false;

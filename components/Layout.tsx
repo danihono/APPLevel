@@ -109,13 +109,19 @@ const pageMeta: Record<string, { kicker: string; title: string; description: str
   learning: {
     kicker: 'Learning hub',
     title: 'Learning Hub',
-    description: 'Uma área de capacitação pensada para professores assistirem conteúdos e validarem aprendizado.',
+    description: 'Videoaulas liberadas para o seu perfil, com progresso salvo e quiz ao final de cada módulo.',
   },
   profile: {
     kicker: 'Identity',
     title: 'Perfil',
     description: 'Cartões, métricas e atalhos seguem a nova base de superfícies e transições.',
   },
+};
+
+const studentLearningPageMeta = {
+  kicker: 'Learning hub',
+  title: 'Learning Hub',
+  description: 'Videoaulas selecionadas para a sua faixa. Assista, conclua os blocos e libere o próximo módulo.',
 };
 
 const superadminPageMeta: Record<string, { kicker: string; title: string; description: string }> = {
@@ -241,6 +247,7 @@ const Layout: React.FC<LayoutProps> = ({
         { id: 'home', icon: Home, label: 'Início' },
         { id: 'calendar', icon: Calendar, label: 'Aulas' },
         { id: 'graduation', icon: Award, label: 'Graduação' },
+        { id: 'learning', icon: BookOpen, label: 'Learning' },
         { id: 'competition', icon: Trophy, label: 'Compete' },
         { id: 'notifications', icon: Bell, label: 'Avisos' },
         { id: 'profile', icon: UserIcon, label: 'Perfil' },
@@ -249,7 +256,9 @@ const Layout: React.FC<LayoutProps> = ({
 
   const currentPage = navigationRole === UserRole.SUPERADMIN
     ? (superadminPageMeta[activeTab] ?? superadminPageMeta.home)
-    : (pageMeta[activeTab] ?? pageMeta.home);
+    : (activeTab === 'learning' && !isStaff
+      ? studentLearningPageMeta
+      : (pageMeta[activeTab] ?? pageMeta.home));
   const isWideLayout = isDesktopShell;
   const canToggleVision = isSuperAdmin && Boolean(onSetSuperadminViewMode);
   const showSuperadminAcademyPicker = canToggleVision && !isProfessorVision && Boolean(onSelectAcademy);

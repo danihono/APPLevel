@@ -233,6 +233,20 @@
       ]
     },
     {
+      "collectionGroup": "learning_lessons",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "effectiveAudienceRoles",
+          "arrayConfig": "CONTAINS"
+        }
+      ]
+    },
+    {
       "collectionGroup": "learning_progress",
       "queryScope": "COLLECTION",
       "fields": [
