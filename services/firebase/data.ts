@@ -616,6 +616,7 @@ export function subscribeToLearningLessons(
 export function subscribeToLearningLessonBlocks(
   params: {
     trackId?: string;
+    publishedOnly?: boolean;
     audienceRole?: string;
   },
   listener: (records: Array<FirestoreEntity<LearningLessonBlockRecord>>) => void,
@@ -624,6 +625,9 @@ export function subscribeToLearningLessonBlocks(
   const baseCollection = collection(firebaseDb, 'learning_lesson_blocks');
   const constraints = [
     ...(params.trackId ? [where('trackId', '==', params.trackId)] : []),
+    // As regras autorizam o bloco pelo status denormalizado do modulo, entao a
+    // query precisa carregar o mesmo filtro para nao ser recusada por inteiro.
+    ...(params.publishedOnly ? [where('lessonStatus', '==', 'published')] : []),
     ...(params.audienceRole ? [where('effectiveAudienceRoles', 'array-contains', params.audienceRole)] : []),
   ];
   const learningBlockQuery = constraints.length > 0

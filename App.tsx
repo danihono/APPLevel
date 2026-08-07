@@ -1448,7 +1448,7 @@ const App: React.FC = () => {
         (error) => reportSessionError('data:subscribeToLearningLessons', error),
       ),
       subscribeToLearningLessonBlocks(
-        { audienceRole },
+        { publishedOnly, audienceRole },
         setLearningLessonBlocks,
         (error) => reportSessionError('data:subscribeToLearningLessonBlocks', error),
       ),

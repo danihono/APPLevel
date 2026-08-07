@@ -247,6 +247,20 @@
       ]
     },
     {
+      "collectionGroup": "learning_lesson_blocks",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "lessonStatus",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "effectiveAudienceRoles",
+          "arrayConfig": "CONTAINS"
+        }
+      ]
+    },
+    {
       "collectionGroup": "learning_progress",
       "queryScope": "COLLECTION",
       "fields": [

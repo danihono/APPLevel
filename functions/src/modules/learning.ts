@@ -687,7 +687,7 @@ async function cascadeAudience(trackId: string, options?: { courseId?: string })
   const courseById = new Map(
     coursesSnapshot.docs.map((doc) => [doc.id, doc.data() as LearningCourseDoc]),
   );
-  const effectiveByLessonId = new Map<string, { roles: string[]; belts: string[] }>();
+  const effectiveByLessonId = new Map<string, { roles: string[]; belts: string[]; status: LearningContentStatus }>();
   const now = Timestamp.now();
   const writes: PendingWrite[] = [];
 
@@ -703,7 +703,7 @@ async function cascadeAudience(trackId: string, options?: { courseId?: string })
     }
 
     const effective = computeEffectiveAudience(track, course, lesson);
-    effectiveByLessonId.set(doc.id, effective);
+    effectiveByLessonId.set(doc.id, { ...effective, status: lesson.status });
 
     if (
       sameStringList(lesson.effectiveAudienceRoles, effective.roles)
@@ -732,6 +732,7 @@ async function cascadeAudience(trackId: string, options?: { courseId?: string })
     if (
       sameStringList(block.effectiveAudienceRoles, effective.roles)
       && sameStringList(block.effectiveAudienceBelts, effective.belts)
+      && block.lessonStatus === effective.status
     ) {
       return;
     }
@@ -741,6 +742,7 @@ async function cascadeAudience(trackId: string, options?: { courseId?: string })
       data: {
         effectiveAudienceRoles: effective.roles,
         effectiveAudienceBelts: effective.belts,
+        lessonStatus: effective.status,
         updatedAt: now,
       },
     });
@@ -933,11 +935,12 @@ export const upsertLearningLesson = onCall(callableOptions, async (request) => {
     });
   }
 
-  // Blocos ja gravados herdam o publico do modulo.
+  // Blocos ja gravados herdam o publico e o status do modulo.
   storedBlocks.forEach((block) => {
     if (
       sameStringList(block.effectiveAudienceRoles, denormalizedAudience.roles)
       && sameStringList(block.effectiveAudienceBelts, denormalizedAudience.belts)
+      && block.lessonStatus === status
     ) {
       return;
     }
@@ -945,6 +948,7 @@ export const upsertLearningLesson = onCall(callableOptions, async (request) => {
     batch.update(db.collection(COLLECTIONS.learningLessonBlocks).doc(block.id), {
       effectiveAudienceRoles: denormalizedAudience.roles,
       effectiveAudienceBelts: denormalizedAudience.belts,
+      lessonStatus: status,
       updatedAt: now,
     });
   });
@@ -1006,6 +1010,7 @@ export const replaceLearningLessonBlocks = onCall(callableOptions, async (reques
       ...(block.thumbnailUrl ? { thumbnailUrl: block.thumbnailUrl } : {}),
       effectiveAudienceRoles: denormalizedAudience.roles,
       effectiveAudienceBelts: denormalizedAudience.belts,
+      lessonStatus: lesson.status,
       createdAt: previousBlock?.createdAt ?? now,
       updatedAt: now,
     };

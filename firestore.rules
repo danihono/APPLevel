@@ -48,9 +48,14 @@ service cloud.firestore {
     // a condicao aqui casa exatamente com o `array-contains` usado nas queries.
     // A faixa nao esta nos custom claims, por isso o filtro por faixa e aplicado
     // no cliente e imposto pelas callables de consumo.
+    //
+    // Sem teste de tipo (`is list`) de proposito: numa consulta o Firestore avalia
+    // a regra contra o conjunto potencial de resultados, e ele so consegue provar
+    // que `array-contains` satisfaz `hasAny` — um `is list` no meio nao e
+    // demonstravel pela query e fazia toda consulta ser recusada. Documento sem o
+    // campo continua negado, porque a expressao falha ao ser avaliada.
     function inLearningAudience() {
       return signedIn()
-        && resource.data.effectiveAudienceRoles is list
         && resource.data.effectiveAudienceRoles.hasAny([audienceRole()]);
     }
 
@@ -255,12 +260,13 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // O status do modulo dono e denormalizado no bloco pelo backend. Ler daqui em
+    // vez de um `get()` na aula e obrigatorio: o Firestore limita 10 acessos a
+    // documentos por consulta, entao a versao com `get()` passava a negar a query
+    // inteira assim que os blocos cobrissem mais de 10 modulos.
     match /learning_lesson_blocks/{blockId} {
       allow read: if isSuperAdmin()
-        || (
-          inLearningAudience()
-          && get(/databases/$(database)/documents/learning_lessons/$(resource.data.lessonId)).data.status == 'published'
-        );
+        || (resource.data.lessonStatus == 'published' && inLearningAudience());
       allow write: if false;
     }
 

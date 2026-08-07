@@ -425,6 +425,7 @@ export interface LearningLessonBlockRecord {
   thumbnailUrl?: string;
   effectiveAudienceRoles?: string[];
   effectiveAudienceBelts?: string[];
+  lessonStatus?: string;
   createdAt?: Timestamp;
   updatedAt?: Timestamp;
 }

@@ -437,6 +437,10 @@ export interface LearningLessonBlockDoc {
   thumbnailUrl?: string;
   effectiveAudienceRoles?: string[];
   effectiveAudienceBelts?: string[];
+  // Status do modulo dono, denormalizado para que a regra do Firestore possa
+  // autorizar o bloco sem um `get()` na aula. Opcional por causa do conteudo
+  // anterior ao backfill.
+  lessonStatus?: LearningContentStatus;
   createdAt: FirebaseFirestore.Timestamp;
   updatedAt: FirebaseFirestore.Timestamp;
 }
