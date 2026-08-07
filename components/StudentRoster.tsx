@@ -11,6 +11,13 @@ import type { BeltColor, User } from '../types';
 type SortMode = 'name-asc' | 'name-desc' | 'belt-desc' | 'grade-desc';
 type RosterSection = 'list' | 'ranking' | 'deactivated';
 type RankingPeriodPreset = 'official-total' | 'mensal' | 'today' | '7d' | '30d' | '3m' | 'custom';
+type StatusFilter = 'active' | 'inactive' | 'ALL';
+
+const STATUS_FILTER_OPTIONS: Array<{ value: StatusFilter; label: string }> = [
+  { value: 'active', label: 'Ativos' },
+  { value: 'inactive', label: 'Inativos' },
+  { value: 'ALL', label: 'Todos' },
+];
 
 export interface StudentRosterProps {
   students: User[];
@@ -309,12 +316,16 @@ const StudentRoster: React.FC<StudentRosterProps> = ({
   const [filterBelt, setFilterBelt] = useState<BeltColor | 'ALL'>('ALL');
   const [filterType, setFilterType] = useState<'ALL' | 'Adulto' | 'Kids'>('ALL');
   const [filterGrade, setFilterGrade] = useState<'ALL' | string>('ALL');
+  const [filterStatus, setFilterStatus] = useState<StatusFilter>('active');
   const [sortMode, setSortMode] = useState<SortMode>('name-asc');
   const [rankingPeriod, setRankingPeriod] = useState<RankingPeriodPreset>('3m');
   const [customStartDate, setCustomStartDate] = useState(RANKING_START_DATE_INPUT);
   const [customEndDate, setCustomEndDate] = useState(toSaoPauloDateInput());
   const [internalSelectedStudentId, setInternalSelectedStudentId] = useState(selectedStudentId);
   const canManageDeactivated = Boolean(onDeactivateStudent || onActivateStudent);
+  // Quando existe a aba dedicada "Desativados", os suspensos ja vem fora da lista
+  // e o filtro de situacao seria redundante.
+  const showStatusFilter = !canManageDeactivated;
   const shouldChooseAcademyFirst = requireAcademySelection && !selectedAcademyId;
   const showAcademyFilter = (enableAcademyFilter || requireAcademySelection) && academies.length > 0;
   const academyNameById = useMemo(() => new Map(academies.map((entry) => [entry.id, entry.name])), [academies]);
@@ -355,9 +366,13 @@ const StudentRoster: React.FC<StudentRosterProps> = ({
       const matchesBelt = filterBelt === 'ALL' || student.belt === filterBelt;
       const matchesType = filterType === 'ALL' || student.type === filterType;
       const matchesGrade = filterGrade === 'ALL' || getStudentGrade(student) === Number(filterGrade);
-      return matchesSearch && matchesBelt && matchesType && matchesGrade;
+      const matchesStatus = !showStatusFilter || filterStatus === 'ALL'
+        || (filterStatus === 'inactive'
+          ? student.status === 'suspended'
+          : student.status !== 'suspended');
+      return matchesSearch && matchesBelt && matchesType && matchesGrade && matchesStatus;
     });
-  }, [filterBelt, filterGrade, filterType, scopedStudents, searchTerm]);
+  }, [filterBelt, filterGrade, filterStatus, filterType, scopedStudents, searchTerm, showStatusFilter]);
 
   const visibleStudents = useMemo(
     () => sortStudents(filteredStudents, sortMode),
@@ -653,6 +668,21 @@ const StudentRoster: React.FC<StudentRosterProps> = ({
                 </select>
               </label>
 
+              {showStatusFilter ? (
+                <div className="app-chip-row student-roster__status-row">
+                  {STATUS_FILTER_OPTIONS.map((option) => (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() => setFilterStatus(option.value)}
+                      className={`app-chip ${filterStatus === option.value ? 'is-active' : ''}`}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+
               <div className="app-chip-row student-roster__type-row">
                 {['ALL', 'Adulto', 'Kids'].map((item) => (
                   <button
@@ -905,7 +935,12 @@ const StudentRoster: React.FC<StudentRosterProps> = ({
                     {enableAcademyFilter ? (
                       <span className="app-badge app-badge--muted">{academyNameById.get(student.branchId) ?? 'Academia'}</span>
                     ) : null}
-                    {student.status ? <span className="app-badge app-badge--muted">{student.status}</span> : null}
+                    {student.status === 'suspended' ? (
+                      <span className="app-badge app-badge--danger">Desativado</span>
+                    ) : null}
+                    {student.status === 'invited' ? (
+                      <span className="app-badge app-badge--muted">Convite pendente</span>
+                    ) : null}
                     {graduationRequestByUserId.has(student.id) ? (
                       <span className="app-badge app-badge--gold">Graduacao pendente</span>
                     ) : null}

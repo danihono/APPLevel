@@ -228,7 +228,7 @@ const ManagementView: React.FC<ManagementViewProps> = ({
   }, [academyUsers, allUsers, focusedAcademy, isSuperAdmin, managedAcademy.id]);
 
   const activeStudents = managedUsers.filter((entry) => entry.role === 'student' && entry.status === 'active');
-  const inactiveStudents = managedUsers.filter((entry) => entry.role === 'student' && entry.status !== 'active');
+  const inactiveStudents = managedUsers.filter((entry) => entry.role === 'student' && entry.status === 'suspended');
   const instructors = managedUsers.filter((entry) => entry.role !== 'student');
   const students = managedUsers.filter((entry) => entry.role === 'student');
   const studentRosterUsers = useMemo(() => (

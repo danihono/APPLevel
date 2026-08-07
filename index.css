@@ -4384,7 +4384,8 @@ html.dark .app-list-card {
   min-width: 0;
 }
 
-.student-roster__type-row {
+.student-roster__type-row,
+.student-roster__status-row {
   grid-column: 1 / -1;
 }
 
@@ -4703,6 +4704,7 @@ html.dark .student-roster__ranking-position {
   }
 
   .student-roster__type-row,
+  .student-roster__status-row,
   .student-roster__period-row {
     gap: 0.45rem;
     padding-bottom: 0.1rem;
