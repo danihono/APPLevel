@@ -10,6 +10,7 @@
     "bootstrap:tenant": "npm run build && node lib/scripts/bootstrapTenant.js",
     "reset:student": "npm run build && node lib/scripts/resetStudentProgress.js",
     "fix:progression": "npm run build && node lib/scripts/fixDoubleCountedProgression.js",
+    "fix:class-professors": "npm run build && node lib/scripts/fixClassProfessorIds.js",
     "clean": "rimraf lib",
     "deploy": "firebase deploy --only functions && npm --prefix .. run firebase:fix-invokers",
     "emulators": "firebase emulators:start --only functions,firestore,auth,storage",

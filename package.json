@@ -13,6 +13,7 @@
     "firebase:fix-invokers": "node scripts/fixFunctionInvokers.cjs",
     "firebase:bootstrap:tenant": "npm --prefix functions run bootstrap:tenant --",
     "firebase:reset:student": "npm --prefix functions run reset:student --",
+    "firebase:fix:class-professors": "npm --prefix functions run fix:class-professors --",
     "firebase:emulators": "firebase emulators:start",
     "firebase:deploy": "firebase deploy && npm run firebase:fix-invokers"
   },

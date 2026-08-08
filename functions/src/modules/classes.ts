@@ -1,7 +1,7 @@
 import { Timestamp } from 'firebase-admin/firestore';
 import { onCall } from 'firebase-functions/v2/https';
 import { ClassDoc, COLLECTIONS } from '../domain/models';
-import { getRequestContext } from '../lib/context';
+import { getRequestContext, RequestContext } from '../lib/context';
 import { assertCondition } from '../lib/errors';
 import { db } from '../lib/firebase';
 import { optionalNumber, optionalString, optionalTimestamp, requiredString } from '../lib/payload';
@@ -64,6 +64,34 @@ function ensureClassManager(
     'permission-denied',
     'Somente professores da unidade ou o superadmin podem gerenciar a aula.',
   );
+}
+
+// `professorId` e `professorName` sao gravados juntos, mas cada um tinha o proprio fallback: um
+// `professorName` vazio virava `actor.user.displayName`, carimbado por cima do id de outra pessoa.
+// Como a tela mostra o nome (ClassSessionCard) e o filtro "Minhas" casa pelo id (CalendarView), os
+// dois divergiam sem ninguem perceber. O nome so pode cair para o do ator quando o id tambem cai.
+function resolveClassProfessor(
+  data: unknown,
+  actor: RequestContext,
+  current?: Pick<ClassDoc, 'professorId' | 'professorName'>,
+): { professorId: string; professorName: string } {
+  const professorId = optionalString(data, 'professorId') ?? actor.uid;
+  const requestedName = optionalString(data, 'professorName');
+
+  if (requestedName) {
+    return { professorId, professorName: requestedName };
+  }
+
+  if (professorId === actor.uid) {
+    return { professorId, professorName: actor.user.displayName };
+  }
+
+  // Id de outra pessoa sem nome: preserva o nome ja gravado quando o professor nao mudou. Nunca
+  // assume o nome do ator — era exatamente isso que separava nome e id.
+  return {
+    professorId,
+    professorName: professorId === current?.professorId ? (current.professorName ?? '') : '',
+  };
 }
 
 function buildQrResponse(classId: string, academyId: string, token: string, expiresAt: Timestamp) {
@@ -236,8 +264,6 @@ export const upsertClassSchedule = onCall(callableOptions, async (request) => {
   const scheduledEnd = optionalTimestamp(request.data, 'scheduledEnd');
   const description = optionalString(request.data, 'description');
   const capacity = optionalNumber(request.data, 'capacity');
-  const professorId = optionalString(request.data, 'professorId') ?? actor.uid;
-  const professorName = optionalString(request.data, 'professorName') ?? actor.user.displayName;
   const checkinWindowMinutes = optionalNumber(request.data, 'checkinWindowMinutes') ?? 15;
   const now = Timestamp.now();
 
@@ -254,6 +280,12 @@ export const upsertClassSchedule = onCall(callableOptions, async (request) => {
   if (current?.exists) {
     ensureClassManager(actor, current.data() as ClassDoc);
   }
+
+  const { professorId, professorName } = resolveClassProfessor(
+    request.data,
+    actor,
+    current?.exists ? (current.data() as ClassDoc) : undefined,
+  );
 
   const previousStart = current?.exists
     ? (current.get('scheduledStart') as FirebaseFirestore.Timestamp | undefined)
@@ -314,8 +346,7 @@ export const createClassScheduleBatch = onCall(callableOptions, async (request) 
   const tatame = requiredString(request.data, 'tatame');
   const description = optionalString(request.data, 'description');
   const capacity = optionalNumber(request.data, 'capacity');
-  const professorId = optionalString(request.data, 'professorId') ?? actor.uid;
-  const professorName = optionalString(request.data, 'professorName') ?? actor.user.displayName;
+  const { professorId, professorName } = resolveClassProfessor(request.data, actor);
   const checkinWindowMinutes = optionalNumber(request.data, 'checkinWindowMinutes') ?? 15;
   const seriesMode = parseSeriesMode(request.data);
   const occurrences = parseOccurrences(request.data).sort((left, right) =>
@@ -382,8 +413,6 @@ export const updateRecurringClassSeries = onCall(callableOptions, async (request
   const title = requiredString(request.data, 'title');
   const tatame = requiredString(request.data, 'tatame');
   const description = optionalString(request.data, 'description');
-  const professorId = optionalString(request.data, 'professorId') ?? actor.uid;
-  const professorName = optionalString(request.data, 'professorName') ?? actor.user.displayName;
   const scheduledStart = optionalTimestamp(request.data, 'scheduledStart');
   const scheduledEnd = optionalTimestamp(request.data, 'scheduledEnd');
   parseUpdateScope(request.data);
@@ -398,6 +427,9 @@ export const updateRecurringClassSeries = onCall(callableOptions, async (request
   const anchorSnap = await getClassOrThrow(classId);
   const anchorData = anchorSnap.data() as ClassDoc;
   ensureClassManager(actor, anchorData);
+
+  const { professorId, professorName } = resolveClassProfessor(request.data, actor, anchorData);
+
   assertCondition(
     !!anchorData.recurrenceSeriesId,
     'failed-precondition',
