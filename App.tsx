@@ -2705,9 +2705,19 @@ const App: React.FC = () => {
           />
         );
       case 'calendar': {
-        const professors = academyUsers
+        const academyProfessors = academyUsers
           .filter((u) => u.role === 'professor' || u.role === 'superadmin')
           .map((u) => ({ id: u.id, displayName: u.displayName }));
+
+        // O superadmin da rede tem `academyId` vazio no proprio documento, entao ele nunca
+        // aparece em `academyUsers` da unidade focada. Sem entrar nesta lista ele nao pode se
+        // atribuir como professor de uma aula — e o filtro "Minhas" fica sempre vazio para ele.
+        const professors = !isStaff || academyProfessors.some((p) => p.id === currentUser.id)
+          ? academyProfessors
+          : [
+            ...academyProfessors,
+            { id: currentUser.id, displayName: profile.displayName || currentUser.name },
+          ].sort((left, right) => left.displayName.localeCompare(right.displayName, 'pt-BR'));
 
         return (
           <CalendarView

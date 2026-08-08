@@ -89,6 +89,12 @@ const EditClassModal: React.FC<EditClassModalProps> = ({ lesson, professors, onC
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
+  // O professor gravado na aula pode nao estar na lista da unidade (aula legada ou importada).
+  // Sem uma opcao para ele, o select exibiria outro nome sem que ninguem tivesse trocado nada.
+  const professorOptions = professors.some((p) => p.id === professorId)
+    ? professors
+    : [{ id: professorId, displayName: lesson.professorName || 'Professor nao cadastrado' }, ...professors];
+
   function handleProfessorChange(id: string) {
     setProfessorId(id);
   }
@@ -106,7 +112,7 @@ const EditClassModal: React.FC<EditClassModalProps> = ({ lesson, professors, onC
       return;
     }
 
-    const professor = professors.find((p) => p.id === professorId);
+    const professor = professorOptions.find((p) => p.id === professorId);
     const [year, month, day] = date.split('-').map(Number);
     const [hours, minutes] = time.split(':').map(Number);
     const scheduledStart = new Date(year, month - 1, day, hours, minutes, 0, 0);
@@ -121,7 +127,7 @@ const EditClassModal: React.FC<EditClassModalProps> = ({ lesson, professors, onC
         title: title.trim(),
         description: tipo,
         professorId,
-        professorName: professor?.displayName ?? '',
+        professorName: professor?.displayName ?? lesson.professorName ?? '',
         tatame,
         scope: hasRecurringSeries ? scope : 'single',
         scheduledStart: scheduledStart.toISOString(),
@@ -225,7 +231,7 @@ const EditClassModal: React.FC<EditClassModalProps> = ({ lesson, professors, onC
           <label className="app-field">
             <span className="app-field__label">Professor</span>
             <select value={professorId} onChange={(event) => handleProfessorChange(event.target.value)} className="app-input">
-              {professors.map((professor) => (
+              {professorOptions.map((professor) => (
                 <option key={professor.id} value={professor.id}>{professor.displayName}</option>
               ))}
             </select>
