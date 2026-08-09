@@ -10,15 +10,22 @@ import { db } from '../lib/firebase';
 // (ClassSessionCard) e o filtro "Minhas" casa pelo id (CalendarView.isMyClass), os dois divergiam sem
 // ninguem perceber — a aula aparecia com o nome certo e nunca entrava em "Minhas".
 //
-// Assinatura do bug: aula cujo `professorId` nao resolve para nenhum usuario, ou resolve para um
-// usuario com `displayName` diferente do `professorName` gravado na aula.
+// Assinatura do bug: aula cujo `professorId` e `professorName` apontam para pessoas diferentes.
 //
-// Correcao: procura em `users` alguem cujo `displayName` case com o `professorName` da aula. Sao
-// candidatos os usuarios da mesma academia e os superadmins (que tem `academyId` vazio por design,
-// vide normalizeScopedAcademyId em modules/auth.ts). So reescreve quando ha EXATAMENTE um candidato;
-// com zero ou mais de um apenas loga, porque homonimo nao se resolve sozinho.
+// A correcao depende de qual dos dois campos ainda e confiavel:
 //
-// Reapontar o `professorId` move as metricas por professor no painel do superadmin
+// 1. `professorId` resolve para um usuario existente => o ID e a fonte da verdade, porque
+//    `professorName` e so uma copia desnormalizada e era ela que o writer antigo sobrescrevia.
+//    Corrige o NOME (acao "corrigir-nome"). Reescrever o id aqui tiraria a aula do dono real e a
+//    daria para quem editou por ultimo — o oposto do que se quer.
+// 2. `professorId` e orfao (nenhum usuario com esse id, ex.: conta antiga removida) => o nome e o
+//    unico sinal restante. Procura em `users` alguem cujo `displayName` case com o `professorName`,
+//    entre os usuarios da mesma academia e os superadmins (que tem `academyId` vazio por design,
+//    vide normalizeScopedAcademyId em modules/auth.ts), e corrige o ID (acao "corrigir-id"). So
+//    reescreve com EXATAMENTE um candidato; com zero ou mais de um apenas loga, porque homonimo
+//    nao se resolve sozinho.
+//
+// Reapontar o `professorId` (caso 2) move as metricas por professor no painel do superadmin
 // (SuperadminDashboardView) e o destinatario das notificacoes de pedido de presenca
 // (modules/attendance.ts). Rode sempre com --dryRun antes para conferir o impacto.
 //
@@ -116,7 +123,8 @@ async function main(): Promise<void> {
 
   let scanned = 0;
   let affected = 0;
-  let fixed = 0;
+  let renamedIds = 0;
+  let renamedNames = 0;
   let ambiguous = 0;
   let unmatched = 0;
 
@@ -131,11 +139,49 @@ async function main(): Promise<void> {
     }
 
     const owner = lesson.professorId ? usersById.get(lesson.professorId) : undefined;
-    if (owner && normalizeName(owner.displayName) === professorName) {
-      // Nome e id ja concordam: nada a fazer.
+
+    // `professorId` que resolve para um usuario existente e a fonte da verdade: `professorName` e
+    // so uma copia desnormalizada, e era ela que o writer antigo sobrescrevia com o displayName do
+    // ator. Divergiu com id valido => quem tem que ser corrigido e o NOME, nunca o id (reescrever o
+    // id aqui tiraria a aula do dono real e daria para quem editou por ultimo).
+    if (owner) {
+      if (normalizeName(owner.displayName) === professorName) {
+        // Nome e id ja concordam: nada a fazer.
+        continue;
+      }
+
+      affected += 1;
+      console.log(
+        JSON.stringify(
+          {
+            aula: {
+              classId: doc.id,
+              title: lesson.title,
+              academyId: lesson.academyId,
+              scheduledStart: lesson.scheduledStart?.toDate?.().toISOString() ?? null,
+            },
+            acao: 'corrigir-nome',
+            antes: { professorId: lesson.professorId, professorName: lesson.professorName ?? null },
+            depois: { professorId: lesson.professorId, professorName: owner.displayName },
+            dryRun: args.dryRun,
+          },
+          null,
+          2,
+        ),
+      );
+
+      if (!args.dryRun) {
+        await db.collection(COLLECTIONS.classes).doc(doc.id).update({
+          professorName: owner.displayName,
+          updatedAt: Timestamp.now(),
+        });
+        renamedNames += 1;
+      }
       continue;
     }
 
+    // Daqui para baixo o id e orfao (nenhum usuario com esse id), entao o nome e o unico sinal do
+    // dono real e reescrever o `professorId` e a unica saida.
     affected += 1;
 
     // Candidatos: quem e da mesma academia da aula, mais os superadmins (academyId vazio).
@@ -161,11 +207,6 @@ async function main(): Promise<void> {
     }
 
     const [target] = candidates;
-    if (target.id === lesson.professorId) {
-      // Id ja correto; so o displayName do usuario mudou depois que a aula foi gravada.
-      affected -= 1;
-      continue;
-    }
 
     console.log(
       JSON.stringify(
@@ -176,10 +217,11 @@ async function main(): Promise<void> {
             academyId: lesson.academyId,
             scheduledStart: lesson.scheduledStart?.toDate?.().toISOString() ?? null,
           },
+          acao: 'corrigir-id',
           antes: {
             professorId: lesson.professorId || null,
             professorName: lesson.professorName ?? null,
-            donoResolvido: owner ? owner.displayName : '(id nao encontrado)',
+            donoResolvido: '(id nao encontrado)',
           },
           depois: {
             professorId: target.id,
@@ -202,7 +244,7 @@ async function main(): Promise<void> {
       professorName: target.displayName,
       updatedAt: Timestamp.now(),
     });
-    fixed += 1;
+    renamedIds += 1;
   }
 
   console.log(
@@ -212,7 +254,8 @@ async function main(): Promise<void> {
           academySlug: args.academySlug ?? '(todas)',
           aulasVarridas: scanned,
           afetadas: affected,
-          corrigidas: args.dryRun ? 0 : fixed,
+          idsCorrigidos: renamedIds,
+          nomesCorrigidos: renamedNames,
           semCorrespondencia: unmatched,
           homonimos: ambiguous,
           dryRun: args.dryRun,
