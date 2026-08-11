@@ -12,8 +12,8 @@
     "fix:progression": "npm run build && node lib/scripts/fixDoubleCountedProgression.js",
     "fix:class-professors": "npm run build && node lib/scripts/fixClassProfessorIds.js",
     "clean": "rimraf lib",
-    "deploy": "firebase deploy --only functions && npm --prefix .. run firebase:fix-invokers",
-    "emulators": "firebase emulators:start --only functions,firestore,auth,storage",
+    "deploy": "firebase deploy --only functions --project applevel-c5e73 && npm --prefix .. run firebase:fix-invokers",
+    "emulators": "firebase emulators:start --only functions,firestore,auth,storage --project applevel-c5e73",
     "lint": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {

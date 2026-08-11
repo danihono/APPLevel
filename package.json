@@ -14,8 +14,10 @@
     "firebase:bootstrap:tenant": "npm --prefix functions run bootstrap:tenant --",
     "firebase:reset:student": "npm --prefix functions run reset:student --",
     "firebase:fix:class-professors": "npm --prefix functions run fix:class-professors --",
-    "firebase:emulators": "firebase emulators:start",
-    "firebase:deploy": "firebase deploy && npm run firebase:fix-invokers"
+    "firebase:emulators": "firebase emulators:start --project applevel-c5e73",
+    "firebase:deploy": "firebase deploy --project applevel-c5e73 && npm run firebase:fix-invokers",
+    "deploy:indexes": "firebase deploy --only firestore:indexes --project applevel-c5e73 --non-interactive",
+    "deploy:rules": "firebase deploy --only firestore:rules,storage --project applevel-c5e73 --non-interactive"
   },
   "dependencies": {
     "@capacitor/core": "^8.4.1",
