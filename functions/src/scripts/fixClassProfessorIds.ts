@@ -245,7 +245,7 @@ async function main(): Promise<void> {
 
   if (args.trustName) {
     console.log(
-      `[modo] confiando no nome (--trustName) na unidade ${args.academySlug ? `"${args.academySlug}"` : `id ${args.academyId}`} (id ${academyId}), nome: ${
+      `[modo] confiando no nome (--trustName) na unidade ${args.academySlug ? `"${args.academySlug}" (id ${academyId})` : `id ${academyId}`}, nome: ${
         normalizedTargetName ? `"${args.professorName}"` : 'todos os nomes divergentes'
       }, dryRun: ${args.dryRun}.`,
     );
@@ -458,7 +458,10 @@ async function main(): Promise<void> {
     JSON.stringify(
       {
         resumo: {
-          academySlug: args.academySlug ?? '(todas)',
+          // Mostra o id resolvido, nao so o slug: com --academyId o campo antigo dizia "(todas)" e dava
+          // a impressao de que a varredura pegou a rede inteira, quando estava restrita a uma unidade.
+          academySlug: args.academySlug ?? '(nao informado)',
+          academyId: academyId ?? '(todas as academias)',
           modo: args.trustName ? 'confiando-no-nome' : 'padrao',
           professorNameFiltro: args.professorName ?? '(todos)',
           aulasVarridas: scanned,
