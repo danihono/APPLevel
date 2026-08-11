@@ -1030,6 +1030,14 @@ const CalendarView: React.FC<CalendarViewProps> = ({
     [currentUserId, normalizedCurrentUserName],
   );
 
+  // O dropdown lista pessoas (id), mas as aulas corrompidas guardam o id de um e o nome de outro:
+  // casar so pelo id faz o professor se escolher no filtro e nao achar nada — mesmo defeito do
+  // "Minhas", mesma regra de casamento. Precisa ficar declarado ANTES de filteredClasses, que o usa.
+  const normalizedFilterProfessorName = useMemo(
+    () => normalizePersonName(professors.find((entry) => entry.id === filterProfessor)?.displayName),
+    [filterProfessor, professors],
+  );
+
   const myClassCount = useMemo(
     () => (isStaff ? classes.filter(isMyClass).length : 0),
     [classes, isMyClass, isStaff],
@@ -1048,10 +1056,11 @@ const CalendarView: React.FC<CalendarViewProps> = ({
           return true;
         })
         .filter((entry) => filterType === 'all' || (entry.description ?? '') === filterType)
-        .filter((entry) => filterProfessor === 'all' || entry.professorId === filterProfessor)
+        .filter((entry) => filterProfessor === 'all'
+          || classBelongsToProfessor(entry, filterProfessor, normalizedFilterProfessorName))
         .filter((entry) => filterTatame === 'all' || entry.tatame === filterTatame)
         .sort(sortClasses),
-    [classes, currentUserKidsCategory, isMyClass, isStaff, userRole, view, filterType, filterProfessor, filterTatame],
+    [classes, currentUserKidsCategory, isMyClass, isStaff, userRole, view, filterType, filterProfessor, normalizedFilterProfessorName, filterTatame],
   );
 
   const unfinishedClasses = useMemo(
@@ -1071,7 +1080,8 @@ const CalendarView: React.FC<CalendarViewProps> = ({
             return false;
           }
 
-          if (filterProfessor !== 'all' && entry.professorId !== filterProfessor) {
+          if (filterProfessor !== 'all'
+            && !classBelongsToProfessor(entry, filterProfessor, normalizedFilterProfessorName)) {
             return false;
           }
           if (filterType !== 'all' && (entry.description ?? '') !== filterType) {
@@ -1086,7 +1096,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
         })
         .sort(sortClasses);
     },
-    [classes, filterProfessor, filterTatame, filterType, isMyClass, isStaff, isSuperAdmin, nowMs],
+    [classes, filterProfessor, normalizedFilterProfessorName, filterTatame, filterType, isMyClass, isStaff, isSuperAdmin, nowMs],
   );
 
   const classesByDay = useMemo(() => {
