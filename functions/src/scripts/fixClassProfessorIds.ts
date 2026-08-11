@@ -29,14 +29,43 @@ import { db } from '../lib/firebase';
 // (SuperadminDashboardView) e o destinatario das notificacoes de pedido de presenca
 // (modules/attendance.ts). Rode sempre com --dryRun antes para conferir o impacto.
 //
+// ATENCAO — o caso 1 no modo padrao APAGA o `professorName`.
+//
+// Ha uma segunda origem de divergencia que o caso 1 resolve na direcao errada: ate 920e3db o
+// CreateClassModal caia em `professors[0]` quando o usuario logado nao estava na lista da unidade
+// (o superadmin tem `academyId` vazio por design), entao a aula nascia com o id de um estranho
+// SORTEADO POR ORDEM ALFABETICA e o nome de quem realmente deu a aula. Nessas aulas o id nunca foi
+// escolhido por ninguem, e o nome e o unico vestigio do dono real — rodar o modo padrao sobrescreve
+// esse nome com o `displayName` do id sorteado e torna a corrupcao irrecuperavel sem PITR.
+//
+// Nao da para distinguir as duas origens por maquina (as duas terminam em "id valido, nome
+// diferente"), entao a escolha e do operador: --trustName inverte a direcao do caso 1 e corrige o
+// ID a partir do nome. NAO rode o modo padrao numa unidade afetada antes da passagem com
+// --trustName.
+//
 // Uso (rode com as credenciais admin do projeto, igual ao bootstrap:tenant):
-//   npm --prefix functions run fix:class-professors -- [--academySlug=minha-academia] [--dryRun]
+//   npm run firebase:fix:class-professors -- [--academySlug=minha-academia] [--dryRun]
 //
 // Sem --academySlug, varre todas as academias. Use --dryRun para apenas listar sem gravar.
+//
+// Reparo confiando no nome (aulas do superadmin que nunca entram em "Minhas"):
+//   # 1) inspecionar — obrigatorio antes de gravar; confira "donoAtual" em cada linha
+//   npm run firebase:fix:class-professors -- --academySlug=minha-academia \
+//     --trustName --professorName="Ricardo Saldanha" --dryRun
+//   # 2) aplicar
+//   npm run firebase:fix:class-professors -- --academySlug=minha-academia \
+//     --trustName --professorName="Ricardo Saldanha"
+//
+// --trustName exige --academySlug (nunca roda na rede inteira) e avisa em voz alta quando roda sem
+// --dryRun — o script nao tem como saber se a inspecao foi feita, entao o passo 1 fica com voce.
+// --professorName limita a varredura a um nome so; sem ele, todas as aulas divergentes da unidade
+// entram.
 
 interface SweepArgs {
   academySlug?: string;
   dryRun: boolean;
+  trustName: boolean;
+  professorName?: string;
 }
 
 interface UserEntry {
@@ -73,6 +102,8 @@ function parseArgs(argv: string[]): SweepArgs {
   return {
     academySlug: parsed.get('academySlug')?.trim().toLowerCase(),
     dryRun: parsed.get('dryRun') === 'true',
+    trustName: parsed.get('trustName') === 'true',
+    professorName: parsed.get('professorName')?.trim() || undefined,
   };
 }
 
@@ -90,10 +121,27 @@ async function resolveAcademyId(slug?: string): Promise<string | undefined> {
   return snapshot.docs[0].id;
 }
 
-// Mesma normalizacao do fallback por nome em CalendarView.isMyClass, para o script casar exatamente
-// os mesmos registros que a tela casaria.
+// Copia de `normalizePersonName` (utils.ts, na raiz) — o script casa exatamente os mesmos registros
+// que a tela casaria. A duplicacao e estrutural, nao preguica: functions/tsconfig.json tem
+// `rootDir: "src"` e `include: ["src/**/*.ts"]`, entao este projeto nao consegue importar nada da
+// raiz. Mudou um, mude o outro, ou o --dryRun deixa de prever o que o filtro "Minhas" vai mostrar.
 function normalizeName(value?: string): string {
-  return (value ?? '').trim().toLocaleLowerCase('pt-BR');
+  return (value ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLocaleLowerCase('pt-BR');
+}
+
+// Candidatos a dono real de uma aula, a partir do nome gravado nela: quem e da mesma academia, mais
+// os superadmins (que tem `academyId` vazio por design, vide normalizeScopedAcademyId em
+// modules/auth.ts). Usada pelos dois ramos que corrigem id, para os dois casarem pela mesma regra.
+function findNameCandidates(users: UserEntry[], normalizedName: string, academyId: string): UserEntry[] {
+  return users.filter((user) => (
+    normalizeName(user.displayName) === normalizedName
+    && (user.academyId === academyId || user.role === 'superadmin')
+  ));
 }
 
 async function loadUsers(): Promise<UserEntry[]> {
@@ -111,7 +159,31 @@ async function loadUsers(): Promise<UserEntry[]> {
 
 async function main(): Promise<void> {
   const args = parseArgs(process.argv.slice(2));
+
+  // --trustName reaponta ids: tira aulas de quem hoje as tem. Nunca deixar isso rodar na rede
+  // inteira nem as cegas — exige unidade explicita e uma passagem de inspecao antes de gravar.
+  if (args.trustName) {
+    if (!args.academySlug) {
+      throw new Error('--trustName exige --academySlug: reparo por nome nao roda na rede inteira.');
+    }
+    if (!args.dryRun) {
+      console.warn(
+        '[atencao] --trustName vai REAPONTAR o professorId de aulas que hoje pertencem a outra pessoa.\n'
+        + '          Rode antes com --dryRun e confira o campo "donoAtual" de cada linha.',
+      );
+    }
+  }
+
+  const normalizedTargetName = normalizeName(args.professorName);
   const academyId = await resolveAcademyId(args.academySlug);
+
+  if (args.trustName) {
+    console.log(
+      `[modo] confiando no nome (--trustName) na unidade "${args.academySlug}", nome: ${
+        normalizedTargetName ? `"${args.professorName}"` : 'todos os nomes divergentes'
+      }, dryRun: ${args.dryRun}.`,
+    );
+  }
 
   const users = await loadUsers();
   const usersById = new Map(users.map((user) => [user.id, user]));
@@ -125,6 +197,7 @@ async function main(): Promise<void> {
   let affected = 0;
   let renamedIds = 0;
   let renamedNames = 0;
+  let idsCorrigidosPorNome = 0;
   let ambiguous = 0;
   let unmatched = 0;
 
@@ -147,6 +220,78 @@ async function main(): Promise<void> {
     if (owner) {
       if (normalizeName(owner.displayName) === professorName) {
         // Nome e id ja concordam: nada a fazer.
+        continue;
+      }
+
+      // --trustName: o operador afirma que nesta unidade o id e que e lixo (nasceu de
+      // `professors[0]`, sorteado por ordem alfabetica) e o nome e o unico vestigio do dono real.
+      // Inverte a direcao do caso 1 e corrige o ID, com a mesma regra de candidato unico do ramo
+      // orfao — homonimo continua sem ser resolvido no chute.
+      if (args.trustName) {
+        if (normalizedTargetName && professorName !== normalizedTargetName) {
+          // Fora do --professorName pedido: nem conta como afetada.
+          continue;
+        }
+
+        const candidates = findNameCandidates(users, professorName, lesson.academyId);
+
+        if (candidates.length === 0) {
+          affected += 1;
+          unmatched += 1;
+          console.warn(
+            `[skip] aula ${doc.id} ("${lesson.title}"): professorName "${lesson.professorName}" nao casa com nenhum usuario da unidade nem superadmin.`,
+          );
+          continue;
+        }
+
+        if (candidates.length > 1) {
+          affected += 1;
+          ambiguous += 1;
+          console.warn(
+            `[skip] aula ${doc.id} ("${lesson.title}"): "${lesson.professorName}" casa com ${candidates.length} usuarios (${candidates.map((c) => c.id).join(', ')}); resolva o homonimo na mao.`,
+          );
+          continue;
+        }
+
+        const [target] = candidates;
+        if (target.id === lesson.professorId) {
+          continue;
+        }
+
+        affected += 1;
+        console.log(
+          JSON.stringify(
+            {
+              aula: {
+                classId: doc.id,
+                title: lesson.title,
+                academyId: lesson.academyId,
+                scheduledStart: lesson.scheduledStart?.toDate?.().toISOString() ?? null,
+              },
+              acao: 'corrigir-id-confiando-no-nome',
+              // `donoAtual` e o ponto do log: e de quem a aula esta sendo tirada. Confira um a um.
+              antes: {
+                professorId: lesson.professorId,
+                professorName: lesson.professorName ?? null,
+                donoAtual: owner.displayName,
+              },
+              depois: { professorId: target.id, professorName: target.displayName, role: target.role },
+              dryRun: args.dryRun,
+            },
+            null,
+            2,
+          ),
+        );
+
+        if (!args.dryRun) {
+          // Grava os dois campos juntos: deixar o par inconsistente e o bug que estamos consertando.
+          await db.collection(COLLECTIONS.classes).doc(doc.id).update({
+            professorId: target.id,
+            professorName: target.displayName,
+            updatedAt: Timestamp.now(),
+          });
+          idsCorrigidosPorNome += 1;
+        }
         continue;
       }
 
@@ -184,11 +329,7 @@ async function main(): Promise<void> {
     // dono real e reescrever o `professorId` e a unica saida.
     affected += 1;
 
-    // Candidatos: quem e da mesma academia da aula, mais os superadmins (academyId vazio).
-    const candidates = users.filter((user) => (
-      normalizeName(user.displayName) === professorName
-      && (user.academyId === lesson.academyId || user.role === 'superadmin')
-    ));
+    const candidates = findNameCandidates(users, professorName, lesson.academyId);
 
     if (candidates.length === 0) {
       unmatched += 1;
@@ -252,9 +393,12 @@ async function main(): Promise<void> {
       {
         resumo: {
           academySlug: args.academySlug ?? '(todas)',
+          modo: args.trustName ? 'confiando-no-nome' : 'padrao',
+          professorNameFiltro: args.professorName ?? '(todos)',
           aulasVarridas: scanned,
           afetadas: affected,
           idsCorrigidos: renamedIds,
+          idsCorrigidosPorNome,
           nomesCorrigidos: renamedNames,
           semCorrespondencia: unmatched,
           homonimos: ambiguous,
