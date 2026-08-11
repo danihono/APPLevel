@@ -19,6 +19,7 @@ import {
 import type { AttendanceRecord, AttendanceRequestRecord, ClassRecord, ClassRsvpRecord, UserRecord } from '../services/firebase/models';
 import { formatDateLabel, formatTimeLabel } from '../services/firebase/adapters';
 import { UserRole, type BeltColor, type KidsCategory } from '../types';
+import { normalizePersonName } from '../utils';
 
 // photoPath so e uma URL exibivel quando comeca com http (ver adapters.ts).
 const photoToAvatar = (p?: string) => (p && p.startsWith('http') ? p : undefined);
@@ -669,6 +670,44 @@ function isKidsStudent(student: FirestoreEntity<UserRecord>): boolean {
   return !!student.kidsCategory;
 }
 
+// Uma aula pertence a um professor quando o id bate OU quando o nome gravado nela e o dele.
+//
+// O par (professorId, professorName) diverge em aulas antigas: ate 920e3db o CreateClassModal caia
+// em `professors[0]` quando o usuario logado nao estava na lista da unidade — caso do superadmin,
+// que tem `academyId` vazio por design — e o writer antigo carimbava o displayName do ator por
+// cima do nome. Sobraram aulas com o id de um estranho e o nome de quem de fato deu a aula.
+//
+// A versao anterior desta regra so caia no nome quando o `professorId` era orfao, para nao roubar
+// aula de um dono real. Mas e justamente no caso corrompido que o id resolve para alguem da
+// unidade, entao a excecao silenciava exatamente as aulas que a tela dizia ser da pessoa: "Todas"
+// listava as aulas com "Ricardo Saldanha" no card e "Minhas" mostrava zero, sem nenhum sinal —
+// porque o id nunca e exibido.
+//
+// Agora casamos pelo nome tambem com id valido. O preco e incluir demais (dois homonimos na rede,
+// ou uma aula cujo nome foi carimbado por engano em cima do dono real); o preco antigo era sumir
+// com a agenda inteira de alguem em silencio. Incluir demais tambem e o unico resultado coerente
+// com o que esta escrito no card — ClassSessionCard mostra `professorName`, nao resolve o id.
+//
+// Nada disso concede permissao nova: quem pode gerenciar a aula ja e "qualquer professor da
+// unidade", tanto aqui (canManageSelected) quanto no backend (assertClassAccess em
+// modules/classes.ts). O conserto definitivo e nos dados, via
+// functions/src/scripts/fixClassProfessorIds.ts --trustName.
+function classBelongsToProfessor(
+  entry: FirestoreEntity<ClassRecord>,
+  professorId: string,
+  normalizedProfessorName: string,
+): boolean {
+  if (professorId && entry.professorId === professorId) {
+    return true;
+  }
+
+  if (!normalizedProfessorName) {
+    return false;
+  }
+
+  return normalizePersonName(entry.professorName) === normalizedProfessorName;
+}
+
 const CalendarView: React.FC<CalendarViewProps> = ({
   userRole,
   currentUserId,
@@ -984,24 +1023,11 @@ const CalendarView: React.FC<CalendarViewProps> = ({
     };
   }, [scannerOpen, scannerClassId, onRegisterAttendance]);
 
-  // "Minhas" casa pelo id do professor da aula. Aulas legadas/importadas podem ter um
-  // professorId que não corresponde a ninguém da unidade — nesse caso (e só nesse) caímos
-  // no nome gravado na aula, para o professor não perder a própria agenda.
-  const professorIdSet = useMemo(() => new Set(professors.map((entry) => entry.id)), [professors]);
-  const normalizedCurrentUserName = (currentUserName ?? '').trim().toLocaleLowerCase('pt-BR');
+  // Ver classBelongsToProfessor: "Minhas" casa pelo id OU pelo nome que o card exibe.
+  const normalizedCurrentUserName = normalizePersonName(currentUserName);
   const isMyClass = useCallback(
-    (entry: FirestoreEntity<ClassRecord>) => {
-      if (entry.professorId === currentUserId) {
-        return true;
-      }
-
-      if (!normalizedCurrentUserName || professorIdSet.has(entry.professorId)) {
-        return false;
-      }
-
-      return (entry.professorName ?? '').trim().toLocaleLowerCase('pt-BR') === normalizedCurrentUserName;
-    },
-    [currentUserId, normalizedCurrentUserName, professorIdSet],
+    (entry: FirestoreEntity<ClassRecord>) => classBelongsToProfessor(entry, currentUserId, normalizedCurrentUserName),
+    [currentUserId, normalizedCurrentUserName],
   );
 
   const myClassCount = useMemo(

@@ -46,3 +46,23 @@ export const isHttpUrl = (url: string): boolean => {
 export const getVideoSourceKindFromUrl = (url: string): 'youtube' | 'external' => (
   getYouTubeVideoId(url) ? 'youtube' : 'external'
 );
+
+// Nomes de pessoas chegam de origens diferentes (o `displayName` digitado no cadastro e a copia
+// desnormalizada gravada na aula) e so sao comparaveis depois de normalizados. Alem de caixa e
+// espaco duplicado, o mesmo "Antonio" acentuado pode vir pre-composto (o + U+0303 ja fundidos em
+// U+00F4) ou decomposto (o + U+0302) conforme o teclado que digitou — e ai `===` jura que sao duas
+// pessoas diferentes, com as duas grafias identicas na tela.
+//
+// Devolve '' quando nao ha nome, para o chamador tratar "sem nome" como "nao compara" em vez de
+// casar dois vazios entre si.
+//
+// Uma chave normalizada (string -> string) em vez de `localeCompare({ sensitivity: 'base' })`
+// porque a mesma regra precisa existir duas vezes: aqui e em
+// functions/src/scripts/fixClassProfessorIds.ts, que roda noutro projeto TypeScript. Funcao pura e
+// trivial de espelhar, de imprimir no --dryRun e de usar como chave de Map/Set; um comparador nao e.
+export const normalizePersonName = (value?: string | null): string => (value ?? '')
+  .normalize('NFD')
+  .replace(/[\u0300-\u036f]/g, '')
+  .replace(/\s+/g, ' ')
+  .trim()
+  .toLocaleLowerCase('pt-BR');

@@ -2709,6 +2709,12 @@ const App: React.FC = () => {
           .filter((u) => u.role === 'professor' || u.role === 'superadmin')
           .map((u) => ({ id: u.id, displayName: u.displayName }));
 
+        // Mesmo valor na injecao do usuario na lista de professores (abaixo) e no filtro "Minhas"
+        // (CalendarView). Se os dois divergirem, o card mostra um nome e o filtro procura outro —
+        // que e a origem do bug. `profile.displayName` pode estar vazio: toUiUser (adapters.ts) cai
+        // para "firstName lastName", e um nome vazio desliga o casamento por nome em silencio.
+        const currentUserDisplayName = profile.displayName || currentUser.name;
+
         // O superadmin da rede tem `academyId` vazio no proprio documento, entao ele nunca
         // aparece em `academyUsers` da unidade focada. Sem entrar nesta lista ele nao pode se
         // atribuir como professor de uma aula — e o filtro "Minhas" fica sempre vazio para ele.
@@ -2716,7 +2722,7 @@ const App: React.FC = () => {
           ? academyProfessors
           : [
             ...academyProfessors,
-            { id: currentUser.id, displayName: profile.displayName || currentUser.name },
+            { id: currentUser.id, displayName: currentUserDisplayName },
           ].sort((left, right) => left.displayName.localeCompare(right.displayName, 'pt-BR'));
 
         return (
@@ -2724,7 +2730,7 @@ const App: React.FC = () => {
             userRole={viewUserRole}
             currentUserId={currentUser.id}
             isSuperAdmin={isSuperAdmin}
-            currentUserName={profile.displayName}
+            currentUserName={currentUserDisplayName}
             currentUserBelt={currentUser.belt}
             currentUserStripes={currentUser.stripes}
             currentUserKidsCategory={currentUser.kidsCategory}

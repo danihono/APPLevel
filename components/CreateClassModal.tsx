@@ -180,7 +180,15 @@ const CreateClassModal: React.FC<CreateClassModalProps> = ({
   const [tipo, setTipo] = useState('iniciante');
   const [time, setTime] = useState(toHHMM(nextRound30(new Date())));
   const [duration, setDuration] = useState(60);
-  const initialProfessor = professors.find((p) => p.id === currentUserId) ?? professors[0];
+  // Nunca cair em `professors[0]`: quando o usuario logado nao esta na lista (superadmin com
+  // `academyId` vazio, ou lista ainda carregando), "pegar o primeiro" gravava a aula no id de um
+  // estranho com o nome de quem criou. Foi assim que nasceram as aulas que aparecem com o nome
+  // certo e nunca entram em "Minhas". Sem correspondencia, oferecemos o proprio usuario como opcao
+  // explicita — o criador e sempre um dono plausivel; o professor ao lado nao e.
+  const professorOptions = professors.some((p) => p.id === currentUserId)
+    ? professors
+    : [{ id: currentUserId, displayName: currentUserName || 'Voce' }, ...professors];
+  const initialProfessor = professorOptions.find((p) => p.id === currentUserId) ?? professorOptions[0];
   const [professorId, setProfessorId] = useState(initialProfessor?.id ?? '');
   const [professorName, setProfessorName] = useState(initialProfessor?.displayName ?? currentUserName);
   const [tatame, setTatame] = useState('Tatame 1');
@@ -266,7 +274,10 @@ const CreateClassModal: React.FC<CreateClassModalProps> = ({
   }
 
   function handleProfessorChange(id: string) {
-    const professor = professors.find((entry) => entry.id === id);
+    // Busca em `professorOptions`, nunca em `professors`: escolher a opcao sintetica do proprio
+    // usuario zeraria o `professorName` e reintroduziria a divergencia nome/id que este arquivo
+    // acabou de deixar de produzir. Mesmo padrao do EditClassModal.
+    const professor = professorOptions.find((entry) => entry.id === id);
     setProfessorId(id);
     setProfessorName(professor?.displayName ?? '');
   }
@@ -522,7 +533,7 @@ const CreateClassModal: React.FC<CreateClassModalProps> = ({
             <label className="app-field">
               <span className="app-field__label">Professor</span>
               <select value={professorId} onChange={(event) => handleProfessorChange(event.target.value)} className="app-input">
-                {professors.map((professor) => (
+                {professorOptions.map((professor) => (
                   <option key={professor.id} value={professor.id}>{professor.displayName}</option>
                 ))}
               </select>
