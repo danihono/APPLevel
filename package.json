@@ -14,6 +14,7 @@
     "firebase:bootstrap:tenant": "npm --prefix functions run bootstrap:tenant --",
     "firebase:reset:student": "npm --prefix functions run reset:student --",
     "firebase:fix:class-professors": "npm --prefix functions run fix:class-professors --",
+    "firebase:inspect:duplicate-users": "npm --prefix functions run inspect:duplicate-users --",
     "firebase:emulators": "firebase emulators:start --project applevel-c5e73",
     "firebase:deploy": "firebase deploy --project applevel-c5e73 && npm run firebase:fix-invokers",
     "deploy:indexes": "firebase deploy --only firestore:indexes --project applevel-c5e73 --non-interactive",
