@@ -1,6 +1,6 @@
 import { Timestamp } from 'firebase-admin/firestore';
 import { ClassDoc, COLLECTIONS, UserDoc } from '../domain/models';
-import { db } from '../lib/firebase';
+import { app, db } from '../lib/firebase';
 
 // Script de varredura: reaponta o `professorId` de aulas cujo dono real e outro usuario.
 //
@@ -113,7 +113,18 @@ async function resolveAcademyId(slug?: string): Promise<string | undefined> {
   }
   const snapshot = await db.collection(COLLECTIONS.academies).where('slug', '==', slug).limit(2).get();
   if (snapshot.empty) {
-    throw new Error(`Academia com slug "${slug}" nao encontrada.`);
+    // Slug errado e projeto errado dao o mesmo erro ("nao encontrada"). Listar o que existe separa
+    // os dois casos na hora: lista vazia ou desconhecida = voce esta no projeto errado.
+    const all = await db.collection(COLLECTIONS.academies).get();
+    const slugs = all.docs
+      .map((doc) => (doc.data() as { slug?: string }).slug)
+      .filter((entry): entry is string => !!entry)
+      .sort();
+    throw new Error(
+      `Academia com slug "${slug}" nao encontrada. Slugs neste projeto: ${
+        slugs.length ? slugs.map((entry) => `"${entry}"`).join(', ') : '(nenhuma academia)'
+      }`,
+    );
   }
   if (snapshot.size > 1) {
     throw new Error(`Slug "${slug}" duplicado; corrija antes de continuar.`);
@@ -159,6 +170,15 @@ async function loadUsers(): Promise<UserEntry[]> {
 
 async function main(): Promise<void> {
   const args = parseArgs(process.argv.slice(2));
+
+  // O `initializeApp()` sem argumentos pega o projeto do ambiente (GOOGLE_CLOUD_PROJECT, ou o do
+  // ADC). Um `gcloud auth application-default login` feito para outra coisa aponta o script para
+  // OUTRO banco sem avisar, e um script que grava nao pode depender de adivinhacao. Imprime sempre.
+  const projectId = app.options.projectId
+    ?? process.env.GOOGLE_CLOUD_PROJECT
+    ?? process.env.GCLOUD_PROJECT
+    ?? '(desconhecido)';
+  console.log(`[projeto] conectado em "${projectId}". Confira antes de gravar.`);
 
   // --trustName reaponta ids: tira aulas de quem hoje as tem. Nunca deixar isso rodar na rede
   // inteira nem as cegas — exige unidade explicita e uma passagem de inspecao antes de gravar.
