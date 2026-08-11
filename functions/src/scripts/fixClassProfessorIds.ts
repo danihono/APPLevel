@@ -136,10 +136,10 @@ async function resolveAcademyId(args: SweepArgs): Promise<string | undefined> {
   }
 
   const all = await db.collection(COLLECTIONS.academies).get();
-  const entries = all.docs.map((doc) => ({
-    id: doc.id,
-    slug: (doc.data() as { slug?: string }).slug ?? '',
-  }));
+  const entries = all.docs.map((doc) => {
+    const data = doc.data() as { slug?: string; name?: string };
+    return { id: doc.id, slug: data.slug ?? '', name: data.name ?? '(sem nome)' };
+  });
 
   const exact = entries.filter((entry) => entry.slug === slug);
   if (exact.length === 1) {
@@ -156,19 +156,24 @@ async function resolveAcademyId(args: SweepArgs): Promise<string | undefined> {
     // Caso real neste projeto: "Unidade" e "Unidade " so diferem por um espaco invisivel. Nao da
     // para escolher por voce — o id do documento e o unico desempate honesto.
     throw new Error(
-      `Slug "${slug}" casa com ${loose.length} academias: ${
-        loose.map((entry) => `"${entry.slug}" (id ${entry.id})`).join(', ')
-      }. Use --academyId=<id> para escolher.`,
+      `Slug "${slug}" casa com ${loose.length} academias:\n${
+        loose.map((entry) => `  - ${entry.name} | slug "${entry.slug}" | --academyId=${entry.id}`).join('\n')
+      }\nUse --academyId=<id> para escolher.`,
     );
   }
 
   // Slug errado e projeto errado dao o mesmo erro ("nao encontrada"). Listar o que existe separa
   // os dois casos na hora: lista vazia ou desconhecida = voce esta no projeto errado.
+  // Lista o NOME junto: os slugs em producao sao genericos ("Unidade", "Unidade ") e nao dizem qual
+  // unidade e qual. Sem o nome nao da para escolher, e o id sem o nome nao ajuda ninguem.
   throw new Error(
-    `Academia com slug "${slug}" nao encontrada. Slugs neste projeto: ${
+    `Academia com slug "${slug}" nao encontrada. Academias neste projeto:\n${
       entries.length
-        ? entries.map((entry) => `"${entry.slug}" (id ${entry.id})`).sort().join(', ')
-        : '(nenhuma academia)'
+        ? entries
+          .map((entry) => `  - ${entry.name} | slug "${entry.slug}" | --academyId=${entry.id}`)
+          .sort()
+          .join('\n')
+        : '  (nenhuma academia)'
     }`,
   );
 }
