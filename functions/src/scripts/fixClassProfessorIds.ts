@@ -56,13 +56,19 @@ import { app, db } from '../lib/firebase';
 //   npm run firebase:fix:class-professors -- --academySlug=minha-academia \
 //     --trustName --professorName="Ricardo Saldanha"
 //
-// --trustName exige --academySlug (nunca roda na rede inteira) e avisa em voz alta quando roda sem
-// --dryRun — o script nao tem como saber se a inspecao foi feita, entao o passo 1 fica com voce.
-// --professorName limita a varredura a um nome so; sem ele, todas as aulas divergentes da unidade
-// entram.
+// --trustName exige --academySlug ou --academyId (nunca roda na rede inteira) e avisa em voz alta
+// quando roda sem --dryRun — o script nao tem como saber se a inspecao foi feita, entao o passo 1
+// fica com voce. --professorName limita a varredura a um nome so; sem ele, todas as aulas
+// divergentes da unidade entram.
+//
+// Escolhendo a unidade: --academySlug casa exato e, nao achando, ignorando caixa e espaco nas
+// pontas. Os slugs em producao nao seguem o formato esperado (ha "Matriz" e "Unidade " com espaco
+// no fim), entao slug ambiguo pede --academyId=<id do documento>, que nunca e ambiguo. Rodar com um
+// slug inexistente lista os slugs e os ids do projeto — e o jeito rapido de descobrir os dois.
 
 interface SweepArgs {
   academySlug?: string;
+  academyId?: string;
   dryRun: boolean;
   trustName: boolean;
   professorName?: string;
@@ -100,36 +106,71 @@ function parseArgs(argv: string[]): SweepArgs {
   }
 
   return {
-    academySlug: parsed.get('academySlug')?.trim().toLowerCase(),
+    // Sem `.toLowerCase()`: os slugs gravados em producao nao seguem o formato esperado (existem
+    // "Matriz" e "Unidade " com maiuscula e espaco no fim), entao normalizar a entrada aqui fazia o
+    // valor nunca casar. Quem normaliza os dois lados agora e resolveAcademyId.
+    academySlug: parsed.get('academySlug')?.trim(),
+    academyId: parsed.get('academyId')?.trim() || undefined,
     dryRun: parsed.get('dryRun') === 'true',
     trustName: parsed.get('trustName') === 'true',
     professorName: parsed.get('professorName')?.trim() || undefined,
   };
 }
 
-async function resolveAcademyId(slug?: string): Promise<string | undefined> {
+// Resolve a unidade por `--academyId` (id do documento, sem ambiguidade possivel) ou por
+// `--academySlug`. O slug casa primeiro exato e, se nao achar, ignorando caixa e espaco nas pontas —
+// os slugs gravados nao seguem o formato esperado ("Matriz", "Unidade " com espaco no fim), e exigir
+// o valor exato deixaria a unidade inalcancavel pela linha de comando.
+async function resolveAcademyId(args: SweepArgs): Promise<string | undefined> {
+  if (args.academyId) {
+    const doc = await db.collection(COLLECTIONS.academies).doc(args.academyId).get();
+    if (!doc.exists) {
+      throw new Error(`Academia com id "${args.academyId}" nao encontrada neste projeto.`);
+    }
+    return doc.id;
+  }
+
+  const slug = args.academySlug;
   if (!slug) {
     return undefined;
   }
-  const snapshot = await db.collection(COLLECTIONS.academies).where('slug', '==', slug).limit(2).get();
-  if (snapshot.empty) {
-    // Slug errado e projeto errado dao o mesmo erro ("nao encontrada"). Listar o que existe separa
-    // os dois casos na hora: lista vazia ou desconhecida = voce esta no projeto errado.
-    const all = await db.collection(COLLECTIONS.academies).get();
-    const slugs = all.docs
-      .map((doc) => (doc.data() as { slug?: string }).slug)
-      .filter((entry): entry is string => !!entry)
-      .sort();
+
+  const all = await db.collection(COLLECTIONS.academies).get();
+  const entries = all.docs.map((doc) => ({
+    id: doc.id,
+    slug: (doc.data() as { slug?: string }).slug ?? '',
+  }));
+
+  const exact = entries.filter((entry) => entry.slug === slug);
+  if (exact.length === 1) {
+    return exact[0].id;
+  }
+
+  const loose = entries.filter((entry) => entry.slug.trim().toLowerCase() === slug.trim().toLowerCase());
+  if (loose.length === 1) {
+    console.log(`[unidade] "${slug}" casou com o slug gravado "${loose[0].slug}" (id ${loose[0].id}).`);
+    return loose[0].id;
+  }
+
+  if (loose.length > 1) {
+    // Caso real neste projeto: "Unidade" e "Unidade " so diferem por um espaco invisivel. Nao da
+    // para escolher por voce — o id do documento e o unico desempate honesto.
     throw new Error(
-      `Academia com slug "${slug}" nao encontrada. Slugs neste projeto: ${
-        slugs.length ? slugs.map((entry) => `"${entry}"`).join(', ') : '(nenhuma academia)'
-      }`,
+      `Slug "${slug}" casa com ${loose.length} academias: ${
+        loose.map((entry) => `"${entry.slug}" (id ${entry.id})`).join(', ')
+      }. Use --academyId=<id> para escolher.`,
     );
   }
-  if (snapshot.size > 1) {
-    throw new Error(`Slug "${slug}" duplicado; corrija antes de continuar.`);
-  }
-  return snapshot.docs[0].id;
+
+  // Slug errado e projeto errado dao o mesmo erro ("nao encontrada"). Listar o que existe separa
+  // os dois casos na hora: lista vazia ou desconhecida = voce esta no projeto errado.
+  throw new Error(
+    `Academia com slug "${slug}" nao encontrada. Slugs neste projeto: ${
+      entries.length
+        ? entries.map((entry) => `"${entry.slug}" (id ${entry.id})`).sort().join(', ')
+        : '(nenhuma academia)'
+    }`,
+  );
 }
 
 // Copia de `normalizePersonName` (utils.ts, na raiz) — o script casa exatamente os mesmos registros
@@ -183,8 +224,8 @@ async function main(): Promise<void> {
   // --trustName reaponta ids: tira aulas de quem hoje as tem. Nunca deixar isso rodar na rede
   // inteira nem as cegas — exige unidade explicita e uma passagem de inspecao antes de gravar.
   if (args.trustName) {
-    if (!args.academySlug) {
-      throw new Error('--trustName exige --academySlug: reparo por nome nao roda na rede inteira.');
+    if (!args.academySlug && !args.academyId) {
+      throw new Error('--trustName exige --academySlug ou --academyId: reparo por nome nao roda na rede inteira.');
     }
     if (!args.dryRun) {
       console.warn(
@@ -195,11 +236,11 @@ async function main(): Promise<void> {
   }
 
   const normalizedTargetName = normalizeName(args.professorName);
-  const academyId = await resolveAcademyId(args.academySlug);
+  const academyId = await resolveAcademyId(args);
 
   if (args.trustName) {
     console.log(
-      `[modo] confiando no nome (--trustName) na unidade "${args.academySlug}", nome: ${
+      `[modo] confiando no nome (--trustName) na unidade ${args.academySlug ? `"${args.academySlug}"` : `id ${args.academyId}`} (id ${academyId}), nome: ${
         normalizedTargetName ? `"${args.professorName}"` : 'todos os nomes divergentes'
       }, dryRun: ${args.dryRun}.`,
     );
