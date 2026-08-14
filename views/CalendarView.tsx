@@ -281,30 +281,66 @@ const ClassListItem: React.FC<ClassListItemProps> = ({ lesson, onOpen, nowMs, co
   const colors = statusColors(displayStatus);
 
   if (compact) {
+    const professorName = lesson.professorName || 'Equipe técnica';
+    const tatameName = lesson.tatame || 'Tatame principal';
+
     return (
       <button
         type="button"
         onClick={() => onOpen(lesson.id)}
         className="calendar-mobile__class-card"
+        // Sem isto o nome acessivel do botao vira a concatenacao crua do conteudo, e o "Vou"
+        // sozinho no fim fica indecifravel. Um rotulo explicito monta a frase na ordem que faz
+        // sentido ouvir.
+        aria-label={[
+          `Aula ${lesson.title}`,
+          showDate ? `dia ${classDateParts(lesson).day}` : null,
+          classTimeRange(lesson),
+          `status ${statusLabel(displayStatus).toLocaleLowerCase('pt-BR')}`,
+          professorName,
+          tatameName,
+          isConfirmed ? 'presença confirmada' : null,
+        ].filter(Boolean).join(', ')}
       >
+        {/* A barra colorida vira reforco do chip de status, nao mais o unico portador da
+            informacao: `unfinished` (laranja) e `scheduled` (dourado) sao cores vizinhas e, com
+            0.22rem de largura, ninguem distinguia uma da outra. */}
         <span
           className="calendar-mobile__class-accent"
-          style={{ backgroundColor: displayStatus === 'scheduled' ? 'var(--gold-mid)' : colors.accent }}
+          style={{ backgroundColor: colors.accent }}
           aria-hidden="true"
         />
 
         <div className="calendar-mobile__class-copy">
-          <p className="calendar-mobile__class-title">{lesson.title}</p>
+          <div className="calendar-mobile__class-headline">
+            <p className="calendar-mobile__class-title">{lesson.title}</p>
+            <span className={`${statusBadgeClass(displayStatus)} app-badge--compact`}>
+              {statusLabel(displayStatus)}
+            </span>
+          </div>
+
           <p className="calendar-mobile__class-time">
             {showDate
-              ? `${classDateParts(lesson).day} • ${formatTimeLabel(lesson.scheduledStart)}`
-              : formatTimeLabel(lesson.scheduledStart)}
+              ? `${classDateParts(lesson).day} • ${classTimeRange(lesson)}`
+              : classTimeRange(lesson)}
+          </p>
+
+          {/* Mesmos campos e fallbacks do card desktop (ramo abaixo), para as duas versoes da
+              tela dizerem a mesma coisa — vide a regra de paridade no CLAUDE.md. */}
+          <p className="calendar-mobile__class-meta">
+            <span className="calendar-mobile__class-meta-item">{professorName}</span>
+            {/* O icone separa os dois campos melhor que um "·": ele quebra junto com o tatame,
+                entao nunca sobra um separador orfao no fim da linha quando o nome do professor e
+                longo. E o mesmo MapPin da meta-row do desktop. */}
+            <span className="calendar-mobile__class-meta-item calendar-mobile__class-meta-item--place">
+              <MapPin size={13} aria-hidden="true" />
+              {tatameName}
+            </span>
+            {isConfirmed ? (
+              <span className="app-badge app-badge--success app-badge--compact">Vou</span>
+            ) : null}
           </p>
         </div>
-
-        {isConfirmed ? (
-          <span className="app-badge app-badge--success" style={{ flexShrink: 0, fontSize: '0.65rem' }}>Vou</span>
-        ) : null}
 
         <ChevronRight size={18} className="calendar-mobile__class-arrow" aria-hidden="true" />
       </button>
@@ -454,7 +490,7 @@ const DayOverflowModal: React.FC<DayOverflowModalProps> = ({ date, dayClasses, o
                     </p>
                   ) : null}
                 </div>
-                <span className={statusBadgeClass(displayStatus)} style={{ flexShrink: 0, fontSize: '0.65rem' }}>
+                <span className={`${statusBadgeClass(displayStatus)} app-badge--compact`} style={{ flexShrink: 0 }}>
                   {statusLabel(displayStatus)}
                 </span>
                 <ChevronRight size={16} style={{ color: 'var(--text-soft)', flexShrink: 0 }} />

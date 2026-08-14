@@ -1065,6 +1065,47 @@ html.dark .app-panel--tint {
   box-shadow: 0 18px 34px rgba(15, 18, 33, 0.12);
 }
 
+/* Tokens de "papel".
+ *
+ * `.calendar-mobile__day-section` permanece CLARO nos dois temas (ver a regra `html.dark` logo
+ * abaixo — e intencional, estetica de papel). Os tokens globais, porem, invertem: no escuro
+ * `--text-muted` vira #c7c6d2 e `--success` vira #34d399. Resultado: horario do card, cabecalho,
+ * estado vazio e os chips de status ficavam com contraste na casa de 1.5:1 — texto claro sobre
+ * papel claro.
+ *
+ * Redeclaramos os tokens CANONICOS em vez de criar nomes novos (`--paper-*`), seguindo o
+ * precedente de `.app-shell--flat .app-sidebar.app-panel`: assim todo descendente que ja consome
+ * `var(--text-muted)` ou `var(--success)` se corrige sozinho — em especial `.app-badge--muted`,
+ * `--success` e `--danger`, que sao lidos de dentro do proprio componente de badge.
+ *
+ * Os valores sao os do `:root` (tema claro) e ficam FORA de `html.dark` de proposito: a superficie
+ * e invariante ao tema, entao o escopo tambem deve ser.
+ *
+ * ATENCAO — a lista de seletores e deliberadamente estreita e NAO usa
+ * `.calendar-mobile__day-section`. Os `<select class="app-input">` dos filtros vivem dentro da
+ * secao e, no escuro, recebem fundo quase preto (`html.dark .app-input`) enquanto usam
+ * `color: var(--text-strong)`. Herdar o token na secao inteira daria texto preto sobre fundo
+ * preto — trocaria um bug por outro pior. So entram aqui os elementos que de fato assentam
+ * sobre o papel. */
+.calendar-mobile__day-label,
+.calendar-mobile__day-title,
+.calendar-mobile__empty,
+.calendar-mobile__class-card,
+.calendar-mobile__day-section .app-badge {
+  --text-strong: #10131a;
+  --text-muted: #434c5f;
+  --text-soft: #606a7f;
+  --success: #29a675;
+  --danger: #d74b4b;
+}
+
+/* `--gold-mid` (#c49746) sobre papel branco da 2.67:1 — reprova AA, e `scheduled` e justamente o
+ * status mais frequente. Escurece so aqui dentro; o `--gold-mid` global continua servindo a barra
+ * de accent, onde e cor decorativa e nao texto. */
+.calendar-mobile__day-section .app-badge--gold {
+  color: var(--gold-dark);
+}
+
 .calendar-mobile__day-head {
   display: flex;
   align-items: center;
@@ -1116,6 +1157,35 @@ html.dark .app-panel--tint {
   text-align: left;
 }
 
+/* O card e um <button> e nao tinha nenhum estilo de foco: em navegacao por teclado, e no Full
+ * Keyboard Access / Switch Control do iOS (o app roda em Capacitor), o foco ficava invisivel
+ * sobre o cartao branco. */
+.calendar-mobile__class-card:focus-visible {
+  outline: none;
+  border-color: rgba(232, 175, 72, 0.45);
+  box-shadow:
+    0 0 0 3px rgba(232, 175, 72, 0.22),
+    0 12px 24px rgba(15, 18, 33, 0.08);
+}
+
+.calendar-mobile__class-card:active {
+  transform: scale(0.985);
+}
+
+.calendar-mobile__class-card {
+  transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .calendar-mobile__class-card {
+    transition: none;
+  }
+
+  .calendar-mobile__class-card:active {
+    transform: none;
+  }
+}
+
 .calendar-mobile__class-accent {
   width: 0.22rem;
   align-self: stretch;
@@ -1128,17 +1198,65 @@ html.dark .app-panel--tint {
   flex: 1 1 auto;
 }
 
+/* Titulo e chip de status na mesma linha. O chip e `flex: none` e o titulo encolhe com
+   reticencias: sem isso, num iPhone SE (320px) um titulo longo empurraria o status para fora. */
+.calendar-mobile__class-headline {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
 .calendar-mobile__class-title {
   margin: 0;
-  color: #10131a;
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-strong);
   font-size: 1.08rem;
   font-weight: 800;
+}
+
+.calendar-mobile__class-headline .app-badge {
+  flex: none;
 }
 
 .calendar-mobile__class-time {
   margin: 0.3rem 0 0;
   color: var(--text-muted);
   font-size: 0.92rem;
+  font-weight: 600;
+}
+
+/* Professor e tatame. Quebra em vez de estourar quando o nome e longo. */
+.calendar-mobile__class-meta {
+  margin: 0.35rem 0 0;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.3rem 0.7rem;
+  color: var(--text-soft);
+  font-size: 0.82rem;
+}
+
+.calendar-mobile__class-meta-item {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.calendar-mobile__class-meta-item--place {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  flex: none;
+}
+
+.calendar-mobile__class-meta-item--place svg {
+  flex: none;
+  opacity: 0.7;
 }
 
 .calendar-mobile__class-arrow {
@@ -2728,6 +2846,16 @@ html.dark .notice-mobile__compose-title {
   font-weight: 800;
   letter-spacing: 0.14em;
   text-transform: uppercase;
+}
+
+/* `.app-badge` tem `min-height: 2rem`, alto demais para uma linha compacta — numa lista de celular
+   ele domina a altura do card. Este modificador existe para substituir o `style={{fontSize}}`
+   inline que estava repetido nos pontos compactos. */
+.app-badge--compact {
+  min-height: 0;
+  padding: 0.2rem 0.5rem;
+  font-size: 0.62rem;
+  letter-spacing: 0.1em;
 }
 
 .app-badge--gold {
