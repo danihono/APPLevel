@@ -64,7 +64,9 @@ export interface EditClassPayload {
 
 interface EditClassModalProps {
   lesson: FirestoreEntity<ClassRecord>;
-  professors: Array<{ id: string; displayName: string }>;
+  // `label` e so para exibicao no seletor. O que se grava na aula e sempre `displayName` —
+  // ver a montagem em App.tsx (case 'calendar').
+  professors: Array<{ id: string; displayName: string; label?: string }>;
   onClose: () => void;
   onSubmit: (payload: EditClassPayload) => Promise<UpdateRecurringClassSeriesResult>;
 }
@@ -232,7 +234,7 @@ const EditClassModal: React.FC<EditClassModalProps> = ({ lesson, professors, onC
             <span className="app-field__label">Professor</span>
             <select value={professorId} onChange={(event) => handleProfessorChange(event.target.value)} className="app-input">
               {professorOptions.map((professor) => (
-                <option key={professor.id} value={professor.id}>{professor.displayName}</option>
+                <option key={professor.id} value={professor.id}>{professor.label ?? professor.displayName}</option>
               ))}
             </select>
           </label>

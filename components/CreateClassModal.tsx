@@ -116,7 +116,9 @@ export interface CreateClassPayload {
 }
 
 interface CreateClassModalProps {
-  professors: Array<{ id: string; displayName: string }>;
+  // `label` e so para exibicao no seletor. O que se grava na aula e sempre `displayName` —
+  // ver a montagem em App.tsx (case 'calendar').
+  professors: Array<{ id: string; displayName: string; label?: string }>;
   currentUserId: string;
   currentUserName: string;
   selectedDay: Date;
@@ -534,7 +536,7 @@ const CreateClassModal: React.FC<CreateClassModalProps> = ({
               <span className="app-field__label">Professor</span>
               <select value={professorId} onChange={(event) => handleProfessorChange(event.target.value)} className="app-input">
                 {professorOptions.map((professor) => (
-                  <option key={professor.id} value={professor.id}>{professor.displayName}</option>
+                  <option key={professor.id} value={professor.id}>{professor.label ?? professor.displayName}</option>
                 ))}
               </select>
             </label>

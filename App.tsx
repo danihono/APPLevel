@@ -100,6 +100,7 @@ import type {
   UserRecord,
 } from './services/firebase/models';
 import { UserRole, type UserVideo } from './types';
+import { normalizePersonName } from './utils';
 
 const CalendarView = lazy(() => import('./views/CalendarView'));
 const CompetitionView = lazy(() => import('./views/CompetitionView'));
@@ -2707,7 +2708,7 @@ const App: React.FC = () => {
       case 'calendar': {
         const academyProfessors = academyUsers
           .filter((u) => u.role === 'professor' || u.role === 'superadmin')
-          .map((u) => ({ id: u.id, displayName: u.displayName }));
+          .map((u) => ({ id: u.id, displayName: u.displayName, role: u.role }));
 
         // Mesmo valor na injecao do usuario na lista de professores (abaixo) e no filtro "Minhas"
         // (CalendarView). Se os dois divergirem, o card mostra um nome e o filtro procura outro —
@@ -2718,12 +2719,31 @@ const App: React.FC = () => {
         // O superadmin da rede tem `academyId` vazio no proprio documento, entao ele nunca
         // aparece em `academyUsers` da unidade focada. Sem entrar nesta lista ele nao pode se
         // atribuir como professor de uma aula — e o filtro "Minhas" fica sempre vazio para ele.
-        const professors = !isStaff || academyProfessors.some((p) => p.id === currentUser.id)
+        const professorsBase = !isStaff || academyProfessors.some((p) => p.id === currentUser.id)
           ? academyProfessors
           : [
             ...academyProfessors,
-            { id: currentUser.id, displayName: currentUserDisplayName },
+            { id: currentUser.id, displayName: currentUserDisplayName, role: profile.role },
           ].sort((left, right) => left.displayName.localeCompare(right.displayName, 'pt-BR'));
+
+        // Uma mesma pessoa pode ter duas contas — o superadmin da rede e o professor da unidade —
+        // com o mesmo `displayName`. No seletor as duas apareciam como opcoes identicas, e nao havia
+        // como saber qual estava sendo escolhida. Desempata pelo papel, e SO NO ROTULO: o que se
+        // grava na aula continua sendo `displayName` puro, porque o filtro "Minhas" casa o
+        // `professorName` da aula com o nome do usuario (ver classBelongsToProfessor em
+        // CalendarView). Carimbar o papel dentro do nome gravado quebraria esse casamento.
+        const professorNameCount = new Map<string, number>();
+        professorsBase.forEach((entry) => {
+          const key = normalizePersonName(entry.displayName);
+          professorNameCount.set(key, (professorNameCount.get(key) ?? 0) + 1);
+        });
+        const professors = professorsBase.map((entry) => ({
+          id: entry.id,
+          displayName: entry.displayName,
+          label: (professorNameCount.get(normalizePersonName(entry.displayName)) ?? 0) > 1
+            ? `${entry.displayName} (${entry.role === 'superadmin' ? 'admin da rede' : 'professor da unidade'})`
+            : entry.displayName,
+        }));
 
         return (
           <CalendarView

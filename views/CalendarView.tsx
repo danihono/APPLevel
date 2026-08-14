@@ -40,7 +40,9 @@ interface CalendarViewProps {
   currentUserBelt?: string;
   currentUserStripes?: number;
   currentUserKidsCategory?: KidsCategory;
-  professors: Array<{ id: string; displayName: string }>;
+  // `label` e so para exibicao no seletor. O que se grava na aula e sempre `displayName` —
+  // ver a montagem em App.tsx (case 'calendar').
+  professors: Array<{ id: string; displayName: string; label?: string }>;
   classes: Array<FirestoreEntity<ClassRecord>>;
   attendanceRequests?: Array<FirestoreEntity<AttendanceRequestRecord>>;
   attendances?: Array<FirestoreEntity<AttendanceRecord>>;
@@ -1506,7 +1508,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
       >
         <option value="all">Todos os professores</option>
         {professors.map((prof) => (
-          <option key={prof.id} value={prof.id}>{prof.displayName}</option>
+          <option key={prof.id} value={prof.id}>{prof.label ?? prof.displayName}</option>
         ))}
       </select>
 
