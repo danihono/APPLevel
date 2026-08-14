@@ -2719,7 +2719,16 @@ const App: React.FC = () => {
         // O superadmin da rede tem `academyId` vazio no proprio documento, entao ele nunca
         // aparece em `academyUsers` da unidade focada. Sem entrar nesta lista ele nao pode se
         // atribuir como professor de uma aula — e o filtro "Minhas" fica sempre vazio para ele.
-        const professorsBase = !isStaff || academyProfessors.some((p) => p.id === currentUser.id)
+        //
+        // Mas quando ele JA TEM uma conta de professor na unidade (mesma pessoa, dois logins),
+        // injetar de novo cria duas opcoes identicas no seletor e faz o admin da rede aparecer como
+        // se desse aula. Considera "ja representado" por id OU por nome — a mesma nocao de
+        // identidade que classBelongsToProfessor usa no filtro "Minhas".
+        const currentUserAlreadyListed = academyProfessors.some((entry) => (
+          entry.id === currentUser.id
+          || normalizePersonName(entry.displayName) === normalizePersonName(currentUserDisplayName)
+        ));
+        const professorsBase = !isStaff || currentUserAlreadyListed
           ? academyProfessors
           : [
             ...academyProfessors,

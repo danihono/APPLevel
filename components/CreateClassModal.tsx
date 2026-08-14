@@ -182,17 +182,20 @@ const CreateClassModal: React.FC<CreateClassModalProps> = ({
   const [tipo, setTipo] = useState('iniciante');
   const [time, setTime] = useState(toHHMM(nextRound30(new Date())));
   const [duration, setDuration] = useState(60);
-  // Nunca cair em `professors[0]`: quando o usuario logado nao esta na lista (superadmin com
-  // `academyId` vazio, ou lista ainda carregando), "pegar o primeiro" gravava a aula no id de um
-  // estranho com o nome de quem criou. Foi assim que nasceram as aulas que aparecem com o nome
-  // certo e nunca entram em "Minhas". Sem correspondencia, oferecemos o proprio usuario como opcao
-  // explicita — o criador e sempre um dono plausivel; o professor ao lado nao e.
-  const professorOptions = professors.some((p) => p.id === currentUserId)
+  // Nunca cair em `professors[0]`: "pegar o primeiro" quando o usuario logado nao esta na lista
+  // gravava a aula no id de um estranho com o nome de quem criou. Foi assim que nasceram as aulas
+  // que aparecem com o nome certo e nunca entram em "Minhas".
+  //
+  // So oferecemos o proprio usuario quando NAO HA nenhum professor na unidade — senao o admin da
+  // rede apareceria no seletor de quem vai dar a aula, e ele nao da aula. Com a lista cheia e o
+  // usuario fora dela, ninguem vem pre-selecionado: a escolha passa a ser obrigatoria, que e o
+  // unico jeito honesto de nao atribuir a aula a alguem em silencio.
+  const professorOptions = professors.length > 0
     ? professors
-    : [{ id: currentUserId, displayName: currentUserName || 'Voce' }, ...professors];
-  const initialProfessor = professorOptions.find((p) => p.id === currentUserId) ?? professorOptions[0];
+    : [{ id: currentUserId, displayName: currentUserName || 'Voce' }];
+  const initialProfessor = professorOptions.find((p) => p.id === currentUserId);
   const [professorId, setProfessorId] = useState(initialProfessor?.id ?? '');
-  const [professorName, setProfessorName] = useState(initialProfessor?.displayName ?? currentUserName);
+  const [professorName, setProfessorName] = useState(initialProfessor?.displayName ?? '');
   const [tatame, setTatame] = useState('Tatame 1');
   const [capacity, setCapacity] = useState(30);
   const [submitting, setSubmitting] = useState(false);
@@ -312,6 +315,13 @@ const CreateClassModal: React.FC<CreateClassModalProps> = ({
         setError('Selecione pelo menos um dia da semana para a recorrência.');
         return;
       }
+    }
+
+    // Sem professor escolhido o backend cairia para o `actor.uid` (resolveClassProfessor), ou seja,
+    // a aula ficaria no admin da rede sem ninguem ter pedido isso. Melhor exigir a escolha.
+    if (!professorId) {
+      setError('Escolha o professor da aula.');
+      return;
     }
 
     if (payloads.length === 0) {
@@ -535,6 +545,7 @@ const CreateClassModal: React.FC<CreateClassModalProps> = ({
             <label className="app-field">
               <span className="app-field__label">Professor</span>
               <select value={professorId} onChange={(event) => handleProfessorChange(event.target.value)} className="app-input">
+                {professorId ? null : <option value="">Selecione o professor</option>}
                 {professorOptions.map((professor) => (
                   <option key={professor.id} value={professor.id}>{professor.label ?? professor.displayName}</option>
                 ))}
