@@ -211,6 +211,11 @@ export interface ClassRsvpDoc {
   updatedAt: FirebaseFirestore.Timestamp;
 }
 
+// Presenca registrada mas que nao entra na contagem de aulas do aluno.
+// 'beginner_class_belt' — aula LEVEL Iniciante e o aluno esta acima de faixa branca 2o grau.
+// 'daily_limit'         — o aluno ja tinha o maximo de presencas computadas naquele dia.
+export type AttendanceNonCountingReason = 'beginner_class_belt' | 'daily_limit';
+
 export interface AttendanceDoc {
   academyId: string;
   classId: string;
@@ -222,6 +227,15 @@ export interface AttendanceDoc {
   qrVersion?: number;
   sourceDevice?: string;
   countsAsAttendance?: boolean;
+  // Motivo de a presenca nao contar. Ausente quando ela conta normalmente.
+  nonCountingReason?: AttendanceNonCountingReason;
+  // Dia da AULA (scheduledStart) no fuso da academia, no formato 'YYYY-MM-DD'.
+  // E a chave do limite diario: uma presenca lancada com atraso continua pertencendo
+  // ao dia em que a aula aconteceu, nao ao dia do lancamento.
+  classDayKey?: string;
+  // scheduledStart da aula. Define a ordem canonica das aulas do dia — sem ele nao da
+  // para dizer quais foram "as 2 primeiras".
+  classStartAt?: FirebaseFirestore.Timestamp;
   createdAt: FirebaseFirestore.Timestamp;
   updatedAt: FirebaseFirestore.Timestamp;
 }

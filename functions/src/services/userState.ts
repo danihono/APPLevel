@@ -194,7 +194,11 @@ async function computeEngagementMetrics(userId: string, academyId: string): Prom
         .get(),
     ]);
 
-  const attendanceDates = attendanceTimelineSnapshot.docs.map((doc) => doc.get('checkedInAt') as FirebaseFirestore.Timestamp);
+  // Sequencia so conta dia treinado que virou presenca de verdade: um dia cujas presencas
+  // foram todas descartadas (aula iniciante fora da faixa ou limite diario) nao sustenta streak.
+  const attendanceDates = attendanceTimelineSnapshot.docs
+    .filter((doc) => doc.get('countsAsAttendance') !== false)
+    .map((doc) => doc.get('checkedInAt') as FirebaseFirestore.Timestamp);
   const streaks = computeStreaks(attendanceDates);
   const competitionPoints = fightsSnapshot.docs.reduce((total, doc) => total + resolveFightPoints(doc.data() as FightDoc), 0);
 

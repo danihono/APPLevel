@@ -1,6 +1,7 @@
 import type { Timestamp } from 'firebase/firestore';
 import type { ProgressionRules } from '../../beltCatalog';
 import type { KidsCategory } from '../../types';
+import type { AttendanceNonCountingReason } from '../../classRules';
 
 export type AppRole = 'student' | 'professor' | 'admin' | 'superadmin';
 export type ClassStatus = 'scheduled' | 'active' | 'finished' | 'cancelled';
@@ -141,6 +142,12 @@ export interface AttendanceRecord {
   checkInMethod: CheckInMethod;
   checkedInBy: string;
   countsAsAttendance?: boolean;
+  // Por que a presenca nao contou. Ausente quando ela conta. Vide classRules.ts.
+  nonCountingReason?: AttendanceNonCountingReason;
+  // Dia da AULA no fuso da academia ('YYYY-MM-DD') e horario de inicio dela: e por eles que o
+  // limite de presencas por dia e calculado, nao pelo momento do check-in.
+  classDayKey?: string;
+  classStartAt?: Timestamp;
   checkedInAt?: Timestamp;
   createdAt?: Timestamp;
   updatedAt?: Timestamp;

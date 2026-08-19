@@ -13,6 +13,7 @@ import {
   KIDS_CATEGORIES,
   type ProgressionRules,
 } from '../beltCatalog';
+import { nonCountingReasonLabel } from '../classRules';
 import { useConfirm } from '../components/ConfirmDialog';
 import { AlertTriangle, ArrowLeft, ArrowDown, ArrowUp, Award, Calendar, Camera, CheckCircle2, ChevronDown, ChevronUp, Clock, Filter, Mail, QrCode, Save, TrendingUp, User as UserIcon, UserCheck, UserX, Video, BookOpen, X } from 'lucide-react';
 import AppVideoContent from '../components/AppVideoContent';
@@ -1254,6 +1255,7 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
               const refDate = (attendance.checkedInAt ?? classInfo?.scheduledStart ?? attendance.createdAt)?.toDate?.();
               const dateLabel = refDate ? refDate.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Sem data';
               const counts = attendance.countsAsAttendance ?? true;
+              const notCountedLabel = nonCountingReasonLabel(attendance.nonCountingReason);
               return (
                 <div key={attendance.id} className="app-list-card flex items-start gap-4">
                   <div className="app-icon-shell">
@@ -1267,7 +1269,11 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
                       {classInfo?.professorName ? (
                         <span className="app-badge app-badge--muted">Prof. {classInfo.professorName}</span>
                       ) : null}
-                      {!counts ? <span className="app-badge app-badge--muted">Não computada</span> : null}
+                      {!counts ? (
+                        <span className="app-badge app-badge--muted">
+                          {notCountedLabel ? `Não computada · ${notCountedLabel}` : 'Não computada'}
+                        </span>
+                      ) : null}
                     </div>
                   </div>
                 </div>

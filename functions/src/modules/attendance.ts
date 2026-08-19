@@ -1,4 +1,4 @@
-import { Timestamp } from 'firebase-admin/firestore';
+import { FieldValue, Timestamp } from 'firebase-admin/firestore';
 import { onDocumentCreated, onDocumentDeleted } from 'firebase-functions/v2/firestore';
 import { onCall } from 'firebase-functions/v2/https';
 import {
@@ -8,12 +8,25 @@ import {
   COLLECTIONS,
   NotificationDoc,
   Role,
+  UserDoc,
 } from '../domain/models';
 import { getRequestContext, getUserDoc } from '../lib/context';
 import { assertCondition } from '../lib/errors';
 import { db } from '../lib/firebase';
 import { optionalString, requiredString } from '../lib/payload';
 import { hashQrToken } from '../lib/security';
+import {
+  CountingDecision,
+  dailyAttendanceQuery,
+  isBeginnerClass,
+  isEligibleForBeginnerClass,
+  recomputeDailyAttendanceCounting,
+  resolveAcademyTimezone,
+  resolveClassDayKey,
+  resolveDailyCounting,
+  sameDecision,
+  toDailyCandidate,
+} from '../services/attendanceRules';
 import { bumpClassAttendanceCounter, syncUserDerivedState } from '../services/userState';
 
 const callableOptions = { region: 'southamerica-east1', invoker: 'public' as const };
@@ -30,54 +43,109 @@ async function ensureNoAttendanceDuplicate(academyId: string, classId: string, u
   assertCondition(duplicateSnapshot.empty, 'already-exists', 'Presenca ja registrada para este atleta nesta aula.');
 }
 
+interface CreateAttendanceResult extends CountingDecision {
+  attendanceId: string;
+}
+
 async function createAttendanceRecord(params: {
   classId: string;
   classData: ClassDoc;
   userId: string;
+  targetUser: UserDoc;
   checkInMethod: AttendanceDoc['checkInMethod'];
   checkedInBy: string;
   checkedInByRole: Role;
   sourceDevice?: string;
   qrVersion?: number;
-}): Promise<string> {
-  await ensureNoAttendanceDuplicate(params.classData.academyId, params.classId, params.userId);
+}): Promise<CreateAttendanceResult> {
+  const academyId = params.classData.academyId;
+  await ensureNoAttendanceDuplicate(academyId, params.classId, params.userId);
+
+  // O dia da presenca e o dia da AULA no fuso da academia, nao o do lancamento: um professor
+  // que fecha a chamada no dia seguinte nao pode empurrar a presenca para o dia errado.
+  const now = Timestamp.now();
+  const timezone = await resolveAcademyTimezone(academyId);
+  // Aula sem horario e dado corrompido; cair no agora e melhor que estourar o check-in.
+  const classStartAt = params.classData.scheduledStart ?? now;
+  const classDayKey = resolveClassDayKey(classStartAt, timezone);
+  // Regra da aula iniciante: depende so da aula e do aluno, entao ja resolve fora da transacao.
+  const beginnerLocked = isBeginnerClass(params.classData) && !isEligibleForBeginnerClass(params.targetUser);
 
   const attendanceRef = db.collection(COLLECTIONS.attendances).doc();
   const classRef = db.collection(COLLECTIONS.classes).doc(params.classId);
-  const now = Timestamp.now();
-  const attendance: AttendanceDoc = {
-    academyId: params.classData.academyId,
-    classId: params.classId,
-    userId: params.userId,
-    checkInMethod: params.checkInMethod,
-    checkedInAt: now,
-    checkedInBy: params.checkedInBy,
-    checkedInByRole: params.checkedInByRole,
-    qrVersion: params.qrVersion,
-    sourceDevice: params.sourceDevice,
-    createdAt: now,
-    updatedAt: now,
-  };
+  let decision: CountingDecision = beginnerLocked
+    ? { countsAsAttendance: false, nonCountingReason: 'beginner_class_belt' }
+    : { countsAsAttendance: true };
 
   await db.runTransaction(async (transaction) => {
-    const duplicateSnapshot = await transaction.get(
-      db
-        .collection(COLLECTIONS.attendances)
-        .where('academyId', '==', params.classData.academyId)
-        .where('classId', '==', params.classId)
-        .where('userId', '==', params.userId)
-        .limit(1),
-    );
+    const [duplicateSnapshot, daySnapshot] = await Promise.all([
+      transaction.get(
+        db
+          .collection(COLLECTIONS.attendances)
+          .where('academyId', '==', academyId)
+          .where('classId', '==', params.classId)
+          .where('userId', '==', params.userId)
+          .limit(1),
+      ),
+      transaction.get(dailyAttendanceQuery(academyId, params.userId, classDayKey)),
+    ]);
     assertCondition(duplicateSnapshot.empty, 'already-exists', 'Presenca ja registrada para este atleta nesta aula.');
 
+    const decisions = resolveDailyCounting([
+      ...daySnapshot.docs.map((doc) => toDailyCandidate(doc.id, doc.data() as AttendanceDoc)),
+      {
+        id: attendanceRef.id,
+        classStartAtMs: classStartAt.toMillis(),
+        checkedInAtMs: now.toMillis(),
+        locked: beginnerLocked,
+      },
+    ]);
+    decision = decisions.get(attendanceRef.id) ?? decision;
+
+    const attendance: AttendanceDoc = {
+      academyId,
+      classId: params.classId,
+      userId: params.userId,
+      checkInMethod: params.checkInMethod,
+      checkedInAt: now,
+      checkedInBy: params.checkedInBy,
+      checkedInByRole: params.checkedInByRole,
+      qrVersion: params.qrVersion,
+      sourceDevice: params.sourceDevice,
+      countsAsAttendance: decision.countsAsAttendance,
+      nonCountingReason: decision.nonCountingReason,
+      classDayKey,
+      classStartAt,
+      createdAt: now,
+      updatedAt: now,
+    };
+
     transaction.set(attendanceRef, attendance);
+
+    // Uma aula lancada com atraso pode ser mais cedo que as ja computadas do dia: nesse caso
+    // ela toma a vaga e a mais tarde e rebaixada. Ajustamos na mesma transacao para o dia
+    // nunca ficar com mais presencas computadas do que o limite, nem por um instante.
+    for (const doc of daySnapshot.docs) {
+      const existing = doc.data() as AttendanceDoc;
+      const existingDecision = decisions.get(doc.id);
+      if (!existingDecision || sameDecision(existing, existingDecision)) {
+        continue;
+      }
+
+      transaction.update(doc.ref, {
+        countsAsAttendance: existingDecision.countsAsAttendance,
+        nonCountingReason: existingDecision.nonCountingReason ?? FieldValue.delete(),
+        updatedAt: now,
+      });
+    }
+
     transaction.update(classRef, {
       currentAttendanceCount: (params.classData.currentAttendanceCount ?? 0) + 1,
       updatedAt: now,
     });
   });
 
-  return attendanceRef.id;
+  return { attendanceId: attendanceRef.id, ...decision };
 }
 
 async function notifyRecipients(params: {
@@ -171,10 +239,11 @@ export const registerAttendance = onCall(callableOptions, async (request) => {
     assertCondition(hashQrToken(qrToken) === classData.activeQrHash, 'permission-denied', 'QR Code invalido.');
   }
 
-  const attendanceId = await createAttendanceRecord({
+  const { attendanceId, countsAsAttendance, nonCountingReason } = await createAttendanceRecord({
     classId,
     classData,
     userId: targetUserId,
+    targetUser,
     checkInMethod,
     checkedInBy: actor.uid,
     checkedInByRole: actor.role,
@@ -187,6 +256,8 @@ export const registerAttendance = onCall(callableOptions, async (request) => {
     classId,
     userId: targetUserId,
     method: checkInMethod,
+    countsAsAttendance,
+    nonCountingReason: nonCountingReason ?? null,
   };
 });
 
@@ -330,10 +401,11 @@ export const approveAttendanceRequest = onCall(callableOptions, async (request) 
   );
   assertCondition(targetUser.academyId === classData.academyId, 'permission-denied', 'Aluno e aula precisam pertencer a mesma academia.');
 
-  const attendanceId = await createAttendanceRecord({
+  const { attendanceId, countsAsAttendance, nonCountingReason } = await createAttendanceRecord({
     classId: attendanceRequest.classId,
     classData,
     userId: attendanceRequest.userId,
+    targetUser,
     checkInMethod: 'request',
     checkedInBy: actor.uid,
     checkedInByRole: actor.role,
@@ -366,6 +438,8 @@ export const approveAttendanceRequest = onCall(callableOptions, async (request) 
     requestId,
     attendanceId,
     status: 'approved' as const,
+    countsAsAttendance,
+    nonCountingReason: nonCountingReason ?? null,
   };
 });
 
@@ -443,6 +517,12 @@ export const onAttendanceDeleted = onDocumentDeleted(
     }
 
     await bumpClassAttendanceCounter(attendance.classId, -1);
+    // Removida uma das presencas computadas do dia, a mais antiga que tinha ficado de fora pelo
+    // limite diario e promovida. Precisa vir ANTES do sync, senao a progressao e recalculada
+    // com o estado velho. Presencas antigas (sem classDayKey) nao participam do recalculo.
+    if (attendance.classDayKey) {
+      await recomputeDailyAttendanceCounting(attendance.academyId, attendance.userId, attendance.classDayKey);
+    }
     await syncUserDerivedState(attendance.userId, attendance.academyId);
   },
 );

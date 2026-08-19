@@ -12,6 +12,12 @@ import LoginView from './views/LoginView';
 import ResetPasswordView from './views/ResetPasswordView';
 import StaffDashboardView from './views/StaffDashboardView';
 import { normalizeBeltId } from './beltCatalog';
+import {
+  BEGINNER_CLASS_WARNING,
+  DAILY_LIMIT_WARNING,
+  previewNonCountingReason,
+  type AttendanceNonCountingReason,
+} from './classRules';
 import { normalizeAudienceRole } from './learningAudience';
 import { resolveFocusPeriod, type FocusPeriodPreset } from './calendarUtils';
 import { logout, reauthenticateCurrentUser, signInWithEmail, subscribeToAuthState, updateSignedInEmail } from './services/firebase/auth';
@@ -579,6 +585,8 @@ const App: React.FC = () => {
   const [studentsFocusSection, setStudentsFocusSection] = useState<'list' | 'ranking' | 'deactivated' | null>(null);
   const [pendingCheckin, setPendingCheckin] = useState<{ token: string; classId: string } | null>(null);
   const [checkinStatus, setCheckinStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+  // Motivo devolvido pela Cloud Function quando a presenca foi registrada mas nao computa.
+  const [checkinNonCountingReason, setCheckinNonCountingReason] = useState<AttendanceNonCountingReason | null>(null);
   const [checkinStep, setCheckinStep] = useState<'initial' | 'confirm'>('initial');
   const [checkinError, setCheckinError] = useState('');
   const [themeScope, setThemeScope] = useState('guest');
@@ -1709,17 +1717,23 @@ const App: React.FC = () => {
     }
   }
 
-  async function handleRegisterAttendance(classId: string, qrToken?: string) {
+  // Devolve o motivo quando a presenca foi registrada mas NAO conta como aula, para a tela
+  // avisar o aluno em vez de dizer so "operacao concluida". null = presenca normal.
+  async function handleRegisterAttendance(
+    classId: string,
+    qrToken?: string,
+  ): Promise<AttendanceNonCountingReason | null> {
     const trimmedToken = qrToken?.trim();
     if (profile?.role === 'student' && !trimmedToken) {
       throw new Error('Informe o token do QR para registrar a presenca.');
     }
 
     try {
-      await backendFunctions.registerAttendance({
+      const result = await backendFunctions.registerAttendance({
         classId,
         qrToken: trimmedToken || undefined,
       });
+      return result.countsAsAttendance ? null : result.nonCountingReason ?? 'daily_limit';
     } catch (error) {
       throw new Error(getErrorMessage(error));
     }
@@ -2409,6 +2423,20 @@ const App: React.FC = () => {
     fights,
     videoLibrary: currentUserVideoLibrary,
   });
+  // Previa do que a Cloud Function vai decidir no check-in por QR (deep link), para o aluno
+  // saber antes de confirmar que aquela aula nao vira presenca. Vide classRules.ts.
+  const pendingCheckinClass = pendingCheckin
+    ? classes.find((entry) => entry.id === pendingCheckin.classId) ?? null
+    : null;
+  const pendingCheckinNonCountingReason = pendingCheckin
+    ? previewNonCountingReason({
+        classDescription: pendingCheckinClass?.description,
+        classStart: pendingCheckinClass?.scheduledStart?.toDate() ?? null,
+        belt: profile.belt,
+        stripes: profile.stripes,
+        attendances: attendances.filter((entry) => entry.userId === profile.id),
+      })
+    : null;
   const isSuperAdmin = profile.role === 'superadmin';
   const isSuperadminProfessorView = isSuperAdmin && superadminViewMode === 'professor';
   const isSuperadminNetworkView = isSuperAdmin && superadminViewMode !== 'professor';
@@ -2558,6 +2586,13 @@ const App: React.FC = () => {
     return !!date && date.getFullYear() === now.getFullYear() && date.getMonth() === now.getMonth();
   });
   const attendanceDays = [...new Set(attendanceThisMonth.map((attendance) => attendanceDate(attendance)?.getDate()).filter(Boolean))] as number[];
+  // "Treinos do mes" e o numero que o aluno compara com a progressao, entao segue a mesma
+  // contagem do backend: presenca nao computada (aula iniciante fora da faixa, limite diario)
+  // fica de fora. Os pontinhos do calendario e a frequencia continuam contando participacao —
+  // ele esteve no tatame naquele dia, mesmo sem virar aula.
+  const countedAttendanceThisMonth = attendanceThisMonth.filter(
+    (attendance) => attendance.countsAsAttendance !== false,
+  );
   const studentSourceUsers = isSuperadminNetworkView ? allUsers : academyUsers;
   const students = studentSourceUsers
     .filter((user) => user.role === 'student' && user.status !== 'suspended')
@@ -2674,7 +2709,7 @@ const App: React.FC = () => {
             <HomeView
               user={currentUser}
               branch={branch}
-              monthlyAttendanceCount={attendanceThisMonth.length}
+              monthlyAttendanceCount={countedAttendanceThisMonth.length}
               attendanceDays={attendanceDays}
               progressionRules={resolvedAcademy.progressionRules}
             />
@@ -2700,7 +2735,7 @@ const App: React.FC = () => {
           <HomeView
             user={currentUser}
             branch={branch}
-            monthlyAttendanceCount={attendanceThisMonth.length}
+            monthlyAttendanceCount={countedAttendanceThisMonth.length}
             attendanceDays={attendanceDays}
             progressionRules={resolvedAcademy.progressionRules}
           />
@@ -2997,7 +3032,7 @@ const App: React.FC = () => {
           <HomeView
             user={currentUser}
             branch={branch}
-            monthlyAttendanceCount={attendanceThisMonth.length}
+            monthlyAttendanceCount={countedAttendanceThisMonth.length}
             attendanceDays={attendanceDays}
             progressionRules={resolvedAcademy.progressionRules}
           />
@@ -3044,7 +3079,7 @@ const App: React.FC = () => {
                 type="button"
                 className="app-button app-button--ghost app-button--icon"
                 style={{ width: 32, height: 32 }}
-                onClick={() => { setPendingCheckin(null); setCheckinStatus('idle'); setCheckinStep('initial'); setCheckinError(''); }}
+                onClick={() => { setPendingCheckin(null); setCheckinStatus('idle'); setCheckinStep('initial'); setCheckinError(''); setCheckinNonCountingReason(null); }}
                 disabled={checkinStatus === 'loading'}
               >
                 <X size={16} />
@@ -3055,12 +3090,19 @@ const App: React.FC = () => {
             {checkinStatus === 'success' ? (
               <>
                 <CheckCircle size={48} style={{ color: '#22c55e' }} />
-                <p style={{ fontWeight: 600, fontSize: '1rem', color: '#22c55e' }}>Presença confirmada!</p>
+                <p style={{ fontWeight: 600, fontSize: '1rem', color: '#22c55e' }}>
+                  {checkinNonCountingReason ? 'Você está na lista!' : 'Presença confirmada!'}
+                </p>
+                {checkinNonCountingReason ? (
+                  <p className="app-alert app-alert--warning" style={{ textAlign: 'center' }}>
+                    {checkinNonCountingReason === 'beginner_class_belt' ? BEGINNER_CLASS_WARNING : DAILY_LIMIT_WARNING}
+                  </p>
+                ) : null}
                 <button
                   type="button"
                   className="app-button app-button--block"
                   style={{ background: '#fff', color: '#22c55e', fontWeight: 700, border: '1.5px solid #22c55e' }}
-                  onClick={() => { setPendingCheckin(null); setCheckinStatus('idle'); setCheckinStep('initial'); setActiveTab('calendar'); }}
+                  onClick={() => { setPendingCheckin(null); setCheckinStatus('idle'); setCheckinStep('initial'); setCheckinNonCountingReason(null); setActiveTab('calendar'); }}
                 >
                   Ver calendário
                 </button>
@@ -3071,6 +3113,11 @@ const App: React.FC = () => {
                 <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', textAlign: 'center', lineHeight: 1.5 }}>
                   Deseja registrar sua presença nesta aula?
                 </p>
+                {pendingCheckinNonCountingReason ? (
+                  <p className="app-alert app-alert--warning" style={{ textAlign: 'center' }}>
+                    {pendingCheckinNonCountingReason === 'beginner_class_belt' ? BEGINNER_CLASS_WARNING : DAILY_LIMIT_WARNING}
+                  </p>
+                ) : null}
                 {checkinError ? (
                   <p style={{ fontSize: '0.8rem', color: '#f87171', textAlign: 'center' }}>{checkinError}</p>
                 ) : null}
@@ -3079,7 +3126,7 @@ const App: React.FC = () => {
                     type="button"
                     className="app-button app-button--block"
                     style={{ background: '#fff', color: '#f87171', fontWeight: 700, border: '1.5px solid #f87171' }}
-                    onClick={() => { setPendingCheckin(null); setCheckinStatus('idle'); setCheckinStep('initial'); setCheckinError(''); }}
+                    onClick={() => { setPendingCheckin(null); setCheckinStatus('idle'); setCheckinStep('initial'); setCheckinError(''); setCheckinNonCountingReason(null); }}
                   >
                     Cancelar
                   </button>
@@ -3100,7 +3147,9 @@ const App: React.FC = () => {
                   Tem certeza?
                 </p>
                 <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', textAlign: 'center', lineHeight: 1.5 }}>
-                  Sua presença será registrada permanentemente.
+                  {pendingCheckinNonCountingReason
+                    ? 'Sua participação será registrada permanentemente, mas sem contar como aula.'
+                    : 'Sua presença será registrada permanentemente.'}
                 </p>
                 {checkinError ? (
                   <p style={{ fontSize: '0.8rem', color: '#f87171', textAlign: 'center' }}>{checkinError}</p>
@@ -3126,7 +3175,8 @@ const App: React.FC = () => {
                       void backendFunctions.registerAttendance({
                         classId: pendingCheckin.classId,
                         qrToken: pendingCheckin.token,
-                      }).then(() => {
+                      }).then((result) => {
+                        setCheckinNonCountingReason(result.countsAsAttendance ? null : result.nonCountingReason ?? 'daily_limit');
                         setCheckinStatus('success');
                       }).catch((err: unknown) => {
                         setCheckinStatus('error');

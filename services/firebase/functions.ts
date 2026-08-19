@@ -1,4 +1,5 @@
 import { httpsCallable, httpsCallableFromURL } from 'firebase/functions';
+import type { AttendanceNonCountingReason } from '../../classRules';
 import type {
   AppRole,
   AttendanceRequestStatus,
@@ -289,7 +290,14 @@ export const backendFunctions = {
     qrToken?: string;
     sourceDevice?: string;
     targetUserId?: string;
-  }) => callFunction<{ attendanceId: string; classId: string; userId: string; method: string }>('registerAttendance', payload),
+  }) => callFunction<{
+    attendanceId: string;
+    classId: string;
+    userId: string;
+    method: string;
+    countsAsAttendance: boolean;
+    nonCountingReason: AttendanceNonCountingReason | null;
+  }>('registerAttendance', payload),
 
   removeAttendance: (payload: { classId: string; targetUserId: string }) =>
     callFunction<{ classId: string; userId: string }>('removeAttendance', payload),
@@ -298,7 +306,13 @@ export const backendFunctions = {
     callFunction<{ requestId: string; classId: string; status: AttendanceRequestStatus }>('submitAttendanceRequest', payload),
 
   approveAttendanceRequest: (payload: { requestId: string }) =>
-    callFunction<{ requestId: string; attendanceId: string; status: AttendanceRequestStatus }>('approveAttendanceRequest', payload),
+    callFunction<{
+      requestId: string;
+      attendanceId: string;
+      status: AttendanceRequestStatus;
+      countsAsAttendance: boolean;
+      nonCountingReason: AttendanceNonCountingReason | null;
+    }>('approveAttendanceRequest', payload),
 
   rejectAttendanceRequest: (payload: { requestId: string }) =>
     callFunction<{ requestId: string; status: AttendanceRequestStatus }>('rejectAttendanceRequest', payload),

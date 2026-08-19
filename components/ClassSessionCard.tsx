@@ -3,6 +3,7 @@ import { Clock3, MapPin, Shield, Users, UserRound } from 'lucide-react';
 import { formatDateLabel, formatTimeLabel } from '../services/firebase/adapters';
 import type { FirestoreEntity } from '../services/firebase/data';
 import type { ClassRecord } from '../services/firebase/models';
+import { MAX_BEGINNER_STRIPES, isBeginnerClassType } from '../classRules';
 
 interface ClassSessionCardProps {
   lesson: FirestoreEntity<ClassRecord>;
@@ -35,21 +36,24 @@ function toRules(lesson: FirestoreEntity<ClassRecord>) {
   const source = `${lesson.title} ${desc}`.toLowerCase();
   const sex = source.includes('femin') ? 'Feminino' : source.includes('masc') ? 'Masculino' : 'Misto';
   const isSportVida = desc === 'sport' || desc === 'vida';
+  // A regra da iniciante e a unica que o backend aplica de verdade (classRules.ts), entao ela
+  // sai do CODIGO da turma, nao de um `includes` no titulo. As demais continuam informativas.
+  const isBeginner = isBeginnerClassType(desc);
   const belt = source.includes('advanced') || source.includes('avanc')
     ? 'Azul+'
     : source.includes('kids')
       ? 'Kids'
-      : source.includes('iniciante')
+      : isBeginner
         ? 'Branca'
         : isSportVida
           ? 'Branca+'
           : 'Livre';
   const grade = source.includes('advanced') || source.includes('avanc')
     ? 'Intermediário/Avançado'
-    : source.includes('iniciante')
-      ? 'até 2° grau'
+    : isBeginner
+      ? `até ${MAX_BEGINNER_STRIPES}° grau`
       : isSportVida
-        ? '> 2° grau'
+        ? `> ${MAX_BEGINNER_STRIPES}° grau`
         : 'Todos os graus';
 
   return { sex, belt, grade };

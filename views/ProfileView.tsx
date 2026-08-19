@@ -8,6 +8,7 @@ import {
   isBlackBelt,
   type ProgressionRules,
 } from '../beltCatalog';
+import { nonCountingReasonLabel } from '../classRules';
 import {
   AlertTriangle,
   Award,
@@ -962,6 +963,13 @@ const ProfileView: React.FC<ProfileViewProps> = ({
                     <p className="mt-1 text-xs text-[color:var(--text-soft)]">
                       {(classStartById.get(attendance.classId) ?? attendance.checkedInAt?.toDate())?.toLocaleString('pt-BR')} • método {attendance.checkInMethod}
                     </p>
+                    {attendance.countsAsAttendance === false ? (
+                      <span className="app-badge app-badge--muted mt-2 inline-flex">
+                        {nonCountingReasonLabel(attendance.nonCountingReason)
+                          ? `Não computada · ${nonCountingReasonLabel(attendance.nonCountingReason)}`
+                          : 'Não computada'}
+                      </span>
+                    ) : null}
                   </div>
                 ))}
                 {recentAttendances.length === 0 ? (

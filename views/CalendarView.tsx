@@ -7,6 +7,15 @@ import CreateClassModal, { type CreateClassPayload } from '../components/CreateC
 import DeleteClassModal, { type DeleteClassPayload } from '../components/DeleteClassModal';
 import EditClassModal, { type EditClassPayload } from '../components/EditClassModal';
 import { beltLabel, inferTrainingTypeFromBirthDate } from '../beltCatalog';
+import {
+  BEGINNER_CLASS_WARNING,
+  DAILY_LIMIT_WARNING,
+  isBeginnerClassType,
+  isEligibleForBeginnerClass,
+  nonCountingReasonLabel,
+  previewNonCountingReason,
+  type AttendanceNonCountingReason,
+} from '../classRules';
 import AvatarWithBelt from '../components/AvatarWithBelt';
 import { getMyClassRsvp, subscribeToClassAttendances, subscribeToClassRsvps, type FirestoreEntity } from '../services/firebase/data';
 import {
@@ -55,7 +64,8 @@ interface CalendarViewProps {
   onFinishClass: (classId: string) => Promise<void>;
   onRefreshQr: (classId: string) => Promise<QrSessionPayload>;
   academyStudents?: Array<FirestoreEntity<UserRecord>>;
-  onRegisterAttendance: (classId: string, qrToken?: string) => Promise<void>;
+  // Resolve com o motivo quando a presenca foi registrada mas nao conta como aula; null = normal.
+  onRegisterAttendance: (classId: string, qrToken?: string) => Promise<AttendanceNonCountingReason | null>;
   onSubmitAttendanceRequest: (classId: string) => Promise<void>;
   onMarkStudentPresent?: (classId: string, targetUserId: string) => Promise<void>;
   onRemoveStudentPresent?: (classId: string, targetUserId: string) => Promise<void>;
@@ -84,6 +94,16 @@ const CLASS_TYPE_LABELS: Record<string, string> = {
   'kids-02': 'Kids 2',
   'kids-03': 'Kids 3',
 };
+
+// O codigo da turma vem cru de `description` ('iniciante', 'kids-01'...). Mostrar o codigo
+// para o usuario e vazamento de modelo — sempre passar por aqui.
+function classTypeLabel(description?: string | null): string | null {
+  const code = (description ?? '').trim();
+  if (!code) {
+    return null;
+  }
+  return CLASS_TYPE_LABELS[code] ?? code;
+}
 
 function capitalize(value: string) {
   return value.charAt(0).toUpperCase() + value.slice(1);
@@ -328,6 +348,9 @@ const ClassListItem: React.FC<ClassListItemProps> = ({ lesson, onOpen, nowMs, co
           {/* Mesmos campos e fallbacks do card desktop (ramo abaixo), para as duas versoes da
               tela dizerem a mesma coisa — vide a regra de paridade no CLAUDE.md. */}
           <p className="calendar-mobile__class-meta">
+            {classTypeLabel(lesson.description) ? (
+              <span className="calendar-mobile__class-meta-item">{classTypeLabel(lesson.description)}</span>
+            ) : null}
             <span className="calendar-mobile__class-meta-item">{professorName}</span>
             {/* O icone separa os dois campos melhor que um "·": ele quebra junto com o tatame,
                 entao nunca sobra um separador orfao no fim da linha quando o nome do professor e
@@ -404,9 +427,9 @@ const ClassListItem: React.FC<ClassListItemProps> = ({ lesson, onOpen, nowMs, co
               ) : null}
             </div>
 
-            {lesson.description ? (
+            {classTypeLabel(lesson.description) ? (
               <p style={{ marginTop: 6, fontSize: '0.82rem', color: 'var(--text-muted)', lineHeight: 1.5 }}>
-                {lesson.description}
+                {classTypeLabel(lesson.description)}
               </p>
             ) : null}
           </div>
@@ -1238,6 +1261,28 @@ const CalendarView: React.FC<CalendarViewProps> = ({
         .sort((left, right) => (right.checkedInAt?.toDate().getTime() ?? 0) - (left.checkedInAt?.toDate().getTime() ?? 0)),
     [attendances, currentUserId],
   );
+  // Previa do que a Cloud Function vai decidir: o aluno merece saber ANTES de bater o QR que
+  // aquela aula nao vai virar presenca. Quem decide de verdade e o backend.
+  // Quantas das presencas desta aula realmente contam. O professor precisa enxergar a diferenca:
+  // numa aula iniciante metade da lista pode nao computar.
+  const countedClassAttendances = useMemo(
+    () => classAttendances.filter((entry) => entry.countsAsAttendance !== false).length,
+    [classAttendances],
+  );
+  const selectedClassIsBeginner = isBeginnerClassType(selectedClass?.description);
+  const selectedClassNonCountingReason = useMemo(
+    () =>
+      selectedClass
+        ? previewNonCountingReason({
+            classDescription: selectedClass.description,
+            classStart: selectedClass.scheduledStart?.toDate() ?? null,
+            belt: currentUserBelt,
+            stripes: currentUserStripes,
+            attendances: myAttendances,
+          })
+        : null,
+    [currentUserBelt, currentUserStripes, myAttendances, selectedClass],
+  );
 
   const classStartById = useMemo(() => {
     const records = new Map<string, Date>();
@@ -1348,14 +1393,25 @@ const CalendarView: React.FC<CalendarViewProps> = ({
     : 'Nenhuma aula programada para hoje.';
   const unfinishedEmptyMessage = 'Nenhuma aula não finalizada para você.';
 
-  async function runClassAction(classId: string, action: () => Promise<void | QrSessionPayload>) {
+  async function runClassAction(
+    classId: string,
+    action: () => Promise<void | QrSessionPayload | AttendanceNonCountingReason | null>,
+  ) {
     setBusyByClass((current) => ({ ...current, [classId]: true }));
     setMessageByClass((current) => ({ ...current, [classId]: '' }));
     try {
       const result = await action();
-      if (result && 'qrToken' in result) {
+      if (result && typeof result === 'object' && 'qrToken' in result) {
         setQrByClass((current) => ({ ...current, [classId]: result }));
         setMessageByClass((current) => ({ ...current, [classId]: 'QR atualizado.' }));
+      } else if (typeof result === 'string') {
+        // Presenca gravada, mas fora da contagem: dizer "operação concluída" aqui seria mentira.
+        setMessageByClass((current) => ({
+          ...current,
+          [classId]: `Participação registrada, mas sem contar como aula — ${
+            result === 'beginner_class_belt' ? 'a LEVEL Iniciante é para faixa branca até 2 graus.' : 'limite de 2 presenças no dia.'
+          }`,
+        }));
       } else {
         setMessageByClass((current) => ({ ...current, [classId]: 'Operação concluída.' }));
       }
@@ -1953,6 +2009,13 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                           <span style={{ fontSize: '0.75rem', color: 'var(--text-soft)' }}>no mes atual</span>
                         </div>
                       ) : null}
+                      {selectedClassNonCountingReason ? (
+                        <p className="app-alert app-alert--warning">
+                          {selectedClassNonCountingReason === 'beginner_class_belt'
+                            ? BEGINNER_CLASS_WARNING
+                            : DAILY_LIMIT_WARNING}
+                        </p>
+                      ) : null}
                       <div style={{ display: 'flex', gap: 8 }}>
                         <input
                           ref={tokenInputRef}
@@ -2179,6 +2242,9 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                             ? `${filteredPresencaStudents.length} de ${pendingPresencaStudents.length}`
                             : pendingPresencaStudents.length}
                           {' '}· {classAttendances.length} presentes
+                          {countedClassAttendances !== classAttendances.length
+                            ? ` (${countedClassAttendances} computadas)`
+                            : ''}
                         </p>
                       </div>
 
@@ -2230,6 +2296,17 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                                 {record ? (
                                   <p style={{ fontSize: '0.72rem', color: 'var(--text-soft)', marginTop: 2 }}>
                                     {record.checkedInAt ? formatTimeLabel(record.checkedInAt) : '-'} · {methodLabel(record.checkInMethod)}
+                                    {record.countsAsAttendance === false
+                                      ? ` · não computada${
+                                          nonCountingReasonLabel(record.nonCountingReason)
+                                            ? ` (${nonCountingReasonLabel(record.nonCountingReason)})`
+                                            : ''
+                                        }`
+                                      : ''}
+                                  </p>
+                                ) : selectedClassIsBeginner && !isEligibleForBeginnerClass(student.belt, student.stripes) ? (
+                                  <p style={{ fontSize: '0.72rem', color: 'var(--text-soft)', marginTop: 2 }}>
+                                    Pode treinar, mas não computa presença nesta aula
                                   </p>
                                 ) : null}
                                 {studentError ? (
