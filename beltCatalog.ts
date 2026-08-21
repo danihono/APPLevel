@@ -637,6 +637,18 @@ export function getUserProgressionSummary(params: {
   };
 }
 
+// Progresso do ciclo do grau atual para exibicao em listas: "20/30". null quando nao ha ciclo de
+// grau (faixa preta, que progride por tempo, ou regra sem stripeEvery).
+export function getGradeProgressLabel(
+  params: Parameters<typeof getUserProgressionSummary>[0],
+  rules?: ProgressionRules | null,
+): string | null {
+  const progression = getUserProgressionSummary(params, rules);
+  return progression.stripeCycleTotal > 0
+    ? `${progression.stripeCycleProgress}/${progression.stripeCycleTotal}`
+    : null;
+}
+
 export function getBeltMeta(value?: string | null): BeltMeta {
   return BELT_META_BY_ID.get(normalizeBeltId(value)) ?? BELT_META_BY_ID.get(BeltColor.BRANCA)!;
 }

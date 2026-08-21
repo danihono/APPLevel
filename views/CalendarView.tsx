@@ -6,7 +6,7 @@ import ClassSessionCard from '../components/ClassSessionCard';
 import CreateClassModal, { type CreateClassPayload } from '../components/CreateClassModal';
 import DeleteClassModal, { type DeleteClassPayload } from '../components/DeleteClassModal';
 import EditClassModal, { type EditClassPayload } from '../components/EditClassModal';
-import { beltLabel, inferTrainingTypeFromBirthDate } from '../beltCatalog';
+import { beltLabel, getGradeProgressLabel, inferTrainingTypeFromBirthDate, type ProgressionRules } from '../beltCatalog';
 import {
   BEGINNER_CLASS_WARNING,
   DAILY_LIMIT_WARNING,
@@ -64,6 +64,8 @@ interface CalendarViewProps {
   onFinishClass: (classId: string) => Promise<void>;
   onRefreshQr: (classId: string) => Promise<QrSessionPayload>;
   academyStudents?: Array<FirestoreEntity<UserRecord>>;
+  // Regras de progressao da academia — usadas para mostrar o ciclo do grau ("20/30") nas listas.
+  progressionRules?: ProgressionRules | null;
   // Resolve com o motivo quando a presenca foi registrada mas nao conta como aula; null = normal.
   onRegisterAttendance: (classId: string, qrToken?: string) => Promise<AttendanceNonCountingReason | null>;
   onSubmitAttendanceRequest: (classId: string) => Promise<void>;
@@ -790,6 +792,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
   onFinishClass,
   onRefreshQr,
   academyStudents = [],
+  progressionRules,
   onRegisterAttendance,
   onSubmitAttendanceRequest,
   onMarkStudentPresent,
@@ -1346,13 +1349,14 @@ const CalendarView: React.FC<CalendarViewProps> = ({
           stripes: student?.stripes ?? 0,
           grade: student?.grade ?? 0,
           photoPath: student?.photoPath,
+          gradeProgress: student ? getGradeProgressLabel(student, progressionRules) : null,
         };
       })
       .sort((left, right) =>
         left.sourceOrder - right.sourceOrder
         || left.displayName.localeCompare(right.displayName, 'pt-BR'),
       );
-  }, [attendanceByUserId, classAttendances, classRsvps, rsvpByUserId, studentById]);
+  }, [attendanceByUserId, classAttendances, classRsvps, progressionRules, rsvpByUserId, studentById]);
 
   const pendingPresencaStudents = useMemo(() => {
     return [...academyStudents]
@@ -2120,7 +2124,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                           const rsvpBusy = !!busyByClass[`rsvp_${entry.userId}`];
                           const studentError = studentErrorById[entry.userId] ?? '';
                           return (
-                            <div key={entry.userId} className="app-list-card" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                            <div key={entry.userId} className="app-list-card attendance-row">
                               {record ? (
                                 <CheckCircle size={16} style={{ color: methodColor(record.checkInMethod), flexShrink: 0 }} />
                               ) : (
@@ -2133,12 +2137,13 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                                 stripes={entry.stripes}
                                 size="sm"
                               />
-                              <div style={{ flex: 1, minWidth: 0 }}>
-                                <p style={{ fontSize: '0.82rem', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                              <div className="attendance-row__info">
+                                <p className="attendance-row__name">
                                   {entry.displayName}
                                 </p>
                                 <p style={{ fontSize: '0.72rem', color: 'var(--text-soft)', marginTop: 2 }}>
                                   Faixa {beltLabel(entry.belt)} · Grau {entry.grade}
+                                  {entry.gradeProgress ? ` · ${entry.gradeProgress} aulas` : ''}
                                 </p>
                                 {record ? (
                                   <p style={{ fontSize: '0.72rem', color: 'var(--text-soft)', marginTop: 2 }}>
@@ -2151,37 +2156,39 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                                   <p style={{ fontSize: '0.7rem', color: 'var(--danger)', marginTop: 2 }}>{studentError}</p>
                                 ) : null}
                               </div>
-                              {record ? (
-                                <button
-                                  type="button"
-                                  disabled={removeBusy}
-                                  onClick={() => void handleRemoveStudentPresent(selectedClass.id, entry.userId)}
-                                  className="app-button app-button--solid-danger app-button--small"
-                                  style={{ fontSize: '0.7rem', padding: '4px 10px', flexShrink: 0 }}
-                                >
-                                  {removeBusy ? '...' : 'Desmarcar'}
-                                </button>
-                              ) : selectedClass.status === 'scheduled' ? (
-                                <button
-                                  type="button"
-                                  disabled={rsvpBusy}
-                                  onClick={() => void handleToggleStudentRsvp(selectedClass.id, entry.userId)}
-                                  className="app-button app-button--solid-danger app-button--small"
-                                  style={{ fontSize: '0.7rem', padding: '4px 10px', flexShrink: 0 }}
-                                >
-                                  {rsvpBusy ? '...' : 'Remover'}
-                                </button>
-                              ) : (
-                                <button
-                                  type="button"
-                                  disabled={markBusy || selectedClass.status === 'cancelled'}
-                                  onClick={() => void handleMarkStudentPresent(selectedClass.id, entry.userId)}
-                                  className="app-button app-button--gold app-button--small"
-                                  style={{ fontSize: '0.7rem', padding: '4px 10px', flexShrink: 0 }}
-                                >
-                                  {markBusy ? '...' : 'Marcar'}
-                                </button>
-                              )}
+                              <div className="attendance-row__actions">
+                                {record ? (
+                                  <button
+                                    type="button"
+                                    disabled={removeBusy}
+                                    onClick={() => void handleRemoveStudentPresent(selectedClass.id, entry.userId)}
+                                    className="app-button app-button--solid-danger app-button--small"
+                                    style={{ fontSize: '0.7rem', padding: '4px 10px' }}
+                                  >
+                                    {removeBusy ? '...' : 'Desmarcar'}
+                                  </button>
+                                ) : selectedClass.status === 'scheduled' ? (
+                                  <button
+                                    type="button"
+                                    disabled={rsvpBusy}
+                                    onClick={() => void handleToggleStudentRsvp(selectedClass.id, entry.userId)}
+                                    className="app-button app-button--solid-danger app-button--small"
+                                    style={{ fontSize: '0.7rem', padding: '4px 10px' }}
+                                  >
+                                    {rsvpBusy ? '...' : 'Remover'}
+                                  </button>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    disabled={markBusy || selectedClass.status === 'cancelled'}
+                                    onClick={() => void handleMarkStudentPresent(selectedClass.id, entry.userId)}
+                                    className="app-button app-button--gold app-button--small"
+                                    style={{ fontSize: '0.7rem', padding: '4px 10px' }}
+                                  >
+                                    {markBusy ? '...' : 'Marcar'}
+                                  </button>
+                                )}
+                              </div>
                             </div>
                           );
                         })
@@ -2272,8 +2279,9 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                           const removeBusy = !!busyByClass[`remove_${student.id}`];
                           const rsvpBusy = !!busyByClass[`rsvp_${student.id}`];
                           const studentError = studentErrorById[student.id] ?? '';
+                          const gradeProgress = getGradeProgressLabel(student, progressionRules);
                           return (
-                            <div key={student.id} className="app-list-card" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                            <div key={student.id} className="app-list-card attendance-row">
                               {record ? (
                                 <CheckCircle size={16} style={{ color: methodColor(record.checkInMethod), flexShrink: 0 }} />
                               ) : (
@@ -2286,12 +2294,13 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                                 stripes={student.stripes ?? 0}
                                 size="sm"
                               />
-                              <div style={{ flex: 1, minWidth: 0 }}>
-                                <p style={{ fontSize: '0.82rem', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                              <div className="attendance-row__info">
+                                <p className="attendance-row__name">
                                   {student.displayName}
                                 </p>
                                 <p style={{ fontSize: '0.72rem', color: 'var(--text-soft)', marginTop: 2 }}>
                                   Faixa {beltLabel(student.belt)} · Grau {student.grade ?? 0}
+                                  {gradeProgress ? ` · ${gradeProgress} aulas` : ''}
                                 </p>
                                 {record ? (
                                   <p style={{ fontSize: '0.72rem', color: 'var(--text-soft)', marginTop: 2 }}>
@@ -2305,15 +2314,18 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                                       : ''}
                                   </p>
                                 ) : selectedClassIsBeginner && !isEligibleForBeginnerClass(student.belt, student.stripes) ? (
-                                  <p style={{ fontSize: '0.72rem', color: 'var(--text-soft)', marginTop: 2 }}>
-                                    Pode treinar, mas não computa presença nesta aula
+                                  <p
+                                    style={{ fontSize: '0.72rem', color: 'var(--text-soft)', marginTop: 2 }}
+                                    title="Pode treinar, mas não computa presença nesta aula"
+                                  >
+                                    Não computa presença
                                   </p>
                                 ) : null}
                                 {studentError ? (
                                   <p style={{ fontSize: '0.7rem', color: 'var(--danger)', marginTop: 2 }}>{studentError}</p>
                                 ) : null}
                               </div>
-                              <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexShrink: 0 }}>
+                              <div className="attendance-row__actions">
                                 {onOpenStudent ? (
                                   <button
                                     type="button"

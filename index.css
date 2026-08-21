@@ -4503,6 +4503,57 @@ html.dark .app-list-card {
   border-color: rgba(232, 175, 72, 0.24);
 }
 
+/* Linhas das listas de Confirmados / Nao confirmados no detalhe da aula (CalendarView).
+   Renderizacao unica: no mobile as acoes descem para uma linha propria, liberando largura
+   para o nome do aluno em vez de corta-lo. */
+.attendance-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.attendance-row__info {
+  flex: 1;
+  min-width: 0;
+}
+
+.attendance-row__name {
+  font-size: 0.82rem;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.attendance-row__actions {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-shrink: 0;
+}
+
+@media (max-width: 719px) {
+  .attendance-row {
+    flex-wrap: wrap;
+    padding: 0.85rem;
+    row-gap: 0.6rem;
+  }
+
+  .attendance-row__name {
+    white-space: normal;
+    overflow: visible;
+  }
+
+  .attendance-row__actions {
+    flex-basis: 100%;
+  }
+
+  .attendance-row__actions .app-button {
+    flex: 1 1 auto;
+    justify-content: center;
+  }
+}
+
 .student-roster__filter-grid {
   display: grid;
   gap: 0.9rem;

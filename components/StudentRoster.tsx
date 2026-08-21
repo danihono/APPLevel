@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ALL_BELTS, beltLabel, getBlackBeltProgressForUser, getUserProgressionSummary, type ProgressionRules } from '../beltCatalog';
+import { ALL_BELTS, beltLabel, getBlackBeltProgressForUser, getGradeProgressLabel, getUserProgressionSummary, type ProgressionRules } from '../beltCatalog';
 import { BarChart3, ChevronRight, List, Search, UserX } from 'lucide-react';
 import AvatarWithBelt from './AvatarWithBelt';
 import DateField from './DateField';
@@ -103,8 +103,9 @@ function getStudentGrade(student: User) {
 function getProgressionHint(student: User, rules?: ProgressionRules | null): string | null {
   const prog = getUserProgressionSummary(student, rules);
   const parts: string[] = [];
-  if (prog.stripeCycleTotal > 0) {
-    parts.push(`${prog.stripeCycleProgress}/${prog.stripeCycleTotal} grau`);
+  const gradeProgress = getGradeProgressLabel(student, rules);
+  if (gradeProgress) {
+    parts.push(`${gradeProgress} grau`);
   }
   if (prog.beltTotal > 0) {
     parts.push(`${prog.beltProgress}/${prog.beltTotal} faixa`);

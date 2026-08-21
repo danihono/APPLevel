@@ -2811,6 +2811,7 @@ const App: React.FC = () => {
             onFinishClass={handleFinishClass}
             onRefreshQr={handleRefreshQr}
             academyStudents={academyUsers.filter((u) => u.role === 'student')}
+            progressionRules={resolvedAcademy.progressionRules}
             onRegisterAttendance={handleRegisterAttendance}
             onSubmitAttendanceRequest={handleSubmitAttendanceRequest}
             onMarkStudentPresent={handleMarkStudentForClass}
