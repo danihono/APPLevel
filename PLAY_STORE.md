@@ -142,3 +142,43 @@ o Passo 4 (Asset Links). Teste login, QR (câmera) e navegação.
   reenviar nada na loja; o app atualiza sozinho.
 - Mudou ícone, nome, ou config do TWA? → incremente `appVersionCode`/`appVersionName` no
   `twa-manifest.json`, rode `bubblewrap build` e envie o novo `.aab`.
+
+---
+
+## Trocar o ícone do app
+
+O ícone vem de **dois lugares diferentes** — mexer em um não muda o outro.
+
+### 1. Ícone da ficha da loja (o que aparece no Play Console e na página do app)
+
+É só um PNG **512×512** enviado no Console — não precisa de novo `.aab`, nem de deploy.
+
+1. Play Console → **Crescer > Presença na loja > Ficha principal da loja**.
+2. Em **Ícone do app**, envie [public/icon-512.png](public/icon-512.png).
+3. **Salvar** e enviar para análise. A troca aparece em algumas horas.
+
+### 2. Ícone do app instalado no celular (launcher)
+
+Esse fica dentro do pacote Android, gerado pelo Bubblewrap a partir dos ícones do
+`manifest.json` (`icon-512.png` e `icon-512-maskable.png`).
+
+1. Atualize os PNGs em `public/` e rode `npm run deploy:hosting`.
+2. Na pasta do projeto Android (`applevel-android`):
+   ```powershell
+   bubblewrap update      # rebaixa os ícones do manifest
+   ```
+   Incremente `appVersionCode` (+1) e `appVersionName` no `twa-manifest.json`.
+   ```powershell
+   bubblewrap build
+   ```
+3. Envie o novo `app-release-bundle.aab` no Play Console.
+
+### Regras de tamanho do desenho dentro do quadrado
+
+- `icon-512.png` / `icon-192.png` (`purpose: any`): logo ocupando ~84% do quadrado.
+  É o que a loja e o launcher usam.
+- `icon-512-maskable.png` (`purpose: maskable`): o Android recorta em círculo/squircle,
+  então o desenho fica em ~66% do quadrado (zona segura). **Não** encoste o logo nas
+  bordas desse arquivo, senão ele é cortado no celular.
+- Todos com fundo opaco `#0a0a0a`: o PNG da loja até aceita canal alfa, mas ícone
+  transparente fica ilegível sobre o fundo claro da ficha.
