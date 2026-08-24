@@ -13,6 +13,7 @@ import {
   KIDS_CATEGORIES,
   type ProgressionRules,
 } from '../beltCatalog';
+import { resolveAttendanceDate } from '../attendanceUtils';
 import { nonCountingReasonLabel } from '../classRules';
 import { useConfirm } from '../components/ConfirmDialog';
 import { AlertTriangle, ArrowLeft, ArrowDown, ArrowUp, Award, Calendar, Camera, CheckCircle2, ChevronDown, ChevronUp, Clock, Filter, Mail, QrCode, Save, TrendingUp, User as UserIcon, UserCheck, UserX, Video, BookOpen, X } from 'lucide-react';
@@ -327,7 +328,7 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
     const selectedTitle = historyClassTitle.trim();
 
     const result = studentAttendances.filter((att) => {
-      const refDate = (att.checkedInAt ?? att.createdAt)?.toDate?.();
+      const refDate = resolveAttendanceDate(att, classesById.get(att.classId)?.scheduledStart);
       if (start && refDate && refDate < start) return false;
       if (end && refDate && refDate > end) return false;
       if (selectedTitle) {
@@ -338,8 +339,8 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
     });
 
     result.sort((left, right) => {
-      const leftMs = (left.checkedInAt ?? left.createdAt)?.toDate?.()?.getTime?.() ?? 0;
-      const rightMs = (right.checkedInAt ?? right.createdAt)?.toDate?.()?.getTime?.() ?? 0;
+      const leftMs = resolveAttendanceDate(left, classesById.get(left.classId)?.scheduledStart)?.getTime() ?? 0;
+      const rightMs = resolveAttendanceDate(right, classesById.get(right.classId)?.scheduledStart)?.getTime() ?? 0;
       return historySortDir === 'desc' ? rightMs - leftMs : leftMs - rightMs;
     });
 
@@ -1252,7 +1253,7 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
           ) : (
             visibleAttendances.map((attendance) => {
               const classInfo = classesById.get(attendance.classId);
-              const refDate = (attendance.checkedInAt ?? classInfo?.scheduledStart ?? attendance.createdAt)?.toDate?.();
+              const refDate = resolveAttendanceDate(attendance, classInfo?.scheduledStart);
               const dateLabel = refDate ? refDate.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Sem data';
               const counts = attendance.countsAsAttendance ?? true;
               const notCountedLabel = nonCountingReasonLabel(attendance.nonCountingReason);

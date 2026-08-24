@@ -8,6 +8,7 @@ import {
   isBlackBelt,
   type ProgressionRules,
 } from '../beltCatalog';
+import { resolveAttendanceDate } from '../attendanceUtils';
 import { nonCountingReasonLabel } from '../classRules';
 import {
   AlertTriangle,
@@ -173,7 +174,15 @@ const ProfileView: React.FC<ProfileViewProps> = ({
     }
   }
 
-  const recentAttendances = useMemo(() => attendances.slice(0, 6), [attendances]);
+  const sortedAttendances = useMemo(
+    () => [...attendances].sort((left, right) => {
+      const leftMs = resolveAttendanceDate(left, classStartById.get(left.classId))?.getTime() ?? 0;
+      const rightMs = resolveAttendanceDate(right, classStartById.get(right.classId))?.getTime() ?? 0;
+      return rightMs - leftMs;
+    }),
+    [attendances, classStartById],
+  );
+  const recentAttendances = useMemo(() => sortedAttendances.slice(0, 6), [sortedAttendances]);
   const progression = useMemo(
     () => getUserProgressionSummary(user, progressionRules),
     [progressionRules, user],
@@ -584,11 +593,11 @@ const ProfileView: React.FC<ProfileViewProps> = ({
                 {isExpanded && item.id === 'history' ? (
                   <div className="px-4 pb-5 border-t border-white/10">
                     <div className="pt-4 space-y-2">
-                      {attendances.slice(0, 8).map((attendance) => (
+                      {sortedAttendances.slice(0, 8).map((attendance) => (
                         <div key={attendance.id} className="app-list-card">
                           <p className="text-sm font-bold">{classNameById.get(attendance.classId) || 'Aula da academia'}</p>
                           <p className="mt-1 text-xs text-[color:var(--text-soft)]">
-                            {(classStartById.get(attendance.classId) ?? attendance.checkedInAt?.toDate())?.toLocaleString('pt-BR')} • {attendance.checkInMethod}
+                            {resolveAttendanceDate(attendance, classStartById.get(attendance.classId))?.toLocaleString('pt-BR') ?? 'Sem data'} • {attendance.checkInMethod}
                           </p>
                         </div>
                       ))}
@@ -961,7 +970,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({
                   <div key={attendance.id} className="app-list-card">
                     <p className="text-sm font-bold">{classNameById.get(attendance.classId) || 'Aula da academia'}</p>
                     <p className="mt-1 text-xs text-[color:var(--text-soft)]">
-                      {(classStartById.get(attendance.classId) ?? attendance.checkedInAt?.toDate())?.toLocaleString('pt-BR')} • método {attendance.checkInMethod}
+                      {resolveAttendanceDate(attendance, classStartById.get(attendance.classId))?.toLocaleString('pt-BR') ?? 'Sem data'} • método {attendance.checkInMethod}
                     </p>
                     {attendance.countsAsAttendance === false ? (
                       <span className="app-badge app-badge--muted mt-2 inline-flex">

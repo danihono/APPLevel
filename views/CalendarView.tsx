@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Camera, CheckCircle, ChevronLeft, ChevronRight, MapPin, Pencil, Play, Plus, QrCode, RefreshCw, ShieldCheck, StopCircle, Trash2, UserCheck, Users, X } from 'lucide-react';
 import QRCodeSVG from 'react-qr-code';
+import { resolveAttendanceDate } from '../attendanceUtils';
 import { buildMonthGrid, MONTH_WEEK_HEADER, sameCalendarDay, sameCalendarMonth, stripDate, toDateKey } from '../calendarUtils';
 import ClassSessionCard from '../components/ClassSessionCard';
 import CreateClassModal, { type CreateClassPayload } from '../components/CreateClassModal';
@@ -109,6 +110,14 @@ function classTypeLabel(description?: string | null): string | null {
 
 function capitalize(value: string) {
   return value.charAt(0).toUpperCase() + value.slice(1);
+}
+
+function formatAttendanceDateTime(
+  attendance: FirestoreEntity<AttendanceRecord>,
+  scheduledStart?: Date,
+): string {
+  const attendanceDate = resolveAttendanceDate(attendance, scheduledStart);
+  return attendanceDate ? `${formatDateLabel(attendanceDate)} - ${formatTimeLabel(attendanceDate)}` : '-';
 }
 
 function fmtCountdown(ms: number): string {
@@ -1257,12 +1266,25 @@ const CalendarView: React.FC<CalendarViewProps> = ({
   const displayQrToken = qrData?.qrToken ?? selectedClass?.activeQrToken ?? null;
   const busy = selectedClassId ? !!busyByClass[selectedClassId] : false;
   const message = selectedClassId ? messageByClass[selectedClassId] : '';
+
+  const classStartById = useMemo(() => {
+    const records = new Map<string, Date>();
+    classes.forEach((entry) => {
+      if (entry.scheduledStart) records.set(entry.id, entry.scheduledStart.toDate());
+    });
+    return records;
+  }, [classes]);
+
   const myAttendances = useMemo(
     () =>
       [...attendances]
         .filter((entry) => entry.userId === currentUserId)
-        .sort((left, right) => (right.checkedInAt?.toDate().getTime() ?? 0) - (left.checkedInAt?.toDate().getTime() ?? 0)),
-    [attendances, currentUserId],
+        .sort((left, right) => {
+          const leftDate = resolveAttendanceDate(left, classStartById.get(left.classId));
+          const rightDate = resolveAttendanceDate(right, classStartById.get(right.classId));
+          return (rightDate?.getTime() ?? 0) - (leftDate?.getTime() ?? 0);
+        }),
+    [attendances, classStartById, currentUserId],
   );
   // Previa do que a Cloud Function vai decidir: o aluno merece saber ANTES de bater o QR que
   // aquela aula nao vai virar presenca. Quem decide de verdade e o backend.
@@ -1287,20 +1309,12 @@ const CalendarView: React.FC<CalendarViewProps> = ({
     [currentUserBelt, currentUserStripes, myAttendances, selectedClass],
   );
 
-  const classStartById = useMemo(() => {
-    const records = new Map<string, Date>();
-    classes.forEach((entry) => {
-      if (entry.scheduledStart) records.set(entry.id, entry.scheduledStart.toDate());
-    });
-    return records;
-  }, [classes]);
-
   // A bolinha usa a data da aula (nao a do lancamento): presenca dada pelo
   // professor depois da aula ainda cai no dia certo do calendario.
   const myAttendedDays = useMemo(() => {
     const keys = new Set<string>();
     myAttendances.forEach((entry) => {
-      const date = classStartById.get(entry.classId) ?? entry.checkedInAt?.toDate();
+      const date = resolveAttendanceDate(entry, classStartById.get(entry.classId));
       if (date) keys.add(toDateKey(date));
     });
     return keys;
@@ -2436,7 +2450,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                                 {classNameById?.get(attendance.classId) ?? 'Aula'}
                               </p>
                               <p style={{ fontSize: '0.72rem', color: 'var(--text-soft)', marginTop: 2 }}>
-                                {attendance.checkedInAt ? `${formatDateLabel(attendance.checkedInAt)} - ${formatTimeLabel(attendance.checkedInAt)}` : '-'}
+                                {formatAttendanceDateTime(attendance, classStartById.get(attendance.classId))}
                               </p>
                             </div>
                             <span className={methodBadgeClass(attendance.checkInMethod)} style={{ flexShrink: 0, fontSize: '0.65rem' }}>
@@ -2481,7 +2495,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                             {classNameById?.get(attendance.classId) ?? 'Aula'}
                           </p>
                           <p style={{ fontSize: '0.72rem', color: 'var(--text-soft)', marginTop: 2 }}>
-                            {attendance.checkedInAt ? `${formatDateLabel(attendance.checkedInAt)} - ${formatTimeLabel(attendance.checkedInAt)}` : '-'}
+                            {formatAttendanceDateTime(attendance, classStartById.get(attendance.classId))}
                           </p>
                         </div>
                         <span className={methodBadgeClass(attendance.checkInMethod)} style={{ flexShrink: 0, fontSize: '0.65rem' }}>
