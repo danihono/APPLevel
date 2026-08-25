@@ -22,6 +22,7 @@ import {
   Moon,
   Phone,
   Save,
+  ScrollText,
   Settings2,
   ShieldCheck,
   Sun,
@@ -30,6 +31,7 @@ import {
 } from 'lucide-react';
 import AvatarWithBelt from '../components/AvatarWithBelt';
 import DateField from '../components/DateField';
+import ExamRulesModal from '../components/ExamRulesModal';
 import ProgressBar from '../components/ProgressBar';
 import type { FirestoreEntity } from '../services/firebase/data';
 import type { AttendanceRecord, GraduationRecord, UserRecord } from '../services/firebase/models';
@@ -223,6 +225,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({
     : user.stripes > 0 ? `${user.stripes}o Grau` : '0 Grau';
   const [activeSection, setActiveSection] = useState<'settings' | 'history' | 'achievements' | null>(null);
   const [activeStudentSection, setActiveStudentSection] = useState<'dados-pessoais' | 'acesso-email' | 'aparencia' | 'historicos' | 'excluir-conta' | null>(null);
+  const [examRulesOpen, setExamRulesOpen] = useState(false);
   const [deletePassword, setDeletePassword] = useState('');
   const [deleteConfirmChecked, setDeleteConfirmChecked] = useState(false);
   const [deleteBusy, setDeleteBusy] = useState(false);
@@ -230,6 +233,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({
   const staffMenuItems = [
     { id: 'settings' as const, icon: Settings2, label: 'Configurações da conta' },
     { id: 'notifications' as const, icon: Bell, label: 'Notificações' },
+    { id: 'exam-rules' as const, icon: ScrollText, label: 'Regras de exame' },
     { id: 'history' as const, icon: History, label: 'Histórico de aulas' },
     { id: 'achievements' as const, icon: Award, label: 'Conquistas' },
   ];
@@ -459,6 +463,10 @@ const ProfileView: React.FC<ProfileViewProps> = ({
                   onClick={() => {
                     if (item.id === 'notifications') {
                       onOpenNotifications?.();
+                      return;
+                    }
+                    if (item.id === 'exam-rules') {
+                      setExamRulesOpen(true);
                       return;
                     }
                     setActiveSection(isExpanded ? null : item.id as 'settings' | 'history' | 'achievements');
@@ -696,6 +704,10 @@ const ProfileView: React.FC<ProfileViewProps> = ({
             Sair
           </button>
         </div>
+
+        {examRulesOpen ? (
+          <ExamRulesModal currentBelt={user.belt} onClose={() => setExamRulesOpen(false)} />
+        ) : null}
       </div>
     );
   }
@@ -1006,6 +1018,19 @@ const ProfileView: React.FC<ProfileViewProps> = ({
           ) : null}
         </div>
 
+        {/* Regras de exame */}
+        <div>
+          <button
+            type="button"
+            className="profile-mobile__menu-row w-full text-left"
+            onClick={() => setExamRulesOpen(true)}
+          >
+            <div className="profile-mobile__menu-icon"><ScrollText size={18} /></div>
+            <span className="profile-mobile__menu-label">Regras de exame</span>
+            <ChevronRight size={18} className="profile-mobile__menu-arrow" />
+          </button>
+        </div>
+
         {/* Trocar de academia */}
         {hasMultipleMemberships && onRequestAcademyChange ? (
           <div>
@@ -1160,6 +1185,10 @@ const ProfileView: React.FC<ProfileViewProps> = ({
           </button>
         </div>
       </section>
+
+      {examRulesOpen ? (
+        <ExamRulesModal currentBelt={user.belt} onClose={() => setExamRulesOpen(false)} />
+      ) : null}
     </div>
   );
 };
