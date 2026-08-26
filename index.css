@@ -9904,6 +9904,46 @@ html.dark .app-shell--flat .sa-mob-belt-dot {
   background: rgba(0, 0, 0, 0.72);
 }
 
+.exam-rules__pdf-viewer {
+  position: fixed;
+  inset: 0;
+  z-index: 220;
+  display: flex;
+  flex-direction: column;
+  padding-bottom: env(safe-area-inset-bottom);
+  background: var(--bg-deep);
+}
+
+.exam-rules__pdf-viewer-head {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.75rem;
+  flex: 0 0 auto;
+  padding: calc(0.75rem + env(safe-area-inset-top)) max(1rem, env(safe-area-inset-right)) 0.75rem max(1rem, env(safe-area-inset-left));
+  border-bottom: 1px solid var(--divider);
+  background: var(--surface-solid);
+  box-shadow: var(--shadow-soft);
+}
+
+.exam-rules__pdf-viewer-title {
+  overflow: hidden;
+  color: var(--text-strong);
+  font-size: 1rem;
+  font-weight: 800;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.exam-rules__pdf-frame {
+  width: 100%;
+  flex: 1 1 auto;
+  min-height: 0;
+  border: 0;
+  background: #ffffff;
+}
+
 .exam-rules__panel {
   display: flex;
   flex-direction: column;
@@ -10036,6 +10076,10 @@ html.dark .exam-rules__body {
 
 .exam-rules__pdf-link {
   margin-left: auto;
+}
+
+.exam-rules__pdf-error {
+  flex: 0 0 100%;
 }
 
 @media (max-width: 640px) {

@@ -1,5 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ExternalLink, ScrollText, X, ZoomIn, ZoomOut } from 'lucide-react';
+import { Browser } from '@capacitor/browser';
+import { Capacitor } from '@capacitor/core';
+import { ArrowLeft, ExternalLink, ScrollText, X, ZoomIn, ZoomOut } from 'lucide-react';
 import { getBeltMeta } from '../beltCatalog';
 import { EXAM_RULE_DOCS, suggestedExamBelt } from '../examRules';
 import type { BeltColor } from '../types';
@@ -27,6 +29,8 @@ const ExamRulesModal: React.FC<ExamRulesModalProps> = ({ currentBelt, onClose })
   const [selectedBelt, setSelectedBelt] = useState<BeltColor>(initialBelt);
   const [zoomIndex, setZoomIndex] = useState(initialZoomIndex);
   const [imageFailed, setImageFailed] = useState(false);
+  const [pdfOpenError, setPdfOpenError] = useState('');
+  const [pdfViewerOpen, setPdfViewerOpen] = useState(false);
 
   const activeDoc = EXAM_RULE_DOCS.find((doc) => doc.belt === selectedBelt) ?? EXAM_RULE_DOCS[0];
   const zoom = ZOOM_STEPS[zoomIndex];
@@ -34,23 +38,99 @@ const ExamRulesModal: React.FC<ExamRulesModalProps> = ({ currentBelt, onClose })
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key === 'Escape') {
-        onClose();
+        if (pdfViewerOpen) {
+          setPdfViewerOpen(false);
+        } else {
+          onClose();
+        }
       }
     }
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [onClose]);
+  }, [onClose, pdfViewerOpen]);
 
   function selectBelt(belt: BeltColor) {
     setSelectedBelt(belt);
     setZoomIndex(initialZoomIndex());
     setImageFailed(false);
+    setPdfOpenError('');
   }
 
   // Toque/clique na página avança o zoom e volta ao início depois do máximo.
   function cycleZoom() {
     setZoomIndex((index) => (index + 1) % ZOOM_STEPS.length);
+  }
+
+  async function openPdf() {
+    setPdfOpenError('');
+
+    const isNativeApp = Capacitor.isNativePlatform();
+    const firebaseProjectId = import.meta.env.VITE_FIREBASE_PROJECT_ID?.trim();
+
+    if (!isNativeApp) {
+      setPdfViewerOpen(true);
+      return;
+    }
+
+    if (!firebaseProjectId) {
+      setPdfOpenError('Não foi possível localizar o PDF. Tente novamente mais tarde.');
+      return;
+    }
+
+    const baseUrl = `https://${firebaseProjectId}.web.app`;
+
+    try {
+      await Browser.open({
+        url: new URL(activeDoc.pdfUrl, baseUrl).href,
+        windowName: '_blank',
+        presentationStyle: 'fullscreen',
+        toolbarColor: '#0a0a0a',
+      });
+    } catch (error) {
+      console.error('Não foi possível abrir o PDF das regras de exame.', error);
+      setPdfOpenError('Não foi possível abrir o PDF. Tente novamente.');
+    }
+  }
+
+  if (pdfViewerOpen) {
+    return (
+      <div
+        className="exam-rules__pdf-viewer"
+        role="dialog"
+        aria-modal="true"
+        aria-label={`Visualização do PDF: ${activeDoc.title}`}
+      >
+        <header className="exam-rules__pdf-viewer-head">
+          <button
+            type="button"
+            onClick={() => setPdfViewerOpen(false)}
+            className="app-button app-button--ghost app-button--small"
+            aria-label="Voltar para as regras de exame"
+          >
+            <ArrowLeft size={17} />
+            Voltar
+          </button>
+
+          <h2 className="exam-rules__pdf-viewer-title">{activeDoc.title}</h2>
+
+          <button
+            type="button"
+            onClick={() => setPdfViewerOpen(false)}
+            className="app-button app-button--ghost app-button--icon"
+            aria-label="Fechar PDF e voltar para as regras de exame"
+          >
+            <X size={18} />
+          </button>
+        </header>
+
+        <iframe
+          src={activeDoc.pdfUrl}
+          title={activeDoc.title}
+          className="exam-rules__pdf-frame"
+        />
+      </div>
+    );
   }
 
   return (
@@ -108,6 +188,12 @@ const ExamRulesModal: React.FC<ExamRulesModalProps> = ({ currentBelt, onClose })
         </div>
 
         <div className="exam-rules__footer">
+          {pdfOpenError ? (
+            <div className="app-alert app-alert--error exam-rules__pdf-error" role="alert">
+              {pdfOpenError}
+            </div>
+          ) : null}
+
           <div className="exam-rules__zoom">
             <button
               type="button"
@@ -130,15 +216,14 @@ const ExamRulesModal: React.FC<ExamRulesModalProps> = ({ currentBelt, onClose })
             </button>
           </div>
 
-          <a
-            href={activeDoc.pdfUrl}
-            target="_blank"
-            rel="noopener noreferrer"
+          <button
+            type="button"
+            onClick={() => void openPdf()}
             className="app-button app-button--gold app-button--small exam-rules__pdf-link"
           >
             <ExternalLink size={16} />
             Abrir PDF
-          </a>
+          </button>
         </div>
       </div>
     </div>
