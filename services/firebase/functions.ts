@@ -1,3 +1,4 @@
+import { Capacitor } from '@capacitor/core';
 import { httpsCallable, httpsCallableFromURL } from 'firebase/functions';
 import type { AttendanceNonCountingReason } from '../../classRules';
 import type {
@@ -93,15 +94,33 @@ const hostedCallableProxyOrigin =
   import.meta.env.VITE_CALLABLE_PROXY_ORIGIN ||
   (import.meta.env.VITE_FIREBASE_PROJECT_ID ? `https://${import.meta.env.VITE_FIREBASE_PROJECT_ID}.web.app` : '');
 
+// Dentro do app nativo (Capacitor/iOS) a interface e servida a partir de
+// `capacitor://localhost`, onde o rewrite `/api/callable` do Firebase Hosting
+// nao existe. Nesses casos apontamos o proxy para o dominio hospedado.
+function resolveCallableProxyBase(): string | null {
+  if (import.meta.env.DEV && hostedCallableProxyOrigin) {
+    return hostedCallableProxyOrigin;
+  }
+
+  const origin = window.location.origin;
+  const isWebOrigin = origin.startsWith('https://') || origin.startsWith('http://');
+
+  if (Capacitor.isNativePlatform() || !isWebOrigin) {
+    return hostedCallableProxyOrigin || null;
+  }
+
+  return origin;
+}
+
 function resolveCallableUrl(functionName: string): string | null {
   if (useFirebaseEmulators || typeof window === 'undefined') {
     return null;
   }
 
-  const proxyBase =
-    import.meta.env.DEV && hostedCallableProxyOrigin
-      ? hostedCallableProxyOrigin
-      : window.location.origin;
+  const proxyBase = resolveCallableProxyBase();
+  if (!proxyBase) {
+    return null;
+  }
 
   const proxyUrl = new URL('/api/callable', proxyBase);
   proxyUrl.searchParams.set('fn', functionName);
