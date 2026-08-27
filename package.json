@@ -7,6 +7,8 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
+    "ios:sync": "npm run build && npx cap sync ios",
+    "ios:open": "npx cap open ios",
     "typecheck": "tsc --noEmit",
     "deploy:hosting": "npm run build && firebase deploy --only hosting --project applevel-c5e73 --non-interactive",
     "functions:build": "npm --prefix functions run build",

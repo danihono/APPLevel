@@ -1,0 +1,123 @@
+name: iOS · TestFlight
+
+# Compila o app iOS num runner macOS da nuvem e envia para o TestFlight /
+# App Store. Nenhum Mac local e necessario.
+#
+# Disparo manual: aba Actions > "iOS · TestFlight" > Run workflow.
+# Disparo por tag:  git tag ios-v1.0.0 && git push origin ios-v1.0.0
+
+on:
+  workflow_dispatch:
+    inputs:
+      lane:
+        description: "O que fazer"
+        type: choice
+        default: beta
+        options:
+          - bootstrap   # 1x: cria App ID, app na App Store Connect e assinaturas
+          - beta        # compila e envia para o TestFlight
+          - release     # envia a ultima build para revisao da App Store
+      marketing_version:
+        description: "Versao visivel na loja (ex.: 1.0.0)"
+        type: string
+        default: "1.0.0"
+  push:
+    tags:
+      - "ios-v*"
+
+concurrency:
+  group: ios-release
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  ios:
+    runs-on: macos-latest
+    timeout-minutes: 90
+
+    env:
+      APP_IDENTIFIER: com.leveljiujitsu.app
+      APP_NAME: LEVEL JIUJITSU
+      MARKETING_VERSION: ${{ inputs.marketing_version || '1.0.0' }}
+
+      # --- Apple: App Store Connect API Key ---
+      ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+      ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+      ASC_KEY_P8_BASE64: ${{ secrets.ASC_KEY_P8_BASE64 }}
+      ASC_TEAM_ID: ${{ secrets.ASC_TEAM_ID }}
+
+      # --- fastlane match (repositorio PRIVADO e separado com os certificados) ---
+      MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
+      MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+      MATCH_GIT_BASIC_AUTHORIZATION: ${{ secrets.MATCH_GIT_BASIC_AUTHORIZATION }}
+
+      # --- Config publica do Firebase usada no build do frontend ---
+      VITE_FIREBASE_API_KEY: ${{ secrets.VITE_FIREBASE_API_KEY }}
+      VITE_FIREBASE_AUTH_DOMAIN: ${{ secrets.VITE_FIREBASE_AUTH_DOMAIN }}
+      VITE_FIREBASE_PROJECT_ID: ${{ secrets.VITE_FIREBASE_PROJECT_ID }}
+      VITE_FIREBASE_STORAGE_BUCKET: ${{ secrets.VITE_FIREBASE_STORAGE_BUCKET }}
+      VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.VITE_FIREBASE_MESSAGING_SENDER_ID }}
+      VITE_FIREBASE_APP_ID: ${{ secrets.VITE_FIREBASE_APP_ID }}
+      VITE_FIREBASE_MEASUREMENT_ID: ${{ secrets.VITE_FIREBASE_MEASUREMENT_ID }}
+      VITE_FIREBASE_VAPID_KEY: ${{ secrets.VITE_FIREBASE_VAPID_KEY }}
+      VITE_FIREBASE_FUNCTIONS_REGION: southamerica-east1
+
+      FASTLANE_SKIP_UPDATE_CHECK: "1"
+      FASTLANE_HIDE_CHANGELOG: "1"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Mostrar versao do Xcode
+        run: xcodebuild -version
+
+      - name: Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Build do frontend (dist/)
+        if: ${{ inputs.lane != 'bootstrap' }}
+        run: npm run build
+
+      - name: Sincronizar o projeto iOS (Capacitor)
+        if: ${{ inputs.lane != 'bootstrap' }}
+        run: npx cap sync ios
+
+      - name: Ruby + fastlane
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.3"
+          bundler-cache: true
+          working-directory: ios
+
+      - name: Rodar fastlane
+        working-directory: ios
+        run: bundle exec fastlane ${{ inputs.lane || 'beta' }}
+
+      - name: Guardar o .ipa como artefato
+        if: ${{ always() && inputs.lane != 'bootstrap' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ipa
+          path: ios/build/*.ipa
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Guardar os logs em caso de falha
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fastlane-logs
+          path: |
+            ios/fastlane/report.xml
+            /Users/runner/Library/Logs/gym
+          if-no-files-found: ignore
+          retention-days: 7
