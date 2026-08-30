@@ -48,8 +48,15 @@ Enquanto não aprova, você não consegue seguir para o Passo 2.
 
 ## Passo 2 — Anotar o Team ID
 
-Depois da aprovação, acesse https://developer.apple.com/account →
-**Membership details** → copie o **Team ID** (10 caracteres, ex.: `A1B2C3D4E5`).
+Acesse https://developer.apple.com/account → **Informações da assinatura**
+(*Membership details*) → copie o **Team ID**, 10 caracteres.
+
+Nesta conta ele é **`8CAAFT4F27`**, e já está fixo no workflow.
+
+> **Antes de qualquer coisa:** se a página mostrar o aviso *"O contrato de licença do
+> programa foi atualizado"*, clique em **Revisar contrato** e aceite. Enquanto ele
+> estiver pendente, a Apple bloqueia Certificates/Identifiers/Profiles e a própria API
+> do App Store Connect — e os builds falham com erros pouco claros.
 
 ---
 
@@ -108,12 +115,14 @@ limite de certificados da Apple.
 No repositório `danihono/APPLevel` → **Settings** → **Secrets and variables** →
 **Actions** → **New repository secret**. Crie os 6:
 
+> O Team ID (`8CAAFT4F27`) ja esta fixo no workflow — nao e segredo, vai embutido
+> em todo app publicado.
+
 | Secret | Valor | Veio do |
 |---|---|---|
 | `ASC_KEY_ID` | ex.: `9A8B7C6D5E` | Passo 3 |
 | `ASC_ISSUER_ID` | o UUID longo | Passo 3 |
 | `ASC_KEY_P8_BASE64` | o base64 do `.p8` | Passo 3 |
-| `ASC_TEAM_ID` | ex.: `A1B2C3D4E5` | Passo 2 |
 | `MATCH_GIT_URL` | `https://github.com/danihono/applevel-ios-certs.git` | Passo 4 |
 | `MATCH_PASSWORD` | a senha que você inventou | Passo 4 |
 | `MATCH_GIT_BASIC_AUTHORIZATION` | o base64 `usuario:token` | Passo 4 |

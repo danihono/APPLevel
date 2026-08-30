@@ -46,7 +46,8 @@ jobs:
       ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
       ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
       ASC_KEY_P8_BASE64: ${{ secrets.ASC_KEY_P8_BASE64 }}
-      ASC_TEAM_ID: ${{ secrets.ASC_TEAM_ID }}
+      # Team ID nao e segredo: ele vai embutido em todo app publicado.
+      ASC_TEAM_ID: 8CAAFT4F27
 
       # --- fastlane match (repositorio PRIVADO e separado com os certificados) ---
       MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
