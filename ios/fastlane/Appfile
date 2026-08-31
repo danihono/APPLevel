@@ -1,0 +1,6 @@
+# Identificadores do app na Apple. Podem ser sobrescritos por variaveis de ambiente
+# para nao precisar editar o arquivo em CI.
+app_identifier(ENV["APP_IDENTIFIER"] || "com.leveljiujitsu.app")
+
+# Team ID do Apple Developer Program (developer.apple.com > Membership).
+team_id(ENV["ASC_TEAM_ID"]) if ENV["ASC_TEAM_ID"]

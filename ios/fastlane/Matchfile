@@ -1,0 +1,7 @@
+# O match guarda certificados e provisioning profiles criptografados (AES) em um
+# repositorio git PRIVADO e separado. Nunca aponte para o repositorio do app,
+# que e publico.
+git_url(ENV["MATCH_GIT_URL"])
+storage_mode("git")
+type("appstore")
+app_identifier([ENV["APP_IDENTIFIER"] || "com.leveljiujitsu.app"])
