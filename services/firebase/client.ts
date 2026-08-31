@@ -1,5 +1,11 @@
+import { Capacitor } from '@capacitor/core';
 import { getApp, getApps, initializeApp } from 'firebase/app';
-import { connectAuthEmulator, getAuth } from 'firebase/auth';
+import {
+  connectAuthEmulator,
+  getAuth,
+  indexedDBLocalPersistence,
+  initializeAuth,
+} from 'firebase/auth';
 import { connectFirestoreEmulator, getFirestore } from 'firebase/firestore';
 import { connectFunctionsEmulator, getFunctions } from 'firebase/functions';
 import { getMessaging, isSupported } from 'firebase/messaging';
@@ -22,7 +28,27 @@ const functionsRegion = import.meta.env.VITE_FIREBASE_FUNCTIONS_REGION || 'south
 const useEmulators = import.meta.env.DEV && import.meta.env.VITE_USE_FIREBASE_EMULATORS === 'true';
 
 export const firebaseApp = app;
-export const firebaseAuth = getAuth(app);
+// No app nativo (Capacitor) a interface roda em `capacitor://localhost`. O
+// `getAuth` padrao instala o resolver de popup/redirect, que carrega um iframe
+// de `https://<authDomain>/__/auth/iframe`; esse iframe nao carrega na WKWebView
+// e o `onAuthStateChanged` nunca dispara, prendendo o app na tela de
+// carregamento. Como o login e so por e-mail e senha, nao precisamos do
+// resolver. A persistencia tambem passa a ser IndexedDB, que e a confiavel em
+// esquema de URL customizado.
+function createFirebaseAuth() {
+  if (!Capacitor.isNativePlatform()) {
+    return getAuth(app);
+  }
+
+  try {
+    return initializeAuth(app, { persistence: indexedDBLocalPersistence });
+  } catch {
+    // Ja inicializado (hot reload, por exemplo): reaproveita a instancia.
+    return getAuth(app);
+  }
+}
+
+export const firebaseAuth = createFirebaseAuth();
 export const firebaseDb = getFirestore(app);
 export const firebaseFunctions = getFunctions(app, functionsRegion);
 export const firebaseStorage = getStorage(app);

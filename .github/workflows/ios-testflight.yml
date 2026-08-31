@@ -68,10 +68,11 @@ jobs:
       - name: Mostrar versao do Xcode
         run: xcodebuild -version
 
-      - name: Node 20
+      # O CLI do Capacitor 8 exige Node >= 22.
+      - name: Node 22
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "22"
           cache: npm
 
       - name: Instalar dependencias
