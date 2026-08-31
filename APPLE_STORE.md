@@ -208,12 +208,17 @@ o status sair de "Processing" na aba **TestFlight** do App Store Connect:
 
 Em App Store Connect → seu app → **Distribution**.
 
-**Screenshots** (obrigatório): tamanho **iPhone 6.9"** — `1290 × 2796` ou `1320 × 2868` px,
-de 3 a 10 imagens.
+**Screenshots** (obrigatório): a App Store Connect deste app pede **iPhone de 6,5"** —
+`1242 × 2688` ou `1284 × 2778` px (ou os mesmos deitados). De 3 a 10 imagens; só as
+3 primeiras aparecem na busca.
 
-Tire os prints no seu próprio iPhone pelo TestFlight (botões Volume+ e Lateral). Se o seu
-iPhone não for de 6.9", redimensione: a proporção dos iPhones recentes é praticamente
-idêntica, então um resize simples para `1290 × 2796` é aceito sem distorção visível.
+> Confira sempre o tamanho que a própria tela pede: a Apple muda essa exigência com o
+> tempo e por app. O valor está escrito dentro da área de arrastar arquivos.
+
+Tire os prints no seu próprio iPhone pelo TestFlight (Volume+ e botão lateral juntos).
+Se o seu iPhone tiver outro tamanho de tela, redimensione: a proporção dos iPhones
+recentes é praticamente idêntica, então um resize simples para `1242 × 2688` passa
+sem distorção visível.
 
 **Textos:**
 
