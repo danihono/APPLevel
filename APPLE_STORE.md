@@ -132,16 +132,50 @@ No repositório `danihono/APPLevel` → **Settings** → **Secrets and variables
 
 ---
 
-## Passo 6 — Rodar o bootstrap (uma única vez)
+## Passo 6 — Registrar o app na Apple (uma única vez, no site)
 
-Cria o App ID na Apple, o registro do app na App Store Connect e gera o certificado de
-distribuição + provisioning profile.
+Estas duas coisas são criadas **manualmente**. O CI não faz por você: a ação
+`produce` do fastlane ainda exige Apple ID + senha e não aceita a App Store
+Connect API Key, o que não funciona num robô sem 2FA.
+
+### 6.1 — Criar o App ID
+
+https://developer.apple.com/account/resources/identifiers/add/bundleId
+
+1. Selecione **App IDs** → **Continue**
+2. Tipo **App** → **Continue**
+3. Preencha:
+   - **Description:** `LEVEL JIUJITSU` (só letras, números e espaço)
+   - **Bundle ID:** marque **Explicit** e digite `com.leveljiujitsu.app`
+4. Não marque nenhuma *Capability* — o app não usa nenhuma por enquanto
+5. **Continue** → **Register**
+
+### 6.2 — Criar o app na App Store Connect
+
+https://appstoreconnect.apple.com/apps → botão **+** → **Novo app**
+
+| Campo | Valor |
+|---|---|
+| Plataformas | **iOS** |
+| Nome | `LEVEL JIUJITSU` |
+| Idioma principal | Português (Brasil) |
+| Bundle ID | escolha `com.leveljiujitsu.app` na lista |
+| SKU | `leveljiujitsu-ios` |
+| Acesso de usuário | Acesso total |
+
+> Se o nome estiver em uso por outro app na App Store, a Apple recusa. Escolha
+> outro (`LEVEL Jiu-Jitsu`, `LEVEL JJ`) — isso muda só o nome na loja; o Bundle
+> ID e o nome embaixo do ícone no celular continuam os mesmos.
+
+## Passo 6.3 — Rodar o bootstrap
+
+Cria o certificado de distribuição e o provisioning profile, e guarda os dois
+criptografados no repositório de certificados.
 
 1. Repositório → aba **Actions** → workflow **iOS · TestFlight** → **Run workflow**.
 2. Em "O que fazer", escolha **bootstrap**. Rode.
 
-Ao final, confira em https://appstoreconnect.apple.com → **Apps** que apareceu o
-**LEVEL JIUJITSU**, e que o repositório `applevel-ios-certs` recebeu arquivos.
+Ao final, o repositório `applevel-ios-certs` deve ter recebido arquivos.
 
 > Se falhar com erro de permissão, quase sempre é a API Key sem papel **Admin**
 > (Passo 3). Gere outra chave com o papel certo.
