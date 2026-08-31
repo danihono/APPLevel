@@ -139,13 +139,31 @@ async function callFunction<TResponse, TPayload = unknown>(
   return response.data;
 }
 
-export function isRetryableSignupAcademyFetchError(error: unknown): boolean {
+// Falhas passageiras do backend: vale tentar de novo em vez de desistir.
+// `resource-exhausted` cobre cota do Firestore e teto de instancias das
+// functions; `internal` cobre a excecao nao tratada que essas duas causam
+// quando estouram dentro da callable.
+const RETRYABLE_BACKEND_ERROR_CODES = new Set([
+  'functions/unavailable',
+  'unavailable',
+  'functions/deadline-exceeded',
+  'deadline-exceeded',
+  'functions/resource-exhausted',
+  'resource-exhausted',
+  'functions/internal',
+  'internal',
+]);
+
+export function isRetryableBackendError(error: unknown): boolean {
   const code = typeof error === 'object' && error && 'code' in error
     ? String((error as { code: unknown }).code)
     : '';
 
-  return code === 'functions/unavailable' || code === 'functions/deadline-exceeded';
+  return RETRYABLE_BACKEND_ERROR_CODES.has(code);
 }
+
+/** @deprecated Use `isRetryableBackendError`. Mantido para os pontos de uso atuais. */
+export const isRetryableSignupAcademyFetchError = isRetryableBackendError;
 
 export const backendFunctions = {
   listSignupAcademies: () =>
