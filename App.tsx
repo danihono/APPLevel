@@ -60,6 +60,7 @@ import {
 } from './services/firebase/data';
 import {
   backendFunctions,
+  isRetryableBackendError,
   type CreateClassScheduleBatchResult,
   type DeleteClassScheduleResult,
   type UpdateRecurringClassSeriesResult,
@@ -121,6 +122,9 @@ const StudentsView = lazy(() => import('./views/StudentsView'));
 
 const THEME_STORAGE_PREFIX = 'applevel-theme';
 const NETWORK_NAME = 'LEVEL';
+// Esperas entre as tentativas de validar a sessao quando o backend falha de
+// forma passageira. O tamanho do array define quantas retentativas existem.
+const SESSION_VALIDATION_RETRY_DELAYS = [2000, 4000, 8000];
 const AUTH_CLAIM_REFRESH_ATTEMPTS = 4;
 const AUTH_CLAIM_REFRESH_DELAY_MS = 500;
 const GRADUATION_CELEBRATION_STORAGE_PREFIX = 'applevel:graduation-celebrations-seen';
@@ -228,6 +232,9 @@ function getErrorMessage(error: unknown): string {
     case 'functions/unavailable':
     case 'unavailable':
       return 'O servidor não respondeu agora. Tente novamente em alguns instantes.';
+    case 'functions/resource-exhausted':
+    case 'resource-exhausted':
+      return 'O sistema atingiu o limite de uso agora. Tente novamente em alguns minutos.';
     default:
       if (error instanceof Error && error.message) {
         return error.message;
@@ -823,18 +830,25 @@ const App: React.FC = () => {
     setSessionValidated(false);
     validatedSessionRef.current = null;
 
-    void backendFunctions
-      .validateSessionAccess()
-      .then(async (session) => {
-        const nextValidatedSession = {
-          uid: session.uid,
-          academyId: session.academyId,
-          role: session.role,
-        };
+    // Uma falha passageira do backend (cota estourada, teto de instancias,
+    // indisponibilidade) nao pode deixar a sessao presa para sempre: sem isso o
+    // app trava em "Sincronizando permissoes" ate alguem recarregar na mao.
+    const validateWithRetry = async () => {
+      for (let attempt = 0; attempt < SESSION_VALIDATION_RETRY_DELAYS.length + 1; attempt += 1) {
+        try {
+          const session = await backendFunctions.validateSessionAccess();
+          const nextValidatedSession = {
+            uid: session.uid,
+            academyId: session.academyId,
+            role: session.role,
+          };
 
-        await refreshAuthClaimsForSession(authUser, nextValidatedSession);
+          await refreshAuthClaimsForSession(authUser, nextValidatedSession);
 
-        if (!cancelled) {
+          if (cancelled) {
+            return;
+          }
+
           validatedSessionRef.current = nextValidatedSession;
           setProfile((current) => (
             current
@@ -842,10 +856,12 @@ const App: React.FC = () => {
               : current
           ));
           setSessionValidated(true);
-        }
-      })
-      .catch((error) => {
-        if (!cancelled) {
+          return;
+        } catch (error) {
+          if (cancelled) {
+            return;
+          }
+
           const message = error instanceof Error ? error.message : '';
           if (message === 'user-suspended') {
             setIsSuspended(true);
@@ -857,9 +873,20 @@ const App: React.FC = () => {
             return;
           }
 
-          reportSessionError('session:validateSessionAccess', error);
+          const nextDelay = SESSION_VALIDATION_RETRY_DELAYS[attempt];
+          if (nextDelay === undefined || !isRetryableBackendError(error)) {
+            reportSessionError('session:validateSessionAccess', error);
+            return;
+          }
+
+          await new Promise((resolve) => {
+            window.setTimeout(resolve, nextDelay);
+          });
         }
-      });
+      }
+    };
+
+    void validateWithRetry();
 
     return () => {
       cancelled = true;

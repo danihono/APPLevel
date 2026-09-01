@@ -1,3 +1,4 @@
+import { logger } from 'firebase-functions/v2';
 import { FieldValue, Timestamp } from 'firebase-admin/firestore';
 import {
   AttendanceDoc,
@@ -8,6 +9,7 @@ import {
   UserDoc,
 } from '../domain/models';
 import { db } from '../lib/firebase';
+import { isValidTimeZone } from '../lib/payload';
 import { normalizeBeltId } from './progression';
 
 // Regras de negocio da presenca. Espelhado no frontend em `classRules.ts` (raiz) — ao mudar
@@ -40,8 +42,14 @@ export function isEligibleForBeginnerClass(user: Pick<UserDoc, 'belt' | 'stripes
 // lexicograficamente. Usar o fuso local importa: uma aula das 21h BRT ja e o dia seguinte
 // em UTC, e cairia no dia errado se usassemos o ISO cru.
 export function resolveClassDayKey(reference: Timestamp, timezone: string): string {
+  // `Intl.DateTimeFormat` lanca RangeError com fuso invalido. Como isso nao e
+  // HttpsError, subiria sem tratamento e o professor receberia um 500 generico
+  // ao marcar presenca. Nenhuma presenca pode deixar de ser registrada por causa
+  // de configuracao errada: no pior caso o dia sai no fuso padrao.
+  const safeTimezone = isValidTimeZone(timezone) ? timezone : DEFAULT_TIMEZONE;
+
   return new Intl.DateTimeFormat('en-CA', {
-    timeZone: timezone,
+    timeZone: safeTimezone,
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
@@ -54,7 +62,24 @@ export async function resolveAcademyTimezone(academyId: string): Promise<string>
     return DEFAULT_TIMEZONE;
   }
   const academy = snapshot.data() as AcademyDoc;
-  return academy.timezone?.trim() || DEFAULT_TIMEZONE;
+  const stored = academy.timezone?.trim();
+  if (!stored) {
+    return DEFAULT_TIMEZONE;
+  }
+
+  // Documentos antigos foram gravados antes da validacao de escrita e podem
+  // guardar nome de cidade ('Campinas') em vez do identificador IANA. O aviso
+  // deixa a academia rastreavel no log para correcao pela tela de gestao.
+  if (!isValidTimeZone(stored)) {
+    logger.warn('Academia com fuso horario invalido; usando o padrao', {
+      academyId,
+      storedTimezone: stored,
+      fallback: DEFAULT_TIMEZONE,
+    });
+    return DEFAULT_TIMEZONE;
+  }
+
+  return stored;
 }
 
 export interface CountingDecision {

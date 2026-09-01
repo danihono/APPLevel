@@ -1,3 +1,4 @@
+import { logger } from 'firebase-functions/v2';
 import { onRequest } from 'firebase-functions/v2/https';
 
 const CALLABLE_PROXY_REGION = 'southamerica-east1';
@@ -161,7 +162,15 @@ export const callableProxy = onRequest(callableProxyOptions, async (request, res
     }
 
     response.send(await upstreamResponse.text());
-  } catch {
+  } catch (error) {
+    // Sem esse log a falha do proxy some: o Cloud Logging nao registra nada e a
+    // unica pista que sobra e um 502 generico no navegador.
+    logger.error('callableProxy: falha ao encaminhar a requisicao', {
+      functionName,
+      targetUrl,
+      message: error instanceof Error ? error.message : String(error),
+    });
+
     response.status(502).json({
       error: {
         status: 'unavailable',
