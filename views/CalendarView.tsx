@@ -2005,7 +2005,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                         type="button"
                         onClick={() => void handleToggleRsvp(selectedClass.id)}
                         disabled={rsvpBusyByClass[selectedClass.id]}
-                        className={`app-button app-button--block ${myRsvpByClass[selectedClass.id] ? 'app-button--danger' : 'app-button--gold'}`}
+                        className={`app-button app-button--block ${myRsvpByClass[selectedClass.id] ? 'app-button--danger' : 'app-button--green'}`}
                       >
                         <CheckCircle size={14} />
                         {rsvpBusyByClass[selectedClass.id] ? 'Aguarde...' : myRsvpByClass[selectedClass.id] ? 'Cancelar ida' : 'Confirmar ida'}
@@ -2176,7 +2176,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                                     type="button"
                                     disabled={removeBusy}
                                     onClick={() => void handleRemoveStudentPresent(selectedClass.id, entry.userId)}
-                                    className="app-button app-button--solid-danger app-button--small"
+                                    className="app-button app-button--danger app-button--small"
                                     style={{ fontSize: '0.7rem', padding: '4px 10px' }}
                                   >
                                     {removeBusy ? '...' : 'Desmarcar'}
@@ -2186,7 +2186,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                                     type="button"
                                     disabled={rsvpBusy}
                                     onClick={() => void handleToggleStudentRsvp(selectedClass.id, entry.userId)}
-                                    className="app-button app-button--solid-danger app-button--small"
+                                    className="app-button app-button--danger app-button--small"
                                     style={{ fontSize: '0.7rem', padding: '4px 10px' }}
                                   >
                                     {rsvpBusy ? '...' : 'Remover'}
@@ -2355,7 +2355,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                                     type="button"
                                     disabled={removeBusy}
                                     onClick={() => void handleRemoveStudentPresent(selectedClass.id, student.id)}
-                                    className="app-button app-button--solid-danger app-button--small"
+                                    className="app-button app-button--danger app-button--small"
                                     style={{ fontSize: '0.7rem', padding: '4px 10px' }}
                                   >
                                     {removeBusy ? '...' : 'Desmarcar'}
@@ -2565,7 +2565,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                         type="button"
                         onClick={() => void handleStartFinishFlow(selectedClass.id)}
                         disabled={busy || finishBusy}
-                        className="app-button app-button--danger app-button--small"
+                        className="app-button app-button--green app-button--small"
                       >
                         <CheckCircle size={14} />
                         {busy || finishBusy ? 'Aguarde...' : 'Finalizar aula'}
@@ -2654,7 +2654,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
               {finishCountdown && finishCountdown !== '00:00' ? `Expira em ${finishCountdown}` : 'Renovando QR...'}
             </p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10, width: '100%' }}>
-              <button type="button" onClick={() => void handleConfirmFinish()} disabled={finishBusy} className="app-button app-button--danger app-button--block">
+              <button type="button" onClick={() => void handleConfirmFinish()} disabled={finishBusy} className="app-button app-button--green app-button--block">
                 <StopCircle size={14} />
                 {finishBusy ? 'Encerrando...' : 'Confirmar encerramento'}
               </button>

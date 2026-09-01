@@ -117,7 +117,7 @@ const DeleteClassModal: React.FC<DeleteClassModalProps> = ({ lesson, onClose, on
             <button type="button" onClick={onClose} disabled={submitting} className="app-button app-button--ghost flex-1">
               Cancelar
             </button>
-            <button type="submit" disabled={submitting || !canSubmit} className="app-button app-button--danger flex-1">
+            <button type="submit" disabled={submitting || !canSubmit} className="app-button app-button--solid-danger flex-1">
               <Trash2 size={14} />
               {submitting ? 'Excluindo...' : scope === 'future' ? 'Excluir em série' : 'Excluir aula'}
             </button>

@@ -928,7 +928,7 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
                 type="button"
                 onClick={() => setApproveConfirmOpen(true)}
                 disabled={approveBusy}
-                className="app-button app-button--gold"
+                className="app-button app-button--green"
               >
                 <CheckCircle2 size={16} />
                 {approveBusy ? 'Aprovando...' : 'Aprovar próxima graduação'}
@@ -984,7 +984,7 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
                 type="button"
                 onClick={() => void handleApproveSuggested()}
                 disabled={approveBusy}
-                className="app-button app-button--gold flex-1"
+                className="app-button app-button--green flex-1"
               >
                 <CheckCircle2 size={14} />
                 {approveBusy ? 'Aprovando...' : 'Confirmar'}

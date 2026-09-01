@@ -1161,7 +1161,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({
                   <button
                     type="submit"
                     disabled={deleteBusy || !deleteConfirmChecked || deletePassword.length === 0}
-                    className="app-button app-button--danger app-button--block md:col-span-2"
+                    className="app-button app-button--solid-danger app-button--block md:col-span-2"
                   >
                     <Trash2 size={16} />
                     {deleteBusy ? 'Excluindo conta...' : 'Excluir minha conta permanentemente'}

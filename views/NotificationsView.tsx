@@ -851,7 +851,7 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
               type="button"
               disabled={clearing}
               onClick={() => void handleClear()}
-              className="app-button app-button--danger flex-1"
+              className="app-button app-button--solid-danger flex-1"
             >
               <Trash2 size={14} />
               {clearing ? 'Limpando...' : 'Confirmar'}
@@ -1011,7 +1011,7 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
                           type="button"
                           disabled={isProcessing}
                           onClick={() => void handleApprove(item)}
-                          className="app-button app-button--gold app-button--small"
+                          className="app-button app-button--green app-button--small"
                         >
                           <CheckCircle2 size={15} />
                           {isProcessing ? 'Processando...' : 'Aprovar'}
@@ -1754,7 +1754,7 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
                               type="button"
                               disabled={isProcessing}
                               onClick={() => void handleApprove(item)}
-                              className="app-button app-button--gold app-button--small"
+                              className="app-button app-button--green app-button--small"
                             >
                               <CheckCircle2 size={15} />
                               {isProcessing ? 'Processando...' : 'Aprovar aluno'}
@@ -1963,7 +1963,7 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
                         type="button"
                         disabled={isProcessing}
                         onClick={() => void handleApprove(item)}
-                        className="app-button app-button--gold app-button--small"
+                        className="app-button app-button--green app-button--small"
                       >
                         <CheckCircle2 size={15} />
                         {isProcessing ? 'Processando...' : 'Aprovar video'}
@@ -2014,7 +2014,7 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
                       type="button"
                       disabled={isProcessing}
                       onClick={() => void handleApprove(item)}
-                      className="app-button app-button--gold app-button--small"
+                      className="app-button app-button--green app-button--small"
                     >
                       <CheckCircle2 size={15} />
                       {isProcessing ? 'Processando...' : 'Aprovar'}

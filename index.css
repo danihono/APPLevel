@@ -24,9 +24,28 @@
   --gold-mid: #c49746;
   --gold-light: #feeaa5;
   --gold-glow: #e8af48;
-  --gold-button-surface: linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(250, 243, 226, 0.84));
-  --gold-button-text: #241507;
-  --gold-button-shadow: 0 20px 38px rgba(145, 97, 29, 0.16), inset 0 1px 0 rgba(255, 255, 255, 0.28);
+
+  /* Botoes solidos (redesign) — amarelo primario, verde afirmativo, vermelho negativo. */
+  --btn-primary: #f0b429;
+  --btn-primary-hover: #dda318;
+  --btn-primary-active: #c68f12;
+  --btn-primary-text: #1a1300;
+  --btn-primary-shadow: 0 2px 10px rgba(240, 180, 41, 0.28);
+  --btn-success: #16a34a;
+  --btn-success-hover: #15803d;
+  --btn-success-text: #ffffff;
+  --btn-success-shadow: 0 2px 10px rgba(22, 163, 74, 0.24);
+  --btn-danger: #dc2626;
+  --btn-danger-hover: #b91c1c;
+  --btn-danger-text: #ffffff;
+  --btn-danger-shadow: 0 2px 10px rgba(220, 38, 38, 0.24);
+  --btn-danger-outline-bg: #ffffff;
+  --btn-danger-outline-hover-bg: rgba(220, 38, 38, 0.08);
+  --btn-neutral-solid: #16161e;
+
+  --gold-button-surface: var(--btn-primary);
+  --gold-button-text: var(--btn-primary-text);
+  --gold-button-shadow: var(--btn-primary-shadow);
   --success: #29a675;
   --danger: #d74b4b;
   --info: #4b7fd7;
@@ -51,9 +70,20 @@ html.dark {
   --text-soft: #9a9aab;
   --shadow-panel: 0 34px 96px rgba(0, 0, 0, 0.55), 0 10px 24px rgba(0, 0, 0, 0.28);
   --shadow-soft: 0 18px 48px rgba(0, 0, 0, 0.35);
-  --gold-button-surface: linear-gradient(180deg, rgba(16, 16, 22, 0.94), rgba(22, 22, 30, 0.92));
-  --gold-button-text: #f7f4ee;
-  --gold-button-shadow: 0 22px 42px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  /* Mesmo amarelo nos dois temas: antes o primario virava uma superficie preta no escuro. */
+  --btn-primary: #f0b429;
+  --btn-primary-hover: #ffc247;
+  --btn-primary-active: #dda318;
+  --btn-primary-shadow: 0 2px 12px rgba(240, 180, 41, 0.22);
+  --btn-success: #22c55e;
+  --btn-success-hover: #16a34a;
+  --btn-success-shadow: 0 2px 12px rgba(34, 197, 94, 0.2);
+  --btn-danger: #ef4444;
+  --btn-danger-hover: #dc2626;
+  --btn-danger-shadow: 0 2px 12px rgba(239, 68, 68, 0.2);
+  --btn-danger-outline-bg: rgba(255, 255, 255, 0.04);
+  --btn-danger-outline-hover-bg: rgba(239, 68, 68, 0.14);
+  --btn-neutral-solid: #16161e;
   --success: #34d399;
   --danger: #fb7185;
   --info: #60a5fa;
@@ -1352,13 +1382,9 @@ html.dark .app-vision-switch {
 }
 
 .app-vision-switch__button.is-active {
-  background: linear-gradient(135deg, rgba(232, 175, 72, 0.26), rgba(255, 255, 255, 0.84));
-  color: var(--text-strong);
-  box-shadow: 0 10px 18px rgba(17, 17, 24, 0.1);
-}
-
-html.dark .app-vision-switch__button.is-active {
-  background: linear-gradient(135deg, rgba(232, 175, 72, 0.22), rgba(255, 255, 255, 0.08));
+  background: var(--btn-primary);
+  color: var(--btn-primary-text);
+  box-shadow: var(--btn-primary-shadow);
 }
 
 .app-vision-switch__button:disabled {
@@ -1500,7 +1526,7 @@ html.dark .app-sidebar__collapse {
   width: 100%;
   border: 1px solid var(--border);
   border-radius: 1.5rem;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.34), rgba(255, 255, 255, 0.1));
+  background: var(--surface-strong);
   color: var(--text-strong);
   box-shadow: var(--shadow-soft);
   backdrop-filter: blur(18px);
@@ -1508,7 +1534,7 @@ html.dark .app-sidebar__collapse {
 }
 
 html.dark .app-sidebar__button {
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02));
+  background: var(--surface-strong);
 }
 
 .app-sidebar__button {
@@ -1534,14 +1560,12 @@ html.dark .app-sidebar__button {
 }
 
 .app-sidebar__button.is-active {
-  border-color: rgba(232, 175, 72, 0.28);
-  background:
-    linear-gradient(145deg, rgba(232, 175, 72, 0.18), rgba(255, 255, 255, 0.55) 44%, rgba(232, 175, 72, 0.08) 100%);
+  border-color: var(--btn-primary);
+  background: rgba(240, 180, 41, 0.14);
 }
 
 html.dark .app-sidebar__button.is-active {
-  background:
-    linear-gradient(145deg, rgba(75, 53, 23, 0.48), rgba(17, 17, 23, 0.92) 44%, rgba(53, 38, 20, 0.42) 100%);
+  background: rgba(240, 180, 41, 0.16);
 }
 
 .app-sidebar__icon {
@@ -2978,47 +3002,41 @@ html.dark .app-button {
   opacity: 0;
 }
 
-.app-button--gold {
-  color: var(--gold-button-text);
-  background: var(--gold-button-surface);
-  border-color: rgba(255, 244, 194, 0.22);
-  box-shadow: var(--gold-button-shadow);
-  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.08);
-}
-
-.app-button--gold::before,
-.app-button--gold::after {
-  opacity: 1;
-}
-
-.app-button--gold::before {
-  background:
-    radial-gradient(circle at 50% 50%, rgba(232, 175, 72, 0.2), transparent 56%),
-    linear-gradient(110deg, transparent 30%, rgba(254, 234, 165, 0.12) 50%, transparent 70%);
-}
-
-.app-button--gold::after {
-  border-color: rgba(232, 175, 72, 0.3);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.08), transparent) padding-box,
-    linear-gradient(
-      120deg,
-      rgba(83, 53, 23, 0.95),
-      rgba(196, 151, 70, 0.96) 26%,
-      rgba(254, 234, 165, 1) 50%,
-      rgba(196, 151, 70, 0.96) 74%,
-      rgba(83, 53, 23, 0.95)
-    ) border-box;
-}
-
+/* As variantes coloridas precisam repetir o prefixo `html.dark` porque a regra base
+ * `html.dark .app-button` tem especificidade maior que uma classe sozinha e venceria
+ * o `background` aqui. Os valores saem de tokens `--btn-*` que ja trocam por tema,
+ * entao o mesmo corpo serve para claro e escuro. */
+.app-button--gold,
 html.dark .app-button--gold {
+  color: var(--btn-primary-text);
+  background: var(--btn-primary);
+  border-color: transparent;
+  box-shadow: var(--btn-primary-shadow);
   text-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
 }
 
-.app-button--dark {
-  background: linear-gradient(180deg, rgba(16, 16, 22, 0.96), rgba(35, 35, 45, 0.88));
+.app-button--gold:hover,
+.app-button--gold:focus-visible,
+html.dark .app-button--gold:hover,
+html.dark .app-button--gold:focus-visible {
+  border-color: transparent;
+  background: var(--btn-primary-hover);
+  box-shadow: var(--btn-primary-shadow);
+}
+
+.app-button--gold:active:not(:disabled),
+html.dark .app-button--gold:active:not(:disabled) {
+  background: var(--btn-primary-active);
+}
+
+.app-button--dark,
+html.dark .app-button--dark {
+  background: var(--btn-neutral-solid);
   color: #faf7ef;
   border-color: rgba(255, 255, 255, 0.12);
+  box-shadow: none;
 }
 
 .app-button--ghost {
@@ -3029,95 +3047,89 @@ html.dark .app-button--ghost {
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.025));
 }
 
+/* Negativo em dois niveis: `--danger` e o contorno usado em cards e listas,
+ * `--solid-danger` e a confirmacao final dentro de modal. */
 .app-button--danger,
-.app-button--solid-danger {
-  color: #fff;
-  background: linear-gradient(180deg, #ef4444, #b91c1c);
-  border-color: transparent;
-  box-shadow: 0 14px 28px rgba(185, 28, 28, 0.28);
-  text-shadow: 0 1px 1px rgba(80, 8, 8, 0.24);
-}
-
-.app-button--danger:hover,
-.app-button--danger:focus-visible,
-.app-button--solid-danger:hover,
-.app-button--solid-danger:focus-visible {
-  border-color: transparent;
-  background: linear-gradient(180deg, #f05252, #991b1b);
-  box-shadow: 0 16px 30px rgba(185, 28, 28, 0.36);
-}
-
-.app-button--danger::before,
-.app-button--danger::after,
-.app-button--solid-danger::before,
-.app-button--solid-danger::after {
-  opacity: 0;
-}
-
-.app-button--danger:hover::before,
-.app-button--danger:focus-visible::before,
-.app-button--danger:hover::after,
-.app-button--danger:focus-visible::after,
-.app-button--solid-danger:hover::before,
-.app-button--solid-danger:focus-visible::before,
-.app-button--solid-danger:hover::after,
-.app-button--solid-danger:focus-visible::after {
-  opacity: 0;
-}
-
-html.dark .app-button--danger,
-html.dark .app-button--solid-danger {
-  background: linear-gradient(180deg, #e11d48, #9f1239);
-  box-shadow: 0 16px 30px rgba(225, 29, 72, 0.32);
-}
-
-html.dark .app-button--danger:hover,
-html.dark .app-button--danger:focus-visible,
-html.dark .app-button--solid-danger:hover,
-html.dark .app-button--solid-danger:focus-visible {
-  background: linear-gradient(180deg, #f43f5e, #881337);
-  box-shadow: 0 18px 32px rgba(225, 29, 72, 0.38);
-}
-
-.app-button--green {
-  color: #ffffff;
-  background: linear-gradient(180deg, #22c55e, #15803d);
-  border-color: transparent;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.28),
-    0 10px 22px rgba(21, 128, 61, 0.26);
-  text-shadow: 0 1px 1px rgba(6, 60, 30, 0.2);
+html.dark .app-button--danger {
+  color: var(--btn-danger);
+  background: var(--btn-danger-outline-bg);
+  border-color: var(--btn-danger);
+  border-width: 1.5px;
+  box-shadow: none;
+  text-shadow: none;
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
 }
 
+.app-button--danger:hover,
+.app-button--danger:focus-visible,
+html.dark .app-button--danger:hover,
+html.dark .app-button--danger:focus-visible {
+  color: var(--btn-danger-hover);
+  border-color: var(--btn-danger-hover);
+  background: var(--btn-danger-outline-hover-bg);
+  box-shadow: none;
+}
+
+.app-button--solid-danger,
+html.dark .app-button--solid-danger {
+  color: var(--btn-danger-text);
+  background: var(--btn-danger);
+  border-color: transparent;
+  box-shadow: var(--btn-danger-shadow);
+  text-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.app-button--solid-danger:hover,
+.app-button--solid-danger:focus-visible,
+html.dark .app-button--solid-danger:hover,
+html.dark .app-button--solid-danger:focus-visible {
+  border-color: transparent;
+  background: var(--btn-danger-hover);
+  box-shadow: var(--btn-danger-shadow);
+}
+
+.app-button--green,
+html.dark .app-button--green {
+  color: var(--btn-success-text);
+  background: var(--btn-success);
+  border-color: transparent;
+  box-shadow: var(--btn-success-shadow);
+  text-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.app-button--green:hover,
+.app-button--green:focus-visible,
+html.dark .app-button--green:hover,
+html.dark .app-button--green:focus-visible {
+  border-color: transparent;
+  background: var(--btn-success-hover);
+  box-shadow: var(--btn-success-shadow);
+}
+
+/* Sem a moldura dourada nem o halo: essas variantes sao chapadas. */
+.app-button--gold::before,
+.app-button--gold::after,
+.app-button--dark::before,
+.app-button--dark::after,
+.app-button--danger::before,
+.app-button--danger::after,
+.app-button--solid-danger::before,
+.app-button--solid-danger::after,
 .app-button--green::before,
 .app-button--green::after {
   display: none;
 }
 
-.app-button--green:hover,
-.app-button--green:focus-visible {
-  border-color: transparent;
-  background: linear-gradient(180deg, #34d399, #166534);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.32),
-    0 12px 26px rgba(21, 128, 61, 0.32);
-}
-
-html.dark .app-button--green {
-  background: linear-gradient(180deg, #16a34a, #166534);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.16),
-    0 12px 26px rgba(22, 163, 74, 0.3);
-}
-
-html.dark .app-button--green:hover,
-html.dark .app-button--green:focus-visible {
-  background: linear-gradient(180deg, #22c55e, #14532d);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.2),
-    0 14px 28px rgba(22, 163, 74, 0.36);
+.app-button--gold:disabled,
+.app-button--green:disabled,
+.app-button--danger:disabled,
+.app-button--solid-danger:disabled {
+  box-shadow: none;
 }
 
 .app-button--chip {
@@ -3184,13 +3196,10 @@ html.dark .app-segment {
 }
 
 .app-segment__button.is-active {
-  color: #fdf6e9;
-  background: linear-gradient(160deg, #5c3d1f, #3a2613);
-  border-color: rgba(232, 175, 72, 0.55);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.12),
-    0 0 0 1px rgba(232, 175, 72, 0.35),
-    0 6px 16px rgba(83, 53, 23, 0.45);
+  color: var(--btn-primary-text);
+  background: var(--btn-primary);
+  border-color: transparent;
+  box-shadow: var(--btn-primary-shadow);
   transform: translateY(-1px);
 }
 
@@ -3200,13 +3209,10 @@ html.dark .app-segment {
 }
 
 html.dark .app-segment__button.is-active {
-  color: #fdf6e9;
-  background: linear-gradient(160deg, #6b4a26, #43301a);
-  border-color: rgba(232, 175, 72, 0.6);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.1),
-    0 0 0 1px rgba(232, 175, 72, 0.45),
-    0 6px 18px rgba(0, 0, 0, 0.55);
+  color: var(--btn-primary-text);
+  background: var(--btn-primary);
+  border-color: transparent;
+  box-shadow: var(--btn-primary-shadow);
 }
 
 .app-stat-grid.learning-admin__kpis {
@@ -3557,9 +3563,9 @@ html.dark .app-segment__button.is-active {
 }
 
 .learning-icon-button--danger:hover:not(:disabled) {
-  color: var(--danger);
-  border-color: rgba(215, 75, 75, 0.4);
-  background: rgba(215, 75, 75, 0.1);
+  color: var(--btn-danger);
+  border-color: var(--btn-danger);
+  background: var(--btn-danger-outline-hover-bg);
 }
 
 html.dark .learning-icon-button:hover:not(:disabled) {
@@ -5097,7 +5103,7 @@ html.dark .create-class-modal__footer {
 }
 
 .app-button--theme-light {
-  background: linear-gradient(180deg, #ffffff, #e9ebf0);
+  background: #ffffff;
   color: #1f2430;
   border-color: rgba(20, 20, 30, 0.14);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.85), 0 10px 22px rgba(17, 17, 24, 0.12);
@@ -5105,7 +5111,7 @@ html.dark .create-class-modal__footer {
 }
 
 .app-button--theme-dark {
-  background: linear-gradient(180deg, #2c2c38, #121219);
+  background: var(--btn-neutral-solid);
   color: #f5f1e6;
   border-color: rgba(255, 255, 255, 0.14);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 10px 22px rgba(0, 0, 0, 0.4);
@@ -5113,7 +5119,7 @@ html.dark .create-class-modal__footer {
 }
 
 html.dark .app-button--theme-light {
-  background: linear-gradient(180deg, #ffffff, #e9ebf0);
+  background: #ffffff;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.85), 0 10px 22px rgba(0, 0, 0, 0.4);
 }
 
@@ -5131,8 +5137,8 @@ html.dark .app-button--theme-light {
 
 .app-button--theme-light[aria-pressed='true'],
 .app-button--theme-dark[aria-pressed='true'] {
-  border-color: #e8af48;
-  box-shadow: 0 0 0 2px rgba(232, 175, 72, 0.55), 0 12px 26px rgba(232, 175, 72, 0.22);
+  border-color: var(--btn-primary);
+  box-shadow: 0 0 0 2px var(--btn-primary);
 }
 
 .app-icon-shell {
@@ -7303,43 +7309,29 @@ html.dark .controle-total__kpi-tile {
   --action-rgb: 79, 70, 229;
   --action-strong: rgb(var(--action-rgb));
   color: var(--action-strong);
-  border-color: rgba(var(--action-rgb), 0.28);
-  background:
-    linear-gradient(180deg, rgba(var(--action-rgb), 0.12), rgba(var(--action-rgb), 0.045)),
-    rgba(255, 255, 255, 0.62);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.38), 0 16px 28px rgba(var(--action-rgb), 0.12);
+  border-color: rgba(var(--action-rgb), 0.32);
+  background: rgba(var(--action-rgb), 0.1);
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
 }
 
 html.dark .controle-total__action-button {
-  background:
-    linear-gradient(180deg, rgba(var(--action-rgb), 0.22), rgba(var(--action-rgb), 0.07)),
-    rgba(10, 10, 16, 0.72);
+  background: rgba(var(--action-rgb), 0.18);
 }
 
-.controle-total__action-button::before {
-  background: radial-gradient(circle at center, rgba(var(--action-rgb), 0.28), transparent 60%);
-}
-
+.controle-total__action-button::before,
 .controle-total__action-button::after {
-  border-color: rgba(var(--action-rgb), 0.32);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.12), transparent) padding-box,
-    linear-gradient(120deg, rgba(var(--action-rgb), 0.32), rgba(var(--action-rgb), 0.74), rgba(255, 255, 255, 0.72)) border-box;
-  opacity: 0.7;
+  display: none;
 }
 
 .controle-total__action-button:hover,
 .controle-total__action-button:focus-visible,
 .controle-total__action-button.is-active {
   color: #fff;
-  border-color: rgba(var(--action-rgb), 0.46);
-  background:
-    linear-gradient(135deg, rgba(var(--action-rgb), 0.96), rgba(var(--action-rgb), 0.72));
-  box-shadow: 0 18px 34px rgba(var(--action-rgb), 0.24);
-}
-
-.controle-total__action-button.is-active::after {
-  opacity: 1;
+  border-color: transparent;
+  background: var(--action-strong);
+  box-shadow: 0 2px 10px rgba(var(--action-rgb), 0.24);
 }
 
 .controle-total__action-button--sale {
@@ -8916,12 +8908,12 @@ html.dark .profile-mobile__menu-icon {
   align-items: center;
   justify-content: space-between;
   width: 100%;
-  background: linear-gradient(100deg, #b8872e 0%, #c49746 40%, #dbb75a 100%);
+  background: var(--btn-primary);
   border: none;
   border-radius: 3rem;
   padding: 0.75rem 0.75rem 0.75rem 1.6rem;
   cursor: pointer;
-  box-shadow: 0 8px 28px rgba(196,151,70,0.4);
+  box-shadow: var(--btn-primary-shadow);
   transition: opacity 0.15s, transform 0.12s;
   margin-bottom: 1.1rem;
   -webkit-tap-highlight-color: transparent;
@@ -8942,7 +8934,7 @@ html.dark .profile-mobile__menu-icon {
   font-family: var(--font-display);
   font-size: 1rem;
   font-weight: 700;
-  color: #1a0e00;
+  color: var(--btn-primary-text);
   letter-spacing: 0.01em;
 }
 
@@ -8954,7 +8946,7 @@ html.dark .profile-mobile__menu-icon {
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #c49746;
+  color: var(--btn-primary-active);
   flex-shrink: 0;
   box-shadow: 0 2px 8px rgba(0,0,0,0.14);
 }
@@ -9261,9 +9253,9 @@ html.dark .app-shell--flat .app-sidebar__button.is-active {
 }
 .app-shell--flat .app-segment__button.is-active {
   transform: none;
-  background: rgba(232, 175, 72, 0.16);
-  color: var(--gold-ink);
-  border-color: rgba(232, 175, 72, 0.45);
+  background: var(--btn-primary);
+  color: var(--btn-primary-text);
+  border-color: transparent;
   box-shadow: none;
 }
 
