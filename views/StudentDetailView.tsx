@@ -675,7 +675,7 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
                 type="button"
                 onClick={() => void handleActivate()}
                 disabled={deactivateBusy}
-                className="app-button app-button--primary w-full"
+                className="app-button app-button--green w-full"
               >
                 {deactivateBusy ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" /> : <CheckCircle2 size={16} />}
                 {deactivateBusy ? 'Reativando...' : 'Reativar aluno'}
