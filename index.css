@@ -42,6 +42,10 @@
   --btn-danger-outline-bg: #ffffff;
   --btn-danger-outline-hover-bg: rgba(220, 38, 38, 0.08);
   --btn-neutral-solid: #16161e;
+  --btn-neutral-bg: #ffffff;
+  --btn-neutral-bg-hover: #f5f7fa;
+  --btn-neutral-border: #e2e5ec;
+  --btn-neutral-border-hover: #cfd5e0;
 
   --gold-button-surface: var(--btn-primary);
   --gold-button-text: var(--btn-primary-text);
@@ -84,6 +88,10 @@ html.dark {
   --btn-danger-outline-bg: rgba(255, 255, 255, 0.04);
   --btn-danger-outline-hover-bg: rgba(239, 68, 68, 0.14);
   --btn-neutral-solid: #16161e;
+  --btn-neutral-bg: #1a1a22;
+  --btn-neutral-bg-hover: #22222c;
+  --btn-neutral-border: rgba(255, 255, 255, 0.14);
+  --btn-neutral-border-hover: rgba(255, 255, 255, 0.26);
   --success: #34d399;
   --danger: #fb7185;
   --info: #60a5fa;
@@ -2922,10 +2930,10 @@ html.dark .notice-mobile__compose-title {
   gap: 0.65rem;
   min-height: 3.25rem;
   padding: 0.85rem 1.15rem;
-  border: 1px solid var(--border-strong);
+  border: 1.5px solid var(--btn-neutral-border);
   border-radius: 1.25rem;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.62), rgba(255, 255, 255, 0.24));
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.34), 0 18px 34px rgba(17, 17, 24, 0.08);
+  background: var(--btn-neutral-bg);
+  box-shadow: none;
   color: var(--text-strong);
   font-weight: 800;
   letter-spacing: 0.02em;
@@ -2937,39 +2945,17 @@ html.dark .notice-mobile__compose-title {
     background 220ms ease,
     color 220ms ease,
     opacity 220ms ease;
-  backdrop-filter: blur(18px);
-  -webkit-backdrop-filter: blur(18px);
 }
 
 html.dark .app-button {
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.025));
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 18px 34px rgba(0, 0, 0, 0.28);
+  background: var(--btn-neutral-bg);
+  box-shadow: none;
 }
 
-.app-button::before {
-  content: '';
-  position: absolute;
-  inset: -25%;
-  background: radial-gradient(circle at center, rgba(232, 175, 72, 0.22), transparent 60%);
-  filter: blur(16px);
-  opacity: 0;
-  transition: opacity 220ms ease;
-  z-index: -1;
-}
-
+/* O halo e a moldura dourada do design antigo saem de cena: agora todo botao e chapado. */
+.app-button::before,
 .app-button::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  border: 1.5px solid rgba(232, 175, 72, 0.24);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.08), transparent) padding-box,
-    linear-gradient(120deg, rgba(83, 53, 23, 0.85), rgba(196, 151, 70, 0.92) 45%, rgba(254, 234, 165, 0.95) 72%, rgba(83, 53, 23, 0.85)) border-box;
-  border-radius: inherit;
-  opacity: 0.88;
-  z-index: -1;
-  pointer-events: none;
+  display: none;
 }
 
 .app-button > * {
@@ -2980,14 +2966,14 @@ html.dark .app-button {
 .app-button:hover,
 .app-button:focus-visible {
   transform: translateY(-2px) scale(1.01);
-  border-color: rgba(232, 175, 72, 0.28);
 }
 
-.app-button:hover::before,
-.app-button:focus-visible::before,
-.app-button:hover::after,
-.app-button:focus-visible::after {
-  opacity: 1;
+.app-button--ghost:hover,
+.app-button--ghost:focus-visible,
+.app-button:not([class*='app-button--']):hover,
+.app-button:not([class*='app-button--']):focus-visible {
+  background: var(--btn-neutral-bg-hover);
+  border-color: var(--btn-neutral-border-hover);
 }
 
 .app-button:disabled {
@@ -2995,11 +2981,6 @@ html.dark .app-button {
   cursor: not-allowed;
   transform: none;
   box-shadow: none;
-}
-
-.app-button:disabled::before,
-.app-button:disabled::after {
-  opacity: 0;
 }
 
 /* As variantes coloridas precisam repetir o prefixo `html.dark` porque a regra base
@@ -3039,12 +3020,11 @@ html.dark .app-button--dark {
   box-shadow: none;
 }
 
-.app-button--ghost {
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.4), rgba(255, 255, 255, 0.14));
-}
-
+.app-button--ghost,
 html.dark .app-button--ghost {
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.025));
+  background: var(--btn-neutral-bg);
+  border-color: var(--btn-neutral-border);
+  color: var(--text-strong);
 }
 
 /* Negativo em dois niveis: `--danger` e o contorno usado em cards e listas,
@@ -3109,20 +3089,6 @@ html.dark .app-button--green:focus-visible {
   border-color: transparent;
   background: var(--btn-success-hover);
   box-shadow: var(--btn-success-shadow);
-}
-
-/* Sem a moldura dourada nem o halo: essas variantes sao chapadas. */
-.app-button--gold::before,
-.app-button--gold::after,
-.app-button--dark::before,
-.app-button--dark::after,
-.app-button--danger::before,
-.app-button--danger::after,
-.app-button--solid-danger::before,
-.app-button--solid-danger::after,
-.app-button--green::before,
-.app-button--green::after {
-  display: none;
 }
 
 .app-button--gold:disabled,
@@ -9237,11 +9203,7 @@ html.dark .app-shell--flat .app-sidebar__button.is-active {
 /* ---- 5. Botões / segmentos / inputs planos ---- */
 .app-shell--flat .app-button {
   border-radius: var(--sa-radius-sm);
-  box-shadow: var(--shadow-soft);
   min-height: 2.85rem;
-}
-.app-shell--flat .app-button::before {
-  display: none;
 }
 
 /* Segmented control (abas do Controle Total) */
