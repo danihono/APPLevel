@@ -1,6 +1,7 @@
 import { Timestamp } from 'firebase-admin/firestore';
 import { AcademyDoc, COLLECTIONS, DEFAULT_PROGRESSION_RULES, UserDoc } from '../domain/models';
 import { auth, db } from '../lib/firebase';
+import { isValidTimeZone } from '../lib/payload';
 
 interface BootstrapArgs {
   superadminEmail: string;
@@ -68,6 +69,16 @@ function parseArgs(argv: string[]): ParsedBootstrapArgs {
   const timezone = parsed.get('timezone')?.trim() ?? 'America/Sao_Paulo';
 
   if (!superadminEmail || !superadminPassword || !firstName || !lastName || !academyName || !academySlug) {
+    return { kind: 'invalid' };
+  }
+
+  // Ultima porta de escrita sem validacao: foi por aqui que academias ficaram com
+  // nome de cidade ('Campinas') no lugar do identificador IANA, o que derruba o
+  // registro de presenca com RangeError.
+  if (!isValidTimeZone(timezone)) {
+    console.error(
+      `Fuso horario invalido: "${timezone}". Use um identificador IANA, como America/Sao_Paulo.`,
+    );
     return { kind: 'invalid' };
   }
 

@@ -114,7 +114,11 @@ import { toggleClassRsvp } from './modules/rsvp';
 
 setGlobalOptions({
   region: 'southamerica-east1',
-  maxInstances: 10,
+  // Cada chamada do frontend consome duas instancias: o `callableProxy` segura
+  // uma enquanto aguarda a callable de destino, que ocupa outra. Com o teto em
+  // 10 a capacidade real era de 5 pedidos simultaneos, e o Cloud Run passava a
+  // responder 429 (resource-exhausted) em horario de pico.
+  maxInstances: 32,
 });
 
 export {

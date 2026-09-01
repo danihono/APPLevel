@@ -92,20 +92,30 @@ const staffBeltPresets = ADULT_BELTS;
 // O campo era texto livre, e valores como "Brasilia" ou "GMT-3" quebram o
 // Intl.DateTimeFormat — o que zerava silenciosamente as estatisticas por dia/hora da
 // Central. Lista fechada de fusos IANA do Brasil.
-const TIMEZONE_OPTIONS: Array<{ value: string; label: string }> = [
+// Os 16 fusos IANA do Brasil. Sao os unicos valores aceitos: gravar nome de
+// cidade ('Campinas') derruba o registro de presenca no backend com RangeError.
+const BRAZIL_TIMEZONE_OPTIONS: Array<{ value: string; label: string }> = [
   { value: 'America/Sao_Paulo', label: 'São Paulo / Brasília (GMT-3)' },
   { value: 'America/Bahia', label: 'Salvador (GMT-3)' },
+  { value: 'America/Maceio', label: 'Maceió / Aracaju (GMT-3)' },
   { value: 'America/Recife', label: 'Recife (GMT-3)' },
   { value: 'America/Fortaleza', label: 'Fortaleza (GMT-3)' },
   { value: 'America/Belem', label: 'Belém (GMT-3)' },
+  { value: 'America/Santarem', label: 'Santarém (GMT-3)' },
+  { value: 'America/Araguaina', label: 'Palmas / Tocantins (GMT-3)' },
   { value: 'America/Campo_Grande', label: 'Campo Grande (GMT-4)' },
   { value: 'America/Cuiaba', label: 'Cuiabá (GMT-4)' },
   { value: 'America/Manaus', label: 'Manaus (GMT-4)' },
   { value: 'America/Porto_Velho', label: 'Porto Velho (GMT-4)' },
   { value: 'America/Boa_Vista', label: 'Boa Vista (GMT-4)' },
   { value: 'America/Rio_Branco', label: 'Rio Branco (GMT-5)' },
+  { value: 'America/Eirunepe', label: 'Eirunepé (GMT-5)' },
   { value: 'America/Noronha', label: 'Fernando de Noronha (GMT-2)' },
 ];
+
+// Cinto de seguranca: se o navegador nao reconhecer algum identificador, ele nao
+// chega a ser oferecido. Assim o seletor nunca consegue gravar um fuso invalido.
+const TIMEZONE_OPTIONS = BRAZIL_TIMEZONE_OPTIONS.filter((option) => isValidTimeZone(option.value));
 
 // Mantem o valor ja gravado como opcao para nao trocar o fuso da unidade sem o usuario
 // perceber — mesmo quando ele e invalido, sinalizado no rotulo.
