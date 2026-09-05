@@ -1,10 +1,41 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { resolveAttendanceDate, type AttendanceDateFields } from '../attendanceUtils.ts';
+import { calculateRecentParticipation, resolveAttendanceDate, type AttendanceDateFields } from '../attendanceUtils.ts';
 
 const timestamp = (iso: string) => ({
   toDate: () => new Date(iso),
+});
+
+test('participacao conta alunos ativos distintos da unidade, sem bonus ou repeticoes', () => {
+  const users = [
+    { id: 'a', academyId: 'one', role: 'student', status: 'active', attendanceCount: 900 },
+    { id: 'b', academyId: 'one', role: 'student', status: 'active', attendanceCount: 500 },
+    { id: 'c', academyId: 'one', role: 'student', status: 'inactive' },
+    { id: 'd', academyId: 'one', role: 'professor', status: 'active' },
+    { id: 'e', academyId: 'two', role: 'student', status: 'active' },
+  ];
+  const attendances = ['a', 'a', 'c', 'd', 'e'].map((userId) => ({
+    userId, academyId: 'one', classStartAt: timestamp('2026-09-05T10:00:00Z'),
+    countsAsAttendance: false,
+  }));
+  assert.deepEqual(calculateRecentParticipation('one', users, attendances, Date.parse('2026-09-05T12:00:00Z')),
+    { activeStudents: 2, participatingStudents: 1, percentage: 50 });
+});
+
+test('janela de 72h usa horario da aula, inclui limite e exclui futuro e lancamento tardio', () => {
+  const now = Date.parse('2026-09-05T12:00:00Z');
+  const users = ['a', 'b', 'c'].map((id) => ({ id, academyId: 'one', role: 'student', status: 'active' }));
+  const attendances = [
+    { userId: 'a', academyId: 'one', classStartAt: timestamp('2026-09-02T12:00:00Z') },
+    { userId: 'b', academyId: 'one', classStartAt: timestamp('2026-09-02T11:59:59Z'), checkedInAt: timestamp('2026-09-05T11:00:00Z') },
+    { userId: 'c', academyId: 'one', classStartAt: timestamp('2026-09-05T12:00:01Z') },
+  ];
+  assert.deepEqual(calculateRecentParticipation('one', users, attendances, now),
+    { activeStudents: 3, participatingStudents: 1, percentage: 33 });
+  assert.equal(calculateRecentParticipation('one', users, attendances.slice(0, 1), now + 1).participatingStudents, 0);
+  assert.deepEqual(calculateRecentParticipation('empty', users, attendances, now),
+    { activeStudents: 0, participatingStudents: 0, percentage: 0 });
 });
 
 test('prioriza classStartAt sobre o horario da aula e os horarios de lancamento', () => {
