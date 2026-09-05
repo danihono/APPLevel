@@ -137,6 +137,58 @@ export function subscribeToAcademies(
   );
 }
 
+export interface DailyTrainingSnapshot {
+  classes: Array<FirestoreEntity<ClassRecord>>;
+  attendances: Array<FirestoreEntity<AttendanceRecord>>;
+}
+
+// Le presencas por aula, nao pelo horario de lancamento: chamadas tardias e
+// registros antigos sem classStartAt continuam no dia correto da aula.
+export function subscribeToDailyTraining(
+  startDate: Date,
+  listener: (snapshot: DailyTrainingSnapshot | null) => void,
+  onError: (error: Error) => void,
+) {
+  let generation = 0;
+  let attendanceUnsubscribers: Array<() => void> = [];
+  const unsubscribeClasses = onSnapshot(
+    query(collection(firebaseDb, 'classes'), where('scheduledStart', '>=', Timestamp.fromDate(startDate))),
+    (snapshot) => {
+      const currentGeneration = ++generation;
+      attendanceUnsubscribers.forEach((unsubscribe) => unsubscribe());
+      attendanceUnsubscribers = [];
+      listener(null);
+      const classes = snapshot.docs.map((item) => mapDoc<ClassRecord>(item))
+        .filter((lesson) => lesson.status === 'finished');
+      if (classes.length === 0) { listener({ classes, attendances: [] }); return; }
+      const chunks: string[][] = [];
+      for (let i = 0; i < classes.length; i += 10) chunks.push(classes.slice(i, i + 10).map((lesson) => lesson.id));
+      const results = new Map<number, Array<FirestoreEntity<AttendanceRecord>>>();
+      let failed = false;
+      attendanceUnsubscribers = chunks.map((ids, index) => onSnapshot(
+        query(collection(firebaseDb, 'attendances'), where('classId', 'in', ids)),
+        (records) => {
+          if (currentGeneration !== generation || failed) return;
+          results.set(index, records.docs.map((item) => mapDoc<AttendanceRecord>(item)));
+          if (results.size === chunks.length) listener({ classes, attendances: [...results.values()].flat() });
+        },
+        (error) => {
+          if (currentGeneration !== generation) return;
+          failed = true;
+          listener(null);
+          onError(error);
+        },
+      ));
+    },
+    (error) => { listener(null); onError(error); },
+  );
+  return () => {
+    generation++;
+    unsubscribeClasses();
+    attendanceUnsubscribers.forEach((unsubscribe) => unsubscribe());
+  };
+}
+
 export function subscribeToAcademyClasses(
   academyId: string,
   listener: (records: Array<FirestoreEntity<ClassRecord>>) => void,

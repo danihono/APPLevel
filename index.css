@@ -10083,3 +10083,11 @@ html.dark .exam-rules__body {
 .exam-rules__page {
   cursor: zoom-in;
 }
+
+/* A mesma tabela diaria atende desktop e celular, sem cortar academias. */
+.sa-daily-training { min-width: 0; margin-bottom: 20px; }
+.sa-daily-training__scroll { overflow-x: auto; max-width: 100%; }
+.sa-daily-training .sa-table { min-width: 480px; }
+.sa-daily-training tbody th { padding: 14px 12px; text-align: left; font-size: 13px; white-space: nowrap; }
+.sa-daily-training tbody tr { cursor: default; }
+.sa-daily-training__date { display: block; margin-top: 4px; font-size: 11px; color: var(--text-muted); }

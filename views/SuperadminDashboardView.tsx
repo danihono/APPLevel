@@ -28,6 +28,7 @@ import type {
   CompetitionRecord,
   UserRecord,
 } from '../services/firebase/models';
+import DailyTrainingTable from '../components/DailyTrainingTable';
 import InstructorEditModal from '../components/InstructorEditModal';
 
 interface SuperadminDashboardViewProps {
@@ -1185,6 +1186,7 @@ const SuperadminDashboardView: React.FC<SuperadminDashboardViewProps> = ({
 
   return (
     <div className="view-shell superadmin-dashboard">
+      <DailyTrainingTable academies={filteredRows} users={allUsers} />
       {/* ── MOBILE LAYOUT ── escondido no desktop via CSS */}
       <div className="superadmin-mobile-layout">
 
