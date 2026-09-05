@@ -1,4 +1,6 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { calculateRecentParticipation, PARTICIPATION_WINDOW_MS } from '../attendanceUtils';
+import { subscribeToRecentParticipation } from '../services/firebase/data';
 import { getBeltMeta } from '../beltCatalog';
 import {
   FOCUS_PERIOD_OPTIONS,
@@ -422,6 +424,28 @@ const SuperadminDashboardView: React.FC<SuperadminDashboardViewProps> = ({
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [sortMode, setSortMode] = useState<SortMode>('attention');
   const [editingInstructor, setEditingInstructor] = useState<FirestoreEntity<UserRecord> | null>(null);
+
+  const [participationNow, setParticipationNow] = useState(Date.now);
+  const [participationRecords, setParticipationRecords] = useState<Array<FirestoreEntity<AttendanceRecord>> | null>(null);
+  const [participationError, setParticipationError] = useState(false);
+  const participationHour = Math.floor(participationNow / 3_600_000);
+  useEffect(() => {
+    const timer = window.setInterval(() => setParticipationNow(Date.now()), 60_000);
+    return () => window.clearInterval(timer);
+  }, []);
+  useEffect(() => {
+    setParticipationRecords(null);
+    setParticipationError(false);
+    return subscribeToRecentParticipation(
+      new Date(participationHour * 3_600_000 - PARTICIPATION_WINDOW_MS),
+      setParticipationRecords,
+      () => setParticipationError(true),
+    );
+  }, [participationHour]);
+  const participationByAcademy = useMemo(() => new Map(academies.map((entry) => [
+    entry.id,
+    calculateRecentParticipation(entry.id, allUsers, participationRecords ?? [], participationNow),
+  ])), [academies, allUsers, participationRecords, participationNow]);
 
   const usersByAcademyId = useMemo(() => {
     const grouped = new Map<string, Array<FirestoreEntity<UserRecord>>>();
@@ -1527,17 +1551,26 @@ const SuperadminDashboardView: React.FC<SuperadminDashboardViewProps> = ({
             <div className="sa-card__head">
               <h3 className="sa-card__title">Desempenho das academias</h3>
             </div>
+            <p className="sa-participation-note">
+              Últimas 72 horas. Cada aluno ativo com presença conta uma vez.
+            </p>
+            {participationError && <p role="alert" className="sa-participation-note">
+              Não foi possível carregar a participação. Tente recarregar a página.
+            </p>}
             {performanceRows.length > 0 ? (
               <table className="sa-table">
                 <thead>
                   <tr>
                     <th>Academia</th>
                     <th>Alunos ativos</th>
-                    <th>Presença média</th>
+                    <th>Participação nos últimos 3 dias</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {performanceRows.map((row) => (
+                  {performanceRows.map((row) => {
+                    const participation = participationByAcademy.get(row.id)!;
+                    const ready = participationRecords !== null && !participationError;
+                    return (
                     <tr
                       key={row.id}
                       role="button"
@@ -1548,22 +1581,18 @@ const SuperadminDashboardView: React.FC<SuperadminDashboardViewProps> = ({
                       <td className="sa-table__name">{row.name}</td>
                       <td>{formatNumber(row.activeStudents)}</td>
                       <td>
-                        <div className="sa-table__attendance">
-                          <span className="sa-table__attendance-value">
-                            {row.activeStudents > 0 ? formatNumber(row.averageAttendance) : '—'}
-                          </span>
-                          <div className="sa-table__bar">
-                            <span
-                              style={{
-                                width: `${Math.min(100, row.averageAttendance)}%`,
-                                background: row.averageAttendance >= 50 ? 'var(--success)' : 'var(--danger)',
-                              }}
-                            />
-                          </div>
+                        <div className="sa-participation">
+                          <strong>{!ready ? (participationError ? 'Indisponível' : 'Carregando…')
+                            : row.activeStudents === 0 ? '—' : `${participation.percentage}%`}</strong>
+                          {ready && <span>
+                            {row.activeStudents === 0 ? 'Sem alunos ativos'
+                              : `${formatNumber(participation.participatingStudents)} de ${formatNumber(row.activeStudents)} alunos ativos treinaram`}
+                          </span>}
                         </div>
                       </td>
                     </tr>
-                  ))}
+                    );
+                  })}
                 </tbody>
               </table>
             ) : (

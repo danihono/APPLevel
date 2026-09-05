@@ -226,6 +226,32 @@ export function subscribeToClassAttendances(
   );
 }
 
+// Consulta global exclusiva da central superadmin, independente da unidade em foco.
+// Os campos antigos garantem compatibilidade com presencas sem classStartAt.
+export function subscribeToRecentParticipation(
+  startDate: Date,
+  listener: (records: Array<FirestoreEntity<AttendanceRecord>>) => void,
+  onError: (error: Error) => void,
+) {
+  const fields = ['classStartAt', 'checkedInAt', 'createdAt'] as const;
+  const snapshots = new Map<string, Array<FirestoreEntity<AttendanceRecord>>>();
+  let failed = false;
+  const unsubscribers = fields.map((field) => onSnapshot(
+    query(collection(firebaseDb, 'attendances'),
+      where(field, '>=', Timestamp.fromDate(startDate)), orderBy(field, 'desc')),
+    (snapshot) => {
+      snapshots.set(field, snapshot.docs.map((item) => mapDoc<AttendanceRecord>(item)));
+      // Nao apresentar percentual parcial ou zero enquanto alguma consulta carrega/falha.
+      if (failed || snapshots.size !== fields.length) return;
+      const records = new Map<string, FirestoreEntity<AttendanceRecord>>();
+      snapshots.forEach((items) => items.forEach((item) => records.set(item.id, item)));
+      listener([...records.values()]);
+    },
+    (error) => { failed = true; onError(error); },
+  ));
+  return () => unsubscribers.forEach((unsubscribe) => unsubscribe());
+}
+
 export function subscribeToRankingAttendances(
   params: {
     academyId?: string;

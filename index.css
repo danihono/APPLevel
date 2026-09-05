@@ -6112,6 +6112,24 @@ html.dark .graduation-celebration__route {
   font-weight: 700;
 }
 
+.sa-participation-note {
+  margin: 0 0 12px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.sa-participation {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.sa-participation > span {
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--text-muted);
+}
+
 .sa-table__attendance {
   display: flex;
   align-items: center;
