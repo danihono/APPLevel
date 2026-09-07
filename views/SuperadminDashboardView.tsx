@@ -28,7 +28,7 @@ import type {
   CompetitionRecord,
   UserRecord,
 } from '../services/firebase/models';
-import DailyTrainingTable from '../components/DailyTrainingTable';
+import DailyTrainingChart, { useDailyTraining } from '../components/DailyTrainingTable';
 import InstructorEditModal from '../components/InstructorEditModal';
 
 interface SuperadminDashboardViewProps {
@@ -556,6 +556,8 @@ const SuperadminDashboardView: React.FC<SuperadminDashboardViewProps> = ({
         }
       });
   }, [academyRows, search, selectedAcademyId, sortMode, statusFilter]);
+
+  const dailyTraining = useDailyTraining(filteredRows, allUsers);
 
   const filteredAcademyIds = useMemo(
     () => new Set(filteredRows.map((academyRow) => academyRow.id)),
@@ -1186,7 +1188,6 @@ const SuperadminDashboardView: React.FC<SuperadminDashboardViewProps> = ({
 
   return (
     <div className="view-shell superadmin-dashboard">
-      <DailyTrainingTable academies={filteredRows} users={allUsers} />
       {/* ── MOBILE LAYOUT ── escondido no desktop via CSS */}
       <div className="superadmin-mobile-layout">
 
@@ -1406,6 +1407,8 @@ const SuperadminDashboardView: React.FC<SuperadminDashboardViewProps> = ({
           </div>
         )}
 
+        <DailyTrainingChart data={dailyTraining} />
+
         {/* Lista de academias */}
         <div className="sa-mob-section">
           <p className="sa-mob-section__label">Academias da rede</p>
@@ -1603,7 +1606,8 @@ const SuperadminDashboardView: React.FC<SuperadminDashboardViewProps> = ({
           </article>
         </div>
 
-        <div className="sa-row sa-row--duo">
+        <div className="sa-row sa-row--triple">
+          <DailyTrainingChart data={dailyTraining} />
           <article className="sa-card">
             <div className="sa-card__head">
               <h3 className="sa-card__title">Ranking de academias</h3>
