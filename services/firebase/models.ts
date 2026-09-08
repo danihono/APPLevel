@@ -96,7 +96,6 @@ export interface UserRecord {
   lastGraduationDateOverride?: Timestamp;
   lastStripeDateOverride?: Timestamp;
   lastGradeApprovalAt?: Timestamp;
-  plainPassword?: string;
   createdAt?: Timestamp;
   updatedAt?: Timestamp;
 }
@@ -118,7 +117,6 @@ export interface ClassRecord {
   currentAttendanceCount: number;
   rsvpCount?: number;
   checkinWindowMinutes: number;
-  activeQrToken?: string | null;
   activeQrExpiresAt?: Timestamp | null;
   activeQrVersion?: number | null;
   createdAt?: Timestamp;
@@ -701,5 +699,4 @@ export interface CreateUserPayload {
   belt?: string;
   grade?: number;
   stripes?: number;
-  plainPassword?: string;
 }

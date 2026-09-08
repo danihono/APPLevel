@@ -79,8 +79,10 @@ export const syncUserMissionProgress = onCall(callableOptions, async (request) =
     'Você não pode sincronizar missões de outro usuário.',
   );
 
+  // Usa SEMPRE a academia do alvo: quando um superadmin opera sobre um usuario de
+  // outra unidade, `actor.academyId` apontava para a academia errada.
+  const targetUser = targetUserId === actor.uid ? actor.user : await getUserDoc(targetUserId);
   if (targetUserId !== actor.uid && actor.role !== 'superadmin') {
-    const targetUser = await getUserDoc(targetUserId);
     assertCondition(
       targetUser.academyId === actor.academyId,
       'permission-denied',
@@ -88,5 +90,5 @@ export const syncUserMissionProgress = onCall(callableOptions, async (request) =
     );
   }
 
-  return syncUserDerivedState(targetUserId, actor.academyId);
+  return syncUserDerivedState(targetUserId, targetUser.academyId);
 });

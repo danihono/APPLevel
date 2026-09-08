@@ -1263,7 +1263,9 @@ const CalendarView: React.FC<CalendarViewProps> = ({
     : null;
   const qrData = selectedClassId ? qrByClass[selectedClassId] : null;
   const qrCountdown = selectedClassId ? qrCountdowns[selectedClassId] ?? '' : '';
-  const displayQrToken = qrData?.qrToken ?? selectedClass?.activeQrToken ?? null;
+  // SEGURANCA: o token so chega pela resposta do callable generateClassQrCode.
+  // O documento da aula nao carrega mais o token em texto puro (era legivel por qualquer aluno).
+  const displayQrToken = qrData?.qrToken ?? null;
   const busy = selectedClassId ? !!busyByClass[selectedClassId] : false;
   const message = selectedClassId ? messageByClass[selectedClassId] : '';
 

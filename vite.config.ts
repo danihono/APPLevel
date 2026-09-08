@@ -22,10 +22,12 @@ export default defineConfig(({ mode }) => {
           : undefined,
       },
       plugins: [react()],
-      define: {
-        'process.env.API_KEY': JSON.stringify(env.GEMINI_API_KEY),
-        'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY)
-      },
+      // SEGURANCA: removido o bloco `define` que injetava GEMINI_API_KEY (sem prefixo
+      // VITE_) em process.env.API_KEY. `loadEnv(mode, '.', '')` carrega TODAS as
+      // variaveis, inclusive as que um dev assumiria serem so de servidor, e o `define`
+      // as substituia literalmente no bundle publico. Nenhum codigo lia esses
+      // identificadores: era so uma armadilha esperando alguem preencher a variavel.
+      // Chamadas ao Gemini devem passar por uma Cloud Function, nunca pelo navegador.
       resolve: {
         alias: {
           '@': path.resolve(__dirname, '.'),

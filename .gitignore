@@ -17,6 +17,15 @@ functions/lib
 functions/node_modules
 functions/.env*
 
+# ATENCAO (auditoria de seguranca): o `.env` da raiz esta VERSIONADO de proposito —
+# o build iOS em .github/workflows/ios-testflight.yml depende dele. Ele so contem a
+# config publica do Firebase (que ja vai no bundle de qualquer jeito). NUNCA coloque
+# ali um segredo de verdade (GEMINI_API_KEY, VAPID, chaves de servico): qualquer
+# variavel VITE_* e embutida no bundle publico e no pacote das lojas. Segredo de
+# verdade vai em GitHub Secrets / Secret Manager. Ver V8 no relatorio de auditoria.
+.env.local
+.env.*.local
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

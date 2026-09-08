@@ -10,6 +10,7 @@ import {
   updateEmail,
   verifyPasswordResetCode,
 } from 'firebase/auth';
+import { clearAvatarCache } from '../avatarCache';
 import { firebaseAuth } from './client';
 
 export function subscribeToAuthState(listener: (user: User | null) => void) {
@@ -35,6 +36,9 @@ export async function applyPasswordReset(oobCode: string, newPassword: string) {
 }
 
 export async function logout() {
+  // Limpa os caches locais ANTES de encerrar a sessao: em dispositivo compartilhado,
+  // as fotos de perfil em cache do usuario anterior nao podem sobrar para o proximo.
+  clearAvatarCache();
   return signOut(firebaseAuth);
 }
 

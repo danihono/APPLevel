@@ -36,6 +36,7 @@ import {
   resolveProgressionTargets,
   resolveStripeEveryForBelt,
 } from '../services/progression';
+import { enforceRateLimit, resolveClientIp } from '../lib/rateLimit';
 import { syncUserDerivedState } from '../services/userState';
 
 const CPF_LENGTH = 11;
@@ -301,6 +302,8 @@ async function ensureUniqueIdentity(params: {
   cpf: string;
   excludeUserId?: string;
   excludeRequestId?: string;
+  /** true quando o chamador nao esta autenticado: colapsa as mensagens de conflito. */
+  anonymousCaller?: boolean;
 }): Promise<void> {
   const [existingUserByEmail, existingUserByCpf, joinRequestsByEmail, joinRequestsByCpf] = await Promise.all([
     findSingleByFields<UserDoc>(COLLECTIONS.users, [['email', '==', params.email]]),
@@ -319,25 +322,33 @@ async function ensureUniqueIdentity(params: {
   const existingRequestByEmail = findOtherPending(joinRequestsByEmail.docs);
   const existingRequestByCpf = findOtherPending(joinRequestsByCpf.docs);
 
+  // SEGURANCA: para o chamador ANONIMO (submitStudentSignup) as quatro condicoes
+  // devolvem a MESMA mensagem. Mensagens distintas transformavam o cadastro publico
+  // em um oraculo: qualquer um confirmava se um e-mail ou um CPF (dado pessoal sob a
+  // LGPD) ja existia na base, uma consulta por vez. Nos fluxos autenticados a
+  // mensagem especifica continua, porque ali ela e util e o chamador ja e conhecido.
+  const generic = 'Nao foi possivel concluir o cadastro com os dados informados.';
+  const anonymous = params.anonymousCaller === true;
+
   assertCondition(
     !existingUserByEmail || existingUserByEmail.id === params.excludeUserId,
     'already-exists',
-    'Ja existe uma conta usando este e-mail.',
+    anonymous ? generic : 'Ja existe uma conta usando este e-mail.',
   );
   assertCondition(
     !existingUserByCpf || existingUserByCpf.id === params.excludeUserId,
     'already-exists',
-    'Ja existe uma conta usando este CPF.',
+    anonymous ? generic : 'Ja existe uma conta usando este CPF.',
   );
   assertCondition(
     !existingRequestByEmail,
     'already-exists',
-    'Ja existe uma solicitacao pendente usando este e-mail.',
+    anonymous ? generic : 'Ja existe uma solicitacao pendente usando este e-mail.',
   );
   assertCondition(
     !existingRequestByCpf,
     'already-exists',
-    'Ja existe uma solicitacao pendente usando este CPF.',
+    anonymous ? generic : 'Ja existe uma solicitacao pendente usando este CPF.',
   );
 }
 
@@ -621,6 +632,23 @@ function readAcademyIdsPayload(data: unknown): string[] {
 }
 
 export const submitStudentSignup = onCall(callableOptions, async (request) => {
+  // SEGURANCA: endpoint publico que cria conta no Auth, N solicitacoes e dispara push
+  // para todos os aprovadores. Sem limite, era spam/DoS de custo e brute force de
+  // enumeracao. Dois baldes: um por origem (IP) e um global de contencao.
+  const clientIp = resolveClientIp(request);
+  await enforceRateLimit({
+    key: `signup:ip:${clientIp}`,
+    limit: 5,
+    windowSeconds: 60 * 60,
+    message: 'Muitas tentativas de cadastro. Tente novamente mais tarde.',
+  });
+  await enforceRateLimit({
+    key: 'signup:global',
+    limit: 200,
+    windowSeconds: 60 * 60,
+    message: 'Cadastros temporariamente indisponiveis. Tente novamente mais tarde.',
+  });
+
   const academyIds = readAcademyIdsPayload(request.data);
   const email = normalizeEmail(requiredString(request.data, 'email'));
   const password = requiredString(request.data, 'password');
@@ -658,8 +686,27 @@ export const submitStudentSignup = onCall(callableOptions, async (request) => {
     academies.push({ id: academyIds[i], data: academy });
   }
 
-  await ensureUniqueIdentity({ email, cpf });
-  assertCondition(!(await emailExists(email)), 'already-exists', 'Ja existe uma conta usando este e-mail.');
+  // Baldes por identidade: nao dependem do IP, entao nao sao contornaveis por spoofing.
+  // Sao eles que limitam o brute force de enumeracao de e-mail/CPF.
+  await enforceRateLimit({
+    key: `signup:email:${email}`,
+    limit: 3,
+    windowSeconds: 60 * 60,
+    message: 'Muitas tentativas de cadastro. Tente novamente mais tarde.',
+  });
+  await enforceRateLimit({
+    key: `signup:cpf:${cpf}`,
+    limit: 3,
+    windowSeconds: 60 * 60,
+    message: 'Muitas tentativas de cadastro. Tente novamente mais tarde.',
+  });
+
+  await ensureUniqueIdentity({ email, cpf, anonymousCaller: true });
+  assertCondition(
+    !(await emailExists(email)),
+    'already-exists',
+    'Nao foi possivel concluir o cadastro com os dados informados.',
+  );
 
   const displayName = `${firstName} ${lastName}`.trim();
   const now = Timestamp.now();
@@ -837,7 +884,8 @@ export const createUserWithRole = onCall(callableOptions, async (request) => {
   const stripeEvery = resolveStripeEveryForBelt(belt, beltCtx);
   // Mantem a invariante marco+bonus mesmo na criacao de staff com grau (>0).
   const { attendanceCountAtBeltStart, attendanceCountBonus } = resolveBeltStartAndBonus(0, stripes, stripeEvery, 0);
-  const plainPassword = optionalString(request.data, 'plainPassword');
+  // SEGURANCA: `plainPassword` foi removido de proposito. A senha em texto puro nunca
+  // e persistida no Firestore; ela existe apenas no Firebase Auth (hash + salt).
 
   assertCondition(ROLE_ORDER.includes(requestedRole), 'invalid-argument', 'Role invalida.');
   assertCondition(requestedRole !== 'student', 'invalid-argument', 'Cadastros de aluno devem usar o fluxo de solicitacao.');
@@ -891,7 +939,6 @@ export const createUserWithRole = onCall(callableOptions, async (request) => {
     nextStripeAttendanceTarget: null,
     nextBeltAttendanceTarget: null,
     fcmTokens: [],
-    ...(plainPassword ? { plainPassword } : {}),
     createdAt: now,
     updatedAt: now,
   };
@@ -1184,6 +1231,18 @@ export const syncOwnUserEmail = onCall(callableOptions, async (request) => {
   assertCondition(actor.role === 'student', 'permission-denied', 'Somente alunos podem editar este perfil.');
 
   const email = normalizeEmail(requiredString(request.data, 'email'));
+
+  // SEGURANCA: esta callable so ESPELHA no Firestore o e-mail que ja esta no Firebase
+  // Auth (trocado por updateSignedInEmail, que exige reautenticacao). Antes ela aceitava
+  // qualquer e-mail do payload, permitindo gravar um endereco de terceiro no perfil e
+  // envenenar as checagens de unicidade e as solicitacoes de entrada.
+  const authUser = await auth.getUser(actor.uid);
+  assertCondition(
+    normalizeEmail(authUser.email ?? '') === email,
+    'failed-precondition',
+    'Atualize o e-mail no login antes de sincronizar o perfil.',
+  );
+
   if (email !== actor.user.email) {
     await ensureUniqueIdentity({
       email,
@@ -1589,7 +1648,7 @@ export const adminUpdateStudentTimeline = onCall(callableOptions, async (request
 });
 
 export const validateSessionAccess = onCall(callableOptions, async (request) => {
-  const actor = await getRequestContext(request, 'student');
+  const actor = await getRequestContext(request, 'student', { allowSuspended: true });
 
   assertCondition(
     actor.user.status !== 'suspended',
@@ -1652,6 +1711,12 @@ export const deactivateStudent = onCall(callableOptions, async (request) => {
     updatedAt: now,
   });
 
+  // SEGURANCA: revoga os refresh tokens para derrubar as sessoes ja abertas.
+  // NAO usamos `disabled: true` no Auth de proposito: o aluno suspenso ainda precisa
+  // conseguir logar para ver a tela de suspensao e chamar requestReactivation. O bloqueio
+  // efetivo das demais operacoes e a checagem de `status` em getRequestContext.
+  await auth.revokeRefreshTokens(targetUserId);
+
   const pendingGraduations = await db
     .collection(COLLECTIONS.graduationRequests)
     .where('userId', '==', targetUserId)
@@ -1670,7 +1735,7 @@ export const deactivateStudent = onCall(callableOptions, async (request) => {
 });
 
 export const requestReactivation = onCall(callableOptions, async (request) => {
-  const actor = await getRequestContext(request, 'student');
+  const actor = await getRequestContext(request, 'student', { allowSuspended: true });
   assertCondition(actor.user.status === 'suspended', 'failed-precondition', 'Sua conta nao esta desativada.');
 
   const existingPending = await db
@@ -1829,7 +1894,6 @@ export const adminUpdateInstructorProfile = onCall(callableOptions, async (reque
   const normalizedEmail = newEmail ? normalizeEmail(newEmail) : undefined;
   const emailChanged = !!normalizedEmail && normalizedEmail !== targetUser.email;
   const newPassword = optionalString(request.data, 'newPassword');
-  const plainPassword = optionalString(request.data, 'plainPassword');
   const displayName = `${firstName} ${lastName}`.trim();
 
   if (emailChanged) {
@@ -1858,7 +1922,9 @@ export const adminUpdateInstructorProfile = onCall(callableOptions, async (reque
 
   if (phone !== undefined) firestorePatch.phone = phone || null;
   if (emailChanged) firestorePatch.email = normalizedEmail;
-  if (plainPassword !== undefined) firestorePatch.plainPassword = plainPassword || null;
+  // SEGURANCA: alem de nao gravar mais a senha em texto puro, cada edicao apaga o
+  // campo legado que ficou em documentos criados antes desta correcao.
+  firestorePatch.plainPassword = FieldValue.delete();
 
   // Data da faixa preta (progressão de grau por tempo): grava a data em que o
   // instrutor recebeu a preta, usada para calcular o grau atual (padrão IBJJF).
@@ -2283,7 +2349,7 @@ async function deleteDocsFromSnapshots(
 // propria conta do solicitante. Apaga PII e arquivos pessoais; anonimiza o que precisa ser
 // retido por obrigacao fiscal/legal (financeiro) ou como historico (lutas).
 export const deleteMyAccount = onCall(callableOptions, async (request) => {
-  const actor = await getRequestContext(request, 'student');
+  const actor = await getRequestContext(request, 'student', { allowSuspended: true });
   assertCondition(
     actor.role === 'student',
     'permission-denied',

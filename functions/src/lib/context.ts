@@ -38,9 +38,19 @@ export async function getUserDoc(userId: string): Promise<UserDoc> {
   return userSnapshot.data() as UserDoc;
 }
 
+export interface RequestContextOptions {
+  /**
+   * Permite que um usuario suspenso passe pelo guard. Use SOMENTE nos fluxos que o
+   * proprio suspenso precisa acessar para sair da suspensao ou encerrar a conta
+   * (validateSessionAccess, requestReactivation, deleteMyAccount).
+   */
+  allowSuspended?: boolean;
+}
+
 export async function getRequestContext(
   request: CallableRequest<unknown>,
   minimumRole: Role,
+  options: RequestContextOptions = {},
 ): Promise<RequestContext> {
   const uid = request.auth?.uid;
   assertCondition(!!uid, 'unauthenticated', 'Autenticacao obrigatoria.');
@@ -49,8 +59,18 @@ export async function getRequestContext(
   assertCondition(hasRole(user.role), 'failed-precondition', 'O perfil do usuario esta sem role valida.');
   const role = normalizeRole(user.role);
   ensureMinimumRole(role, normalizeRole(minimumRole));
+
+  // SEGURANCA: antes desta checagem, `status: 'suspended'` so era honrado pelo cliente
+  // (validateSessionAccess). Um usuario suspenso que ja tivesse um ID token valido
+  // continuava chamando qualquer callable ate o token expirar. Agora o servidor recusa.
   assertCondition(
-    role === 'superadmin' || user.academyId.trim().length > 0,
+    options.allowSuspended === true || user.status !== 'suspended',
+    'permission-denied',
+    'user-suspended',
+  );
+
+  assertCondition(
+    role === 'superadmin' || (typeof user.academyId === 'string' && user.academyId.trim().length > 0),
     'failed-precondition',
     'O usuario precisa estar vinculado a uma academia.',
   );

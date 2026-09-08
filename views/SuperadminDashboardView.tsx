@@ -52,7 +52,6 @@ interface SuperadminDashboardViewProps {
     lastName?: string;
     email?: string;
     newPassword?: string;
-    plainPassword?: string;
     phone?: string;
     belt?: string;
     grade?: number;

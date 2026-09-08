@@ -14,7 +14,6 @@ interface InstructorEditModalProps {
     lastName?: string;
     email?: string;
     newPassword?: string;
-    plainPassword?: string;
     phone?: string;
     belt?: string;
     grade?: number;
@@ -49,16 +48,13 @@ const InstructorEditModal: React.FC<InstructorEditModalProps> = ({ instructor, o
   const [blackBeltManual, setBlackBeltManual] = useState(
     instructor.blackBeltDegreeManual == null ? '' : String(instructor.blackBeltDegreeManual),
   );
-  const [plainPassword, setPlainPassword] = useState(instructor.plainPassword ?? '');
   const [newPassword, setNewPassword] = useState('');
-  const [showPlain, setShowPlain] = useState(false);
   const [showNew, setShowNew] = useState(false);
 
   const [busy, setBusy] = useState(false);
   const [feedback, setFeedback] = useState('');
   const [error, setError] = useState('');
 
-  const hasStoredPassword = Boolean(instructor.plainPassword);
   const beltIsBlack = isBlackBelt(belt);
   // Faixa preta: grau por tempo a partir da data da preta; override manual (opcional) vence.
   const manualDegree = blackBeltManual.trim() === ''
@@ -85,12 +81,11 @@ const InstructorEditModal: React.FC<InstructorEditModalProps> = ({ instructor, o
         grade: effectiveGrade,
         lastGraduationDateOverride: beltIsBlack ? (blackBeltDate || undefined) : undefined,
         blackBeltDegreeManual: beltIsBlack ? manualDegree : undefined,
-        plainPassword: newPassword.trim() ? newPassword.trim() : (plainPassword || undefined),
         newPassword: newPassword.trim() || undefined,
       });
       setFeedback('Dados do instrutor atualizados com sucesso.');
       if (newPassword.trim()) {
-        setPlainPassword(newPassword.trim());
+        // A senha nao volta para a tela: so limpamos o campo.
         setNewPassword('');
       }
     } catch (submitError) {
@@ -254,36 +249,12 @@ const InstructorEditModal: React.FC<InstructorEditModalProps> = ({ instructor, o
             </div>
           </div>
 
-          {!hasStoredPassword && !newPassword && (
-            <div className="mt-4 app-alert app-alert--warning">
-              Senha não registrada. Este instrutor foi cadastrado antes desta funcionalidade. Defina uma nova senha abaixo para registrá-la.
-            </div>
-          )}
-
           <div className="mt-6 space-y-4">
-            {hasStoredPassword && (
-              <label className="app-field">
-                <span className="app-field__label">Senha atual (visível)</span>
-                <div className="flex gap-2">
-                  <input
-                    type={showPlain ? 'text' : 'password'}
-                    value={plainPassword}
-                    onChange={(e) => setPlainPassword(e.target.value)}
-                    className="app-input flex-1"
-                    placeholder="Senha salva"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPlain((v) => !v)}
-                    className="app-button app-button--ghost app-button--icon"
-                    title={showPlain ? 'Ocultar senha' : 'Mostrar senha'}
-                  >
-                    {showPlain ? <EyeOff size={16} /> : <Eye size={16} />}
-                  </button>
-                </div>
-                <span className="app-field__hint">Senha registrada no cadastro. Edite aqui se houve troca manual.</span>
-              </label>
-            )}
+            <div className="app-alert app-alert--info">
+              Por segurança, senhas não são armazenadas em texto puro e não podem ser exibidas.
+              Para dar acesso a um instrutor, defina uma nova senha abaixo e comunique-a por um
+              canal seguro.
+            </div>
 
             <label className="app-field">
               <span className="app-field__label">Redefinir senha</span>

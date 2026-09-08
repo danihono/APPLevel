@@ -50,7 +50,6 @@ interface ManagementViewProps {
     belt?: string;
     grade?: number;
     stripes?: number;
-    plainPassword?: string;
   }) => Promise<void>;
   onUpdateStudentBeltGrade?: (payload: { userId: string; belt: string; grade: number; stripes?: number; kidsCategory?: string }) => Promise<void>;
   onSetStudentAttendanceBonus?: (payload: { userId: string; attendanceCountBonus: number }) => Promise<void>;
@@ -78,7 +77,6 @@ interface ManagementViewProps {
     lastName?: string;
     email?: string;
     newPassword?: string;
-    plainPassword?: string;
     phone?: string;
     belt?: string;
     grade?: number;
@@ -469,7 +467,6 @@ const ManagementView: React.FC<ManagementViewProps> = ({
         phone: phone || undefined,
         belt,
         grade,
-        plainPassword: password || undefined,
       });
       setFirstName('');
       setLastName('');

@@ -31,7 +31,27 @@ service firebase.storage {
     }
 
     function sameAcademy(targetAcademyId) {
-      return isSuperAdmin() || (signedIn() && academyId() == targetAcademyId);
+      // A guarda `academyId() != ''` espelha firestore.rules: um usuario sem a claim
+      // academyId nunca deve casar com um segmento de caminho vazio.
+      return isSuperAdmin() || (signedIn() && academyId() != '' && academyId() == targetAcademyId);
+    }
+
+    // Limites de upload. Sem eles, qualquer autenticado subia arquivos de tamanho e
+    // tipo arbitrarios (DoS de custo + hospedagem de conteudo arbitrario).
+    function isImageUnder(maxBytes) {
+      return request.resource != null
+        && request.resource.size <= maxBytes
+        && request.resource.contentType.matches('image/(jpeg|png|webp|gif|heic|heif)');
+    }
+
+    function isAllowedAcademyAsset(maxBytes) {
+      return request.resource != null
+        && request.resource.size <= maxBytes
+        && (
+          request.resource.contentType.matches('image/.*')
+          || request.resource.contentType.matches('video/.*')
+          || request.resource.contentType == 'application/pdf'
+        );
     }
 
     function isAcademyStaff(targetAcademyId) {
@@ -49,19 +69,39 @@ service firebase.storage {
 
     match /academies/{academyDocId}/{allPaths=**} {
       allow read: if sameAcademy(academyDocId);
-      allow write: if isAcademyStaff(academyDocId) && !allPaths.matches('learning/lessons/.*');
+      allow write: if isAcademyStaff(academyDocId)
+                   && !allPaths.matches('learning/lessons/.*')
+                   && (request.resource == null || isAllowedAcademyAsset(200 * 1024 * 1024));
+    }
+
+    // Videos de luta enviados pelo proprio atleta (mutations.ts:120).
+    match /users/{userId}/fight-videos/{allPaths=**} {
+      allow read: if signedIn();
+      allow write: if (isSelf(userId) || isSuperAdmin())
+                   && (
+                     request.resource == null
+                     || (
+                       request.resource.size <= 500 * 1024 * 1024
+                       && request.resource.contentType.matches('video/.*')
+                     )
+                   );
     }
 
     match /users/{userId}/{allPaths=**} {
       // Fotos de perfil sao semi-publicas dentro do app (visivel para colegas autenticados)
       allow read: if signedIn();
-      // Escrita restrita ao proprio usuario ou superadmin; a equipe da unidade nao altera arquivos de outras academias
-      allow write: if isSelf(userId) || isSuperAdmin();
+      // Escrita restrita ao proprio usuario ou superadmin; a equipe da unidade nao altera
+      // arquivos de outras academias. Limitado a imagem de ate 5 MB: antes desta regra
+      // qualquer aluno subia arquivos ilimitados de qualquer tipo nesta pasta, que e
+      // legivel por todos os usuarios autenticados de todos os tenants.
+      allow write: if (isSelf(userId) || isSuperAdmin())
+                   && (request.resource == null || isImageUnder(5 * 1024 * 1024));
     }
+    // Imagens institucionais de faixas: leitura publica intencional (site/marketing).
+    // A escrita passou a depender do papel, nao de um e-mail fixo nao verificado.
     match /site/faixas/{allFiles=**} {
-  allow read: if true;
-  allow write: if request.auth != null
-               && request.auth.token.email == 'contato@leveljiujitsu.com.br';
-}
+      allow read: if true;
+      allow write: if isSuperAdmin() && isImageUnder(10 * 1024 * 1024);
+    }
   }
 }

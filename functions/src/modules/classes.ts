@@ -50,6 +50,56 @@ async function getClassOrThrow(classId: string): Promise<FirebaseFirestore.Docum
   return classSnap;
 }
 
+// SEGURANCA: o token do QR em texto puro NUNCA pode ficar no documento da aula.
+// firestore.rules libera a leitura de /classes/{id} para qualquer aluno da academia,
+// entao guardar o token la permitia check-in remoto sem estar no tatame. O documento
+// publico guarda apenas o hash; o texto puro vive nesta subcolecao privada, negada a
+// todos os clientes em firestore.rules (so o Admin SDK das functions le/escreve).
+const QR_PRIVATE_COLLECTION = 'qr_private';
+const QR_PRIVATE_DOC = 'current';
+const MAX_QR_DURATION_MINUTES = 240;
+const DEFAULT_QR_DURATION_MINUTES = 10;
+
+function qrPrivateRef(
+  classRef: FirebaseFirestore.DocumentReference<FirebaseFirestore.DocumentData>,
+): FirebaseFirestore.DocumentReference<FirebaseFirestore.DocumentData> {
+  return classRef.collection(QR_PRIVATE_COLLECTION).doc(QR_PRIVATE_DOC);
+}
+
+async function readPrivateQrToken(
+  classRef: FirebaseFirestore.DocumentReference<FirebaseFirestore.DocumentData>,
+): Promise<string | undefined> {
+  const snap = await qrPrivateRef(classRef).get();
+  if (!snap.exists) return undefined;
+  const token = snap.get('token') as string | undefined;
+  return token || undefined;
+}
+
+async function writePrivateQrToken(
+  classRef: FirebaseFirestore.DocumentReference<FirebaseFirestore.DocumentData>,
+  token: string,
+  expiresAt: Timestamp,
+): Promise<void> {
+  await qrPrivateRef(classRef).set({ token, expiresAt, updatedAt: Timestamp.now() });
+}
+
+async function clearPrivateQrToken(
+  classRef: FirebaseFirestore.DocumentReference<FirebaseFirestore.DocumentData>,
+): Promise<void> {
+  await qrPrivateRef(classRef).delete().catch(() => undefined);
+}
+
+// Um professor nao pode emitir um QR praticamente eterno.
+function resolveQrDurationMinutes(value: number | undefined): number {
+  const minutes = value ?? DEFAULT_QR_DURATION_MINUTES;
+  assertCondition(
+    Number.isFinite(minutes) && minutes > 0,
+    'invalid-argument',
+    'qrDurationMinutes precisa ser um numero positivo.',
+  );
+  return Math.min(minutes, MAX_QR_DURATION_MINUTES);
+}
+
 function ensureClassManager(
   actor: Awaited<ReturnType<typeof getRequestContext>>,
   classData: ClassDoc,
@@ -313,7 +363,6 @@ export const upsertClassSchedule = onCall(callableOptions, async (request) => {
     rsvpCount: current?.get('rsvpCount') as number | undefined,
     checkinWindowMinutes,
     activeQrHash: (current?.get('activeQrHash') as string | undefined) ?? (initialQrToken ? hashQrToken(initialQrToken) : undefined),
-    activeQrToken: (current?.get('activeQrToken') as string | undefined) ?? initialQrToken ?? undefined,
     activeQrExpiresAt: (current?.get('activeQrExpiresAt') as FirebaseFirestore.Timestamp | undefined) ?? initialQrExpiresAt ?? undefined,
     activeQrVersion: (current?.get('activeQrVersion') as number | undefined) ?? (initialQrToken ? 1 : undefined),
     createdAt: (current?.get('createdAt') as FirebaseFirestore.Timestamp | undefined) ?? now,
@@ -321,6 +370,10 @@ export const upsertClassSchedule = onCall(callableOptions, async (request) => {
   };
 
   await classRef.set(payload, { merge: true });
+
+  if (initialQrToken && initialQrExpiresAt) {
+    await writePrivateQrToken(classRef, initialQrToken, initialQrExpiresAt);
+  }
 
   if (current?.exists && previousStart && previousStart.toMillis() !== scheduledStart.toMillis()) {
     await syncClassRsvpScheduledStarts([
@@ -387,7 +440,6 @@ export const createClassScheduleBatch = onCall(callableOptions, async (request) 
       currentAttendanceCount: 0,
       checkinWindowMinutes,
       activeQrHash: hashQrToken(batchQrToken),
-      activeQrToken: batchQrToken,
       activeQrExpiresAt: batchQrExpiresAt,
       activeQrVersion: 1,
       createdAt: now,
@@ -395,6 +447,11 @@ export const createClassScheduleBatch = onCall(callableOptions, async (request) 
     };
 
     batch.set(classRef, payload);
+    batch.set(qrPrivateRef(classRef), {
+      token: batchQrToken,
+      expiresAt: batchQrExpiresAt,
+      updatedAt: now,
+    });
   }
 
   await batch.commit();
@@ -561,14 +618,15 @@ export const deleteClassSchedule = onCall(callableOptions, async (request) => {
 export const startClassSession = onCall(callableOptions, async (request) => {
   const actor = await getRequestContext(request, 'professor');
   const classId = requiredString(request.data, 'classId');
-  const qrDurationMinutes = optionalNumber(request.data, 'qrDurationMinutes') ?? 10;
+  const qrDurationMinutes = resolveQrDurationMinutes(optionalNumber(request.data, 'qrDurationMinutes'));
   const classSnap = await getClassOrThrow(classId);
   const classData = classSnap.data() as ClassDoc;
   ensureClassManager(actor, classData);
 
   const now = Timestamp.now();
+  const storedQrToken = classData.activeQrHash ? await readPrivateQrToken(classSnap.ref) : undefined;
 
-  if (classData.activeQrHash && classData.activeQrToken) {
+  if (classData.activeQrHash && storedQrToken) {
     // QR already exists (created at class creation) — keep it, just activate the class
     const expiresAt = classData.activeQrExpiresAt ?? Timestamp.fromMillis(now.toMillis() + qrDurationMinutes * 60_000);
     await classSnap.ref.update({
@@ -577,7 +635,7 @@ export const startClassSession = onCall(callableOptions, async (request) => {
       endedAt: null,
       updatedAt: now,
     });
-    return buildQrResponse(classId, classData.academyId, classData.activeQrToken, expiresAt);
+    return buildQrResponse(classId, classData.academyId, storedQrToken, expiresAt);
   }
 
   // No QR yet (old class created before this feature) — generate one now
@@ -590,11 +648,11 @@ export const startClassSession = onCall(callableOptions, async (request) => {
     startedAt: classData.startedAt ?? now,
     endedAt: null,
     activeQrHash: hashQrToken(token),
-    activeQrToken: token,
     activeQrExpiresAt: expiresAt,
     activeQrVersion: nextVersion,
     updatedAt: now,
   });
+  await writePrivateQrToken(classSnap.ref, token, expiresAt);
 
   return buildQrResponse(classId, classData.academyId, token, expiresAt);
 });
@@ -610,10 +668,10 @@ export const finishClassSession = onCall(callableOptions, async (request) => {
     status: 'finished',
     endedAt: Timestamp.now(),
     activeQrHash: null,
-    activeQrToken: null,
     activeQrExpiresAt: null,
     updatedAt: Timestamp.now(),
   });
+  await clearPrivateQrToken(classSnap.ref);
 
   return {
     classId,
@@ -624,7 +682,7 @@ export const finishClassSession = onCall(callableOptions, async (request) => {
 export const generateClassQrCode = onCall(callableOptions, async (request) => {
   const actor = await getRequestContext(request, 'professor');
   const classId = requiredString(request.data, 'classId');
-  const qrDurationMinutes = optionalNumber(request.data, 'qrDurationMinutes') ?? 10;
+  const qrDurationMinutes = resolveQrDurationMinutes(optionalNumber(request.data, 'qrDurationMinutes'));
   const classSnap = await getClassOrThrow(classId);
   const classData = classSnap.data() as ClassDoc;
   ensureClassManager(actor, classData);
@@ -641,11 +699,11 @@ export const generateClassQrCode = onCall(callableOptions, async (request) => {
 
   await classSnap.ref.update({
     activeQrHash: hashQrToken(token),
-    activeQrToken: token,
     activeQrExpiresAt: expiresAt,
     activeQrVersion: nextVersion,
     updatedAt: now,
   });
+  await writePrivateQrToken(classSnap.ref, token, expiresAt);
 
   return buildQrResponse(classId, classData.academyId, token, expiresAt);
 });

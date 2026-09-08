@@ -98,21 +98,60 @@ service cloud.firestore {
           'nextStripeAttendanceTarget', 'nextBeltAttendanceTarget',
           'currentStripeProgress', 'classesToNextStripe',
           'currentBeltProgress', 'totalClassesToNextBelt',
-          'rankingPoints', 'missionPoints', 'competitionPoints', 'beltPromotions'
+          'rankingPoints', 'missionPoints', 'competitionPoints', 'beltPromotions',
+          // Adicionados na auditoria de seguranca:
+          // - status: reativar aluno suspenso so pelas callables (reactivateStudent)
+          // - email/cpf: identidade so muda junto com o Firebase Auth, via callable
+          // - plainPassword: senha em texto puro nao existe mais e nao pode voltar
+          // - fcmTokens: escrita direta permitia sequestro de push do usuario
+          'status', 'email', 'cpf', 'plainPassword', 'fcmTokens'
         ]);
 
       allow delete: if isSuperAdmin() || (isAdmin() && sameAcademy(resource.data.academyId));
     }
 
+    // Contadores de rate limit escritos pelas Cloud Functions. Nenhum cliente le ou
+    // escreve: o Admin SDK ignora estas regras.
+    match /rate_limits/{bucketId} {
+      allow read, write: if false;
+    }
+
     match /academies/{academyDocId} {
+      // NOTA DE AUDITORIA: a leitura segue liberada para qualquer autenticado porque o
+      // seletor de academias do aluno (App.tsx:934/950) consulta a colecao inteira. Isso
+      // permite enumerar nome/fuso/limites de todas as unidades da rede. A correcao
+      // adequada e migrar esse seletor para a callable `listSignupAcademies` (que ja
+      // devolve so academyId/name/timezone das ativas) e entao fechar aqui para
+      // `sameAcademy(academyDocId)`. Ver V8 no relatorio de auditoria.
       allow read: if signedIn();
       allow create: if isSuperAdmin();
-      allow update: if isSuperAdmin() || (isAdmin() && sameAcademy(academyDocId));
-      allow delete: if isSuperAdmin() || (isAdmin() && sameAcademy(academyDocId));
+
+      // A equipe da unidade edita os ajustes operacionais pelo SDK, mas as regras de
+      // progressao e a identidade da academia so mudam via Cloud Function
+      // (upsertAcademyProgressionRules). Sem esta blocklist, um professor rebaixava
+      // sozinho os limites de graduacao da propria academia.
+      allow update: if isSuperAdmin()
+        || (
+          isAdmin()
+          && sameAcademy(academyDocId)
+          && !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+            'progressionRules', 'slug', 'ownerUserId', 'academyId', 'createdAt'
+          ])
+        );
+
+      // Apagar uma academia inteira nunca foi operacao de professor.
+      allow delete: if isSuperAdmin();
     }
 
     match /classes/{classId} {
       allow read: if sameAcademy(resource.data.academyId);
+
+      // Token do QR em texto puro. Negado a TODOS os clientes: so o Admin SDK
+      // (Cloud Functions) le e escreve. Sem isto, qualquer aluno da academia lia o
+      // token pelo SDK e registrava presenca sem estar na aula.
+      match /qr_private/{docId} {
+        allow read, write: if false;
+      }
       allow create: if isAcademyStaff(request.resource.data.academyId);
       allow update: if isAcademyStaff(resource.data.academyId);
       allow delete: if isAcademyStaff(resource.data.academyId);

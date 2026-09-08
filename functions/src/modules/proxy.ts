@@ -143,6 +143,18 @@ export const callableProxy = onRequest(callableProxyOptions, async (request, res
     }
   }
 
+  // SEGURANCA: o proxy apagava o IP de origem, entao toda a rede chegava as callables
+  // como um unico endereco e qualquer limite por IP ficava cego. Encaminhamos o IP que
+  // O PROXY observou (nunca o valor que o cliente mandou, que seria falsificavel).
+  // Atencao: como as callables estao com `invoker: public`, quem as chamar direto ainda
+  // pode forjar este cabecalho. Por isso os limites sensiveis usam tambem baldes por
+  // identidade (e-mail/CPF), que nao dependem do IP.
+  headers.delete('x-applevel-client-ip');
+  const observedIp = (request.ip || '').trim();
+  if (observedIp) {
+    headers.set('x-applevel-client-ip', observedIp);
+  }
+
   const body = request.rawBody?.length
     ? request.rawBody
     : Buffer.from(JSON.stringify(request.body ?? {}), 'utf8');

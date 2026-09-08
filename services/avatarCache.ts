@@ -91,3 +91,15 @@ export async function compressAvatarImage(
     return null;
   }
 }
+
+/**
+ * Limpa o cache local. Chamado no logout: em dispositivo compartilhado, as fotos de
+ * perfil do usuario anterior nao devem sobreviver para o proximo que logar.
+ */
+export function clearAvatarCache(): void {
+  try {
+    window.localStorage.removeItem(STORAGE_KEY);
+  } catch {
+    // localStorage indisponivel (modo privado / storage bloqueado): nada a limpar.
+  }
+}
