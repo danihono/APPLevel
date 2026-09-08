@@ -19,7 +19,11 @@ SOURCE = ROOT / 'public' / 'logo3.png'
 PUBLIC = ROOT / 'public'
 IOS_APPICON = ROOT / 'ios' / 'App' / 'App' / 'Assets.xcassets' / 'AppIcon.appiconset' / 'AppIcon-512@2x.png'
 
-BACKGROUND = (10, 10, 10)  # #0a0a0a — mesmo fundo do app / manifest.json
+# Fundo branco: a logo tem o simbolo em cinza escuro e o wordmark em dourado,
+# que rendem mais sobre claro do que sobre o preto do app. Usamos cor solida (e nao
+# transparencia) porque icone de iOS nao pode ter canal alpha e no Android o fundo
+# transparente fica por conta do launcher.
+BACKGROUND = (255, 255, 255)
 
 
 def load_trimmed_logo() -> Image.Image:
