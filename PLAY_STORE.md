@@ -4,7 +4,12 @@ Guia passo a passo. As mudanças no **código** já foram feitas (ícones, push,
 política de privacidade). Falta o que é **manual / interativo**: deploy, gerar o app Android
 e configurar a Play Store.
 
-> Domínio: `https://applevel-c5e73.web.app` · Package sugerido: `com.applevel.app`
+> Domínio: `https://applevel-c5e73.web.app` · Package publicado: `com.leveljiujitsu.app`
+>
+> ⚠️ O package **real** do app publicado é `com.leveljiujitsu.app` — é o que está no
+> [public/.well-known/assetlinks.json](public/.well-known/assetlinks.json) e no `appId` do
+> `capacitor.config.ts`. Versões antigas deste guia sugeriam `com.applevel.app`; usar esse
+> valor cria um app **diferente**, que a Play não aceita como atualização do que está no ar.
 
 ---
 
@@ -45,8 +50,8 @@ npm install -g @bubblewrap/cli
 Crie uma pasta SEPARADA, fora do projeto do app, e rode o init apontando para o manifest:
 
 ```powershell
-mkdir C:\Users\vorat\applevel-android
-cd C:\Users\vorat\applevel-android
+mkdir $env:USERPROFILE\applevel-android
+cd $env:USERPROFILE\applevel-android
 bubblewrap init --manifest https://applevel-c5e73.web.app/manifest.json
 ```
 
@@ -54,7 +59,7 @@ Responda às perguntas assim:
 
 | Pergunta | Resposta |
 |---|---|
-| Application ID / Package | `com.applevel.app` (IMUTÁVEL depois de publicar) |
+| Application ID / Package | `com.leveljiujitsu.app` (IMUTÁVEL depois de publicar) |
 | App name | `APPLevel` |
 | Launcher name | `APPLevel` |
 | Display mode | `standalone` |
@@ -63,6 +68,7 @@ Responda às perguntas assim:
 | Theme/nav color | `#0A0A0A` |
 | Splash color | `#0A0A0A` |
 | Icon URL | aceitar (usa o `icon-512.png` do manifest) |
+| Maskable icon URL | aceitar (usa o `icon-512-maskable.png`) — sem isso o Android encolhe o ícone dentro de um círculo branco |
 | Include support for Play Billing? | `No` (não vende digital no app) |
 | Request notification permission? / Push | `Yes` |
 | Signing key — criar nova | `Yes` |
@@ -142,3 +148,74 @@ o Passo 4 (Asset Links). Teste login, QR (câmera) e navegação.
   reenviar nada na loja; o app atualiza sozinho.
 - Mudou ícone, nome, ou config do TWA? → incremente `appVersionCode`/`appVersionName` no
   `twa-manifest.json`, rode `bubblewrap build` e envie o novo `.aab`.
+
+### Trocar o ícone do app
+
+O ícone fica **assado dentro do `.aab`**: mudar os PNGs do repositório e fazer deploy do site
+**não** atualiza o ícone de quem instalou pela Play Store. São dois lugares distintos:
+
+| Onde aparece | Como atualizar |
+|---|---|
+| Ícone na tela de início do celular | Rebuild do `.aab` (passos abaixo) |
+| Ícone na página do app na Play Store | Upload manual: Play Console → Presença na loja → Ficha da loja principal → Ícone do app (use `public/icon-512.png`) |
+| Ícone da PWA (adicionar à tela de início pelo navegador) | Só `npm run deploy:hosting` |
+| Ícone do app iOS | `npx cap sync ios` + build no Xcode |
+
+Para regerar a arte a partir de `public/logo3.png`:
+
+```powershell
+pip install Pillow
+python scripts/generateAppIcons.py
+```
+
+Depois, para o Android:
+
+```powershell
+npm run deploy:hosting            # publica os ícones novos no manifest
+cd $env:USERPROFILE\applevel-android
+bubblewrap update                 # rebaixa os ícones a partir do manifest
+# edite twa-manifest.json: incremente appVersionCode (+1) e appVersionName
+bubblewrap build
+```
+
+Confira que a arte nova entrou olhando `app/src/main/res/mipmap-xxxhdpi/` antes de subir o
+`.aab`. O Firebase Hosting serve estáticos com cache de ~1h — se vier a arte antiga, espere um
+pouco e rode o `bubblewrap update` de novo.
+
+---
+
+## Recuperar o projeto num computador novo
+
+O projeto Bubblewrap (`applevel-android`) **não** faz parte deste repositório — ele vive numa
+pasta separada da máquina de quem publicou. Ao trocar de computador, procure por ele antes de
+recriar:
+
+```powershell
+Get-ChildItem C:\ -Recurse -Filter twa-manifest.json -ErrorAction SilentlyContinue | Select FullName
+Get-ChildItem C:\ -Recurse -Include *.keystore,*.jks -ErrorAction SilentlyContinue | Select FullName
+```
+
+Se não achar nada, dá para reconstruir tudo — o projeto é inteiramente derivável da URL do
+manifest. Refaça o **Passo 3**, atenção a três pontos:
+
+1. **Package:** obrigatoriamente `com.leveljiujitsu.app`. Qualquer outro valor vira um app novo.
+2. **`appVersionCode`:** precisa ser **maior** que o da versão em produção hoje (veja em
+   Play Console → Versões → Produção). A Play rejeita código igual ou menor.
+3. **Chave de assinatura:** veja abaixo.
+
+### Perdi o `android.keystore`
+
+Como o app usa **Assinatura de apps do Google Play** (Play App Signing), a chave que os
+celulares verificam fica guardada no Google — perder o keystore local **não** impede
+atualizações. O que se perde é a *chave de upload*, e ela é redefinível:
+
+1. Gere uma chave nova (o `bubblewrap init` faz isso ao responder `Yes` em "criar nova").
+2. Play Console → Configurações → Integridade do app → Assinatura de apps →
+   **Solicitar redefinição da chave de upload**, enviando o certificado da chave nova.
+3. A aprovação do Google não é instantânea — pode levar alguns dias.
+4. Depois de aprovada, acrescente o SHA-256 da nova chave de upload à lista de
+   `sha256_cert_fingerprints` em [public/.well-known/assetlinks.json](public/.well-known/assetlinks.json)
+   (**mantenha os que já estão lá**) e rode `npm run deploy:hosting`.
+
+> O que realmente não se recupera é o acesso à conta do Play Console. Isso está no login
+> Google, não na máquina.
