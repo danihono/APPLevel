@@ -62,6 +62,12 @@ service firebase.storage {
       return signedIn() && request.auth.uid == userId;
     }
 
+    // Vale tanto para upload (request.resource) quanto para exclusao (resource).
+    function notInLearningTree() {
+      return !(request.resource != null && request.resource.name.matches('.*learning/lessons/.*'))
+        && !(request.resource == null && resource != null && resource.name.matches('.*learning/lessons/.*'));
+    }
+
     match /academies/{academyDocId}/learning/lessons/{allPaths=**} {
       allow read: if signedIn() && (isSuperAdmin() || academyDocId == 'shared' || academyId() == academyDocId);
       allow write: if isSuperAdmin();
@@ -69,8 +75,12 @@ service firebase.storage {
 
     match /academies/{academyDocId}/{allPaths=**} {
       allow read: if sameAcademy(academyDocId);
+      // A arvore de learning e reservada ao superadmin (match mais especifico acima).
+      // A exclusao original usava `allPaths.matches(...)`, mas `allPaths` e um Path e
+      // nao tem `matches`: a regra lancava EvaluationException e negava TODO upload de
+      // staff em academies/**. Usamos o nome do objeto, que e String.
       allow write: if isAcademyStaff(academyDocId)
-                   && !allPaths.matches('learning/lessons/.*')
+                   && notInLearningTree()
                    && (request.resource == null || isAllowedAcademyAsset(200 * 1024 * 1024));
     }
 

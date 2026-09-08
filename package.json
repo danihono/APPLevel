@@ -20,7 +20,10 @@
     "firebase:emulators": "firebase emulators:start --project applevel-c5e73",
     "firebase:deploy": "firebase deploy --project applevel-c5e73 && npm run firebase:fix-invokers",
     "deploy:indexes": "firebase deploy --only firestore:indexes --project applevel-c5e73 --non-interactive",
-    "deploy:rules": "firebase deploy --only firestore:rules,storage --project applevel-c5e73 --non-interactive"
+    "deploy:rules": "firebase deploy --only firestore:rules,storage --project applevel-c5e73 --non-interactive",
+    "test": "node --test --experimental-strip-types tests/*.test.ts",
+    "test:rules": "firebase emulators:exec --project applevel-rules-test --only firestore \"node --test --experimental-strip-types tests/rules/firestore.rules.test.ts\"",
+    "test:rules:storage": "firebase emulators:exec --project applevel-rules-test --only storage \"node --test --experimental-strip-types tests/rules/storage.rules.test.ts\""
   },
   "dependencies": {
     "@capacitor/browser": "^8.0.4",
@@ -40,10 +43,12 @@
   },
   "devDependencies": {
     "@capacitor/cli": "^8.4.1",
+    "@firebase/rules-unit-testing": "^5.0.2",
     "@types/file-saver": "^2.0.7",
     "@types/node": "^22.14.0",
     "@types/react": "^19.2.14",
     "@vitejs/plugin-react": "^5.0.0",
+    "firebase-tools": "^15.29.0",
     "typescript": "~5.8.2",
     "vite": "^6.2.0"
   }
