@@ -451,11 +451,6 @@ const Layout: React.FC<LayoutProps> = ({
                 title={mobileUnitLabel}
               >
                 <div className="app-mobile-header__bar">
-                  <div className="app-mobile-header__brand">
-                    <img src="/logo3.png" alt="LEVEL" className="app-mobile-header__brand-mark" />
-                    <span className="app-mobile-header__brand-wordmark">LEVEL</span>
-                  </div>
-
                   <div className="app-mobile-header__title-copy">
                     <span className="app-mobile-header__eyebrow">Visão atual</span>
                     <p className="app-mobile-header__title">{currentPage.title}</p>

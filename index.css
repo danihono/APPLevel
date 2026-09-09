@@ -451,9 +451,8 @@ img {
 .app-mobile-header::before {
   content: '';
   position: absolute;
-  inset: -30% 42% auto -10%;
-  height: 4rem;
-  background: radial-gradient(circle, rgba(232, 175, 72, 0.28), transparent 68%);
+  inset: 0;
+  background: radial-gradient(60% 220% at 10% 50%, rgba(232, 175, 72, 0.24), transparent 70%);
   pointer-events: none;
 }
 
@@ -469,7 +468,6 @@ img {
 }
 
 .app-mobile-header__bar,
-.app-mobile-header__brand,
 .app-mobile-header__unit {
   display: flex;
   align-items: center;
@@ -481,35 +479,13 @@ img {
   min-height: 3rem;
 }
 
-.app-mobile-header__brand,
 .app-mobile-header__unit {
   min-width: 0;
 }
 
-.app-mobile-header__brand {
-  gap: 0.45rem;
-  flex: 0 0 auto;
-}
-
-.app-mobile-header__brand-mark,
 .app-mobile-header__unit-mark {
   object-fit: contain;
   flex: none;
-}
-
-.app-mobile-header__brand-mark {
-  width: 2rem;
-  height: 2rem;
-}
-
-.app-mobile-header__brand-wordmark {
-  color: var(--gold-light);
-  font-family: var(--font-display);
-  font-size: 0.72rem;
-  font-weight: 900;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  white-space: nowrap;
 }
 
 .app-mobile-header__unit {
@@ -559,7 +535,7 @@ img {
 .app-mobile-header__title-copy {
   min-width: 0;
   flex: 1 0 auto;
-  text-align: center;
+  text-align: left;
 }
 
 .app-mobile-header__eyebrow {
@@ -576,7 +552,7 @@ img {
   margin-top: 0.1rem;
   color: #ffffff;
   font-family: var(--font-display);
-  font-size: clamp(0.88rem, 0.6rem + 1.8vw, 1.12rem);
+  font-size: clamp(1rem, 0.8rem + 1.3vw, 1.35rem);
   font-weight: 800;
   line-height: 1.15;
   letter-spacing: -0.02em;
@@ -588,7 +564,7 @@ img {
 .app-mobile-header__context {
   min-width: 0;
   width: auto;
-  max-width: 9.5rem;
+  max-width: 11rem;
   flex: 0 1 auto;
 }
 
@@ -629,15 +605,11 @@ html.dark .app-mobile-header {
 }
 
 html.dark .app-mobile-header::before {
-  background: radial-gradient(circle, rgba(232, 175, 72, 0.22), transparent 68%);
+  background: radial-gradient(60% 220% at 10% 50%, rgba(232, 175, 72, 0.2), transparent 70%);
 }
 
 html.dark .app-mobile-header::after {
   border-bottom-color: rgba(255, 255, 255, 0.04);
-}
-
-html.dark .app-mobile-header__brand-wordmark {
-  color: var(--gold-light);
 }
 
 html.dark .app-mobile-header__unit-name,
@@ -660,26 +632,6 @@ html.dark .app-mobile-header__select {
   background: rgba(255, 255, 255, 0.06);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
   color: #fff8ef;
-}
-
-/* Telas bem estreitas (<=380px): aperta as margens internas da faixa para devolver
-   espaço ao título da página e ao nome da unidade. */
-@media (max-width: 380px) {
-  .app-mobile-header {
-    padding-inline: 0.7rem;
-  }
-
-  .app-mobile-header__bar {
-    gap: 0.4rem;
-  }
-
-  .app-mobile-header__brand {
-    gap: 0.4rem;
-  }
-
-  .app-mobile-header__brand-wordmark {
-    letter-spacing: 0.12em;
-  }
 }
 
 .app-panel {
