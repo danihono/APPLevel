@@ -435,7 +435,7 @@ img {
 .app-mobile-header {
   display: none;
   width: 100%;
-  padding: 1rem 1rem 1.05rem;
+  padding: 0.5rem 0.9rem;
   border-top: 0;
   border-right: 0;
   border-bottom: 1px solid rgba(232, 175, 72, 0.28);
@@ -452,7 +452,7 @@ img {
   content: '';
   position: absolute;
   inset: -30% 42% auto -10%;
-  height: 6.2rem;
+  height: 4rem;
   background: radial-gradient(circle, rgba(232, 175, 72, 0.28), transparent 68%);
   pointer-events: none;
 }
@@ -468,16 +468,17 @@ img {
   pointer-events: none;
 }
 
-.app-mobile-header__row,
+.app-mobile-header__bar,
 .app-mobile-header__brand,
 .app-mobile-header__unit {
   display: flex;
   align-items: center;
 }
 
-.app-mobile-header__row {
-  gap: 0.85rem;
+.app-mobile-header__bar {
+  gap: 0.5rem;
   justify-content: space-between;
+  min-height: 3rem;
 }
 
 .app-mobile-header__brand,
@@ -486,8 +487,8 @@ img {
 }
 
 .app-mobile-header__brand {
-  gap: 0.7rem;
-  flex: 0 1 auto;
+  gap: 0.45rem;
+  flex: 0 0 auto;
 }
 
 .app-mobile-header__brand-mark,
@@ -497,17 +498,18 @@ img {
 }
 
 .app-mobile-header__brand-mark {
-  width: 3rem;
-  height: 3rem;
+  width: 2rem;
+  height: 2rem;
 }
 
 .app-mobile-header__brand-wordmark {
   color: var(--gold-light);
   font-family: var(--font-display);
-  font-size: 0.92rem;
+  font-size: 0.72rem;
   font-weight: 900;
-  letter-spacing: 0.22em;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
+  white-space: nowrap;
 }
 
 .app-mobile-header__unit {
@@ -536,49 +538,76 @@ img {
   white-space: nowrap;
 }
 
-.app-mobile-header__title-row {
-  margin-top: 0.9rem;
-  padding-top: 0.85rem;
-  border-top: 1px solid rgba(232, 175, 72, 0.2);
+.app-mobile-header__vision {
   display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 0.9rem;
+  justify-content: flex-end;
+  margin-top: 0.3rem;
+}
+
+.app-mobile-header__actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  /* Encolhe antes do título: em telas estreitas o nome da unidade vira reticências
+     (já era o comportamento do chip) em vez de cortar o título da página. */
+  flex: 0 4 auto;
+  min-width: 0;
 }
 
 .app-mobile-header__title-copy {
   min-width: 0;
-  flex: 1 1 auto;
+  flex: 1 0 auto;
+  text-align: center;
 }
 
 .app-mobile-header__eyebrow {
   display: block;
   color: var(--gold-mid);
-  font-size: 0.7rem;
+  font-size: 0.56rem;
   font-weight: 800;
-  letter-spacing: 0.2em;
+  line-height: 1.1;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
 }
 
 .app-mobile-header__title {
-  margin-top: 0.36rem;
+  margin-top: 0.1rem;
   color: #ffffff;
   font-family: var(--font-display);
-  font-size: clamp(1.38rem, 1.12rem + 1vw, 1.95rem);
+  font-size: clamp(0.88rem, 0.6rem + 1.8vw, 1.12rem);
   font-weight: 800;
-  line-height: 1.04;
-  letter-spacing: -0.03em;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .app-mobile-header__context {
   min-width: 0;
-  width: min(100%, 10.5rem);
-  flex: 0 0 auto;
+  width: auto;
+  max-width: 9.5rem;
+  flex: 0 1 auto;
+}
+
+.app-mobile-header__bar .app-mobile-header__unit {
+  max-width: 100%;
+  min-width: 3.5rem;
+  min-height: 2.5rem;
+  gap: 0.35rem;
+  padding: 0.28rem 0.55rem;
+  flex: 0 1 auto;
+}
+
+.app-mobile-header__bar .app-mobile-header__unit-name {
+  font-size: 0.72rem;
 }
 
 .app-mobile-header__select {
-  min-height: 2.75rem;
-  padding: 0.65rem 2rem 0.65rem 0.78rem;
+  min-height: 2.5rem;
+  padding: 0.45rem 1.8rem 0.45rem 0.7rem;
   border-radius: 999px;
   border-color: rgba(232, 175, 72, 0.24);
   background: rgba(255, 255, 255, 0.08);
@@ -622,10 +651,6 @@ html.dark .app-mobile-header__unit {
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
 }
 
-html.dark .app-mobile-header__title-row {
-  border-top-color: rgba(255, 255, 255, 0.08);
-}
-
 html.dark .app-mobile-header__eyebrow {
   color: #c9c7d2;
 }
@@ -635,6 +660,26 @@ html.dark .app-mobile-header__select {
   background: rgba(255, 255, 255, 0.06);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
   color: #fff8ef;
+}
+
+/* Telas bem estreitas (<=380px): aperta as margens internas da faixa para devolver
+   espaço ao título da página e ao nome da unidade. */
+@media (max-width: 380px) {
+  .app-mobile-header {
+    padding-inline: 0.7rem;
+  }
+
+  .app-mobile-header__bar {
+    gap: 0.4rem;
+  }
+
+  .app-mobile-header__brand {
+    gap: 0.4rem;
+  }
+
+  .app-mobile-header__brand-wordmark {
+    letter-spacing: 0.12em;
+  }
 }
 
 .app-panel {
@@ -5136,7 +5181,7 @@ html.dark .app-empty {
 .app-toolbar {
   position: fixed;
   left: 50%;
-  bottom: calc(env(safe-area-inset-bottom) + 0.75rem);
+  bottom: max(env(safe-area-inset-bottom, 0px), 0.25rem);
   z-index: 60;
   width: min(calc(100% - 1rem), var(--app-mobile-width));
   transform: translateX(-50%);
@@ -7702,17 +7747,7 @@ html.dark .controle-total__stock-card {
 
   .app-mobile-header {
     display: block;
-    padding-top: calc(env(safe-area-inset-top) + 1rem);
-  }
-
-  .app-mobile-header__title-row {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .app-mobile-header__vision {
-    flex: 0 0 auto;
-    margin-left: auto;
+    padding-top: calc(env(safe-area-inset-top, 0px) + 0.5rem);
   }
 
   .app-mobile-header__context--unit {
@@ -7742,15 +7777,10 @@ html.dark .controle-total__stock-card {
     text-align: left;
   }
 
-  .app-mobile-header__context {
-    width: 100%;
-  }
-
   .app-mobile-header__select {
-    width: 100%;
-    min-height: 2.3rem;
-    padding: 0.48rem 1.9rem 0.48rem 0.72rem;
-    font-size: 0.78rem;
+    min-height: 2.5rem;
+    padding: 0.4rem 1.7rem 0.4rem 0.65rem;
+    font-size: 0.74rem;
   }
 
   .app-toolbar {

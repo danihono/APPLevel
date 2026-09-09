@@ -450,47 +450,45 @@ const Layout: React.FC<LayoutProps> = ({
                 className="app-mobile-header"
                 title={mobileUnitLabel}
               >
-                <div className="app-mobile-header__row">
+                <div className="app-mobile-header__bar">
                   <div className="app-mobile-header__brand">
                     <img src="/logo3.png" alt="LEVEL" className="app-mobile-header__brand-mark" />
                     <span className="app-mobile-header__brand-wordmark">LEVEL</span>
                   </div>
 
-                  {canToggleVision ? (
-                    <div className="app-mobile-header__vision">
-                      {renderVisionSwitch()}
-                    </div>
-                  ) : !showSuperadminAcademyPicker ? (
-                    renderUnitChip()
-                  ) : null}
-                </div>
-
-                <div className="app-mobile-header__title-row">
                   <div className="app-mobile-header__title-copy">
                     <span className="app-mobile-header__eyebrow">Visão atual</span>
                     <p className="app-mobile-header__title">{currentPage.title}</p>
                   </div>
 
-                  {showSuperadminAcademyPicker ? (
-                    <div className="app-mobile-header__context">
-                      <select
-                        value={selectedAcademyId}
-                        onChange={(event) => onSelectAcademy?.(event.target.value)}
-                        className="app-select app-select--compact app-mobile-header__select"
-                        aria-label="Selecionar unidade em foco"
-                      >
-                        <option value="">Escolha uma unidade</option>
-                        {superadminAcademies.map((entry) => (
-                          <option key={entry.id} value={entry.id}>{entry.name}</option>
-                        ))}
-                      </select>
-                    </div>
-                  ) : canToggleVision ? (
-                    <div className="app-mobile-header__context app-mobile-header__context--unit">
-                      {renderUnitChip()}
-                    </div>
-                  ) : null}
+                  <div className="app-mobile-header__actions">
+                    {showSuperadminAcademyPicker ? (
+                      <div className="app-mobile-header__context">
+                        <select
+                          value={selectedAcademyId}
+                          onChange={(event) => onSelectAcademy?.(event.target.value)}
+                          className="app-select app-select--compact app-mobile-header__select"
+                          aria-label="Selecionar unidade em foco"
+                        >
+                          <option value="">Escolha uma unidade</option>
+                          {superadminAcademies.map((entry) => (
+                            <option key={entry.id} value={entry.id}>{entry.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                    ) : (
+                      <div className="app-mobile-header__context app-mobile-header__context--unit">
+                        {renderUnitChip()}
+                      </div>
+                    )}
+                  </div>
                 </div>
+
+                {canToggleVision ? (
+                  <div className="app-mobile-header__vision">
+                    {renderVisionSwitch()}
+                  </div>
+                ) : null}
               </div>
 
               <div
