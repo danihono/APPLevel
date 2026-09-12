@@ -435,7 +435,11 @@ img {
 .app-mobile-header {
   display: none;
   width: 100%;
-  padding: 0.5rem 0.9rem;
+  /* A faixa e full-bleed, entao em landscape no iPhone o notch (~59px de
+     safe-area-inset-left/right) cobriria o titulo. Em retrato os insets sao 0
+     e o max() devolve os mesmos 0.9rem. */
+  padding: 0.5rem max(0.9rem, env(safe-area-inset-right, 0px)) 0.5rem
+    max(0.9rem, env(safe-area-inset-left, 0px));
   border-top: 0;
   border-right: 0;
   border-bottom: 1px solid rgba(232, 175, 72, 0.28);
@@ -7654,10 +7658,6 @@ html.dark .controle-total__stock-card {
 
 
 @media (max-width: 719px) {
-  .app-shell {
-    padding-top: 0;
-  }
-
   .app-calendar-month-grid {
     gap: 0.36rem;
   }
@@ -7686,11 +7686,6 @@ html.dark .controle-total__stock-card {
     height: 2.65rem;
   }
 
-  .app-topbar {
-    margin-inline: calc(50% - 50vw);
-    margin-bottom: 1rem;
-  }
-
   .staff-home__hero,
   .calendar-mobile__hero,
   .academy-mobile__hero,
@@ -7698,30 +7693,6 @@ html.dark .controle-total__stock-card {
     margin-top: -1rem;
     margin-inline: -1rem;
     border-radius: 0;
-  }
-
-  .app-pagebar {
-    display: none;
-  }
-
-  .app-mobile-header {
-    display: block;
-    padding-top: calc(env(safe-area-inset-top, 0px) + 0.5rem);
-  }
-
-  .app-mobile-header__context--unit {
-    display: flex;
-    justify-content: flex-end;
-  }
-
-  .app-vision-switch__button {
-    height: 1.88rem;
-    padding: 0 0.62rem;
-    font-size: 0.68rem;
-  }
-
-  .app-vision-switch__button span {
-    letter-spacing: 0.02em;
   }
 
   .app-vision-context {
@@ -7734,12 +7705,6 @@ html.dark .controle-total__stock-card {
 
   .app-vision-context__label {
     text-align: left;
-  }
-
-  .app-mobile-header__select {
-    min-height: 2.5rem;
-    padding: 0.4rem 1.7rem 0.4rem 0.65rem;
-    font-size: 0.74rem;
   }
 
   .app-toolbar {
@@ -7940,14 +7905,6 @@ html.dark .controle-total__stock-card {
 
   .app-shell--superadmin {
     background: #faf8f5;
-  }
-
-  .app-shell--superadmin .app-mobile-header {
-    display: block;
-  }
-
-  .app-topbar--superadmin {
-    margin-bottom: 1rem;
   }
 
   .superadmin-dashboard .superadmin-desktop {
@@ -8343,6 +8300,61 @@ html.dark .controle-total__stock-card {
     text-align: center;
   }
 }
+
+/* ───────────────────────────────────────────────────────────────────────────
+   Header mobile: vale em toda largura que usa a navegacao inferior.
+   O shell desktop (sidebar + .app-toolbar--desk escondida) so assume em
+   min-width: 980px, entao o header compacto tem que ir ate 979px — senao
+   iPad e celular deitado (720-979px) ficam com o pagebar antigo junto da nav
+   mobile. Este bloco fica DEPOIS do @media (min-width: 720px) de proposito:
+   aquele usa o shorthand `padding` em .app-shell e, com especificidade igual,
+   so perde para quem vem depois na cascata.
+   ─────────────────────────────────────────────────────────────────────────── */
+@media (max-width: 979px) {
+  .app-shell {
+    padding-top: 0;
+  }
+
+  .app-topbar {
+    margin-inline: calc(50% - 50vw);
+    margin-bottom: 1rem;
+  }
+
+  .app-topbar--superadmin {
+    margin-bottom: 1rem;
+  }
+
+  .app-pagebar {
+    display: none;
+  }
+
+  .app-mobile-header {
+    display: block;
+    padding-top: calc(env(safe-area-inset-top, 0px) + 0.5rem);
+  }
+
+  .app-mobile-header__context--unit {
+    display: flex;
+    justify-content: flex-end;
+  }
+
+  .app-mobile-header__select {
+    min-height: 2.5rem;
+    padding: 0.4rem 1.7rem 0.4rem 0.65rem;
+    font-size: 0.74rem;
+  }
+
+  .app-vision-switch__button {
+    height: 1.88rem;
+    padding: 0 0.62rem;
+    font-size: 0.68rem;
+  }
+
+  .app-vision-switch__button span {
+    letter-spacing: 0.02em;
+  }
+}
+
 
 /* ─── Profile Mobile ──────────────────────────────────────────── */
 
