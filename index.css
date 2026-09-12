@@ -518,12 +518,6 @@ img {
   white-space: nowrap;
 }
 
-.app-mobile-header__vision {
-  display: flex;
-  justify-content: flex-end;
-  margin-top: 0.3rem;
-}
-
 .app-mobile-header__actions {
   display: flex;
   align-items: center;

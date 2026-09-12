@@ -14,6 +14,7 @@ import {
   AlertTriangle,
   Award,
   Bell,
+  Building2,
   Camera,
   ChevronRight,
   History,
@@ -24,6 +25,7 @@ import {
   Save,
   ScrollText,
   Settings2,
+  Shield,
   ShieldCheck,
   Sun,
   Trash2,
@@ -64,6 +66,10 @@ interface ProfileViewProps {
   onDeleteAccount?: (currentPassword: string) => Promise<void>;
   onOpenNotifications?: () => void;
   onLogout: () => void | Promise<void>;
+  /** Troca de visao do superadmin. Chega undefined para os demais papeis. */
+  superadminViewMode?: 'superadmin' | 'professor' | null;
+  onSetSuperadminViewMode?: (mode: 'superadmin' | 'professor') => void;
+  superadminAcademyCount?: number;
   studentMemberships?: string[];
   availableAcademiesForRequest?: Array<{ id: string; name: string }>;
   onRequestAcademyChange?: () => void;
@@ -110,6 +116,9 @@ const ProfileView: React.FC<ProfileViewProps> = ({
   onDeleteAccount,
   onOpenNotifications,
   onLogout,
+  superadminViewMode,
+  onSetSuperadminViewMode,
+  superadminAcademyCount,
   studentMemberships,
   availableAcademiesForRequest,
   onRequestAcademyChange,
@@ -419,6 +428,35 @@ const ProfileView: React.FC<ProfileViewProps> = ({
           {staffPhotoFeedback ? <p className="text-xs text-green-400 text-center">{staffPhotoFeedback}</p> : null}
           {staffPhotoError ? <p className="text-xs text-red-400 text-center">{staffPhotoError}</p> : null}
         </section>
+
+        {onSetSuperadminViewMode ? (
+          <section className="profile-mobile__progress-card">
+            <p className="profile-mobile__section-label">Visão atual</p>
+            <div className="app-vision-switch" role="group" aria-label="Trocar visão">
+              <button
+                type="button"
+                onClick={() => onSetSuperadminViewMode('superadmin')}
+                className={`app-vision-switch__button ${superadminViewMode !== 'professor' ? 'is-active' : ''}`}
+                aria-pressed={superadminViewMode !== 'professor'}
+                title="Visão da rede"
+              >
+                <Shield size={13} strokeWidth={2} />
+                <span>Rede</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => onSetSuperadminViewMode('professor')}
+                disabled={(superadminAcademyCount ?? 0) === 0}
+                className={`app-vision-switch__button ${superadminViewMode === 'professor' ? 'is-active' : ''}`}
+                aria-pressed={superadminViewMode === 'professor'}
+                title="Visão professor"
+              >
+                <Building2 size={13} strokeWidth={2} />
+                <span>Professor</span>
+              </button>
+            </div>
+          </section>
+        ) : null}
 
         <section className="profile-mobile__kpis">
           <article className="profile-mobile__kpi-card">

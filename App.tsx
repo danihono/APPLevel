@@ -2465,6 +2465,18 @@ const App: React.FC = () => {
       })
     : null;
   const isSuperAdmin = profile.role === 'superadmin';
+  const handleSetSuperadminViewMode = (nextMode: SuperadminViewMode) => {
+    if (nextMode === 'professor' && allAcademies.length === 0) {
+      return;
+    }
+
+    if (nextMode === 'professor') {
+      setSelectedAcademyId('');
+    }
+
+    setSuperadminViewMode(nextMode);
+    setActiveTab(nextMode === 'professor' ? 'home' : (allAcademies.length === 0 ? 'management' : 'home'));
+  };
   const isSuperadminProfessorView = isSuperAdmin && superadminViewMode === 'professor';
   const isSuperadminNetworkView = isSuperAdmin && superadminViewMode !== 'professor';
   const viewUserRole = isSuperadminProfessorView ? UserRole.PROFESSOR : currentUser.role;
@@ -3035,6 +3047,9 @@ const App: React.FC = () => {
             onDeleteAccount={profile?.role === 'student' ? handleDeleteMyAccount : undefined}
             onOpenNotifications={() => setActiveTab('notifications')}
             onLogout={handleLogout}
+            superadminViewMode={isSuperAdmin ? superadminViewMode : undefined}
+            onSetSuperadminViewMode={isSuperAdmin ? handleSetSuperadminViewMode : undefined}
+            superadminAcademyCount={isSuperAdmin ? allAcademies.length : undefined}
             studentMemberships={profile.role === 'student' ? studentMemberships : undefined}
             availableAcademiesForRequest={
               profile.role === 'student'
@@ -3229,18 +3244,7 @@ const App: React.FC = () => {
         unreadNotificationsCount={unreadNotificationsCount}
         mobileUnitLabel={mobileUnitLabel}
         superadminViewMode={superadminViewMode}
-        onSetSuperadminViewMode={(nextMode) => {
-          if (nextMode === 'professor' && allAcademies.length === 0) {
-            return;
-          }
-
-          if (nextMode === 'professor') {
-            setSelectedAcademyId('');
-          }
-
-          setSuperadminViewMode(nextMode);
-          setActiveTab(nextMode === 'professor' ? 'home' : (allAcademies.length === 0 ? 'management' : 'home'));
-        }}
+        onSetSuperadminViewMode={handleSetSuperadminViewMode}
         superadminAcademies={allAcademies.map((entry) => ({ id: entry.id, name: entry.name }))}
         selectedAcademyId={selectedAcademyId}
         onSelectAcademy={setSelectedAcademyId}

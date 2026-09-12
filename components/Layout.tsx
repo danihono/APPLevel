@@ -478,12 +478,6 @@ const Layout: React.FC<LayoutProps> = ({
                     )}
                   </div>
                 </div>
-
-                {canToggleVision ? (
-                  <div className="app-mobile-header__vision">
-                    {renderVisionSwitch()}
-                  </div>
-                ) : null}
               </div>
 
               <div
