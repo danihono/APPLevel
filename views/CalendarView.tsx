@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AlertTriangle, CalendarDays, Camera, CheckCircle, ChevronDown, ChevronLeft, ChevronRight, MapPin, Pencil, Play, Plus, QrCode, RefreshCw, ShieldCheck, Sliders, StopCircle, Trash2, User, UserCheck, Users, X } from 'lucide-react';
+import { AlertTriangle, CalendarDays, Camera, CheckCircle, ChevronDown, ChevronLeft, ChevronRight, MapPin, Pencil, Play, Plus, QrCode, RefreshCw, ShieldCheck, Sliders, StopCircle, Trash2, UserCheck, Users, X } from 'lucide-react';
 import QRCodeSVG from 'react-qr-code';
 import { resolveAttendanceDate } from '../attendanceUtils';
 import { buildMonthGrid, MONTH_WEEK_HEADER, sameCalendarDay, sameCalendarMonth, stripDate, toDateKey } from '../calendarUtils';
@@ -319,14 +319,84 @@ interface ClassListItemProps {
   lesson: FirestoreEntity<ClassRecord>;
   onOpen: (classId: string) => void;
   nowMs: number;
+  compact?: boolean;
   isConfirmed?: boolean;
   showDate?: boolean;
 }
 
-// Cartao das listas do desktop. O mobile usa `AgendaClassCard`.
-const ClassListItem: React.FC<ClassListItemProps> = ({ lesson, onOpen, nowMs, isConfirmed = false, showDate = false }) => {
+const ClassListItem: React.FC<ClassListItemProps> = ({ lesson, onOpen, nowMs, compact = false, isConfirmed = false, showDate = false }) => {
   const displayStatus = effectiveClassStatus(lesson, nowMs);
   const colors = statusColors(displayStatus);
+
+  if (compact) {
+    const professorName = lesson.professorName || 'Equipe técnica';
+    const tatameName = lesson.tatame || 'Tatame principal';
+
+    return (
+      <button
+        type="button"
+        onClick={() => onOpen(lesson.id)}
+        className="calendar-mobile__class-card"
+        // Sem isto o nome acessivel do botao vira a concatenacao crua do conteudo, e o "Vou"
+        // sozinho no fim fica indecifravel. Um rotulo explicito monta a frase na ordem que faz
+        // sentido ouvir.
+        aria-label={[
+          `Aula ${lesson.title}`,
+          showDate ? `dia ${classDateParts(lesson).day}` : null,
+          classTimeRange(lesson),
+          `status ${statusLabel(displayStatus).toLocaleLowerCase('pt-BR')}`,
+          professorName,
+          tatameName,
+          isConfirmed ? 'presença confirmada' : null,
+        ].filter(Boolean).join(', ')}
+      >
+        {/* A barra colorida vira reforco do chip de status, nao mais o unico portador da
+            informacao: `unfinished` (laranja) e `scheduled` (dourado) sao cores vizinhas e, com
+            0.22rem de largura, ninguem distinguia uma da outra. */}
+        <span
+          className="calendar-mobile__class-accent"
+          style={{ backgroundColor: colors.accent }}
+          aria-hidden="true"
+        />
+
+        <div className="calendar-mobile__class-copy">
+          <div className="calendar-mobile__class-headline">
+            <p className="calendar-mobile__class-title">{lesson.title}</p>
+            <span className={`${statusBadgeClass(displayStatus)} app-badge--compact`}>
+              {statusLabel(displayStatus)}
+            </span>
+          </div>
+
+          <p className="calendar-mobile__class-time">
+            {showDate
+              ? `${classDateParts(lesson).day} • ${classTimeRange(lesson)}`
+              : classTimeRange(lesson)}
+          </p>
+
+          {/* Mesmos campos e fallbacks do card desktop (ramo abaixo), para as duas versoes da
+              tela dizerem a mesma coisa — vide a regra de paridade no CLAUDE.md. */}
+          <p className="calendar-mobile__class-meta">
+            {classTypeLabel(lesson.description) ? (
+              <span className="calendar-mobile__class-meta-item">{classTypeLabel(lesson.description)}</span>
+            ) : null}
+            <span className="calendar-mobile__class-meta-item">{professorName}</span>
+            {/* O icone separa os dois campos melhor que um "·": ele quebra junto com o tatame,
+                entao nunca sobra um separador orfao no fim da linha quando o nome do professor e
+                longo. E o mesmo MapPin da meta-row do desktop. */}
+            <span className="calendar-mobile__class-meta-item calendar-mobile__class-meta-item--place">
+              <MapPin size={13} aria-hidden="true" />
+              {tatameName}
+            </span>
+            {isConfirmed ? (
+              <span className="app-badge app-badge--success app-badge--compact">Vou</span>
+            ) : null}
+          </p>
+        </div>
+
+        <ChevronRight size={18} className="calendar-mobile__class-arrow" aria-hidden="true" />
+      </button>
+    );
+  }
 
   return (
     <button
@@ -398,101 +468,6 @@ const ClassListItem: React.FC<ClassListItemProps> = ({ lesson, onOpen, nowMs, is
         <span>{lesson.professorName || 'Equipe técnica'}</span>
         <span className="inline-flex items-center gap-2"><MapPin size={14} />{lesson.tatame || 'Tatame principal'}</span>
       </div>
-    </button>
-  );
-};
-
-interface AgendaClassCardProps {
-  lesson: FirestoreEntity<ClassRecord>;
-  onOpen: (classId: string) => void;
-  nowMs: number;
-  isConfirmed?: boolean;
-  showDate?: boolean;
-  highlighted?: boolean;
-}
-
-// Cartao da agenda mobile: horario a esquerda, identidade da aula no meio e a acao "Ver aula"
-// sempre visivel. O cartao inteiro e o botao — o "Ver aula" e um <span>, nao um <button>, para
-// nao criar um segundo ponto de foco que faz exatamente a mesma coisa.
-const AgendaClassCard: React.FC<AgendaClassCardProps> = ({
-  lesson,
-  onOpen,
-  nowMs,
-  isConfirmed = false,
-  showDate = false,
-  highlighted = false,
-}) => {
-  const displayStatus = effectiveClassStatus(lesson, nowMs);
-  const colors = statusColors(displayStatus);
-  const professorName = lesson.professorName || 'Equipe técnica';
-  const tatameName = lesson.tatame || 'Tatame principal';
-  const typeLabel = classTypeLabel(lesson.description);
-  // Na maioria das aulas o titulo E o tipo ("Iniciante" / codigo 'iniciante'): repetir a mesma
-  // palavra num chip logo abaixo do titulo nao informa nada e ainda empurra o cartao para duas
-  // linhas de chips. So mostramos o tipo quando ele diz algo que o titulo nao diz.
-  const showTypeLabel = !!typeLabel
-    && typeLabel.toLocaleLowerCase('pt-BR') !== lesson.title.trim().toLocaleLowerCase('pt-BR');
-  const startLabel = formatTimeLabel(lesson.scheduledStart);
-  const endLabel = lesson.scheduledEnd ? formatTimeLabel(lesson.scheduledEnd) : '';
-  // "Agendada" e o estado normal de quase todo cartao: repetir o chip em todos so adiciona ruido.
-  // Os demais status mudam o que a pessoa pode fazer, entao continuam visiveis.
-  const showStatusBadge = displayStatus !== 'scheduled';
-
-  return (
-    <button
-      type="button"
-      onClick={() => onOpen(lesson.id)}
-      className={`agenda-card${highlighted ? ' agenda-card--highlight' : ''}`}
-      // Sem rotulo explicito o nome acessivel vira a concatenacao crua do conteudo e termina em
-      // "Ver aula, Vou" — ilegivel. Aqui a frase sai na ordem que faz sentido ouvir.
-      aria-label={[
-        `Aula ${lesson.title}`,
-        showDate ? `dia ${classDateParts(lesson).day}` : null,
-        classTimeRange(lesson),
-        showStatusBadge ? `status ${statusLabel(displayStatus).toLocaleLowerCase('pt-BR')}` : null,
-        professorName,
-        tatameName,
-        isConfirmed ? 'presença confirmada' : null,
-        'ver aula',
-      ].filter(Boolean).join(', ')}
-    >
-      <span className="agenda-card__clock" aria-hidden="true">
-        {showDate ? <span className="agenda-card__date">{classDateParts(lesson).day}</span> : null}
-        <span className="agenda-card__start">{startLabel}</span>
-        {endLabel ? <span className="agenda-card__end">{endLabel}</span> : null}
-      </span>
-
-      {/* Reforco visual do chip de status — a cor sozinha nunca carrega a informacao. */}
-      <span className="agenda-card__accent" style={{ backgroundColor: colors.accent }} aria-hidden="true" />
-
-      <span className="agenda-card__body">
-        <span className="agenda-card__headline">
-          <span className="agenda-card__title">{lesson.title}</span>
-          <ChevronRight size={18} className="agenda-card__arrow" aria-hidden="true" />
-        </span>
-
-        <span className="agenda-card__meta">
-          <User size={14} aria-hidden="true" />
-          <span className="agenda-card__meta-text">{professorName}</span>
-        </span>
-
-        <span className="agenda-card__meta">
-          <MapPin size={14} aria-hidden="true" />
-          <span className="agenda-card__meta-text">{tatameName}</span>
-        </span>
-
-        <span className="agenda-card__footer">
-          <span className="agenda-card__tags">
-            {showTypeLabel ? <span className="app-badge app-badge--muted app-badge--compact">{typeLabel}</span> : null}
-            {showStatusBadge ? (
-              <span className={`${statusBadgeClass(displayStatus)} app-badge--compact`}>{statusLabel(displayStatus)}</span>
-            ) : null}
-            {isConfirmed ? <span className="app-badge app-badge--success app-badge--compact">Vou</span> : null}
-          </span>
-
-          <span className="agenda-card__cta" aria-hidden="true">Ver aula</span>
-        </span>
-      </span>
     </button>
   );
 };
@@ -894,11 +869,9 @@ const CalendarView: React.FC<CalendarViewProps> = ({
   const [filterType, setFilterType] = useState('all');
   const [filterProfessor, setFilterProfessor] = useState('all');
   const [filterTatame, setFilterTatame] = useState('all');
-  // Agenda mobile: o calendario do mes e a folha de filtros so aparecem quando pedidos, e as
-  // aulas ja encerradas comecam recolhidas.
+  // Agenda mobile: o calendario do mes e a folha de filtros so aparecem quando pedidos.
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const [doneOpen, setDoneOpen] = useState(false);
 
   const tokenInputRef = useRef<HTMLInputElement>(null);
   const selectedClassDescription = useMemo(
@@ -1027,13 +1000,6 @@ const CalendarView: React.FC<CalendarViewProps> = ({
       setSurfaceTab('calendar');
     }
   }, [isStaff, surfaceTab]);
-
-  // Trocar de dia reinicia o recolhimento de "Concluidas": o estado de um dia nao diz nada sobre
-  // o outro. Quando nao sobrou nada por vir, a secao abre sozinha — recolhida ela deixaria a tela
-  // aparentemente vazia num dia que teve aula.
-  useEffect(() => {
-    setDoneOpen(false);
-  }, [selectedDay]);
 
   useEffect(() => {
     if (typeof window === 'undefined') {
@@ -1308,74 +1274,11 @@ const CalendarView: React.FC<CalendarViewProps> = ({
   const isSelectedToday = useMemo(() => sameCalendarDay(selectedDay, today), [selectedDay, today]);
   const weekDays = useMemo(() => buildWeekDays(selectedDay), [selectedDay]);
 
-  // Agenda mobile — a tela e lida de cima para baixo: o que esta acontecendo (ou comeca a seguir),
-  // depois o resto do dia, e por ultimo o que ja passou.
-  //
-  // `active` entra sempre no destaque, mesmo depois do horario de termino: uma aula em andamento
-  // que passou do fim continua sendo onde o aluno bate o QR. Ja o `unfinished` (passou do horario
-  // e ninguem finalizou) desce para "Concluidas" — para o professor ele continua exposto no
-  // atalho "Pendentes", que e onde a acao de finalizar vive.
-  const agendaGroups = useMemo(() => {
-    const live: Array<FirestoreEntity<ClassRecord>> = [];
-    const upcoming: Array<FirestoreEntity<ClassRecord>> = [];
-    const done: Array<FirestoreEntity<ClassRecord>> = [];
+  // Resumo do dia no cabecalho.
+  const agendaSummaryLabel = selectedDayClasses.length === 0
+    ? 'Nenhuma aula nesta data'
+    : `${selectedDayClasses.length} ${selectedDayClasses.length === 1 ? 'aula' : 'aulas'}`;
 
-    selectedDayClasses.forEach((lesson) => {
-      if (lesson.status === 'active') {
-        live.push(lesson);
-        return;
-      }
-
-      if (lesson.status === 'finished'
-        || lesson.status === 'cancelled'
-        || effectiveClassStatus(lesson, nowMs) === 'unfinished') {
-        done.push(lesson);
-        return;
-      }
-
-      upcoming.push(lesson);
-    });
-
-    if (live.length > 0) {
-      return { highlight: live, later: upcoming, done, isLive: true };
-    }
-
-    if (upcoming.length === 0) {
-      return { highlight: [], later: [], done, isLive: false };
-    }
-
-    // `selectedDayClasses` ja vem ordenado por horario, entao o primeiro item marca o proximo
-    // horario do dia — e tudo que comeca no mesmo minuto divide o bloco em destaque.
-    const nextStart = upcoming[0].scheduledStart?.toDate().getTime() ?? 0;
-    const startOf = (entry: FirestoreEntity<ClassRecord>) => entry.scheduledStart?.toDate().getTime() ?? 0;
-
-    return {
-      highlight: upcoming.filter((entry) => startOf(entry) === nextStart),
-      later: upcoming.filter((entry) => startOf(entry) !== nextStart),
-      done,
-      isLive: false,
-    };
-  }, [nowMs, selectedDayClasses]);
-
-  const agendaHighlightLabel = agendaGroups.isLive
-    ? 'Acontecendo agora'
-    : isSelectedToday ? 'Próximo horário' : 'Primeiro horário';
-  // So o inicio: o bloco agrupa as aulas que comecam no mesmo minuto, e o intervalo completo ja
-  // aparece em cada cartao.
-  const agendaHighlightTime = agendaGroups.highlight[0]
-    ? formatTimeLabel(agendaGroups.highlight[0].scheduledStart)
-    : '';
-  const agendaSummaryLabel = useMemo(() => {
-    if (selectedDayClasses.length === 0) {
-      return 'Nenhuma aula nesta data';
-    }
-
-    const total = `${selectedDayClasses.length} ${selectedDayClasses.length === 1 ? 'aula' : 'aulas'}`;
-    const doneCount = agendaGroups.done.length;
-    return doneCount > 0
-      ? `${total} • ${doneCount} ${doneCount === 1 ? 'encerrada' : 'encerradas'}`
-      : total;
-  }, [agendaGroups.done.length, selectedDayClasses.length]);
   const surfaceCopy = surfaceTab === 'calendar'
     ? 'Use o calendário mensal para localizar as aulas do dia e abrir a agenda logo abaixo.'
     : surfaceTab === 'unfinished'
@@ -1541,11 +1444,6 @@ const CalendarView: React.FC<CalendarViewProps> = ({
   const selectedDayEmptyMessage = isMineView
     ? (hasNoOwnClasses ? noOwnClassesMessage : 'Você não tem aulas programadas nesta data.')
     : 'Nenhuma aula programada para esta data.';
-  const agendaEmptyMessage = agendaGroups.done.length > 0
-    ? (isSelectedToday
-      ? 'Por hoje é só — as aulas do dia já foram encerradas.'
-      : 'As aulas desta data já foram encerradas.')
-    : selectedDayEmptyMessage;
   const todayEmptyMessage = isMineView
     ? (hasNoOwnClasses ? noOwnClassesMessage : 'Você não tem aulas programadas para hoje.')
     : 'Nenhuma aula programada para hoje.';
@@ -1928,19 +1826,23 @@ const CalendarView: React.FC<CalendarViewProps> = ({
     </div>
   );
 
-  const renderAgendaCards = (lessons: Array<FirestoreEntity<ClassRecord>>, highlighted = false, showDate = false) => (
-    <div className="agenda-list">
-      {lessons.map((lesson) => (
-        <AgendaClassCard
-          key={lesson.id}
-          lesson={lesson}
-          onOpen={openClassDetails}
-          nowMs={nowMs}
-          isConfirmed={!!myRsvpByClass[lesson.id]}
-          highlighted={highlighted}
-          showDate={showDate}
-        />
-      ))}
+  const renderAgendaList = (lessons: Array<FirestoreEntity<ClassRecord>>, emptyMessage: string, showDate = false) => (
+    <div className="calendar-mobile__day-list">
+      {lessons.length > 0 ? (
+        lessons.map((lesson) => (
+          <ClassListItem
+            key={lesson.id}
+            lesson={lesson}
+            onOpen={openClassDetails}
+            nowMs={nowMs}
+            compact
+            isConfirmed={!!myRsvpByClass[lesson.id]}
+            showDate={showDate}
+          />
+        ))
+      ) : (
+        <div className="calendar-mobile__empty">{emptyMessage}</div>
+      )}
     </div>
   );
 
@@ -2100,51 +2002,8 @@ const CalendarView: React.FC<CalendarViewProps> = ({
 
       {renderAgendaWeekStrip()}
 
-      <section className="calendar-mobile__day-section agenda-board">
-        {agendaGroups.highlight.length > 0 ? (
-          <div className={`agenda-slot ${agendaGroups.isLive ? 'agenda-slot--live' : ''}`.trim()}>
-            <div className="agenda-slot__head">
-              <p className="agenda-slot__label">{agendaHighlightLabel}</p>
-              <p className="agenda-slot__time">{agendaHighlightTime}</p>
-              <p className="agenda-slot__note">
-                {agendaGroups.highlight.length === 1
-                  ? '1 aula neste horário'
-                  : `${agendaGroups.highlight.length} aulas neste horário`}
-              </p>
-            </div>
-
-            {renderAgendaCards(agendaGroups.highlight, true)}
-          </div>
-        ) : (
-          <div className="calendar-mobile__empty">{agendaEmptyMessage}</div>
-        )}
-
-        {agendaGroups.later.length > 0 ? (
-          <div className="agenda-group">
-            <p className="agenda-group__title">
-              Mais tarde
-              <span className="agenda-group__count">{agendaGroups.later.length}</span>
-            </p>
-            {renderAgendaCards(agendaGroups.later)}
-          </div>
-        ) : null}
-
-        {agendaGroups.done.length > 0 ? (
-          <div className="agenda-group agenda-group--done">
-            <button
-              type="button"
-              onClick={() => setDoneOpen((current) => !current)}
-              aria-expanded={doneOpen}
-              className="agenda-done__toggle"
-            >
-              <CheckCircle size={18} aria-hidden="true" />
-              <span className="agenda-done__label">Concluídas ({agendaGroups.done.length})</span>
-              <ChevronDown size={18} aria-hidden="true" className={`agenda-done__chevron ${doneOpen ? 'is-open' : ''}`.trim()} />
-            </button>
-
-            {doneOpen ? renderAgendaCards(agendaGroups.done) : null}
-          </div>
-        ) : null}
+      <section className="calendar-mobile__day-section">
+        {renderAgendaList(selectedDayClasses, selectedDayEmptyMessage)}
       </section>
     </>
   );
@@ -2180,18 +2039,14 @@ const CalendarView: React.FC<CalendarViewProps> = ({
         </div>
       </section>
 
-      <section className="calendar-mobile__day-section agenda-board">
-        <p className="agenda-group__title agenda-group__title--plain">
+      <section className="calendar-mobile__day-section">
+        <p className="calendar-mobile__day-note">
           {isSuperAdmin
             ? 'Aulas da academia que já passaram do horário e ainda estão agendadas ou ativas.'
             : 'Aulas suas que já passaram do horário e ainda estão agendadas ou ativas.'}
         </p>
 
-        {unfinishedClasses.length > 0 ? (
-          renderAgendaCards(unfinishedClasses, false, true)
-        ) : (
-          <div className="calendar-mobile__empty">{unfinishedEmptyMessage}</div>
-        )}
+        {renderAgendaList(unfinishedClasses, unfinishedEmptyMessage, true)}
       </section>
     </>
   );
