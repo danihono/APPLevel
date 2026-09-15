@@ -2747,7 +2747,6 @@ const App: React.FC = () => {
           ) : (
             <HomeView
               user={currentUser}
-              branch={branch}
               monthlyAttendanceCount={countedAttendanceThisMonth.length}
               attendanceDays={attendanceDays}
               progressionRules={resolvedAcademy.progressionRules}
@@ -2773,7 +2772,6 @@ const App: React.FC = () => {
         ) : (
           <HomeView
             user={currentUser}
-            branch={branch}
             monthlyAttendanceCount={countedAttendanceThisMonth.length}
             attendanceDays={attendanceDays}
             progressionRules={resolvedAcademy.progressionRules}
@@ -3074,7 +3072,6 @@ const App: React.FC = () => {
         return (
           <HomeView
             user={currentUser}
-            branch={branch}
             monthlyAttendanceCount={countedAttendanceThisMonth.length}
             attendanceDays={attendanceDays}
             progressionRules={resolvedAcademy.progressionRules}

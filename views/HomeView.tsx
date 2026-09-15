@@ -1,18 +1,16 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useMemo } from 'react';
 import {
-  beltLabel,
   getBlackBeltProgressForUser,
   getUserProgressionSummary,
   type ProgressionRules,
 } from '../beltCatalog';
-import { Calendar as CalIcon, Sparkles, Trophy } from 'lucide-react';
+import { Calendar as CalIcon, Trophy } from 'lucide-react';
 import BjjBelt from '../components/BjjBelt';
 import ProgressBar from '../components/ProgressBar';
-import type { Branch, User } from '../types';
+import type { User } from '../types';
 
 interface HomeViewProps {
   user: User;
-  branch: Branch;
   monthlyAttendanceCount: number;
   attendanceDays: number[];
   progressionRules?: ProgressionRules | null;
@@ -20,12 +18,10 @@ interface HomeViewProps {
 
 const HomeView: React.FC<HomeViewProps> = ({
   user,
-  branch,
   monthlyAttendanceCount,
   attendanceDays,
   progressionRules,
 }) => {
-  const [advice, setAdvice] = useState<string>('Carregando dica do mestre...');
   const today = new Date();
 
   const progression = useMemo(
@@ -40,56 +36,8 @@ const HomeView: React.FC<HomeViewProps> = ({
   const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
   const attendedDays = new Set(attendanceDays);
 
-  useEffect(() => {
-    let active = true;
-
-    async function fetchAdvice() {
-      try {
-        const { getTrainingAdvice } = await import('../services/geminiService');
-        const tip = await getTrainingAdvice(user);
-        if (active) {
-          setAdvice(tip);
-        }
-      } catch {
-        if (active) {
-          setAdvice('Mantenha a constância nos treinos. O segredo está na repetição!');
-        }
-      }
-    }
-
-    void fetchAdvice();
-
-    return () => {
-      active = false;
-    };
-  }, [
-    user.id,
-    user.name,
-    user.belt,
-    user.stripes,
-    user.attendanceCount,
-    user.currentStripeProgress,
-    user.currentBeltProgress,
-  ]);
-
   return (
     <div className="view-shell">
-      <section className="app-panel app-panel-pad">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <p className="text-sm font-bold">{branch.name}</p>
-            <p className="mt-1 text-sm text-[color:var(--text-muted)]">{branch.location}</p>
-            <p className="mt-3 text-sm text-[color:var(--text-muted)]">
-              Olá, <strong>{user.name.split(' ')[0]}</strong> — {monthlyAttendanceCount} treinos este mês
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <span className="app-badge app-badge--gold">{blackBeltProgress ? blackBeltProgress.label : `Faixa ${beltLabel(user.belt)}`}</span>
-            <span className="app-badge app-badge--muted">{user.type}</span>
-          </div>
-        </div>
-      </section>
-
       <section className="app-panel app-panel-pad">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="flex items-center gap-3">
@@ -136,19 +84,6 @@ const HomeView: React.FC<HomeViewProps> = ({
             />
           </div>
         )}
-      </section>
-
-      <section className="app-panel app-panel--tint app-panel-pad">
-        <div className="flex items-center gap-3">
-          <div className="app-icon-shell">
-            <Sparkles size={18} />
-          </div>
-          <div>
-            <p className="app-section-label">Dica do mestre</p>
-            <h2 className="text-xl font-bold">Ajuste fino para o treino de hoje</h2>
-          </div>
-        </div>
-        <p className="mt-4 text-sm leading-7 text-[color:var(--text-muted)]">"{advice}"</p>
       </section>
 
       <section className="app-panel app-panel-pad">
