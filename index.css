@@ -1041,14 +1041,6 @@ html.dark .app-panel--tint {
   text-transform: uppercase;
 }
 
-.calendar-mobile__month-title {
-  margin: 0.45rem 0 0;
-  color: #fff8ef;
-  font-family: var(--font-display);
-  font-size: clamp(2.1rem, 1.75rem + 1vw, 2.6rem);
-  line-height: 0.95;
-}
-
 .calendar-mobile__month-nav {
   display: flex;
   gap: 0.55rem;
@@ -1068,34 +1060,8 @@ html.dark .app-panel--tint {
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 
-.calendar-mobile__month-summary {
-  margin: 0;
-  color: rgba(255, 255, 255, 0.68);
-  font-size: 0.96rem;
-}
-
 .calendar-mobile__hero .app-calendar-month-header--compact {
   color: rgba(255, 255, 255, 0.42);
-}
-
-.calendar-mobile__surface-tabs {
-  margin: -0.2rem 0 0.75rem;
-}
-
-.calendar-mobile__surface-tabs + .calendar-mobile__hero {
-  margin-top: 0;
-}
-
-.calendar-mobile__surface-tabs .app-segment {
-  width: 100%;
-}
-
-.calendar-mobile__surface-tabs .app-segment__button {
-  min-height: 2.55rem;
-  padding: 0.6rem 0.45rem;
-  font-size: 0.78rem;
-  line-height: 1.15;
-  white-space: normal;
 }
 
 .calendar-mobile__day-section {
@@ -1127,10 +1093,11 @@ html.dark .app-panel--tint {
  * `color: var(--text-strong)`. Herdar o token na secao inteira daria texto preto sobre fundo
  * preto — trocaria um bug por outro pior. So entram aqui os elementos que de fato assentam
  * sobre o papel. */
-.calendar-mobile__day-label,
-.calendar-mobile__day-title,
 .calendar-mobile__empty,
-.calendar-mobile__class-card,
+.agenda-slot,
+.agenda-card,
+.agenda-group__title,
+.agenda-done__toggle,
 .calendar-mobile__day-section .app-badge {
   --text-strong: #10131a;
   --text-muted: #434c5f;
@@ -1146,164 +1113,6 @@ html.dark .app-panel--tint {
   color: var(--gold-dark);
 }
 
-.calendar-mobile__day-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.9rem;
-}
-
-.calendar-mobile__day-label {
-  margin: 0;
-  color: var(--text-soft);
-  font-size: 0.74rem;
-  font-weight: 800;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-}
-
-.calendar-mobile__day-title {
-  margin: 0.35rem 0 0;
-  color: var(--text-muted);
-  font-size: 0.95rem;
-  font-weight: 700;
-  text-transform: capitalize;
-}
-
-.calendar-mobile__create-button {
-  min-height: 2.35rem;
-  padding-inline: 1rem;
-  border-radius: 999px;
-  white-space: nowrap;
-}
-
-.calendar-mobile__day-list {
-  margin-top: 1rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.85rem;
-}
-
-.calendar-mobile__class-card {
-  width: 100%;
-  padding: 1rem 1rem 0.95rem;
-  border: 1px solid rgba(17, 17, 24, 0.06);
-  border-radius: 1.6rem;
-  background: #ffffff;
-  box-shadow: 0 12px 24px rgba(15, 18, 33, 0.08);
-  display: flex;
-  align-items: center;
-  gap: 0.9rem;
-  text-align: left;
-}
-
-/* O card e um <button> e nao tinha nenhum estilo de foco: em navegacao por teclado, e no Full
- * Keyboard Access / Switch Control do iOS (o app roda em Capacitor), o foco ficava invisivel
- * sobre o cartao branco. */
-.calendar-mobile__class-card:focus-visible {
-  outline: none;
-  border-color: rgba(232, 175, 72, 0.45);
-  box-shadow:
-    0 0 0 3px rgba(232, 175, 72, 0.22),
-    0 12px 24px rgba(15, 18, 33, 0.08);
-}
-
-.calendar-mobile__class-card:active {
-  transform: scale(0.985);
-}
-
-.calendar-mobile__class-card {
-  transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .calendar-mobile__class-card {
-    transition: none;
-  }
-
-  .calendar-mobile__class-card:active {
-    transform: none;
-  }
-}
-
-.calendar-mobile__class-accent {
-  width: 0.22rem;
-  align-self: stretch;
-  border-radius: 999px;
-  flex: none;
-}
-
-.calendar-mobile__class-copy {
-  min-width: 0;
-  flex: 1 1 auto;
-}
-
-/* Titulo e chip de status na mesma linha. O chip e `flex: none` e o titulo encolhe com
-   reticencias: sem isso, num iPhone SE (320px) um titulo longo empurraria o status para fora. */
-.calendar-mobile__class-headline {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.calendar-mobile__class-title {
-  margin: 0;
-  min-width: 0;
-  flex: 1 1 auto;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  color: var(--text-strong);
-  font-size: 1.08rem;
-  font-weight: 800;
-}
-
-.calendar-mobile__class-headline .app-badge {
-  flex: none;
-}
-
-.calendar-mobile__class-time {
-  margin: 0.3rem 0 0;
-  color: var(--text-muted);
-  font-size: 0.92rem;
-  font-weight: 600;
-}
-
-/* Professor e tatame. Quebra em vez de estourar quando o nome e longo. */
-.calendar-mobile__class-meta {
-  margin: 0.35rem 0 0;
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 0.3rem 0.7rem;
-  color: var(--text-soft);
-  font-size: 0.82rem;
-}
-
-.calendar-mobile__class-meta-item {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.calendar-mobile__class-meta-item--place {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.25rem;
-  flex: none;
-}
-
-.calendar-mobile__class-meta-item--place svg {
-  flex: none;
-  opacity: 0.7;
-}
-
-.calendar-mobile__class-arrow {
-  color: rgba(17, 17, 24, 0.14);
-  flex: none;
-}
-
 .calendar-mobile__empty {
   padding: 1rem;
   border-radius: 1.4rem;
@@ -1314,6 +1123,540 @@ html.dark .app-panel--tint {
 
 html.dark .calendar-mobile__day-section {
   background: rgba(250, 248, 243, 0.96);
+}
+
+/* =============================================================================================
+ * Agenda mobile (CalendarView em telas < 720px)
+ *
+ * A tela e lida de cima para baixo: cabecalho escuro com a data e os dois botoes que abrem
+ * calendario e filtros, depois o "papel" claro com o proximo horario em destaque dourado, o
+ * restante do dia em "Mais tarde" e o que ja passou recolhido em "Concluidas".
+ *
+ * O bloco de papel (`.calendar-mobile__day-section`) permanece claro nos dois temas — ver a nota
+ * sobre os tokens logo acima. O heroi escuro usa cores literais pelo mesmo motivo: a superficie e
+ * invariante ao tema.
+ * ============================================================================================= */
+
+.agenda-hero__date {
+  margin: 0.4rem 0 0;
+  color: #fff8ef;
+  font-family: var(--font-display);
+  font-size: clamp(1.6rem, 1.25rem + 1.6vw, 2.05rem);
+  line-height: 1.1;
+}
+
+.agenda-hero__summary {
+  margin: 0.4rem 0 0;
+  color: rgba(255, 255, 255, 0.66);
+  font-size: 0.9rem;
+}
+
+.agenda-hero__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+/* Alvo de toque confortavel (>= 2.6rem de altura) — sao os unicos controles do topo. */
+.agenda-hero__pill {
+  min-height: 2.6rem;
+  padding: 0.55rem 0.95rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #f7f4ee;
+  font-size: 0.85rem;
+  font-weight: 700;
+  white-space: nowrap;
+  transition: background 160ms ease, border-color 160ms ease, color 160ms ease;
+}
+
+.agenda-hero__pill:focus-visible {
+  outline: none;
+  border-color: rgba(232, 175, 72, 0.7);
+  box-shadow: 0 0 0 3px rgba(232, 175, 72, 0.3);
+}
+
+.agenda-hero__pill.is-active {
+  border-color: rgba(232, 175, 72, 0.55);
+  background: rgba(232, 175, 72, 0.2);
+  color: var(--gold-light);
+}
+
+.agenda-hero__pill--gold {
+  border-color: transparent;
+  background: var(--btn-primary);
+  color: var(--btn-primary-text);
+}
+
+.agenda-hero__pill--alert {
+  border-color: rgba(234, 120, 30, 0.5);
+  background: rgba(234, 120, 30, 0.18);
+  color: #ffd2a8;
+}
+
+.agenda-hero__pill--quiet {
+  padding-inline: 0.85rem;
+  font-size: 0.8rem;
+}
+
+.agenda-hero__pill-count {
+  min-width: 1.25rem;
+  padding: 0.05rem 0.35rem;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.32);
+  color: inherit;
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-align: center;
+}
+
+.agenda-hero__pill--gold .agenda-hero__pill-count {
+  background: rgba(0, 0, 0, 0.16);
+}
+
+.agenda-hero__pill-chevron {
+  transition: transform 180ms ease;
+}
+
+.agenda-hero__pill-chevron.is-open {
+  transform: rotate(180deg);
+}
+
+.agenda-hero__calendar {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.agenda-hero__calendar-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.agenda-hero__month {
+  margin: 0;
+  color: #fff8ef;
+  font-family: var(--font-display);
+  font-size: 1.35rem;
+}
+
+/* A bolinha verde do calendario nao tem rotulo em nenhum outro lugar da tela. */
+.agenda-hero__legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 1rem;
+  color: rgba(255, 255, 255, 0.66);
+  font-size: 0.78rem;
+}
+
+.agenda-hero__legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.agenda-hero__today {
+  align-self: flex-start;
+  min-height: 2.35rem;
+  padding: 0.5rem 0.95rem;
+  border: 1px solid rgba(232, 175, 72, 0.4);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--gold-light);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.agenda-board {
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+}
+
+/* Proximo horario: o unico bloco dourado da tela, para nao competir com nada. */
+.agenda-slot {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+  padding: 1rem 0.85rem 0.9rem;
+  border: 1px solid rgba(232, 175, 72, 0.34);
+  border-radius: 1.75rem;
+  background: linear-gradient(180deg, rgba(240, 180, 41, 0.17), rgba(240, 180, 41, 0.06));
+}
+
+.agenda-slot--live {
+  border-color: rgba(41, 166, 117, 0.38);
+  background: linear-gradient(180deg, rgba(41, 166, 117, 0.16), rgba(41, 166, 117, 0.05));
+}
+
+.agenda-slot__head {
+  padding-inline: 0.25rem;
+}
+
+.agenda-slot__label {
+  margin: 0;
+  color: var(--gold-dark);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.agenda-slot--live .agenda-slot__label {
+  color: #14653a;
+}
+
+.agenda-slot__time {
+  margin: 0.3rem 0 0;
+  color: var(--text-strong);
+  font-family: var(--font-display);
+  font-size: 1.7rem;
+  line-height: 1.05;
+}
+
+.agenda-slot__note {
+  margin: 0.25rem 0 0;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+}
+
+.agenda-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.agenda-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.agenda-group__title {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--text-soft);
+  font-size: 0.76rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.agenda-group__title--plain {
+  color: var(--text-muted);
+  font-size: 0.86rem;
+  font-weight: 600;
+  letter-spacing: normal;
+  text-transform: none;
+}
+
+.agenda-group__count {
+  min-width: 1.3rem;
+  padding: 0.1rem 0.4rem;
+  border-radius: 999px;
+  background: rgba(17, 17, 24, 0.07);
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  letter-spacing: normal;
+  text-align: center;
+}
+
+.agenda-done__toggle {
+  width: 100%;
+  min-height: 3.1rem;
+  padding: 0.85rem 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  border: 1px solid rgba(17, 17, 24, 0.07);
+  border-radius: 1.4rem;
+  background: rgba(17, 17, 24, 0.035);
+  color: var(--text-muted);
+  text-align: left;
+}
+
+.agenda-done__toggle:focus-visible {
+  outline: none;
+  border-color: rgba(232, 175, 72, 0.45);
+  box-shadow: 0 0 0 3px rgba(232, 175, 72, 0.22);
+}
+
+.agenda-done__label {
+  flex: 1 1 auto;
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.agenda-done__chevron {
+  flex: none;
+  transition: transform 180ms ease;
+}
+
+.agenda-done__chevron.is-open {
+  transform: rotate(180deg);
+}
+
+/* ---------------------------------------------------------------------------------------------
+ * Cartao da aula
+ * ------------------------------------------------------------------------------------------- */
+
+.agenda-card {
+  width: 100%;
+  padding: 0.95rem;
+  display: flex;
+  align-items: stretch;
+  gap: 0.75rem;
+  border: 1px solid rgba(17, 17, 24, 0.06);
+  border-radius: 1.5rem;
+  background: #ffffff;
+  box-shadow: 0 12px 24px rgba(15, 18, 33, 0.08);
+  text-align: left;
+  transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
+}
+
+.agenda-card--highlight {
+  border-color: rgba(232, 175, 72, 0.4);
+  box-shadow: 0 14px 26px rgba(201, 145, 43, 0.18);
+}
+
+/* O cartao e um <button>: sem foco visivel ele some na navegacao por teclado e no
+ * Full Keyboard Access / Switch Control do iOS (o app roda em Capacitor). */
+.agenda-card:focus-visible {
+  outline: none;
+  border-color: rgba(232, 175, 72, 0.55);
+  box-shadow:
+    0 0 0 3px rgba(232, 175, 72, 0.22),
+    0 12px 24px rgba(15, 18, 33, 0.08);
+}
+
+.agenda-card:active {
+  transform: scale(0.985);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .agenda-card {
+    transition: none;
+  }
+
+  .agenda-card:active {
+    transform: none;
+  }
+}
+
+.agenda-card__clock {
+  width: 3.4rem;
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.agenda-card__date {
+  color: var(--text-soft);
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
+.agenda-card__start {
+  color: var(--text-strong);
+  font-size: 1.15rem;
+  font-weight: 800;
+  line-height: 1.15;
+}
+
+.agenda-card__end {
+  color: var(--text-soft);
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+/* Reforco do chip de status — nunca o unico portador da informacao. */
+.agenda-card__accent {
+  width: 0.22rem;
+  flex: none;
+  align-self: stretch;
+  border-radius: 999px;
+}
+
+.agenda-card__body {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.22rem;
+}
+
+.agenda-card__headline {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* O titulo encolhe com reticencias: num iPhone SE (320px) um nome longo empurraria a seta
+   para fora do cartao. */
+.agenda-card__title {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-strong);
+  font-size: 1.05rem;
+  font-weight: 800;
+}
+
+.agenda-card__arrow {
+  flex: none;
+  color: rgba(17, 17, 24, 0.18);
+}
+
+.agenda-card__meta {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-width: 0;
+  color: var(--text-soft);
+  font-size: 0.83rem;
+}
+
+.agenda-card__meta svg {
+  flex: none;
+  opacity: 0.7;
+}
+
+.agenda-card__meta-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Os chips podem quebrar de linha; o "Ver aula" fica sempre encostado a direita, na linha em que
+ * couber. Sem o `wrap`, num iPhone SE (320px) um chip longo passava por baixo do botao. */
+.agenda-card__footer {
+  margin-top: 0.45rem;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.agenda-card__tags {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+/* "Ver aula" e um <span>, nao um botao: o cartao inteiro ja dispara a mesma acao. */
+.agenda-card__cta {
+  flex: none;
+  margin-left: auto;
+  padding: 0.42rem 0.95rem;
+  border-radius: 999px;
+  background: rgba(240, 180, 41, 0.22);
+  color: var(--gold-dark);
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.agenda-card--highlight .agenda-card__cta {
+  background: var(--btn-primary);
+  color: var(--btn-primary-text);
+}
+
+/* ---------------------------------------------------------------------------------------------
+ * Folha de filtros
+ * ------------------------------------------------------------------------------------------- */
+
+.agenda-sheet__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.agenda-sheet__title {
+  margin: 0.35rem 0 0;
+  font-family: var(--font-display);
+  font-size: 1.45rem;
+}
+
+.agenda-sheet__fields {
+  margin-top: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.95rem;
+}
+
+.agenda-sheet__field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.agenda-sheet__field .app-input {
+  width: 100%;
+}
+
+.agenda-sheet__label {
+  color: var(--text-soft);
+  font-size: 0.74rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.agenda-sheet__hint {
+  margin: 0;
+  color: var(--text-soft);
+  font-size: 0.8rem;
+}
+
+.agenda-sheet__actions {
+  margin-top: 1.4rem;
+  display: flex;
+  gap: 0.7rem;
+}
+
+.agenda-sheet__actions .app-button {
+  flex: 1 1 0;
+}
+
+/* iPhone SE e afins: o cartao precisa devolver alguns pixels para o titulo. */
+@media (max-width: 380px) {
+  .agenda-card {
+    padding: 0.85rem 0.8rem;
+    gap: 0.6rem;
+    border-radius: 1.35rem;
+  }
+
+  .agenda-card__clock {
+    width: 3.1rem;
+  }
+
+  .agenda-slot {
+    padding: 0.9rem 0.7rem 0.8rem;
+    border-radius: 1.6rem;
+  }
+
+  .agenda-hero__pill {
+    padding-inline: 0.8rem;
+    font-size: 0.82rem;
+  }
 }
 
 .app-topbar-panel {
@@ -7780,21 +8123,6 @@ html.dark .controle-total__stock-card {
   .calendar-mobile__day-section {
     padding: 1.1rem 0.95rem 0.95rem;
     border-radius: 1.8rem;
-  }
-
-  .calendar-mobile__day-head {
-    align-items: flex-start;
-    flex-wrap: wrap;
-  }
-
-  .calendar-mobile__create-button {
-    min-height: 2.2rem;
-    padding-inline: 0.9rem;
-  }
-
-  .calendar-mobile__class-card {
-    padding: 0.95rem;
-    border-radius: 1.45rem;
   }
 
   .academy-mobile__hero {
