@@ -1094,6 +1094,7 @@ html.dark .app-panel--tint {
  * preto — trocaria um bug por outro pior. So entram aqui os elementos que de fato assentam
  * sobre o papel. */
 .calendar-mobile__empty,
+.agenda-week,
 .agenda-slot,
 .agenda-card,
 .agenda-group__title,
@@ -1273,6 +1274,90 @@ html.dark .calendar-mobile__day-section {
   color: var(--gold-light);
   font-size: 0.82rem;
   font-weight: 700;
+}
+
+/* Semana compacta — o seletor de dia que fica sempre a mao. */
+.agenda-week {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 0.2rem;
+  padding: 0.45rem;
+  border-radius: 1.6rem;
+  background: #ffffff;
+  box-shadow: 0 14px 30px rgba(15, 18, 33, 0.1);
+}
+
+.agenda-week__day {
+  min-height: 4rem;
+  padding: 0.55rem 0.1rem 0.45rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.22rem;
+  border: 0;
+  border-radius: 1.15rem;
+  background: transparent;
+  transition: background 160ms ease, box-shadow 160ms ease;
+}
+
+.agenda-week__day:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(232, 175, 72, 0.32);
+}
+
+.agenda-week__label {
+  color: var(--text-soft);
+  font-size: 0.64rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+}
+
+.agenda-week__number {
+  color: var(--text-strong);
+  font-size: 1.1rem;
+  font-weight: 800;
+  line-height: 1.1;
+}
+
+.agenda-week__dot {
+  width: 0.34rem;
+  height: 0.34rem;
+  border-radius: 999px;
+  background: transparent;
+}
+
+.agenda-week__dot.is-busy {
+  background: var(--gold-mid);
+}
+
+.agenda-week__dot.is-attended {
+  background: #4ade80;
+}
+
+/* Hoje sem ser o dia aberto: anel discreto, para nao competir com a selecao. */
+.agenda-week__day.is-today:not(.is-selected) {
+  box-shadow: inset 0 0 0 1px rgba(232, 175, 72, 0.5);
+}
+
+.agenda-week__day.is-selected {
+  background: linear-gradient(180deg, #f2c457, #d9a73f);
+  box-shadow: 0 10px 20px rgba(201, 145, 43, 0.28);
+}
+
+.agenda-week__day.is-selected .agenda-week__label {
+  color: rgba(22, 18, 10, 0.72);
+}
+
+.agenda-week__day.is-selected .agenda-week__number {
+  color: #16120a;
+}
+
+.agenda-week__day.is-selected .agenda-week__dot.is-busy {
+  background: rgba(22, 18, 10, 0.55);
+}
+
+.agenda-week__day.is-selected .agenda-week__dot.is-attended {
+  background: #0f7a45;
 }
 
 .agenda-board {
@@ -1656,6 +1741,19 @@ html.dark .calendar-mobile__day-section {
   .agenda-hero__pill {
     padding-inline: 0.8rem;
     font-size: 0.82rem;
+  }
+
+  .agenda-week {
+    padding: 0.35rem;
+  }
+
+  .agenda-week__day {
+    min-height: 3.7rem;
+    border-radius: 1rem;
+  }
+
+  .agenda-week__number {
+    font-size: 1rem;
   }
 }
 

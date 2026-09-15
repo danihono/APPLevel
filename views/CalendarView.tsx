@@ -85,6 +85,23 @@ type FeedbackToast = {
 
 const monthFormatter = new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric' });
 const longDayFormatter = new Intl.DateTimeFormat('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' });
+const shortWeekdayFormatter = new Intl.DateTimeFormat('pt-BR', { weekday: 'short' });
+
+// "ter." -> "TER", "sáb." -> "SÁB". Sai do proprio Intl em vez de uma lista fixa para nao perder o
+// acento de sabado (MONTH_WEEK_HEADER, do grid do mes, escreve "Sab").
+function weekdayShortLabel(date: Date): string {
+  return shortWeekdayFormatter.format(date).replace('.', '').toLocaleUpperCase('pt-BR');
+}
+
+// Semana de segunda a domingo que contem `reference` — mesma origem do grid do mes
+// (buildMonthGrid tambem comeca na segunda).
+function buildWeekDays(reference: Date): Date[] {
+  const start = stripDate(reference);
+  start.setDate(start.getDate() - ((start.getDay() + 6) % 7));
+
+  return Array.from({ length: 7 }, (_, index) =>
+    new Date(start.getFullYear(), start.getMonth(), start.getDate() + index));
+}
 
 const CLASS_TYPE_LABELS: Record<string, string> = {
   'iniciante': 'Iniciante',
@@ -1289,6 +1306,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
     [selectedDay, selectedDayClasses.length],
   );
   const isSelectedToday = useMemo(() => sameCalendarDay(selectedDay, today), [selectedDay, today]);
+  const weekDays = useMemo(() => buildWeekDays(selectedDay), [selectedDay]);
 
   // Agenda mobile — a tela e lida de cima para baixo: o que esta acontecendo (ou comeca a seguir),
   // depois o resto do dia, e por ultimo o que ja passou.
@@ -1971,6 +1989,48 @@ const CalendarView: React.FC<CalendarViewProps> = ({
     </div>
   );
 
+  // Semana compacta sempre visivel: trocar de dia dentro da semana e um toque, sem abrir nada.
+  // Sair da semana e trabalho do botao "Calendario" — por isso a faixa nao tem setas.
+  const renderAgendaWeekStrip = () => (
+    <nav className="agenda-week" aria-label="Dias da semana">
+      {weekDays.map((day) => {
+        const key = toDateKey(day);
+        const dayClassCount = classesByDay.get(key)?.length ?? 0;
+        const isAttended = !isStaff && myAttendedDays.has(key);
+        const isSelected = sameCalendarDay(day, selectedDay);
+        const isToday = sameCalendarDay(day, today);
+
+        return (
+          <button
+            key={key}
+            type="button"
+            onClick={() => selectAgendaDay(day)}
+            aria-pressed={isSelected}
+            aria-label={[
+              formatDateLabel(day),
+              isToday ? 'hoje' : null,
+              dayClassCount === 0
+                ? 'sem aulas'
+                : `${dayClassCount} ${dayClassCount === 1 ? 'aula' : 'aulas'}`,
+              isAttended ? 'presença registrada' : null,
+            ].filter(Boolean).join(', ')}
+            className={`agenda-week__day ${isSelected ? 'is-selected' : ''} ${isToday ? 'is-today' : ''}`.trim()}
+          >
+            <span className="agenda-week__label">{weekdayShortLabel(day)}</span>
+            <span className="agenda-week__number">{day.getDate()}</span>
+            {/* Mesma leitura do calendario do mes: verde = presenca registrada, dourado = tem
+                aula. O ponto fica sempre no layout (transparente quando nao ha nada) para as sete
+                celulas manterem a mesma altura. */}
+            <span
+              className={`agenda-week__dot ${isAttended ? 'is-attended' : dayClassCount > 0 ? 'is-busy' : ''}`.trim()}
+              aria-hidden="true"
+            />
+          </button>
+        );
+      })}
+    </nav>
+  );
+
   const renderAgendaHero = () => (
     <section className="calendar-mobile__hero agenda-hero">
       <div className="calendar-mobile__hero-head">
@@ -2037,6 +2097,8 @@ const CalendarView: React.FC<CalendarViewProps> = ({
   const renderMobileAgenda = () => (
     <>
       {renderAgendaHero()}
+
+      {renderAgendaWeekStrip()}
 
       <section className="calendar-mobile__day-section agenda-board">
         {agendaGroups.highlight.length > 0 ? (
