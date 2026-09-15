@@ -999,12 +999,12 @@ html.dark .app-panel--tint {
 
 .app-calendar-month-day--compact.is-selected {
   border-color: transparent;
-  background: linear-gradient(180deg, #f2c457, #d9a73f);
-  box-shadow: 0 14px 28px rgba(201, 145, 43, 0.26);
+  background: linear-gradient(180deg, #ffc247, #f0b429);
+  box-shadow: 0 14px 28px rgba(240, 180, 41, 0.3);
 }
 
 .app-calendar-month-day--compact.is-selected .app-calendar-month-day__number--compact {
-  color: #16120a;
+  color: var(--btn-primary-text);
 }
 
 .app-calendar-month-day--compact.is-today:not(.is-selected) .app-calendar-month-day__number--compact {
@@ -1341,24 +1341,24 @@ html.dark .calendar-mobile__day-section {
 
 /* Hoje sem ser o dia aberto: anel discreto, para nao competir com a selecao. */
 .agenda-week__day.is-today:not(.is-selected) {
-  box-shadow: inset 0 0 0 1px rgba(232, 175, 72, 0.5);
+  box-shadow: inset 0 0 0 1px rgba(240, 180, 41, 0.6);
 }
 
 .agenda-week__day.is-selected {
-  background: linear-gradient(180deg, #f2c457, #d9a73f);
-  box-shadow: 0 10px 20px rgba(201, 145, 43, 0.28);
+  background: linear-gradient(180deg, #ffc247, #f0b429);
+  box-shadow: 0 10px 20px rgba(240, 180, 41, 0.3);
 }
 
 .agenda-week__day.is-selected .agenda-week__label {
-  color: rgba(22, 18, 10, 0.72);
+  color: rgba(26, 19, 0, 0.72);
 }
 
 .agenda-week__day.is-selected .agenda-week__number {
-  color: #16120a;
+  color: var(--btn-primary-text);
 }
 
 .agenda-week__day.is-selected .agenda-week__dot.is-busy {
-  background: rgba(22, 18, 10, 0.55);
+  background: rgba(26, 19, 0, 0.55);
 }
 
 .agenda-week__day.is-selected .agenda-week__dot.is-attended {
