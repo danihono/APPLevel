@@ -86,6 +86,42 @@ jobs:
         if: ${{ inputs.lane != 'bootstrap' }}
         run: npx cap sync ios
 
+      # O AppIcon do Xcode nao e atualizado pelo `cap sync`. Gera o icone que
+      # sera compilado a partir da fonte versionada em public/, mantendo a
+      # proporcao da arte e completando com fundo branco antes de reduzir para
+      # o tamanho de 1024x1024 exigido pela App Store.
+      - name: Gerar icone iOS a partir de public/icon-source.png
+        if: ${{ inputs.lane != 'bootstrap' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          source_icon="public/icon-source.png"
+          app_icon="ios/App/App/Assets.xcassets/AppIcon.appiconset/AppIcon-512@2x.png"
+
+          test -f "$source_icon"
+
+          width="$(sips -g pixelWidth "$source_icon" | awk '/pixelWidth/ {print $2}')"
+          height="$(sips -g pixelHeight "$source_icon" | awk '/pixelHeight/ {print $2}')"
+          if (( width > height )); then
+            side="$width"
+          else
+            side="$height"
+          fi
+
+          temp_dir="$(mktemp -d)"
+          trap 'rm -rf "$temp_dir"' EXIT
+
+          sips --padToHeightWidth "$side" "$side" --padColor FFFFFF \
+            "$source_icon" --out "$temp_dir/icon-square.png"
+          sips --resampleHeightWidth 1024 1024 "$temp_dir/icon-square.png" \
+            --out "$app_icon"
+
+          test "$(sips -g pixelWidth "$app_icon" | awk '/pixelWidth/ {print $2}')" = "1024"
+          test "$(sips -g pixelHeight "$app_icon" | awk '/pixelHeight/ {print $2}')" = "1024"
+          sips -g hasAlpha "$app_icon" | grep -q 'hasAlpha: no'
+          echo "AppIcon gerado de $source_icon (origem: ${width}x${height}; saida: 1024x1024, sem alpha)."
+
       - name: Ruby + fastlane
         uses: ruby/setup-ruby@v1
         with:
