@@ -1397,7 +1397,11 @@ const App: React.FC = () => {
     // A Central do superadmin (aba 'home') tambem consome as presencas reais da unidade
     // em foco para montar dias/horarios/tendencia e o top frequentadores por periodo.
     const isSuperadminCentral = profile?.role === 'superadmin' && activeTab === 'home';
-    const needsRankingAttendances = activeTab === 'students' || isSuperadminCentral;
+    // A aba Academia usa as mesmas presencas para o ranking da unidade e para a relacao de
+    // faltantes (dias sem treinar) que o professor liga para chamar de volta.
+    const needsRankingAttendances = activeTab === 'students'
+      || activeTab === 'management'
+      || isSuperadminCentral;
 
     if (!profile || !sessionValidated || profile.role === 'student' || !needsRankingAttendances) {
       setRankingAttendances([]);
@@ -2929,6 +2933,8 @@ const App: React.FC = () => {
             academyUsers={academyUsers}
             academies={allAcademies}
             allUsers={allUsers}
+            rankingAttendances={rankingAttendances}
+            rankingAttendancesError={rankingAttendancesError}
             studentVideoLibraryById={studentVideoLibraryById}
             selectedAcademyId={selectedAcademyId}
             onSelectAcademy={setSelectedAcademyId}

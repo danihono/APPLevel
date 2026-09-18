@@ -6,7 +6,8 @@ import {
 import { toUiUser } from '../services/firebase/adapters';
 import { Building2, Save, Settings2, ShieldCheck, UserPlus, Users } from 'lucide-react';
 import type { FirestoreEntity } from '../services/firebase/data';
-import type { AcademyRecord, ClassRecord, UserRecord } from '../services/firebase/models';
+import type { AcademyRecord, AttendanceRecord, ClassRecord, UserRecord } from '../services/firebase/models';
+import AcademyAttendancePanels from '../components/AcademyAttendancePanels';
 import InstructorEditModal from '../components/InstructorEditModal';
 import StudentRoster from '../components/StudentRoster';
 import { useConfirm } from '../components/ConfirmDialog';
@@ -20,6 +21,8 @@ interface ManagementViewProps {
   academyUsers: Array<FirestoreEntity<UserRecord>>;
   academies?: Array<FirestoreEntity<AcademyRecord>>;
   allUsers?: Array<FirestoreEntity<UserRecord>>;
+  rankingAttendances?: Array<FirestoreEntity<AttendanceRecord>>;
+  rankingAttendancesError?: string | null;
   studentVideoLibraryById?: Map<string, UserVideo[]>;
   selectedAcademyId?: string;
   onSelectAcademy?: (academyId: string) => void;
@@ -196,6 +199,8 @@ const ManagementView: React.FC<ManagementViewProps> = ({
   academyUsers,
   academies = [],
   allUsers = [],
+  rankingAttendances = [],
+  rankingAttendancesError = null,
   studentVideoLibraryById = new Map(),
   selectedAcademyId,
   onSelectAcademy,
@@ -637,6 +642,14 @@ const ManagementView: React.FC<ManagementViewProps> = ({
                 )}
               </div>
             </section>
+
+            <AcademyAttendancePanels
+              students={students}
+              attendances={rankingAttendances}
+              attendancesError={rankingAttendancesError}
+              classes={classes}
+              academyId={managedAcademy.id}
+            />
           </>
         ) : (
           <section className="academy-mobile__section">
@@ -746,6 +759,7 @@ const ManagementView: React.FC<ManagementViewProps> = ({
       </section>
 
       {hasManagedAcademy ? (
+        <>
         <section ref={masterBlackSectionRef} className="app-grid-2">
         <article className="app-panel app-panel-pad">
           <div className="flex items-center gap-3">
@@ -824,6 +838,15 @@ const ManagementView: React.FC<ManagementViewProps> = ({
           </div>
         </article>
         </section>
+
+        <AcademyAttendancePanels
+          students={students}
+          attendances={rankingAttendances}
+          attendancesError={rankingAttendancesError}
+          classes={classes}
+          academyId={managedAcademy.id}
+        />
+        </>
       ) : (
         <section className="app-panel app-panel-pad">
           <div className="app-empty">
