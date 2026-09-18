@@ -2970,8 +2970,39 @@ html.dark .academy-mobile__instructor-name {
   box-shadow: 0 12px 24px rgba(15, 18, 33, 0.06);
 }
 
+/* Faltante: avatar, dados e selo de dias na primeira linha; os atalhos de contato
+   descem para a segunda, alinhados a direita, sem espremer o nome. */
 .academy-insight__row--absence {
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: start;
+  row-gap: 0.55rem;
+}
+
+.academy-insight__row--absence > .academy-mobile__avatar {
+  grid-row: 1;
+  grid-column: 1;
+}
+
+.academy-insight__row--absence > .academy-insight__copy {
+  grid-row: 1;
+  grid-column: 2;
+}
+
+.academy-insight__row--absence > .academy-insight__days {
+  grid-row: 1;
+  grid-column: 3;
+}
+
+.academy-insight__row--absence > .academy-insight__actions {
+  grid-row: 2;
+  grid-column: 2 / -1;
+  justify-content: flex-end;
+}
+
+.academy-insight__phone {
+  font-weight: 700;
+  color: var(--text-strong);
 }
 
 .academy-insight__position {
@@ -3032,14 +3063,6 @@ html.dark .academy-mobile__instructor-name {
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-}
-
-.academy-insight__absence-side {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 0.45rem;
-  margin-left: auto;
 }
 
 .academy-insight__days {
@@ -3131,7 +3154,7 @@ html.dark .academy-insight__bucket.is-active {
   color: var(--gold-mid);
 }
 
-html.dark .academy-insight__position {
+html.dark .academy-insight__position:not(.is-podium) {
   background: rgba(255, 255, 255, 0.08);
 }
 
@@ -10062,7 +10085,7 @@ html.dark .app-shell--flat .sa-mob-belt-dot {
   }
 
   .app-shell--desk .academy-insight__chips--buckets {
-    grid-template-columns: repeat(6, minmax(0, 1fr));
+    grid-template-columns: repeat(7, minmax(0, 1fr));
   }
 
   .app-shell--desk .academy-insight__list {

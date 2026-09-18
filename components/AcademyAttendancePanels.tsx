@@ -440,43 +440,43 @@ const AcademyAttendancePanels: React.FC<AcademyAttendancePanelsProps> = ({
                       {row.neverTrained
                         ? 'Sem presença registrada'
                         : `Última presença em ${dateFormatter.format(row.lastDate as Date)}`}
-                      {row.student.phone ? ` · ${row.student.phone}` : ' · Sem telefone cadastrado'}
+                    </p>
+                    <p className="academy-insight__meta academy-insight__phone">
+                      {row.student.phone || 'Sem telefone cadastrado'}
                     </p>
                   </div>
 
-                  <div className="academy-insight__absence-side">
-                    <span className={`academy-insight__days${row.days >= 30 ? ' is-critical' : ''}`}>
-                      {formatDaysLabel(row.days)}
-                    </span>
+                  <span className={`academy-insight__days${row.days >= 30 ? ' is-critical' : ''}`}>
+                    {formatDaysLabel(row.days)}
+                  </span>
 
-                    {telLink || whatsAppLink ? (
-                      <div className="academy-insight__actions">
-                        {telLink ? (
-                          <a
-                            href={telLink}
-                            className="academy-insight__action"
-                            aria-label={`Ligar para ${row.student.displayName}`}
-                          >
-                            <Phone size={14} aria-hidden="true" />
-                            Ligar
-                          </a>
-                        ) : null}
+                  {telLink || whatsAppLink ? (
+                    <div className="academy-insight__actions">
+                      {telLink ? (
+                        <a
+                          href={telLink}
+                          className="academy-insight__action"
+                          aria-label={`Ligar para ${row.student.displayName}`}
+                        >
+                          <Phone size={14} aria-hidden="true" />
+                          Ligar
+                        </a>
+                      ) : null}
 
-                        {whatsAppLink ? (
-                          <a
-                            href={whatsAppLink}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="academy-insight__action"
-                            aria-label={`Enviar WhatsApp para ${row.student.displayName}`}
-                          >
-                            <MessageCircle size={14} aria-hidden="true" />
-                            WhatsApp
-                          </a>
-                        ) : null}
-                      </div>
-                    ) : null}
-                  </div>
+                      {whatsAppLink ? (
+                        <a
+                          href={whatsAppLink}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="academy-insight__action"
+                          aria-label={`Enviar WhatsApp para ${row.student.displayName}`}
+                        >
+                          <MessageCircle size={14} aria-hidden="true" />
+                          WhatsApp
+                        </a>
+                      ) : null}
+                    </div>
+                  ) : null}
                 </article>
               );
             })
