@@ -38,9 +38,19 @@ function getPasswordResetError(error: unknown): string {
 
   switch (code) {
     case 'auth/invalid-email':
+    case 'functions/invalid-argument':
       return 'Informe um e-mail valido para receber o link de redefinicao.';
     case 'auth/too-many-requests':
       return 'Muitas tentativas de redefinicao. Aguarde alguns minutos e tente de novo.';
+    case 'functions/resource-exhausted':
+      // O servidor explica qual limite foi atingido (1 por minuto ou 5 por hora).
+      return error instanceof Error && error.message
+        ? error.message
+        : 'Muitas tentativas de redefinicao. Aguarde alguns minutos e tente de novo.';
+    case 'functions/unavailable':
+    case 'functions/internal':
+    case 'functions/deadline-exceeded':
+      return 'Nao foi possivel enviar o e-mail agora. Tente novamente em alguns minutos.';
     case 'auth/network-request-failed':
       return 'Falha na conexao com o servidor. Verifique sua internet e tente novamente.';
     default:

@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="dark">
+<meta name="theme-color" content="#0a0a0a">
+<meta name="robots" content="noindex">
+<title>Redefinir senha · LEVEL</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<!--
+  Pagina independente de proposito: nada de Firebase SDK, localStorage ou
+  sessionStorage. Links de e-mail abrem no navegador embutido do Gmail,
+  Instagram e WhatsApp, que bloqueiam armazenamento — e com isso a pagina
+  padrao do Firebase e o proprio app quebram. Aqui so ha fetch na API REST.
+-->
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; min-height: 100%; background: #0a0a0a; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    color: #ffffff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: max(24px, env(safe-area-inset-top)) 16px max(24px, env(safe-area-inset-bottom));
+    min-height: 100vh;
+    min-height: 100dvh;
+  }
+  main { width: 100%; max-width: 420px; }
+  .brand { text-align: center; margin-bottom: 24px; }
+  .brand img { display: block; width: 70px; height: 54px; margin: 0 auto 12px; }
+  .brand__name { font-size: 26px; font-weight: 800; letter-spacing: 8px; color: #e8af48; line-height: 1; padding-left: 8px; }
+  .brand__sub { font-size: 11px; font-weight: 600; letter-spacing: 5px; color: #8a8a8a; margin-top: 8px; padding-left: 5px; }
+  .card { background: #161616; border: 1px solid #2a2a2a; border-radius: 16px; padding: 28px 22px; }
+  h1 { font-size: 21px; margin: 0 0 8px; line-height: 1.3; }
+  p { margin: 0; color: #c8c8c8; font-size: 15px; line-height: 1.6; }
+  .account { color: #e8af48; font-weight: 600; word-break: break-all; }
+  form { margin-top: 22px; }
+  label { display: block; font-size: 13px; font-weight: 600; color: #c8c8c8; margin: 0 0 6px; }
+  .field { position: relative; margin-bottom: 16px; }
+  input {
+    width: 100%; padding: 14px 64px 14px 14px; font-size: 16px; color: #ffffff;
+    background: #0f0f0f; border: 1px solid #2f2f2f; border-radius: 12px; outline: none;
+    -webkit-appearance: none; appearance: none;
+  }
+  input:focus { border-color: #e8af48; box-shadow: 0 0 0 3px rgba(232, 175, 72, 0.18); }
+  .toggle {
+    position: absolute; right: 8px; bottom: 8px; padding: 6px 8px; font-size: 13px; font-weight: 600;
+    color: #8a8a8a; background: transparent; border: 0; cursor: pointer;
+  }
+  .hint { font-size: 12px; color: #8a8a8a; margin: -8px 0 16px; }
+  .error {
+    display: none; margin: 0 0 16px; padding: 12px 14px; font-size: 14px; line-height: 1.5;
+    color: #ffb4a8; background: rgba(220, 60, 40, 0.12); border: 1px solid rgba(220, 60, 40, 0.35); border-radius: 12px;
+  }
+  .error.is-visible { display: block; }
+  .btn {
+    display: block; width: 100%; padding: 15px 20px; font-size: 16px; font-weight: 700; text-align: center;
+    color: #0a0a0a; background: #e8af48; border: 0; border-radius: 12px; cursor: pointer; text-decoration: none;
+    box-shadow: 0 2px 10px rgba(232, 175, 72, 0.28);
+  }
+  .btn:active { background: #c49746; }
+  .btn[disabled] { opacity: 0.6; cursor: default; }
+  .btn + .btn-link { margin-top: 14px; }
+  .btn-link { display: block; text-align: center; font-size: 14px; color: #8a8a8a; text-decoration: underline; }
+  .state { display: none; }
+  .state.is-active { display: block; }
+  .state--center { text-align: center; }
+  .icon { width: 56px; height: 56px; margin: 0 auto 16px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 28px; font-weight: 700; }
+  .icon--ok { background: rgba(232, 175, 72, 0.15); color: #e8af48; }
+  .icon--fail { background: rgba(220, 60, 40, 0.15); color: #ff8a75; }
+  .state--center p + .btn { margin-top: 24px; }
+  .spinner {
+    width: 36px; height: 36px; margin: 8px auto 16px; border-radius: 50%;
+    border: 3px solid #2a2a2a; border-top-color: #e8af48; animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  footer { text-align: center; margin-top: 20px; font-size: 12px; color: #6b6b6b; }
+  footer a { color: #8a8a8a; }
+</style>
+</head>
+<body>
+<main>
+  <div class="brand">
+    <img src="/email/level-mark.png" width="70" height="54" alt="">
+    <div class="brand__name">LEVEL</div>
+    <div class="brand__sub">JIU JITSU</div>
+  </div>
+
+  <div class="card">
+    <section class="state state--center is-active" id="state-loading">
+      <div class="spinner" aria-hidden="true"></div>
+      <p>Conferindo seu link…</p>
+    </section>
+
+    <section class="state" id="state-form">
+      <h1>Crie sua nova senha</h1>
+      <p>Conta: <span class="account" id="account-email"></span></p>
+      <form id="reset-form" novalidate>
+        <div class="error" id="form-error" role="alert"></div>
+        <div class="field">
+          <label for="password">Nova senha</label>
+          <input id="password" type="password" autocomplete="new-password" minlength="6" required>
+          <button class="toggle" type="button" data-target="password">Mostrar</button>
+        </div>
+        <p class="hint">Mínimo de 6 caracteres.</p>
+        <div class="field">
+          <label for="password-confirm">Confirme a nova senha</label>
+          <input id="password-confirm" type="password" autocomplete="new-password" minlength="6" required>
+          <button class="toggle" type="button" data-target="password-confirm">Mostrar</button>
+        </div>
+        <button class="btn" type="submit" id="submit-btn">Salvar nova senha</button>
+      </form>
+    </section>
+
+    <section class="state state--center" id="state-success">
+      <div class="icon icon--ok" aria-hidden="true">✓</div>
+      <h1>Senha alterada!</h1>
+      <p>Pronto, sua senha foi redefinida. Agora é só entrar no LEVEL com a senha nova.</p>
+      <a class="btn" href="https://applevel-c5e73.web.app/">Abrir o LEVEL</a>
+    </section>
+
+    <section class="state state--center" id="state-fail">
+      <div class="icon icon--fail" aria-hidden="true">!</div>
+      <h1 id="fail-title">Link inválido</h1>
+      <p id="fail-message"></p>
+      <a class="btn" href="https://applevel-c5e73.web.app/">Voltar para o LEVEL</a>
+      <a class="btn-link" href="/suporte/">Precisa de ajuda?</a>
+    </section>
+  </div>
+
+  <footer>© LEVEL Jiu Jitsu · <a href="/suporte/">Suporte</a></footer>
+</main>
+
+<script>
+(function () {
+  'use strict';
+
+  // Web API Key publica do projeto (a mesma embarcada no app). Nao e segredo:
+  // so identifica o projeto; as permissoes vem das regras e do oobCode.
+  var API_KEY = 'AIzaSyDkNE5XhdXRV2_SP5kaj8WFWAP26zJ1zaE';
+  var ENDPOINT = 'https://identitytoolkit.googleapis.com/v1/accounts:resetPassword?key=' + API_KEY;
+  var MIN_LENGTH = 6;
+
+  var oobCode = new URLSearchParams(window.location.search).get('oobCode') || '';
+
+  function $(id) { return document.getElementById(id); }
+
+  function show(stateId) {
+    var states = document.querySelectorAll('.state');
+    for (var i = 0; i < states.length; i++) {
+      states[i].classList.toggle('is-active', states[i].id === stateId);
+    }
+  }
+
+  function fail(title, message) {
+    $('fail-title').textContent = title;
+    $('fail-message').textContent = message;
+    show('state-fail');
+  }
+
+  function showFormError(message) {
+    var box = $('form-error');
+    box.textContent = message;
+    box.classList.toggle('is-visible', Boolean(message));
+  }
+
+  function linkError(code) {
+    if (code === 'EXPIRED_OOB_CODE') {
+      return ['Link expirado', 'Este link passou do prazo de 1 hora. Volte ao LEVEL, toque em "Esqueci minha senha" e peça um novo.'];
+    }
+    if (code === 'INVALID_OOB_CODE') {
+      return ['Link inválido', 'Este link já foi usado ou está incompleto. Se você já trocou a senha, é só entrar com ela. Se não, peça um novo link no LEVEL.'];
+    }
+    if (code === 'USER_DISABLED') {
+      return ['Conta desativada', 'Esta conta está desativada. Fale com a sua academia ou com o suporte.'];
+    }
+    if (code === 'USER_NOT_FOUND' || code === 'EMAIL_NOT_FOUND') {
+      return ['Conta não encontrada', 'Não encontramos a conta deste link. Fale com a sua academia ou com o suporte.'];
+    }
+    return null;
+  }
+
+  function callApi(body) {
+    return fetch(ENDPOINT, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    }).then(function (response) {
+      return response.json().catch(function () { return {}; }).then(function (data) {
+        if (!response.ok) {
+          var message = (data && data.error && data.error.message) || 'UNKNOWN';
+          var error = new Error(message);
+          // Ex.: "WEAK_PASSWORD : Password should be at least 6 characters"
+          error.code = String(message).split(' ')[0];
+          throw error;
+        }
+        return data;
+      });
+    });
+  }
+
+  function isNetworkError(error) {
+    return !error || !error.code;
+  }
+
+  if (!oobCode) {
+    fail('Link incompleto', 'Não encontramos o código de redefinição neste link. Abra novamente o botão do e-mail ou peça um novo link no LEVEL.');
+    return;
+  }
+
+  function verify() {
+    show('state-loading');
+    callApi({ oobCode: oobCode })
+      .then(function (data) {
+        $('account-email').textContent = data.email || '';
+        show('state-form');
+        $('password').focus();
+      })
+      .catch(function (error) {
+        if (isNetworkError(error)) {
+          fail('Sem conexão', 'Não conseguimos falar com o servidor. Verifique sua internet e abra o link de novo.');
+          return;
+        }
+        var known = linkError(error.code);
+        if (known) {
+          fail(known[0], known[1]);
+          return;
+        }
+        fail('Algo deu errado', 'Não foi possível conferir o link agora. Tente abrir de novo em alguns minutos.');
+      });
+  }
+
+  var toggles = document.querySelectorAll('.toggle');
+  for (var i = 0; i < toggles.length; i++) {
+    toggles[i].addEventListener('click', function (event) {
+      var button = event.currentTarget;
+      var input = $(button.getAttribute('data-target'));
+      var visible = input.type === 'text';
+      input.type = visible ? 'password' : 'text';
+      button.textContent = visible ? 'Mostrar' : 'Ocultar';
+    });
+  }
+
+  $('reset-form').addEventListener('submit', function (event) {
+    event.preventDefault();
+    var password = $('password').value;
+    var confirmation = $('password-confirm').value;
+
+    if (password.length < MIN_LENGTH) {
+      showFormError('A senha precisa ter pelo menos 6 caracteres.');
+      return;
+    }
+    if (password !== confirmation) {
+      showFormError('As duas senhas não são iguais. Digite de novo.');
+      return;
+    }
+
+    showFormError('');
+    var submit = $('submit-btn');
+    submit.disabled = true;
+    submit.textContent = 'Salvando…';
+
+    callApi({ oobCode: oobCode, newPassword: password })
+      .then(function () {
+        show('state-success');
+      })
+      .catch(function (error) {
+        submit.disabled = false;
+        submit.textContent = 'Salvar nova senha';
+
+        if (isNetworkError(error)) {
+          showFormError('Sem conexão com o servidor. Verifique sua internet e tente de novo.');
+          return;
+        }
+        if (error.code === 'WEAK_PASSWORD') {
+          showFormError('Essa senha é fraca demais. Use pelo menos 6 caracteres, misturando letras e números.');
+          return;
+        }
+        var known = linkError(error.code);
+        if (known) {
+          fail(known[0], known[1]);
+          return;
+        }
+        showFormError('Não foi possível salvar a senha agora. Tente de novo em alguns minutos.');
+      });
+  });
+
+  verify();
+})();
+</script>
+</body>
+</html>

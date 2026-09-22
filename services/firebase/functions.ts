@@ -169,6 +169,9 @@ export const backendFunctions = {
   listSignupAcademies: () =>
     callFunction<SignupAcademyRecord[]>('listSignupAcademies', {}),
 
+  requestPasswordReset: (payload: { email: string }) =>
+    callFunction<{ ok: boolean }>('requestPasswordReset', payload),
+
   submitStudentSignup: (payload: {
     academyIds: string[];
     email: string;

@@ -9,7 +9,6 @@ import { LoadingScreen } from './components/LoadingScreen';
 import Layout from './components/Layout';
 import HomeView from './views/HomeView';
 import LoginView from './views/LoginView';
-import ResetPasswordView from './views/ResetPasswordView';
 import StaffDashboardView from './views/StaffDashboardView';
 import { getUserProgressionSummary, normalizeBeltId } from './beltCatalog';
 import { resolveMonthlyCommitment } from './commitmentScale';
@@ -2416,14 +2415,6 @@ const App: React.FC = () => {
 
     return next;
   }, [academyFights, fightVideoSubmissions]);
-
-  const urlParams = new URLSearchParams(window.location.search);
-  const urlMode = urlParams.get('mode');
-  const urlOobCode = urlParams.get('oobCode');
-
-  if (urlMode === 'resetPassword' && urlOobCode) {
-    return <ResetPasswordView oobCode={urlOobCode} />;
-  }
 
   if (!authReady) {
     return <LoadingScreen message="Validando a sua sessao com o Firebase." />;

@@ -10,6 +10,18 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="APPLevel">
   <meta name="mobile-web-app-capable" content="yes">
+  <script>
+    // Links de redefinicao enviados no formato do Firebase (?mode=resetPassword&oobCode=...)
+    // vao para a pagina independente, antes do React tocar em localStorage — que o
+    // navegador embutido do Gmail/Instagram/WhatsApp bloqueia.
+    (function () {
+      var params = new URLSearchParams(window.location.search);
+      var oobCode = params.get('oobCode');
+      if (params.get('mode') === 'resetPassword' && oobCode) {
+        window.location.replace('/redefinir-senha/?oobCode=' + encodeURIComponent(oobCode));
+      }
+    })();
+  </script>
   <link rel="manifest" href="/manifest.json">
   <link rel="icon" type="image/png" sizes="192x192" href="/logo3.png">
   <link rel="apple-touch-icon" sizes="180x180" href="/logo3.png">

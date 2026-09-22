@@ -110,6 +110,7 @@ import {
   registerDeviceToken,
   sendSegmentedNotification,
 } from './modules/notifications';
+import { requestPasswordReset } from './modules/passwordReset';
 import { toggleClassRsvp } from './modules/rsvp';
 
 setGlobalOptions({
@@ -194,6 +195,7 @@ export {
   submitLessonQuiz,
   syncUserMissionProgress,
   toggleClassRsvp,
+  requestPasswordReset,
   transferJoinRequest,
   updateFinanceSale,
   updateJoinRequest,

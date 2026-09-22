@@ -11,6 +11,7 @@ const callableProxyOptions = {
 const ALLOWED_CALLABLES = new Set([
   'listSignupAcademies',
   'submitStudentSignup',
+  'requestPasswordReset',
   'createAcademy',
   'createUserWithRole',
   'assignUserToAcademy',
