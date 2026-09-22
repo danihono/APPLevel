@@ -570,6 +570,8 @@ const ManagementView: React.FC<ManagementViewProps> = ({
           <StudentRoster
             students={studentRosterUsers}
             progressionRules={managedAcademy.progressionRules}
+            rankingAttendances={rankingAttendances}
+            classes={classes}
             academyName={managedAcademy.name}
             kicker="Alunos da academia"
             title="Todos os alunos da sua unidade com filtros e leitura rápida."
@@ -649,6 +651,8 @@ const ManagementView: React.FC<ManagementViewProps> = ({
               attendancesError={rankingAttendancesError}
               classes={classes}
               academyId={managedAcademy.id}
+              timeZone={managedAcademy.timezone}
+              progressionRules={managedAcademy.progressionRules}
             />
           </>
         ) : (
@@ -712,6 +716,8 @@ const ManagementView: React.FC<ManagementViewProps> = ({
           <StudentRoster
             students={studentRosterUsers}
             progressionRules={managedAcademy.progressionRules}
+            rankingAttendances={rankingAttendances}
+            classes={classes}
             academyName={managedAcademy.name}
             kicker="Alunos da academia"
             title="Todos os alunos da unidade em uma leitura pronta para operação."
@@ -845,6 +851,8 @@ const ManagementView: React.FC<ManagementViewProps> = ({
           attendancesError={rankingAttendancesError}
           classes={classes}
           academyId={managedAcademy.id}
+          timeZone={managedAcademy.timezone}
+          progressionRules={managedAcademy.progressionRules}
         />
         </>
       ) : (

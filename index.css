@@ -2859,6 +2859,207 @@ html.dark .academy-mobile__instructor-name {
   color: #f7f4ee;
 }
 
+/* ---- Comprometimento do aluno (barra + selo) ---- */
+.commitment {
+  --commitment-ink: #b3402f;
+  --commitment-fill: linear-gradient(90deg, #e2503c, #c33c2a);
+  --commitment-soft: rgba(215, 75, 75, 0.14);
+  --commitment-line: rgba(215, 75, 75, 0.28);
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.commitment--orange {
+  --commitment-ink: #b0641a;
+  --commitment-fill: linear-gradient(90deg, #f0912f, #d4761d);
+  --commitment-soft: rgba(234, 120, 30, 0.14);
+  --commitment-line: rgba(234, 120, 30, 0.28);
+}
+
+.commitment--yellow {
+  --commitment-ink: #8d7112;
+  --commitment-fill: linear-gradient(90deg, #f2c53d, #d9a923);
+  --commitment-soft: rgba(224, 178, 32, 0.16);
+  --commitment-line: rgba(224, 178, 32, 0.32);
+}
+
+.commitment--green {
+  --commitment-ink: #1f7a53;
+  --commitment-fill: linear-gradient(90deg, #3fc98a, #1f9f6e);
+  --commitment-soft: rgba(52, 190, 135, 0.14);
+  --commitment-line: rgba(52, 190, 135, 0.28);
+}
+
+.commitment__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.commitment__title {
+  margin: 0;
+  color: var(--text-soft);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.commitment__score {
+  margin: 0;
+  color: var(--commitment-ink);
+  font-family: var(--font-display);
+  font-size: 1.6rem;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.commitment__score small {
+  margin-left: 0.15rem;
+  color: var(--text-soft);
+  font-family: var(--font-body);
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+.commitment__track {
+  height: 0.85rem;
+  border-radius: 999px;
+  overflow: hidden;
+  background: rgba(17, 17, 24, 0.08);
+}
+
+.commitment__fill {
+  height: 100%;
+  min-width: 0.85rem;
+  border-radius: 999px;
+  background: var(--commitment-fill);
+  transition: width 260ms ease;
+}
+
+.commitment__foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.4rem;
+}
+
+.commitment__level {
+  padding: 0.28rem 0.65rem;
+  border-radius: 999px;
+  border: 1px solid var(--commitment-line);
+  background: var(--commitment-soft);
+  color: var(--commitment-ink);
+  font-size: 0.74rem;
+  font-weight: 800;
+}
+
+.commitment__note {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+
+.commitment-badge {
+  --commitment-ink: #b3402f;
+  --commitment-dot: #d7504b;
+  --commitment-soft: rgba(215, 75, 75, 0.14);
+  --commitment-line: rgba(215, 75, 75, 0.28);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.28rem;
+  padding: 0.24rem 0.6rem;
+  border-radius: 999px;
+  border: 1px solid var(--commitment-line);
+  background: var(--commitment-soft);
+  color: var(--commitment-ink);
+  font-size: 0.76rem;
+  font-weight: 800;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.commitment-badge.commitment--orange {
+  --commitment-ink: #b0641a;
+  --commitment-dot: #ea781e;
+  --commitment-soft: rgba(234, 120, 30, 0.14);
+  --commitment-line: rgba(234, 120, 30, 0.28);
+}
+
+.commitment-badge.commitment--yellow {
+  --commitment-ink: #8d7112;
+  --commitment-dot: #e0b220;
+  --commitment-soft: rgba(224, 178, 32, 0.18);
+  --commitment-line: rgba(224, 178, 32, 0.34);
+}
+
+.commitment-badge.commitment--green {
+  --commitment-ink: #1f7a53;
+  --commitment-dot: #34be87;
+  --commitment-soft: rgba(52, 190, 135, 0.14);
+  --commitment-line: rgba(52, 190, 135, 0.28);
+}
+
+.commitment-badge__dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 999px;
+  background: var(--commitment-dot);
+  flex: none;
+}
+
+.commitment-badge__unit {
+  color: var(--text-soft);
+  font-size: 0.64rem;
+  font-weight: 700;
+}
+
+.commitment-badge__label {
+  margin-left: 0.15rem;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+/* Tema escuro: os tons claros nao tem contraste sobre o card escuro. */
+html.dark .commitment {
+  --commitment-ink: #f2a091;
+}
+
+html.dark .commitment--orange {
+  --commitment-ink: #f5b478;
+}
+
+html.dark .commitment--yellow {
+  --commitment-ink: #f0cf6b;
+}
+
+html.dark .commitment--green {
+  --commitment-ink: #7fe0b4;
+}
+
+html.dark .commitment__track {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+html.dark .commitment-badge {
+  --commitment-ink: #f2a091;
+}
+
+html.dark .commitment-badge.commitment--orange {
+  --commitment-ink: #f5b478;
+}
+
+html.dark .commitment-badge.commitment--yellow {
+  --commitment-ink: #f0cf6b;
+}
+
+html.dark .commitment-badge.commitment--green {
+  --commitment-ink: #7fe0b4;
+}
+
 /* ---- Ranking de presencas e relacao de faltantes (aba Academia) ---- */
 .academy-insight__head {
   display: flex;

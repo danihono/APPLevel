@@ -1,6 +1,8 @@
 import React, { useMemo, useState } from 'react';
 import { MessageCircle, Phone, Trophy, UserMinus } from 'lucide-react';
-import { beltLabel } from '../beltCatalog';
+import { beltLabel, getUserProgressionSummary, type ProgressionRules } from '../beltCatalog';
+import { CommitmentBadge } from './CommitmentBar';
+import { resolveCommitment, summarizeMonthlyAttendanceByUser, type CommitmentResult } from '../commitmentScale';
 import { stripDate } from '../calendarUtils';
 import type { FirestoreEntity } from '../services/firebase/data';
 import type { AttendanceRecord, ClassRecord, UserRecord } from '../services/firebase/models';
@@ -13,6 +15,8 @@ interface AcademyAttendancePanelsProps {
   classes?: Array<FirestoreEntity<ClassRecord>>;
   academyId: string;
   attendancesError?: string | null;
+  progressionRules?: ProgressionRules | null;
+  timeZone?: string;
 }
 
 const RANKING_PERIOD_OPTIONS: Array<{ value: AttendanceRankingPeriod; label: string }> = [
@@ -94,6 +98,8 @@ const AcademyAttendancePanels: React.FC<AcademyAttendancePanelsProps> = ({
   classes = [],
   academyId,
   attendancesError = null,
+  progressionRules = null,
+  timeZone,
 }) => {
   const [rankingPeriod, setRankingPeriod] = useState<AttendanceRankingPeriod>('30d');
   const [rankingExpanded, setRankingExpanded] = useState(false);
@@ -194,6 +200,44 @@ const AcademyAttendancePanels: React.FC<AcademyAttendancePanelsProps> = ({
 
     return next;
   }, [academyId, attendances]);
+
+  // Comprometimento do mes por aluno (vide commitmentScale.ts). Sem presenca carregada o selo
+  // nao aparece: "nao treinou" e "ainda nao chegou" dariam o mesmo vermelho.
+  const hasCommitmentData = attendances.length > 0 && !attendancesError;
+  const scheduledStartByClassId = useMemo(
+    () => new Map(classes.map((lesson) => [lesson.id, lesson.scheduledStart])),
+    [classes],
+  );
+
+  const commitmentByUserId = useMemo(() => {
+    const result = new Map<string, CommitmentResult>();
+    if (!hasCommitmentData) {
+      return result;
+    }
+
+    const summaries = summarizeMonthlyAttendanceByUser({
+      attendances,
+      academyId: academyId || undefined,
+      classStartById: scheduledStartByClassId,
+      timeZone,
+    });
+
+    students.forEach((student) => {
+      if (student.role !== 'student') {
+        return;
+      }
+
+      const summary = summaries.get(student.id);
+      result.set(student.id, resolveCommitment({
+        classes: summary?.classes ?? 0,
+        weeksWithClasses: summary?.weeksWithClasses ?? 0,
+        track: getUserProgressionSummary(student, progressionRules).track,
+        monthLabel: summary?.monthLabel,
+      }));
+    });
+
+    return result;
+  }, [academyId, attendances, hasCommitmentData, progressionRules, scheduledStartByClassId, students, timeZone]);
 
   const activeStudents = useMemo(
     () => students.filter((student) => student.role === 'student' && student.status !== 'suspended'),
@@ -352,6 +396,9 @@ const AcademyAttendancePanels: React.FC<AcademyAttendancePanelsProps> = ({
                 <div className="academy-insight__copy">
                   <p className="academy-insight__name">{row.student.displayName}</p>
                   <p className="academy-insight__meta">{studentRankLabel(row.student)}</p>
+                  {commitmentByUserId.has(row.student.id) ? (
+                    <CommitmentBadge commitment={commitmentByUserId.get(row.student.id)!} />
+                  ) : null}
                 </div>
 
                 <span className="academy-insight__value">
@@ -444,6 +491,9 @@ const AcademyAttendancePanels: React.FC<AcademyAttendancePanelsProps> = ({
                     <p className="academy-insight__meta academy-insight__phone">
                       {row.student.phone || 'Sem telefone cadastrado'}
                     </p>
+                    {commitmentByUserId.has(row.student.id) ? (
+                      <CommitmentBadge commitment={commitmentByUserId.get(row.student.id)!} />
+                    ) : null}
                   </div>
 
                   <span className={`academy-insight__days${row.days >= 30 ? ' is-critical' : ''}`}>

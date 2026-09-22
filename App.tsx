@@ -11,7 +11,8 @@ import HomeView from './views/HomeView';
 import LoginView from './views/LoginView';
 import ResetPasswordView from './views/ResetPasswordView';
 import StaffDashboardView from './views/StaffDashboardView';
-import { normalizeBeltId } from './beltCatalog';
+import { getUserProgressionSummary, normalizeBeltId } from './beltCatalog';
+import { resolveMonthlyCommitment } from './commitmentScale';
 import {
   BEGINNER_CLASS_WARNING,
   DAILY_LIMIT_WARNING,
@@ -2636,6 +2637,17 @@ const App: React.FC = () => {
   const countedAttendanceThisMonth = attendanceThisMonth.filter(
     (attendance) => attendance.countsAsAttendance !== false,
   );
+  // Comprometimento do aluno: uma conta so, usada no Inicio e no Perfil, para os dois nunca
+  // mostrarem numeros diferentes. Vide commitmentScale.ts para as tabelas de Adulto e Kids.
+  const studentCommitment = profile.role === 'student'
+    ? resolveMonthlyCommitment({
+      attendances,
+      track: getUserProgressionSummary(currentUser, resolvedAcademy.progressionRules).track,
+      classStartById,
+      timeZone: resolvedAcademy.timezone,
+      now,
+    })
+    : null;
   const studentSourceUsers = isSuperadminNetworkView ? allUsers : academyUsers;
   const students = studentSourceUsers
     .filter((user) => user.role === 'student' && user.status !== 'suspended')
@@ -2751,7 +2763,8 @@ const App: React.FC = () => {
           ) : (
             <HomeView
               user={currentUser}
-              monthlyAttendanceCount={countedAttendanceThisMonth.length}
+              monthlyAttendanceCount={studentCommitment?.classes ?? countedAttendanceThisMonth.length}
+              commitment={studentCommitment}
               attendanceDays={attendanceDays}
               progressionRules={resolvedAcademy.progressionRules}
             />
@@ -2776,7 +2789,8 @@ const App: React.FC = () => {
         ) : (
           <HomeView
             user={currentUser}
-            monthlyAttendanceCount={countedAttendanceThisMonth.length}
+            monthlyAttendanceCount={studentCommitment?.classes ?? countedAttendanceThisMonth.length}
+            commitment={studentCommitment}
             attendanceDays={attendanceDays}
             progressionRules={resolvedAcademy.progressionRules}
           />
@@ -3037,6 +3051,7 @@ const App: React.FC = () => {
             progressionRules={resolvedAcademy.progressionRules}
             profile={profile}
             totalClasses={profile.attendanceCount}
+            commitment={studentCommitment}
             academyName={isSuperAdmin ? NETWORK_NAME : resolvedAcademy.name}
             attendanceRate={attendanceRate}
             attendances={attendances}
@@ -3078,7 +3093,8 @@ const App: React.FC = () => {
         return (
           <HomeView
             user={currentUser}
-            monthlyAttendanceCount={countedAttendanceThisMonth.length}
+            monthlyAttendanceCount={studentCommitment?.classes ?? countedAttendanceThisMonth.length}
+            commitment={studentCommitment}
             attendanceDays={attendanceDays}
             progressionRules={resolvedAcademy.progressionRules}
           />

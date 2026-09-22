@@ -2,6 +2,8 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { ALL_BELTS, beltLabel, getBlackBeltProgressForUser, getGradeProgressLabel, getUserProgressionSummary, type ProgressionRules } from '../beltCatalog';
 import { BarChart3, ChevronRight, List, Search, UserX } from 'lucide-react';
 import AvatarWithBelt from './AvatarWithBelt';
+import { CommitmentBadge } from './CommitmentBar';
+import { resolveCommitment, summarizeMonthlyAttendanceByUser, type CommitmentResult } from '../commitmentScale';
 import DateField from './DateField';
 import StudentDetailView from '../views/StudentDetailView';
 import type { FirestoreEntity } from '../services/firebase/data';
@@ -403,6 +405,10 @@ const StudentRoster: React.FC<StudentRosterProps> = ({
     [classes],
   );
   const hasClassData = classes.length > 0;
+  const scheduledStartByClassId = useMemo(
+    () => new Map(classes.map((lesson) => [lesson.id, lesson.scheduledStart])),
+    [classes],
+  );
 
   const periodAttendances = useMemo(() => {
     if (isOfficialTotalRanking) {
@@ -468,6 +474,7 @@ const StudentRoster: React.FC<StudentRosterProps> = ({
   }, [rankingRows]);
 
   const rankingTotalAttendances = rankingRows.reduce((total, row) => total + row.attendanceCount, 0);
+
   const rankingAverage = rankingRows.length === 0 ? 0 : rankingTotalAttendances / rankingRows.length;
   const rankingLeader = rankingRows.find((row) => row.attendanceCount > 0) ?? null;
   const topChartRows = rankingRows.filter((row) => row.attendanceCount > 0).slice(0, 10);
@@ -492,6 +499,38 @@ const StudentRoster: React.FC<StudentRosterProps> = ({
   const maxBeltAttendance = Math.max(1, ...beltBreakdown.map((row) => row.attendanceCount));
 
   const allStudents = useMemo(() => [...students, ...deactivatedStudents], [students, deactivatedStudents]);
+
+  // Comprometimento do mes (vide commitmentScale.ts). Uma passada so nas presencas e a trilha
+  // (Kids x Adulto) resolvida aqui dentro, para nao chamar a progressao a cada render.
+  //
+  // Sem presenca carregada nao da para distinguir "nao treinou" de "ainda nao chegou": nesse
+  // caso o selo simplesmente nao aparece, em vez de marcar a academia inteira de faltosa.
+  const hasCommitmentData = rankingAttendances.length > 0;
+  const commitmentByUserId = useMemo(() => {
+    const result = new Map<string, CommitmentResult>();
+    if (!hasCommitmentData) {
+      return result;
+    }
+
+    const scopedAcademyId = enableAcademyFilter && selectedAcademyId ? selectedAcademyId : undefined;
+    const summaries = summarizeMonthlyAttendanceByUser({
+      attendances: rankingAttendances,
+      academyId: scopedAcademyId,
+      classStartById: scheduledStartByClassId,
+    });
+
+    allStudents.forEach((student) => {
+      const summary = summaries.get(student.id);
+      result.set(student.id, resolveCommitment({
+        classes: summary?.classes ?? 0,
+        weeksWithClasses: summary?.weeksWithClasses ?? 0,
+        track: getUserProgressionSummary(student, progressionRules).track,
+        monthLabel: summary?.monthLabel,
+      }));
+    });
+
+    return result;
+  }, [allStudents, enableAcademyFilter, hasCommitmentData, progressionRules, rankingAttendances, scheduledStartByClassId, selectedAcademyId]);
 
   useEffect(() => {
     if (!selectedStudentId) {
@@ -890,6 +929,10 @@ const StudentRoster: React.FC<StudentRosterProps> = ({
                   <p>
                     {academyNameById.get(row.student.branchId) ?? academyName ?? 'Academia'} / Faixa {beltLabel(row.student.belt)} / Grau {getStudentGrade(row.student)}
                   </p>
+                  {(() => {
+                    const commitment = commitmentByUserId.get(row.student.id);
+                    return commitment ? <CommitmentBadge commitment={commitment} /> : null;
+                  })()}
                 </div>
                 <span className="app-badge app-badge--gold">
                   {formatNumber(row.attendanceCount)} presenca{row.attendanceCount === 1 ? '' : 's'}
@@ -932,6 +975,10 @@ const StudentRoster: React.FC<StudentRosterProps> = ({
                     {topRank ? <span className="student-roster__top-rank">#{topRank}</span> : null}
                   </h3>
                   <div className="student-roster__badge-row">
+                    {(() => {
+                      const commitment = commitmentByUserId.get(student.id);
+                      return commitment ? <CommitmentBadge commitment={commitment} showLabel /> : null;
+                    })()}
                     <span className="app-badge app-badge--muted">{student.type}</span>
                     {enableAcademyFilter ? (
                       <span className="app-badge app-badge--muted">{academyNameById.get(student.branchId) ?? 'Academia'}</span>

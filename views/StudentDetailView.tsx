@@ -19,6 +19,8 @@ import { useConfirm } from '../components/ConfirmDialog';
 import { AlertTriangle, ArrowLeft, ArrowDown, ArrowUp, Award, Calendar, Camera, CheckCircle2, ChevronDown, ChevronUp, Clock, Filter, Mail, QrCode, Save, TrendingUp, User as UserIcon, UserCheck, UserX, Video, BookOpen, X } from 'lucide-react';
 import AppVideoContent from '../components/AppVideoContent';
 import AvatarWithBelt from '../components/AvatarWithBelt';
+import { CommitmentBar } from '../components/CommitmentBar';
+import { resolveMonthlyCommitment } from '../commitmentScale';
 import DateField from '../components/DateField';
 import ProgressBar from '../components/ProgressBar';
 import { subscribeToUserAttendances, subscribeToUserGraduations, type FirestoreEntity } from '../services/firebase/data';
@@ -346,6 +348,21 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
 
     return result;
   }, [studentAttendances, classesById, historyPeriod, historyCustomFrom, historyCustomTo, historyClassTitle, historySortDir]);
+
+  // Comprometimento do mes (vide commitmentScale.ts). Usa o aluno PERSISTIDO, nunca o estado do
+  // formulario de graduacao: mexer no select de faixa nao pode trocar a tabela Kids/Adulto antes
+  // de salvar. Enquanto as presencas nao chegam, nao mostra barra nenhuma.
+  const commitment = useMemo(() => {
+    if (studentAttendances.length === 0) {
+      return null;
+    }
+
+    return resolveMonthlyCommitment({
+      attendances: studentAttendances,
+      track: getUserProgressionSummary(student, progressionRules).track,
+      classStartById: new Map([...classesById].map(([id, lesson]) => [id, lesson.scheduledStart])),
+    });
+  }, [classesById, progressionRules, student, studentAttendances]);
 
   const visibleAttendances = useMemo(
     () => filteredAttendances.slice(0, historyVisibleCount),
@@ -1116,6 +1133,12 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
         </form>
       ) : null}
 
+
+      {commitment ? (
+        <section className="app-panel app-panel-pad">
+          <CommitmentBar commitment={commitment} title="Comprometimento do aluno" />
+        </section>
+      ) : null}
 
       <section className="app-panel app-panel-pad">
         <div className="flex items-center gap-3">
