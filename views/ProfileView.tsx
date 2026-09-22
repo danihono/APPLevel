@@ -783,6 +783,12 @@ const ProfileView: React.FC<ProfileViewProps> = ({
         </div>
       </section>
 
+      {commitment ? (
+        <section className="app-panel app-panel-pad">
+          <CommitmentBar commitment={commitment} title="Comprometimento" />
+        </section>
+      ) : null}
+
       {/* KPIs 2x2 */}
       <section className="grid grid-cols-2 gap-3">
         <article className="app-panel app-panel-pad">
@@ -806,12 +812,6 @@ const ProfileView: React.FC<ProfileViewProps> = ({
           <p className="app-stat-card__note">Aulas para elegibilidade</p>
         </article>
       </section>
-
-      {commitment ? (
-        <section className="app-panel app-panel-pad">
-          <CommitmentBar commitment={commitment} title="Comprometimento" />
-        </section>
-      ) : null}
 
       {/* Accordion menu */}
       <section className="app-panel" aria-label="Configurações do perfil">
