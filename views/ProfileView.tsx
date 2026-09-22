@@ -9,6 +9,8 @@ import {
   type ProgressionRules,
 } from '../beltCatalog';
 import { resolveAttendanceDate } from '../attendanceUtils';
+import { CommitmentBar } from '../components/CommitmentBar';
+import type { CommitmentResult } from '../commitmentScale';
 import { nonCountingReasonLabel } from '../classRules';
 import {
   AlertTriangle,
@@ -44,6 +46,7 @@ interface ProfileViewProps {
   progressionRules?: ProgressionRules | null;
   profile: FirestoreEntity<UserRecord>;
   totalClasses: number;
+  commitment?: CommitmentResult | null;
   academyName?: string;
   attendanceRate: number;
   attendances: Array<FirestoreEntity<AttendanceRecord>>;
@@ -102,6 +105,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({
   progressionRules,
   profile,
   totalClasses,
+  commitment = null,
   academyName,
   attendanceRate,
   attendances,
@@ -802,6 +806,12 @@ const ProfileView: React.FC<ProfileViewProps> = ({
           <p className="app-stat-card__note">Aulas para elegibilidade</p>
         </article>
       </section>
+
+      {commitment ? (
+        <section className="app-panel app-panel-pad">
+          <CommitmentBar commitment={commitment} title="Comprometimento" />
+        </section>
+      ) : null}
 
       {/* Accordion menu */}
       <section className="app-panel" aria-label="Configurações do perfil">

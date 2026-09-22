@@ -7,11 +7,14 @@ import {
 import { Calendar as CalIcon, Trophy } from 'lucide-react';
 import BjjBelt from '../components/BjjBelt';
 import ProgressBar from '../components/ProgressBar';
+import { CommitmentBar } from '../components/CommitmentBar';
+import type { CommitmentResult } from '../commitmentScale';
 import type { User } from '../types';
 
 interface HomeViewProps {
   user: User;
   monthlyAttendanceCount: number;
+  commitment?: CommitmentResult | null;
   attendanceDays: number[];
   progressionRules?: ProgressionRules | null;
 }
@@ -19,6 +22,7 @@ interface HomeViewProps {
 const HomeView: React.FC<HomeViewProps> = ({
   user,
   monthlyAttendanceCount,
+  commitment = null,
   attendanceDays,
   progressionRules,
 }) => {
@@ -96,6 +100,12 @@ const HomeView: React.FC<HomeViewProps> = ({
             <h2 className="text-xl font-bold">Mapa de presenças do mês</h2>
           </div>
         </div>
+
+        {commitment ? (
+          <div className="mt-6">
+            <CommitmentBar commitment={commitment} title="Comprometimento" />
+          </div>
+        ) : null}
 
         <div className="mt-6 grid grid-cols-7 gap-2">
           {Array.from({ length: daysInMonth }).map((_, index) => {
