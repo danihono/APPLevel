@@ -18,9 +18,13 @@ on:
           - beta        # compila e envia para o TestFlight
           - release     # envia a ultima build para revisao da App Store
       marketing_version:
-        description: "Versao visivel na loja (ex.: 1.0.0)"
+        # Sem valor padrao de proposito. A Apple fecha a versao assim que ela e
+        # publicada: reenviar com o mesmo numero falha com "Invalid Pre-Release
+        # Train ... is closed for new build submissions" depois de ja ter
+        # compilado e assinado. Preencher a cada execucao evita esse desperdicio.
+        description: "Versao visivel na loja — precisa ser MAIOR que a ja publicada (ex.: 1.0.1)"
         type: string
-        default: "1.0.0"
+        required: true
   push:
     tags:
       - "ios-v*"
@@ -40,7 +44,7 @@ jobs:
     env:
       APP_IDENTIFIER: com.leveljiujitsu.app
       APP_NAME: LEVEL JIUJITSU
-      MARKETING_VERSION: ${{ inputs.marketing_version || '1.0.0' }}
+      MARKETING_VERSION: ${{ inputs.marketing_version }}
 
       # --- Apple: App Store Connect API Key ---
       ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
