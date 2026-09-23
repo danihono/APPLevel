@@ -29,8 +29,13 @@ export interface CommitmentResult {
   level: CommitmentLevel;
   label: string;
   track: TrainingType;
-  /** Aulas computadas no mes de referencia. */
+  /**
+   * Aulas do mes: TODA aula em que o aluno esteve no tatame. E este numero que vira a nota.
+   * Vide `summarizeMonthlyAttendance` para o porque de participacao != presenca computada.
+   */
   classes: number;
+  /** Subconjunto de `classes` que conta para a graduacao. So aparece na leitura, nao na nota. */
+  countedClasses: number;
   /** Semanas distintas do mes com treino. */
   weeksWithClasses: number;
   /** Mes de referencia por extenso, ex.: "setembro de 2026". */
@@ -38,7 +43,10 @@ export interface CommitmentResult {
 }
 
 export interface MonthlyAttendanceSummary {
+  /** Participacao: todas as aulas do mes. */
   classes: number;
+  /** As que contam para a graduacao. */
+  countedClasses: number;
   weeksWithClasses: number;
   /** Dias do mes com treino, em ordem. */
   dayNumbers: number[];
@@ -112,11 +120,13 @@ function scoreKids(classes: number): { score: number; level: CommitmentLevel } {
 
 export function resolveCommitment(params: {
   classes: number;
+  countedClasses?: number;
   weeksWithClasses?: number;
   track: TrainingType;
   monthLabel?: string;
 }): CommitmentResult {
   const classes = Math.max(0, Math.floor(params.classes));
+  const countedClasses = Math.min(classes, Math.max(0, Math.floor(params.countedClasses ?? classes)));
   const weeksWithClasses = Math.max(0, Math.min(4, Math.floor(params.weeksWithClasses ?? 0)));
   const { score, level } = params.track === 'Kids'
     ? scoreKids(classes)
@@ -128,6 +138,7 @@ export function resolveCommitment(params: {
     label: COMMITMENT_LEVEL_LABEL[level],
     track: params.track,
     classes,
+    countedClasses,
     weeksWithClasses,
     monthLabel: params.monthLabel ?? formatMonthLabel(new Date()),
   };
@@ -136,13 +147,24 @@ export function resolveCommitment(params: {
 /**
  * Aulas do mes corrente de UM aluno.
  *
- * - Presenca que nao computa para graduacao (`countsAsAttendance === false`) fica de fora, igual
- *   ao "treinos do mes" do resto do app.
- * - Vale a data da AULA, nao a do lancamento (`resolveAttendanceDate`): aula de agosto lancada em
- *   setembro continua em agosto.
- * - De proposito NAO exige que a aula esteja finalizada: o comprometimento do aluno nao pode
- *   depender de o professor lembrar de clicar em "Finalizar" (o ranking da unidade exige, entao
- *   os dois numeros podem divergir em unidade que nao finaliza aula).
+ * COMPROMETIMENTO MEDE PARTICIPACAO, NAO PRESENCA COMPUTADA — a diferenca e proposital, nao um
+ * bug a ser "consertado":
+ * - `classes` conta toda aula em que o aluno esteve no tatame, inclusive as que nao viram
+ *   presenca (`countsAsAttendance === false`). Os dois unicos motivos de nao computar, em
+ *   classRules.ts, sao a aula LEVEL Iniciante fora da faixa e a 3a aula do mesmo dia: nos dois
+ *   o aluno treinou. O faixa azul que nao pode ir no horario dele e foi na iniciante esta sendo
+ *   comprometido, e nao pode ser punido na barra como se tivesse faltado.
+ * - `countedClasses` guarda o subconjunto que conta para a graduacao, so para a tela conseguir
+ *   explicar a diferenca ("6 treinos, 5 contam para graduacao").
+ * - A NOTA sai de `classes`. Presenca, progressao de faixa e o ranking da unidade continuam
+ *   usando a regra da faixa, intocados.
+ *
+ * Vale a data da AULA, nao a do lancamento (`resolveAttendanceDate`): aula de agosto lancada em
+ * setembro continua em agosto.
+ *
+ * De proposito NAO exige que a aula esteja finalizada: o comprometimento do aluno nao pode
+ * depender de o professor lembrar de clicar em "Finalizar" (o ranking da unidade exige, entao os
+ * dois numeros podem divergir em unidade que nao finaliza aula).
  */
 export function summarizeMonthlyAttendance(params: {
   attendances: ReadonlyArray<MonthlyAttendanceInput>;
@@ -156,12 +178,9 @@ export function summarizeMonthlyAttendance(params: {
   const weeks = new Set<number>();
   const days = new Set<number>();
   let classes = 0;
+  let countedClasses = 0;
 
   params.attendances.forEach((attendance) => {
-    if (attendance.countsAsAttendance === false) {
-      return;
-    }
-
     const date = resolveAttendanceDate(
       attendance,
       attendance.classId ? params.classStartById?.get(attendance.classId) : undefined,
@@ -176,16 +195,19 @@ export function summarizeMonthlyAttendance(params: {
       return;
     }
 
-    // Duas aulas no mesmo dia contam duas — o limite diario ja foi aplicado pelo backend
-    // atraves de `countsAsAttendance`.
+    // Duas aulas no mesmo dia contam duas: sao dois treinos.
     const dayOfMonth = Number(dayKey.slice(8, 10));
     classes += 1;
+    if (attendance.countsAsAttendance !== false) {
+      countedClasses += 1;
+    }
     days.add(dayOfMonth);
     weeks.add(weekBlockOfMonth(dayOfMonth));
   });
 
   return {
     classes,
+    countedClasses,
     weeksWithClasses: weeks.size,
     dayNumbers: [...days].sort((left, right) => left - right),
     monthLabel: formatMonthLabel(now, timeZone),
@@ -204,6 +226,7 @@ export function resolveMonthlyCommitment(params: {
 
   return resolveCommitment({
     classes: summary.classes,
+    countedClasses: summary.countedClasses,
     weeksWithClasses: summary.weeksWithClasses,
     track: params.track,
     monthLabel: summary.monthLabel,

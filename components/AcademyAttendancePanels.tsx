@@ -230,6 +230,7 @@ const AcademyAttendancePanels: React.FC<AcademyAttendancePanelsProps> = ({
       const summary = summaries.get(student.id);
       result.set(student.id, resolveCommitment({
         classes: summary?.classes ?? 0,
+        countedClasses: summary?.countedClasses ?? 0,
         weeksWithClasses: summary?.weeksWithClasses ?? 0,
         track: getUserProgressionSummary(student, progressionRules).track,
         monthLabel: summary?.monthLabel,

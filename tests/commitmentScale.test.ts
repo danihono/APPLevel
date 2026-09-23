@@ -122,11 +122,44 @@ test('duas aulas no mesmo dia contam duas, mas so um dia', () => {
   assert.deepEqual([summary.classes, summary.dayNumbers], [2, [9]]);
 });
 
-test('ignora presenca que nao computa, mes vizinho e registro sem data', () => {
+test('aula que nao vira presenca ainda conta como treino', () => {
+  // Faixa azul que foi na LEVEL Iniciante, ou 3a aula do mesmo dia: treinou. Conta para o
+  // comprometimento e fica de fora do que soma para a graduacao.
+  const summary = summarizeMonthlyAttendance({
+    attendances: [onDay(5), onDay(6, { countsAsAttendance: false })],
+    now: REFERENCE,
+  });
+  assert.deepEqual(
+    [summary.classes, summary.countedClasses, summary.weeksWithClasses, summary.dayNumbers],
+    [2, 1, 1, [5, 6]],
+  );
+});
+
+test('a nota sai da participacao, nao da presenca computada', () => {
+  // Quatro treinos, um deles na aula iniciante: nota de 4 aulas em 4 semanas (10), nao de 3 (3).
+  const commitment = resolveMonthlyCommitment({
+    attendances: [onDay(3), onDay(10), onDay(17), onDay(25, { countsAsAttendance: false })],
+    track: 'Adulto',
+    now: REFERENCE,
+  });
+  assert.deepEqual(
+    [commitment.classes, commitment.countedClasses, commitment.weeksWithClasses, commitment.score],
+    [4, 3, 4, 10],
+  );
+});
+
+test('countedClasses nunca passa de classes', () => {
+  const commitment = resolveCommitment({ classes: 3, countedClasses: 9, track: 'Adulto' });
+  assert.equal(commitment.countedClasses, 3);
+
+  // Sem informar, assume que tudo conta.
+  assert.equal(resolveCommitment({ classes: 5, track: 'Adulto' }).countedClasses, 5);
+});
+
+test('ignora mes vizinho e registro sem data', () => {
   const summary = summarizeMonthlyAttendance({
     attendances: [
       onDay(5),
-      onDay(6, { countsAsAttendance: false }),
       { classStartAt: timestamp('2026-08-31T22:00:00Z') },
       { classStartAt: timestamp('2026-10-01T22:00:00Z') },
       {},
@@ -198,7 +231,8 @@ test('mapa por aluno filtra a unidade e separa as contagens', () => {
 
   assert.equal(byUser.get('ana')?.classes, 2);
   assert.equal(byUser.get('ana')?.weeksWithClasses, 2);
-  assert.equal(byUser.get('bob')?.classes, 1);
+  // Bob treinou duas vezes; uma nao virou presenca.
+  assert.deepEqual([byUser.get('bob')?.classes, byUser.get('bob')?.countedClasses], [2, 1]);
   assert.equal(byUser.get('sem-presenca'), undefined);
 
   // Sem academyId, a rede inteira soma.

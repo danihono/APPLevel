@@ -16,7 +16,17 @@ const LEVEL_CLASS: Record<CommitmentResult['level'], string> = {
 };
 
 function classesLabel(classes: number): string {
-  return classes === 1 ? '1 aula' : `${classes} aulas`;
+  return classes === 1 ? '1 treino' : `${classes} treinos`;
+}
+
+// O comprometimento conta participacao; presenca segue a regra da faixa. Quando os dois numeros
+// diferem (aula iniciante fora da faixa, 3a aula do dia) a linha explica a diferenca — senao o
+// aluno ve 6 aqui e 5 em "Total de treinos no mes" e acha que o app errou.
+function commitmentNote(commitment: CommitmentResult): string {
+  const base = `${classesLabel(commitment.classes)} em ${commitment.monthLabel}`;
+  return commitment.countedClasses < commitment.classes
+    ? `${base} · ${commitment.countedClasses} contam para graduação`
+    : base;
 }
 
 export interface CommitmentBarProps {
@@ -59,9 +69,7 @@ export const CommitmentBar: React.FC<CommitmentBarProps> = ({
       <div className="commitment__foot">
         <span className="commitment__level">{commitment.label}</span>
         {showNote ? (
-          <span className="commitment__note">
-            {classesLabel(commitment.classes)} em {commitment.monthLabel}
-          </span>
+          <span className="commitment__note">{commitmentNote(commitment)}</span>
         ) : null}
       </div>
     </div>
@@ -79,7 +87,7 @@ export interface CommitmentBadgeProps {
 export const CommitmentBadge: React.FC<CommitmentBadgeProps> = ({ commitment, showLabel = false }) => (
   <span
     className={`commitment-badge ${LEVEL_CLASS[commitment.level]}`}
-    title={`${commitment.label} — ${classesLabel(commitment.classes)} em ${commitment.monthLabel}`}
+    title={`${commitment.label} — ${commitmentNote(commitment)}`}
   >
     <span className="commitment-badge__dot" aria-hidden="true" />
     {commitment.score}
