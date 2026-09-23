@@ -10,7 +10,7 @@ import type { FirestoreEntity } from '../services/firebase/data';
 import type { AttendanceRecord, ClassRecord, GraduationApprovalRequestRecord } from '../services/firebase/models';
 import type { BeltColor, User } from '../types';
 
-type SortMode = 'name-asc' | 'name-desc' | 'belt-desc' | 'grade-desc';
+type SortMode = 'name-asc' | 'name-desc' | 'belt-desc' | 'grade-desc' | 'commitment-desc' | 'commitment-asc';
 type RosterSection = 'list' | 'ranking' | 'deactivated';
 type RankingPeriodPreset = 'official-total' | 'mensal' | 'today' | '7d' | '30d' | '3m' | 'custom';
 type StatusFilter = 'active' | 'inactive' | 'ALL';
@@ -115,9 +115,45 @@ function getProgressionHint(student: User, rules?: ProgressionRules | null): str
   return parts.length > 0 ? parts.join(' / ') : null;
 }
 
-function sortStudents(students: User[], sortMode: SortMode) {
+// "Frequencia +/-" ordena pela NOTA do comprometimento (o numero do selo, ja normalizado entre
+// Kids e Adulto), desempatando por aulas no mes e depois por nome. Sem presencas carregadas o
+// mapa vem vazio e a ordenacao cai para nome, em vez de embaralhar a lista com zeros.
+function sortStudents(
+  students: User[],
+  sortMode: SortMode,
+  commitmentByUserId?: Map<string, CommitmentResult>,
+) {
+  const commitmentSort = sortMode === 'commitment-desc' || sortMode === 'commitment-asc';
+  const hasCommitment = commitmentSort && !!commitmentByUserId && commitmentByUserId.size > 0;
+
   return [...students].sort((left, right) => {
-    if (sortMode === 'name-asc') {
+    if (hasCommitment) {
+      const leftCommitment = commitmentByUserId!.get(left.id);
+      const rightCommitment = commitmentByUserId!.get(right.id);
+      const leftScore = leftCommitment?.score ?? 0;
+      const rightScore = rightCommitment?.score ?? 0;
+      const scoreDiff = sortMode === 'commitment-desc'
+        ? rightScore - leftScore
+        : leftScore - rightScore;
+
+      if (scoreDiff !== 0) {
+        return scoreDiff;
+      }
+
+      const leftClasses = leftCommitment?.classes ?? 0;
+      const rightClasses = rightCommitment?.classes ?? 0;
+      const classesDiff = sortMode === 'commitment-desc'
+        ? rightClasses - leftClasses
+        : leftClasses - rightClasses;
+
+      if (classesDiff !== 0) {
+        return classesDiff;
+      }
+
+      return left.name.localeCompare(right.name, 'pt-BR');
+    }
+
+    if (sortMode === 'name-asc' || commitmentSort) {
       return left.name.localeCompare(right.name, 'pt-BR');
     }
 
@@ -377,10 +413,6 @@ const StudentRoster: React.FC<StudentRosterProps> = ({
     });
   }, [filterBelt, filterGrade, filterStatus, filterType, scopedStudents, searchTerm, showStatusFilter]);
 
-  const visibleStudents = useMemo(
-    () => sortStudents(filteredStudents, sortMode),
-    [filteredStudents, sortMode],
-  );
 
   // Aula "realizada": finalizada, em andamento, ou que simplesmente já passou do horário —
   // muitos professores nunca clicam em "Finalizar", e exigir status 'finished' zerava o
@@ -523,6 +555,7 @@ const StudentRoster: React.FC<StudentRosterProps> = ({
       const summary = summaries.get(student.id);
       result.set(student.id, resolveCommitment({
         classes: summary?.classes ?? 0,
+        countedClasses: summary?.countedClasses ?? 0,
         weeksWithClasses: summary?.weeksWithClasses ?? 0,
         track: getUserProgressionSummary(student, progressionRules).track,
         monthLabel: summary?.monthLabel,
@@ -531,6 +564,11 @@ const StudentRoster: React.FC<StudentRosterProps> = ({
 
     return result;
   }, [allStudents, enableAcademyFilter, hasCommitmentData, progressionRules, rankingAttendances, scheduledStartByClassId, selectedAcademyId]);
+
+  const visibleStudents = useMemo(
+    () => sortStudents(filteredStudents, sortMode, commitmentByUserId),
+    [commitmentByUserId, filteredStudents, sortMode],
+  );
 
   useEffect(() => {
     if (!selectedStudentId) {
@@ -705,6 +743,8 @@ const StudentRoster: React.FC<StudentRosterProps> = ({
                   <option value="name-desc">Nome Z-A</option>
                   <option value="belt-desc">Faixa mais alta primeiro</option>
                   <option value="grade-desc">Grau mais alto primeiro</option>
+                  <option value="commitment-desc">Frequência +</option>
+                  <option value="commitment-asc">Frequência -</option>
                 </select>
               </label>
 
