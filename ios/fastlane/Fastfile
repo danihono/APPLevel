@@ -60,11 +60,15 @@ platform :ios do
 
     # readonly: false -> cria o certificado de distribuicao e o provisioning
     # profile na conta Apple e guarda criptografados no repo do match.
+    # force: true -> refaz o profile sempre (o certificado e mantido). Necessario
+    # quando o App ID ganha uma capability nova (ex.: Push Notifications): o
+    # profile antigo nao a inclui e a assinatura do app falharia.
     match(
       api_key: key,
       type: "appstore",
       app_identifier: APP_IDENTIFIER,
-      readonly: false
+      readonly: false,
+      force: true
     )
 
     UI.success("Bootstrap concluido. Agora rode a lane `beta`.")

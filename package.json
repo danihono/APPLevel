@@ -23,6 +23,7 @@
     "deploy:rules": "firebase deploy --only firestore:rules,storage --project applevel-c5e73 --non-interactive"
   },
   "dependencies": {
+    "@capacitor-firebase/messaging": "^8.5.2",
     "@capacitor/browser": "^8.0.4",
     "@capacitor/core": "^8.4.1",
     "@capacitor/ios": "^8.4.1",

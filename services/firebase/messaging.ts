@@ -1,4 +1,5 @@
 import { Capacitor } from '@capacitor/core';
+import { FirebaseMessaging } from '@capacitor-firebase/messaging';
 import { deleteToken, getToken, onMessage } from 'firebase/messaging';
 import { backendFunctions } from './functions';
 import { firebaseConfig, getFirebaseMessaging } from './client';
@@ -13,6 +14,11 @@ const MESSAGING_SW_SCOPE = '/firebase-cloud-messaging-push-scope';
 export type PushStatus = 'unsupported' | 'default' | 'granted' | 'denied';
 
 let registeredToken: string | null = null;
+
+// No app do iPhone (Capacitor) a notificacao web nao existe: o push vem da
+// Apple (APNs) pelo plugin nativo, que devolve um token FCM no mesmo formato
+// do Android/web — o servidor trata os dois igual.
+const isNativeApp = () => Capacitor.isNativePlatform();
 
 // Registra o service worker do FCM passando a config publica do Firebase via
 // query string (lida em public/firebase-messaging-sw.js). Necessario para que as
@@ -34,15 +40,20 @@ async function registerMessagingServiceWorker(): Promise<ServiceWorkerRegistrati
   });
 }
 
-// O app do iPhone roda dentro de um WebView, onde a notificacao web nao existe:
-// ele vai precisar do push nativo (APNs), tratado a parte.
 export async function getPushStatus(): Promise<PushStatus> {
-  if (
-    Capacitor.isNativePlatform()
-    || !VAPID_KEY
-    || typeof window === 'undefined'
-    || !('Notification' in window)
-  ) {
+  if (isNativeApp()) {
+    try {
+      const { receive } = await FirebaseMessaging.checkPermissions();
+      if (receive === 'granted' || receive === 'denied') {
+        return receive;
+      }
+      return 'default';
+    } catch {
+      return 'unsupported';
+    }
+  }
+
+  if (!VAPID_KEY || typeof window === 'undefined' || !('Notification' in window)) {
     return 'unsupported';
   }
 
@@ -54,7 +65,12 @@ export async function getPushStatus(): Promise<PushStatus> {
   return window.Notification.permission as PushStatus;
 }
 
-async function registerCurrentDevice(): Promise<string | null> {
+async function fetchDeviceToken(): Promise<string | null> {
+  if (isNativeApp()) {
+    const { token } = await FirebaseMessaging.getToken();
+    return token || null;
+  }
+
   const messaging = await getFirebaseMessaging();
   if (!messaging) {
     return null;
@@ -62,6 +78,11 @@ async function registerCurrentDevice(): Promise<string | null> {
 
   const serviceWorkerRegistration = await registerMessagingServiceWorker();
   const token = await getToken(messaging, { vapidKey: VAPID_KEY, serviceWorkerRegistration });
+  return token || null;
+}
+
+async function registerCurrentDevice(): Promise<string | null> {
+  const token = await fetchDeviceToken();
   if (!token) {
     return null;
   }
@@ -77,9 +98,16 @@ export async function enablePushNotifications(): Promise<PushStatus> {
     return 'unsupported';
   }
 
-  const permission = await window.Notification.requestPermission();
+  let permission: PushStatus;
+  if (isNativeApp()) {
+    const { receive } = await FirebaseMessaging.requestPermissions();
+    permission = receive === 'granted' ? 'granted' : receive === 'denied' ? 'denied' : 'default';
+  } else {
+    permission = (await window.Notification.requestPermission()) as PushStatus;
+  }
+
   if (permission !== 'granted') {
-    return permission as PushStatus;
+    return permission;
   }
 
   await registerCurrentDevice();
@@ -110,6 +138,10 @@ export async function releasePushRegistration(): Promise<void> {
   registeredToken = null;
   try {
     await backendFunctions.unregisterDeviceToken({ token });
+    if (isNativeApp()) {
+      await FirebaseMessaging.deleteToken();
+      return;
+    }
     const messaging = await getFirebaseMessaging();
     if (messaging) {
       await deleteToken(messaging);

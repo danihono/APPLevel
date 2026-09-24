@@ -55,5 +55,9 @@
 	<string>O LEVEL JIUJITSU acessa suas fotos para você definir e atualizar sua foto de perfil.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>O LEVEL JIUJITSU pode salvar imagens na sua galeria.</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>remote-notification</string>
+	</array>
 </dict>
 </plist>

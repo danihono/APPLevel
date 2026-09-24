@@ -13,6 +13,22 @@ const config: CapacitorConfig = {
     contentInset: 'never',
     backgroundColor: '#0a0a0a',
   },
+  plugins: {
+    FirebaseMessaging: {
+      // Mostra a notificacao mesmo com o app aberto na tela.
+      presentationOptions: ['badge', 'sound', 'alert'],
+    },
+  },
+  experimental: {
+    ios: {
+      spm: {
+        packageOptions: {
+          // Exigido pelo plugin para evitar colisao de identidade de pacote no SPM.
+          '@capacitor-firebase/messaging': { symlink: true },
+        },
+      },
+    },
+  },
 };
 
 export default config;
