@@ -17,7 +17,7 @@ import {
 import { MAX_BLACK_BELT_DEGREE, resolveBlackBeltDegree } from '../lib/blackBelt';
 import { findSingleByFields, getRequestContext, getUserDoc } from '../lib/context';
 import { assertCondition } from '../lib/errors';
-import { auth, db, messaging, storage } from '../lib/firebase';
+import { auth, db, storage } from '../lib/firebase';
 import {
   isValidTimeZone,
   optionalBoolean,
@@ -36,6 +36,7 @@ import {
   resolveProgressionTargets,
   resolveStripeEveryForBelt,
 } from '../services/progression';
+import { sendPushToUsers } from '../services/push';
 import { syncUserDerivedState } from '../services/userState';
 
 const CPF_LENGTH = 11;
@@ -403,12 +404,10 @@ async function createNotifications(params: {
   );
 
   const recipientTokens = new Map<string, string[]>();
-  const allTokens: string[] = [];
   for (let i = 0; i < recipientIds.length; i++) {
     const uid = recipientIds[i];
     const tokens = (userSnaps[i].data() as UserDoc | undefined)?.fcmTokens ?? [];
     recipientTokens.set(uid, tokens);
-    allTokens.push(...tokens);
   }
 
   const batch = db.batch();
@@ -433,23 +432,12 @@ async function createNotifications(params: {
   }
   await batch.commit();
 
-  if (allTokens.length > 0) {
-    try {
-      const chunks: string[][] = [];
-      for (let i = 0; i < allTokens.length; i += 500) {
-        chunks.push(allTokens.slice(i, i + 500));
-      }
-      for (const tokenChunk of chunks) {
-        await messaging.sendEachForMulticast({
-          tokens: tokenChunk,
-          notification: { title: params.title, body: params.body },
-          data: params.data,
-        });
-      }
-    } catch {
-      // Push delivery failure is non-fatal; notifications are persisted in Firestore
-    }
-  }
+  await sendPushToUsers({
+    tokensByUser: recipientTokens,
+    title: params.title,
+    body: params.body,
+    data: params.data,
+  });
 }
 
 async function listApproversForAcademy(academyId: string): Promise<string[]> {

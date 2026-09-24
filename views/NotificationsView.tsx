@@ -12,6 +12,7 @@ import {
 import { Bell, BellRing, CheckCircle2, ChevronDown, ChevronUp, ClipboardCheck, GraduationCap, Send, Trash2, X, XCircle } from 'lucide-react';
 import { useConfirm } from '../components/ConfirmDialog';
 import AppVideoContent from '../components/AppVideoContent';
+import PushOptInBanner from '../components/PushOptInBanner';
 import DateField from '../components/DateField';
 import type { FirestoreEntity } from '../services/firebase/data';
 import type {
@@ -913,6 +914,7 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
 
         {activeTab === 'notifications' ? (
           <section className="notice-mobile__list">
+            <PushOptInBanner />
             {error ? <div className="app-alert app-alert--error">{error}</div> : null}
 
             {renderClearButton(professorNotifications)}
@@ -1395,6 +1397,8 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
           </div>
         )}
       </section>
+
+      <PushOptInBanner />
 
       {isStudent ? (
         <section className="app-list">

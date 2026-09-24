@@ -20,16 +20,18 @@ if (firebaseConfig.apiKey && firebaseConfig.messagingSenderId) {
   firebase.initializeApp(firebaseConfig);
   const messaging = firebase.messaging();
 
-  // Mensagens com apenas "data" (sem bloco "notification") chegam aqui e
-  // precisam exibir a notificacao manualmente.
+  // Quando a mensagem traz o bloco "notification" (caso de todos os envios do
+  // servidor), o proprio SDK ja exibe a notificacao; exibir de novo aqui
+  // duplicaria. So as mensagens com apenas "data" precisam ser montadas a mao.
   messaging.onBackgroundMessage((payload) => {
-    const notification = payload.notification || {};
+    if (payload.notification) {
+      return;
+    }
     const data = payload.data || {};
-    const title = notification.title || data.title || 'APPLevel';
+    const title = data.title || 'LEVEL';
     const options = {
-      body: notification.body || data.body || '',
-      icon: notification.icon || data.icon || '/logo3.png',
-      badge: '/logo3.png',
+      body: data.body || '',
+      icon: data.icon || '/icon-192.png',
       data: { ...data, click_action: data.click_action || data.url || '/' },
     };
     self.registration.showNotification(title, options);

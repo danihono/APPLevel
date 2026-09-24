@@ -10,13 +10,14 @@ import {
 } from '../domain/models';
 import { getRequestContext } from '../lib/context';
 import { assertCondition } from '../lib/errors';
-import { db, messaging } from '../lib/firebase';
+import { db } from '../lib/firebase';
 import {
   optionalRecord,
   optionalString,
   optionalStringArray,
   requiredString,
 } from '../lib/payload';
+import { sendPushToUsers } from '../services/push';
 import { syncAllUsersInAcademy } from '../services/userState';
 
 const callableOptions = { region: 'southamerica-east1', invoker: 'public' as const };
@@ -167,6 +168,22 @@ export const registerDeviceToken = onCall(callableOptions, async (request) => {
   };
 });
 
+// Chamado no logout: o aparelho deixa de receber notificacoes desta conta
+// (senao, quem entrar depois no mesmo celular receberia as do usuario anterior).
+export const unregisterDeviceToken = onCall(callableOptions, async (request) => {
+  const actor = await getRequestContext(request, 'student');
+  const token = requiredString(request.data, 'token');
+
+  await db.collection(COLLECTIONS.users).doc(actor.uid).update({
+    fcmTokens: FieldValue.arrayRemove(token),
+    updatedAt: Timestamp.now(),
+  });
+
+  return {
+    unregistered: true,
+  };
+});
+
 export const sendSegmentedNotification = onCall(callableOptions, async (request) => {
   const actor = await getRequestContext(request, 'professor');
   const title = requiredString(request.data, 'title');
@@ -199,7 +216,7 @@ export const sendSegmentedNotification = onCall(callableOptions, async (request)
     .filter(({ id }) => !recipientUserIds || recipientUserIds.includes(id));
 
   const now = Timestamp.now();
-  const tokens: string[] = [];
+  const tokensByUser = new Map<string, string[]>();
 
   type PendingNotification = {
     ref: FirebaseFirestore.DocumentReference;
@@ -211,7 +228,7 @@ export const sendSegmentedNotification = onCall(callableOptions, async (request)
     const tokenList = recipient.data.fcmTokens ?? [];
     const hasToken = tokenList.length > 0;
     if (hasToken) {
-      tokens.push(...tokenList);
+      tokensByUser.set(recipient.id, tokenList);
     }
     return {
       ref: db.collection(COLLECTIONS.notifications).doc(),
@@ -243,26 +260,15 @@ export const sendSegmentedNotification = onCall(callableOptions, async (request)
     await writeBatch.commit();
   }
 
-  let sent = 0;
-  let failed = 0;
-  if (tokens.length > 0) {
-    try {
-      for (const tokenChunk of chunk(tokens, 500)) {
-        const response = await messaging.sendEachForMulticast({
-          tokens: tokenChunk,
-          notification: { title, body },
-          data,
-        });
-        sent += response.successCount;
-        failed += response.failureCount;
-      }
-    } catch {
-      failed = tokens.length;
-    }
-  }
+  const { tokens, sent, failed } = await sendPushToUsers({
+    tokensByUser,
+    title,
+    body,
+    data,
+  });
 
   // Update delivery status using the refs we already have — no re-query needed
-  const allFailed = tokens.length > 0 && failed === tokens.length;
+  const allFailed = tokens > 0 && failed === tokens;
   const deliveredAt = Timestamp.now();
   const toUpdate = pending.filter((entry) => entry.hasToken);
 
@@ -281,7 +287,7 @@ export const sendSegmentedNotification = onCall(callableOptions, async (request)
   return {
     academyId,
     recipients: recipients.length,
-    tokens: tokens.length,
+    tokens,
     sent,
     failed,
   };

@@ -9,6 +9,7 @@ import {
 } from 'firebase/auth';
 import { firebaseAuth } from './client';
 import { backendFunctions } from './functions';
+import { releasePushRegistration } from './messaging';
 
 export function subscribeToAuthState(listener: (user: User | null) => void) {
   return onAuthStateChanged(firebaseAuth, listener);
@@ -26,6 +27,8 @@ export async function requestPasswordReset(email: string) {
 }
 
 export async function logout() {
+  // Antes de sair: o aparelho para de receber notificacoes desta conta.
+  await releasePushRegistration();
   return signOut(firebaseAuth);
 }
 

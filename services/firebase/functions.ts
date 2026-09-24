@@ -461,6 +461,9 @@ export const backendFunctions = {
   registerDeviceToken: (payload: { token: string }) =>
     callFunction<{ registered: boolean }>('registerDeviceToken', payload),
 
+  unregisterDeviceToken: (payload: { token: string }) =>
+    callFunction<{ unregistered: boolean }>('unregisterDeviceToken', payload),
+
   sendSegmentedNotification: (payload: {
     title: string;
     body: string;

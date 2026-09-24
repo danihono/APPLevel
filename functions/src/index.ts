@@ -109,6 +109,7 @@ import {
   repairPendingGraduationNotifications,
   registerDeviceToken,
   sendSegmentedNotification,
+  unregisterDeviceToken,
 } from './modules/notifications';
 import { requestPasswordReset } from './modules/passwordReset';
 import { toggleClassRsvp } from './modules/rsvp';
@@ -196,6 +197,7 @@ export {
   syncUserMissionProgress,
   toggleClassRsvp,
   requestPasswordReset,
+  unregisterDeviceToken,
   transferJoinRequest,
   updateFinanceSale,
   updateJoinRequest,

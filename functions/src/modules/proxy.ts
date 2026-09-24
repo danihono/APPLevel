@@ -52,6 +52,7 @@ const ALLOWED_CALLABLES = new Set([
   'upsertMission',
   'syncUserMissionProgress',
   'registerDeviceToken',
+  'unregisterDeviceToken',
   'sendSegmentedNotification',
   'markNotificationRead',
   'clearNotifications',

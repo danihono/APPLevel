@@ -20,6 +20,7 @@ import {
 } from './classRules';
 import { normalizeAudienceRole } from './learningAudience';
 import { resolveFocusPeriod, type FocusPeriodPreset } from './calendarUtils';
+import { refreshPushRegistration } from './services/firebase/messaging';
 import { logout, reauthenticateCurrentUser, signInWithEmail, subscribeToAuthState, updateSignedInEmail } from './services/firebase/auth';
 import { toBranch, toUiUser, toUserVideoLibrary } from './services/firebase/adapters';
 import {
@@ -729,6 +730,14 @@ const App: React.FC = () => {
 
     window.localStorage.setItem(`${THEME_STORAGE_PREFIX}:${themeScope}`, isDarkMode ? 'dark' : 'light');
   }, [isDarkMode, themeScope]);
+
+  // Com a sessao validada, reconfirma o cadastro do aparelho para notificacoes
+  // (so age se a pessoa ja tiver permitido; nao pergunta nada aqui).
+  useEffect(() => {
+    if (authUser?.uid && profile?.id) {
+      void refreshPushRegistration();
+    }
+  }, [authUser?.uid, profile?.id]);
 
   useEffect(() => {
     const unsubscribe = subscribeToAuthState((nextUser) => {
