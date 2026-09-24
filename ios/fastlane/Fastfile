@@ -127,18 +127,43 @@ platform :ios do
 
     build_number = next_build_number(api_key: key)
 
-    # A Apple so recusa versao repetida no fim do upload, depois de compilar e
-    # assinar. Como `next_build_number` ja consultou a App Store Connect, da
-    # para barrar aqui e economizar alguns minutos por tentativa.
-    publicada = lane_context[SharedValues::LATEST_TESTFLIGHT_VERSION].to_s.strip
+    # A Apple so recusa versao repetida no fim do upload, depois de compilar e assinar; barrar
+    # aqui economiza alguns minutos por tentativa. Mas o que fecha o train e a versao
+    # PUBLICADA, nao a que ja foi ao TestFlight: uma versao ainda nao publicada (em preparacao,
+    # rejeitada pela Apple ou retirada pelo desenvolvedor) aceita build nova com o mesmo numero,
+    # desde que o build number suba — e disso o `next_build_number` ja cuida.
+    publicada = begin
+      app_store_build_number(
+        api_key: key,
+        app_identifier: APP_IDENTIFIER,
+        live: true
+      )
+      lane_context[SharedValues::LATEST_VERSION].to_s.strip
+    rescue => e
+      # App sem nenhuma versao publicada, ou falha de rede: segue sem a checagem, como era antes
+      # de ela existir. Se a versao estiver mesmo fechada, a Apple recusa no upload.
+      UI.important("Nao foi possivel ler a versao publicada na App Store (#{e.message}); seguindo sem a checagem.")
+      ""
+    end
+
     unless publicada.empty?
       if Gem::Version.new(marketing_version) <= Gem::Version.new(publicada)
         UI.user_error!(
-          "A versao #{marketing_version} nao e maior que a #{publicada}, ja enviada " \
-          "para a App Store. Rode de novo informando um numero maior (ex.: " \
-          "#{publicada.split('.').tap { |p| p[-1] = (p[-1].to_i + 1).to_s }.join('.')})."
+          "A versao #{marketing_version} nao e maior que a #{publicada}, ja publicada na " \
+          "App Store. Esse numero esta fechado para novas builds; rode de novo informando um " \
+          "maior (ex.: #{publicada.split('.').tap { |p| p[-1] = (p[-1].to_i + 1).to_s }.join('.')})."
         )
       end
+    end
+
+    # Reenvio para uma versao que ja tem build no TestFlight mas ainda nao foi publicada: e o
+    # fluxo normal de corrigir uma submissao retirada. Avisa, nao barra.
+    no_testflight = lane_context[SharedValues::LATEST_TESTFLIGHT_VERSION].to_s.strip
+    if !no_testflight.empty? && Gem::Version.new(marketing_version) <= Gem::Version.new(no_testflight)
+      UI.important(
+        "A versao #{marketing_version} ja tem build no TestFlight e ainda nao foi publicada: " \
+        "esta vai entrar como build #{build_number} na mesma versao."
+      )
     end
 
     UI.message("Versao #{marketing_version} (build #{build_number})")
