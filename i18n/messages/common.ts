@@ -19,4 +19,10 @@ export const commonMessages: MessageCatalog = {
   "Abrir video": { en: "Open video", es: "Abrir video" },
   "Video indisponivel.": { en: "Video unavailable.", es: "Video no disponible." },
   "Este video usa um link externo e sera aberto fora do player interno.": { en: "This video uses an external link and will open outside the built-in player.", es: "Este video usa un enlace externo y se abrirá fuera del reproductor interno." },
+  "Luta vs {name}": { en: "Fight vs {name}", es: "Lucha vs {name}" },
+  "Video de luta": { en: "Fight video", es: "Video de lucha" },
+  "Fuso horário inválido: \"{zone}\". Use um identificador IANA, como America/Sao_Paulo.": { en: "Invalid time zone: \"{zone}\". Use an IANA identifier, such as America/Sao_Paulo.", es: "Huso horario inválido: \"{zone}\". Usa un identificador IANA, como America/Sao_Paulo." },
+  "Envie apenas video, PDF ou imagem para o modulo.": { en: "Upload only video, PDF or image for the module.", es: "Sube solo video, PDF o imagen para el módulo." },
+  "Envie apenas arquivos de video.": { en: "Upload only video files.", es: "Sube solo archivos de video." },
+  "Sua sessao expirou. Entre novamente.": { en: "Your session has expired. Please sign in again.", es: "Tu sesión expiró. Inicia sesión de nuevo." },
 };

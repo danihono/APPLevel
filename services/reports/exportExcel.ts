@@ -7,12 +7,13 @@ import { saveAs } from 'file-saver';
 import type { FinanceReport, ReportTable } from './reportData';
 import { LEVEL_BRAND, argb, loadLogoDataUrl } from './brand';
 import { formatDateTimeBR } from './format';
+import { t } from '../../i18n';
 
 const MONEY_FMT = 'R$ #,##0.00';
 
 // Nomes de aba do Excel: max 31 chars e sem os caracteres : \ / ? * [ ]
 function safeSheetName(name: string, used: Set<string>): string {
-  let base = name.replace(/[:\\/?*[\]]/g, ' ').slice(0, 31).trim() || 'Aba';
+  let base = name.replace(/[:\\/?*[\]]/g, ' ').slice(0, 31).trim() || t('Aba');
   let candidate = base;
   let i = 2;
   while (used.has(candidate.toLowerCase())) {
@@ -85,7 +86,7 @@ function addTableSheet(workbook: Workbook, table: ReportTable, used: Set<string>
 
   if (table.rows.length === 0) {
     const emptyRow = sheet.addRow({});
-    emptyRow.getCell(1).value = 'Sem registros no periodo.';
+    emptyRow.getCell(1).value = t('Sem registros no periodo.');
     emptyRow.getCell(1).font = { italic: true, color: { argb: argb(LEVEL_BRAND.muted) } };
   }
 
@@ -108,7 +109,7 @@ function addTableSheet(workbook: Workbook, table: ReportTable, used: Set<string>
 }
 
 async function addSummarySheet(workbook: Workbook, report: FinanceReport): Promise<void> {
-  const sheet = workbook.addWorksheet('Resumo');
+  const sheet = workbook.addWorksheet(t('Resumo'));
   sheet.getColumn(1).width = 30;
   sheet.getColumn(2).width = 26;
 
@@ -122,13 +123,13 @@ async function addSummarySheet(workbook: Workbook, report: FinanceReport): Promi
   sheet.getRow(1).height = 48;
 
   const title = sheet.getCell('B1');
-  title.value = 'Relatorio Financeiro';
+  title.value = t('Relatorio Financeiro');
   title.font = { bold: true, size: 18, color: { argb: argb(LEVEL_BRAND.goldDark) } };
 
   const meta: Array<[string, string]> = [
-    ['Periodo', report.meta.periodLabel],
-    ['Filial', report.meta.academyLabel],
-    ['Gerado em', formatDateTimeBR(report.meta.generatedAt)],
+    [t('Periodo'), report.meta.periodLabel],
+    [t('Filial'), report.meta.academyLabel],
+    [t('Gerado em'), formatDateTimeBR(report.meta.generatedAt)],
   ];
   let rowNum = 3;
   for (const [label, value] of meta) {
@@ -140,23 +141,23 @@ async function addSummarySheet(workbook: Workbook, report: FinanceReport): Promi
 
   rowNum += 1;
   const kpiHeaderRow = rowNum;
-  sheet.getCell(`A${kpiHeaderRow}`).value = 'Indicador';
-  sheet.getCell(`B${kpiHeaderRow}`).value = 'Valor';
+  sheet.getCell(`A${kpiHeaderRow}`).value = t('Indicador');
+  sheet.getCell(`B${kpiHeaderRow}`).value = t('Valor');
   styleHeaderRow(sheet, kpiHeaderRow, 2);
   rowNum += 1;
 
   const s = report.summary;
   const kpis: Array<[string, number, boolean]> = [
-    ['Entradas (receitas recebidas)', s.entradas, true],
-    ['Saidas (despesas)', s.saidas, true],
-    ['Saldo do periodo', s.saldo, true],
-    ['Vendas (bruto)', s.vendasTotal, true],
-    ['Pagamentos recebidos', s.pagamentosTotal, true],
-    ['Pendencias (a receber)', s.pendencias, true],
-    ['Lucro bruto', s.lucroBruto, true],
-    ['Ticket medio', s.ticketMedio, true],
-    ['Vales em aberto', s.valesAbertos, true],
-    ['Qtd. de vendas', s.qtdVendas, false],
+    [t('Entradas (receitas recebidas)'), s.entradas, true],
+    [t('Saidas (despesas)'), s.saidas, true],
+    [t('Saldo do periodo'), s.saldo, true],
+    [t('Vendas (bruto)'), s.vendasTotal, true],
+    [t('Pagamentos recebidos'), s.pagamentosTotal, true],
+    [t('Pendencias (a receber)'), s.pendencias, true],
+    [t('Lucro bruto'), s.lucroBruto, true],
+    [t('Ticket medio'), s.ticketMedio, true],
+    [t('Vales em aberto'), s.valesAbertos, true],
+    [t('Qtd. de vendas'), s.qtdVendas, false],
   ];
   kpis.forEach(([label, value, money], idx) => {
     const r = sheet.getRow(rowNum);
@@ -173,7 +174,7 @@ async function addSummarySheet(workbook: Workbook, report: FinanceReport): Promi
   });
 
   const note = sheet.getCell(`A${rowNum + 1}`);
-  note.value = 'Entradas usam as receitas recebidas (razao de caixa). Vendas e pagamentos sao detalhe e nao somam nas entradas.';
+  note.value = t('Entradas usam as receitas recebidas (razao de caixa). Vendas e pagamentos sao detalhe e nao somam nas entradas.');
   note.font = { italic: true, size: 9, color: { argb: argb(LEVEL_BRAND.muted) } };
 }
 
@@ -185,15 +186,15 @@ export async function exportFinanceReportExcel(report: FinanceReport): Promise<v
   const used = new Set<string>();
   if (report.blocks.includes('resumo')) {
     await addSummarySheet(workbook, report);
-    used.add('resumo');
+    used.add(t('Resumo').toLowerCase());
   }
   for (const table of report.tables) {
     addTableSheet(workbook, table, used);
   }
   // Garante ao menos uma aba.
   if (workbook.worksheets.length === 0) {
-    const sheet = workbook.addWorksheet('Relatorio');
-    sheet.getCell('A1').value = 'Nenhum bloco selecionado.';
+    const sheet = workbook.addWorksheet(t('Relatorio'));
+    sheet.getCell('A1').value = t('Nenhum bloco selecionado.');
   }
 
   const buffer = await workbook.xlsx.writeBuffer();

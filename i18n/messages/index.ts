@@ -1,4 +1,5 @@
 import type { MessageCatalog } from './types';
+import { reportsMessages } from './reports';
 import { financeMessages } from './finance';
 import { superadminMessages } from './superadmin';
 import { notificationsMessages } from './notifications';
@@ -49,4 +50,5 @@ export const messages: MessageCatalog = {
   ...notificationsMessages,
   ...superadminMessages,
   ...financeMessages,
+  ...reportsMessages,
 };

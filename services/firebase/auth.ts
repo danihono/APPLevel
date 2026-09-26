@@ -10,6 +10,7 @@ import {
 import { firebaseAuth } from './client';
 import { backendFunctions } from './functions';
 import { releasePushRegistration } from './messaging';
+import { t } from '../../i18n';
 
 export function subscribeToAuthState(listener: (user: User | null) => void) {
   return onAuthStateChanged(firebaseAuth, listener);
@@ -35,7 +36,7 @@ export async function logout() {
 export async function updateSignedInEmail(currentPassword: string, nextEmail: string) {
   const currentUser = firebaseAuth.currentUser;
   if (!currentUser || !currentUser.email) {
-    throw new Error('Sua sessao expirou. Entre novamente.');
+    throw new Error(t('Sua sessao expirou. Entre novamente.'));
   }
 
   const credential = EmailAuthProvider.credential(currentUser.email, currentPassword);
@@ -46,7 +47,7 @@ export async function updateSignedInEmail(currentPassword: string, nextEmail: st
 export async function reauthenticateCurrentUser(currentPassword: string) {
   const currentUser = firebaseAuth.currentUser;
   if (!currentUser || !currentUser.email) {
-    throw new Error('Sua sessao expirou. Entre novamente.');
+    throw new Error(t('Sua sessao expirou. Entre novamente.'));
   }
 
   const credential = EmailAuthProvider.credential(currentUser.email, currentPassword);

@@ -2398,7 +2398,9 @@ const App: React.FC = () => {
       fights,
       submissions: currentUserFightVideoSubmissions,
     }),
-    [currentUserFightVideoSubmissions, fights],
+    // language: os titulos gerados ("Luta vs ...") acompanham o idioma.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [currentUserFightVideoSubmissions, fights, language],
   );
 
   const studentVideoLibraryById = useMemo(() => {
@@ -2434,7 +2436,8 @@ const App: React.FC = () => {
     }
 
     return next;
-  }, [academyFights, fightVideoSubmissions]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [academyFights, fightVideoSubmissions, language]);
 
   if (!authReady) {
     return <LoadingScreen message={t('Validando a sua sessao com o Firebase.')} />;

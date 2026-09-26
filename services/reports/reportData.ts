@@ -14,7 +14,7 @@ import type {
   FinanceWithdrawalRecord,
 } from '../firebase/models';
 import { LEVEL_CATALOG_ID } from '../firebase/models';
-import { getLocale } from '../../i18n';
+import { t, getLocale } from '../../i18n';
 
 export type ReportBlock =
   | 'resumo'
@@ -129,8 +129,8 @@ function isWithin(date: Date | null, startValue: string, endValue: string): bool
 }
 
 function academyName(academies: Array<FirestoreEntity<AcademyRecord>>, academyId: string): string {
-  if (academyId === LEVEL_CATALOG_ID) return 'Diretoria';
-  return academies.find((academy) => academy.id === academyId)?.name ?? 'Filial';
+  if (academyId === LEVEL_CATALOG_ID) return t('Diretoria');
+  return academies.find((academy) => academy.id === academyId)?.name ?? t('Filial');
 }
 
 const STATUS_LABELS: Record<string, string> = {
@@ -146,7 +146,7 @@ const STATUS_LABELS: Record<string, string> = {
 };
 
 function statusLabel(status: string): string {
-  return STATUS_LABELS[status] ?? status ?? '-';
+  return STATUS_LABELS[status] ? t(STATUS_LABELS[status]) : (status ?? '-');
 }
 
 const ORIGIN_LABELS: Record<string, string> = {
@@ -168,7 +168,7 @@ function round2(value: number): number {
 function formatPeriodLabel(startValue: string, endValue: string): string {
   const start = parseInputDate(startValue);
   const end = parseInputDate(endValue);
-  return `${start.toLocaleDateString(getLocale())} a ${end.toLocaleDateString(getLocale())}`;
+  return t('{start} a {end}', { start: start.toLocaleDateString(getLocale()), end: end.toLocaleDateString(getLocale()) });
 }
 
 export function buildFinanceReport(params: BuildReportParams): FinanceReport {
@@ -246,25 +246,25 @@ export function buildFinanceReport(params: BuildReportParams): FinanceReport {
   if (blocks.includes('vendas')) {
     tables.push({
       id: 'vendas',
-      title: 'Vendas',
+      title: t('Vendas'),
       columns: [
-        { key: 'data', label: 'Data' },
-        { key: 'filial', label: 'Filial' },
-        { key: 'cliente', label: 'Cliente / Comprador' },
-        { key: 'tipo', label: 'Tipo' },
-        { key: 'subtotal', label: 'Subtotal', money: true },
-        { key: 'desconto', label: 'Desconto', money: true },
-        { key: 'total', label: 'Total', money: true },
-        { key: 'recebido', label: 'Recebido', money: true },
-        { key: 'saldo', label: 'Saldo', money: true },
-        { key: 'status', label: 'Status' },
+        { key: 'data', label: t('Data') },
+        { key: 'filial', label: t('Filial') },
+        { key: 'cliente', label: t('Cliente / Comprador') },
+        { key: 'tipo', label: t('Tipo') },
+        { key: 'subtotal', label: t('Subtotal'), money: true },
+        { key: 'desconto', label: t('Desconto'), money: true },
+        { key: 'total', label: t('Total'), money: true },
+        { key: 'recebido', label: t('Recebido'), money: true },
+        { key: 'saldo', label: t('Saldo'), money: true },
+        { key: 'status', label: t('Status') },
       ],
       totalKey: 'total',
       rows: scopedSales.map((sale) => ({
         data: (toDate(sale.saleDate ?? sale.createdAt) ?? new Date()).toLocaleDateString(getLocale()),
         filial: academyName(academies, sale.academyId),
         cliente: sale.customerName ?? '-',
-        tipo: sale.saleType === 'service' ? 'Servico' : sale.saleType === 'product' ? 'Produto' : '-',
+        tipo: sale.saleType === 'service' ? t('Servico') : sale.saleType === 'product' ? t('Produto') : '-',
         subtotal: round2(sale.subtotal),
         desconto: round2(sale.discountTotal),
         total: round2(sale.total),
@@ -278,13 +278,13 @@ export function buildFinanceReport(params: BuildReportParams): FinanceReport {
   if (blocks.includes('pagamentos')) {
     tables.push({
       id: 'pagamentos',
-      title: 'Pagamentos',
+      title: t('Pagamentos'),
       columns: [
-        { key: 'data', label: 'Data' },
-        { key: 'filial', label: 'Filial' },
-        { key: 'metodo', label: 'Metodo' },
-        { key: 'status', label: 'Status' },
-        { key: 'valor', label: 'Valor', money: true },
+        { key: 'data', label: t('Data') },
+        { key: 'filial', label: t('Filial') },
+        { key: 'metodo', label: t('Metodo') },
+        { key: 'status', label: t('Status') },
+        { key: 'valor', label: t('Valor'), money: true },
       ],
       totalKey: 'valor',
       rows: scopedPayments.map((payment) => ({
@@ -300,15 +300,15 @@ export function buildFinanceReport(params: BuildReportParams): FinanceReport {
   if (blocks.includes('receitas')) {
     tables.push({
       id: 'receitas',
-      title: 'Receitas (entradas)',
+      title: t('Receitas (entradas)'),
       columns: [
-        { key: 'data', label: 'Data' },
-        { key: 'filial', label: 'Filial' },
-        { key: 'categoria', label: 'Categoria' },
-        { key: 'descricao', label: 'Descricao' },
-        { key: 'origem', label: 'Origem' },
-        { key: 'metodo', label: 'Metodo' },
-        { key: 'valor', label: 'Valor', money: true },
+        { key: 'data', label: t('Data') },
+        { key: 'filial', label: t('Filial') },
+        { key: 'categoria', label: t('Categoria') },
+        { key: 'descricao', label: t('Descricao') },
+        { key: 'origem', label: t('Origem') },
+        { key: 'metodo', label: t('Metodo') },
+        { key: 'valor', label: t('Valor'), money: true },
       ],
       totalKey: 'valor',
       rows: scopedRevenues.map((revenue) => ({
@@ -316,7 +316,7 @@ export function buildFinanceReport(params: BuildReportParams): FinanceReport {
         filial: academyName(academies, revenue.academyId),
         categoria: revenue.category ?? '-',
         descricao: revenue.description ?? '-',
-        origem: ORIGIN_LABELS[revenue.origin] ?? revenue.origin,
+        origem: ORIGIN_LABELS[revenue.origin] ? t(ORIGIN_LABELS[revenue.origin]) : revenue.origin,
         metodo: revenue.paymentMethod ?? '-',
         valor: round2(revenue.amount),
       })),
@@ -326,15 +326,15 @@ export function buildFinanceReport(params: BuildReportParams): FinanceReport {
   if (blocks.includes('despesas')) {
     tables.push({
       id: 'despesas',
-      title: 'Despesas (saidas)',
+      title: t('Despesas (saidas)'),
       columns: [
-        { key: 'data', label: 'Data' },
-        { key: 'filial', label: 'Filial' },
-        { key: 'categoria', label: 'Categoria' },
-        { key: 'descricao', label: 'Descricao' },
-        { key: 'fornecedor', label: 'Fornecedor' },
-        { key: 'status', label: 'Status' },
-        { key: 'valor', label: 'Valor', money: true },
+        { key: 'data', label: t('Data') },
+        { key: 'filial', label: t('Filial') },
+        { key: 'categoria', label: t('Categoria') },
+        { key: 'descricao', label: t('Descricao') },
+        { key: 'fornecedor', label: t('Fornecedor') },
+        { key: 'status', label: t('Status') },
+        { key: 'valor', label: t('Valor'), money: true },
       ],
       totalKey: 'valor',
       rows: scopedExpenses.map((expense) => ({
@@ -368,22 +368,22 @@ export function buildFinanceReport(params: BuildReportParams): FinanceReport {
   if (blocks.includes('maisVendidos')) {
     tables.push({
       id: 'topProdutos',
-      title: 'Produtos mais vendidos',
+      title: t('Produtos mais vendidos'),
       columns: [
-        { key: 'produto', label: 'Produto' },
-        { key: 'quantidade', label: 'Quantidade', numeric: true },
-        { key: 'total', label: 'Total', money: true },
+        { key: 'produto', label: t('Produto') },
+        { key: 'quantidade', label: t('Quantidade'), numeric: true },
+        { key: 'total', label: t('Total'), money: true },
       ],
       totalKey: 'total',
       rows: topProdutos.map((p) => ({ produto: p.name, quantidade: p.quantity, total: round2(p.total) })),
     });
     tables.push({
       id: 'topServicos',
-      title: 'Servicos mais vendidos',
+      title: t('Servicos mais vendidos'),
       columns: [
-        { key: 'servico', label: 'Servico' },
-        { key: 'quantidade', label: 'Quantidade', numeric: true },
-        { key: 'total', label: 'Total', money: true },
+        { key: 'servico', label: t('Servico') },
+        { key: 'quantidade', label: t('Quantidade'), numeric: true },
+        { key: 'total', label: t('Total'), money: true },
       ],
       totalKey: 'total',
       rows: topServicos.map((s) => ({ servico: s.name, quantidade: s.quantity, total: round2(s.total) })),
@@ -393,15 +393,15 @@ export function buildFinanceReport(params: BuildReportParams): FinanceReport {
   if (blocks.includes('vales')) {
     tables.push({
       id: 'vales',
-      title: 'Vales (retiradas)',
+      title: t('Vales (retiradas)'),
       columns: [
-        { key: 'data', label: 'Data' },
-        { key: 'quemRetirou', label: 'Quem retirou' },
-        { key: 'itens', label: 'Itens' },
-        { key: 'total', label: 'Total', money: true },
-        { key: 'recebido', label: 'Recebido', money: true },
-        { key: 'saldo', label: 'Saldo', money: true },
-        { key: 'status', label: 'Status' },
+        { key: 'data', label: t('Data') },
+        { key: 'quemRetirou', label: t('Quem retirou') },
+        { key: 'itens', label: t('Itens') },
+        { key: 'total', label: t('Total'), money: true },
+        { key: 'recebido', label: t('Recebido'), money: true },
+        { key: 'saldo', label: t('Saldo'), money: true },
+        { key: 'status', label: t('Status') },
       ],
       totalKey: 'saldo',
       rows: scopedWithdrawals.map((withdrawal) => ({
@@ -416,7 +416,7 @@ export function buildFinanceReport(params: BuildReportParams): FinanceReport {
     });
   }
 
-  const academyLabel = academyId ? academyName(academies, academyId) : 'Todas as filiais';
+  const academyLabel = academyId ? academyName(academies, academyId) : t('Todas as filiais');
 
   return {
     meta: {

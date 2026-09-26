@@ -12,6 +12,7 @@ import {
 import { firebaseDb, firebaseStorage } from './client';
 import { cacheAvatar, compressAvatarImage } from '../avatarCache';
 import { isValidTimeZone } from '../../calendarUtils';
+import { t } from '../../i18n';
 
 type EditableUserProfile = {
   firstName?: string;
@@ -46,7 +47,7 @@ function assertLearningAssetType(file: File) {
     return mimeType;
   }
 
-  throw new Error('Envie apenas video, PDF ou imagem para o modulo.');
+  throw new Error(t('Envie apenas video, PDF ou imagem para o modulo.'));
 }
 
 function assertVideoAssetType(file: File) {
@@ -55,7 +56,7 @@ function assertVideoAssetType(file: File) {
     return mimeType;
   }
 
-  throw new Error('Envie apenas arquivos de video.');
+  throw new Error(t('Envie apenas arquivos de video.'));
 }
 
 export async function updateUserProfile(userId: string, payload: EditableUserProfile) {
@@ -155,7 +156,7 @@ export async function updateAcademySettings(
   // Fuso invalido zera as estatisticas por dia/horario da Central sem nenhum erro visivel —
   // barramos na escrita para o dado nunca chegar corrompido no documento.
   if (payload.timezone !== undefined && !isValidTimeZone(payload.timezone)) {
-    throw new Error(`Fuso horário inválido: "${payload.timezone}". Use um identificador IANA, como America/Sao_Paulo.`);
+    throw new Error(t('Fuso horário inválido: "{zone}". Use um identificador IANA, como America/Sao_Paulo.', { zone: payload.timezone }));
   }
 
   await updateDoc(doc(firebaseDb, 'academies', academyId), {

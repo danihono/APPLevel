@@ -16,7 +16,7 @@ import type {
   UserRecord,
 } from './models';
 import type { FirestoreEntity } from './data';
-import { getLocale } from '../../i18n';
+import { t, getLocale } from '../../i18n';
 
 function normalizeTimestamp(value?: Timestamp | Date | null): Date | null {
   if (!value) {
@@ -60,7 +60,7 @@ export function formatDate(value?: Timestamp | Date | null): string {
 export function formatDateLabel(value?: Timestamp | Date | null): string {
   const normalized = normalizeTimestamp(value);
   if (!normalized) {
-    return 'Sem registro';
+    return t('Sem registro');
   }
 
   return normalized.toLocaleDateString(getLocale());
@@ -100,7 +100,7 @@ export function toBeltColor(belt?: string) {
 export function toBranch(academy: FirestoreEntity<AcademyRecord> | null): Branch {
   return {
     id: academy?.id ?? 'academy',
-    name: academy?.name ?? 'Academia',
+    name: academy?.name ?? t('Academia'),
     location: academy?.timezone ?? 'America/Sao_Paulo',
     commissionBalance: 0,
   };
@@ -114,7 +114,7 @@ export function toUserVideoLibrary(params: {
     .filter((fight) => !!fight.videoUrl)
     .map((fight) => ({
       id: fight.id,
-      title: fight.opponentName ? `Luta vs ${fight.opponentName}` : 'Video de luta',
+      title: fight.opponentName ? t('Luta vs {name}', { name: fight.opponentName }) : t('Video de luta'),
       url: fight.videoUrl as string,
       date: formatDateLabel(fight.occurredAt),
       sourceKind: getVideoSourceKindFromUrl(fight.videoUrl as string),

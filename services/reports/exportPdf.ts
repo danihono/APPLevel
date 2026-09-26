@@ -7,6 +7,7 @@ import autoTable from 'jspdf-autotable';
 import type { FinanceReport, ReportTable } from './reportData';
 import { LEVEL_BRAND, hexToRgb, loadLogoDataUrl } from './brand';
 import { formatBRL, formatDateTimeBR } from './format';
+import { t } from '../../i18n';
 
 const MARGIN = 40;
 
@@ -26,8 +27,8 @@ function drawFooter(doc: jsPDF): void {
   const page = doc.getNumberOfPages();
   doc.setFontSize(8);
   doc.setTextColor(MUTED[0], MUTED[1], MUTED[2]);
-  doc.text('Level - Relatorio Financeiro', MARGIN, pageHeight - 18);
-  doc.text(`Pagina ${page}`, pageWidth - MARGIN, pageHeight - 18, { align: 'right' });
+  doc.text(t('Level - Relatorio Financeiro'), MARGIN, pageHeight - 18);
+  doc.text(t('Pagina {page}', { page }), pageWidth - MARGIN, pageHeight - 18, { align: 'right' });
 }
 
 async function drawHeader(doc: jsPDF, report: FinanceReport): Promise<number> {
@@ -50,7 +51,7 @@ async function drawHeader(doc: jsPDF, report: FinanceReport): Promise<number> {
   doc.setTextColor(LIGHT[0], LIGHT[1], LIGHT[2]);
   doc.setFontSize(20);
   doc.setFont('helvetica', 'bold');
-  doc.text('Relatorio Financeiro', pageWidth - MARGIN, 40, { align: 'right' });
+  doc.text(t('Relatorio Financeiro'), pageWidth - MARGIN, 40, { align: 'right' });
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(10);
   doc.setTextColor(GOLD[0], GOLD[1], GOLD[2]);
@@ -59,7 +60,7 @@ async function drawHeader(doc: jsPDF, report: FinanceReport): Promise<number> {
   doc.text(report.meta.academyLabel, pageWidth - MARGIN, 72, { align: 'right' });
   doc.setFontSize(8);
   doc.setTextColor(MUTED[0], MUTED[1], MUTED[2]);
-  doc.text(`Gerado em ${formatDateTimeBR(report.meta.generatedAt)}`, pageWidth - MARGIN, 86, {
+  doc.text(t('Gerado em {date}', { date: formatDateTimeBR(report.meta.generatedAt) }), pageWidth - MARGIN, 86, {
     align: 'right',
   });
 
@@ -74,9 +75,9 @@ function drawKpiCards(doc: jsPDF, report: FinanceReport, startY: number): number
   const cardH = 60;
   const s = report.summary;
   const cards: Array<{ label: string; value: string; color: [number, number, number] }> = [
-    { label: 'ENTRADAS', value: formatBRL(s.entradas), color: SUCCESS },
-    { label: 'SAIDAS', value: formatBRL(s.saidas), color: DANGER },
-    { label: 'SALDO', value: formatBRL(s.saldo), color: GOLD_DARK },
+    { label: t('ENTRADAS'), value: formatBRL(s.entradas), color: SUCCESS },
+    { label: t('SAIDAS'), value: formatBRL(s.saidas), color: DANGER },
+    { label: t('SALDO'), value: formatBRL(s.saldo), color: GOLD_DARK },
   ];
   cards.forEach((card, i) => {
     const x = MARGIN + i * (cardW + gap);
@@ -99,13 +100,13 @@ function drawKpiCards(doc: jsPDF, report: FinanceReport, startY: number): number
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(20, 20, 26);
   const secondary = [
-    `Vendas (bruto): ${formatBRL(s.vendasTotal)}`,
-    `Pagamentos: ${formatBRL(s.pagamentosTotal)}`,
-    `Pendencias: ${formatBRL(s.pendencias)}`,
-    `Lucro bruto: ${formatBRL(s.lucroBruto)}`,
-    `Ticket medio: ${formatBRL(s.ticketMedio)}`,
-    `Vales em aberto: ${formatBRL(s.valesAbertos)}`,
-    `Qtd. vendas: ${s.qtdVendas}`,
+    `${t('Vendas (bruto)')}: ${formatBRL(s.vendasTotal)}`,
+    `${t('Pagamentos')}: ${formatBRL(s.pagamentosTotal)}`,
+    `${t('Pendencias')}: ${formatBRL(s.pendencias)}`,
+    `${t('Lucro bruto')}: ${formatBRL(s.lucroBruto)}`,
+    `${t('Ticket medio')}: ${formatBRL(s.ticketMedio)}`,
+    `${t('Vales em aberto')}: ${formatBRL(s.valesAbertos)}`,
+    `${t('Qtd. vendas')}: ${s.qtdVendas}`,
   ];
   secondary.forEach((line) => {
     doc.text(line, MARGIN, y);
@@ -190,7 +191,7 @@ function renderTableSection(doc: jsPDF, table: ReportTable, startY: number): num
   autoTable(doc, {
     startY: startY + 8,
     head: [table.columns.map((c) => c.label)],
-    body: body.length > 0 ? body : [[{ content: 'Sem registros no periodo.', colSpan: table.columns.length } as unknown as string]],
+    body: body.length > 0 ? body : [[{ content: t('Sem registros no periodo.'), colSpan: table.columns.length } as unknown as string]],
     foot,
     styles: { fontSize: 8, cellPadding: 3, textColor: [30, 30, 36] },
     headStyles: { fillColor: GOLD, textColor: ON_GOLD, fontStyle: 'bold' },
@@ -216,17 +217,17 @@ export async function exportFinanceReportPdf(report: FinanceReport): Promise<voi
     y = drawKpiCards(doc, report, y);
     y = drawBarChart(
       doc,
-      'Entradas x Saidas',
+      t('Entradas x Saidas'),
       [
-        { label: 'Entradas', value: report.summary.entradas, color: SUCCESS },
-        { label: 'Saidas', value: report.summary.saidas, color: DANGER },
+        { label: t('Entradas'), value: report.summary.entradas, color: SUCCESS },
+        { label: t('Saidas'), value: report.summary.saidas, color: DANGER },
       ],
       y + 6,
     );
     if (report.chart.topProdutos.length > 0) {
       y = drawBarChart(
         doc,
-        'Top produtos (por valor)',
+        t('Top produtos (por valor)'),
         report.chart.topProdutos.map((p) => ({ label: p.name, value: p.total, color: GOLD })),
         y + 4,
       );
