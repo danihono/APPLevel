@@ -4,6 +4,7 @@ import { formatDateLabel, formatTimeLabel } from '../services/firebase/adapters'
 import type { FirestoreEntity } from '../services/firebase/data';
 import type { ClassRecord } from '../services/firebase/models';
 import { MAX_BEGINNER_STRIPES, isBeginnerClassType } from '../classRules';
+import { t } from '../i18n';
 
 interface ClassSessionCardProps {
   lesson: FirestoreEntity<ClassRecord>;
@@ -20,41 +21,41 @@ const ALL_TYPE_CODES = new Set([...INFANTIL_TYPES, ...PERFORMANCE_TYPES, ...DESE
 
 function toCategory(lesson: FirestoreEntity<ClassRecord>) {
   const desc = lesson.description ?? '';
-  if (INFANTIL_TYPES.has(desc))       return 'Infantil';
-  if (PERFORMANCE_TYPES.has(desc))    return 'Performance';
-  if (DESENVOLVIMENTO_TYPES.has(desc)) return 'Desenvolvimento';
+  if (INFANTIL_TYPES.has(desc))       return t('Infantil');
+  if (PERFORMANCE_TYPES.has(desc))    return t('Performance');
+  if (DESENVOLVIMENTO_TYPES.has(desc)) return t('Desenvolvimento');
 
   const source = `${lesson.title} ${desc}`.toLowerCase();
-  if (source.includes('kids'))                                 return 'Kids';
-  if (source.includes('advanced') || source.includes('avanc')) return 'Advanced';
-  if (source.includes('no-gi') || source.includes('nogi'))     return 'No-Gi';
-  return 'Adulto';
+  if (source.includes('kids'))                                 return t('Kids');
+  if (source.includes('advanced') || source.includes('avanc')) return t('Advanced');
+  if (source.includes('no-gi') || source.includes('nogi'))     return t('No-Gi');
+  return t('Adulto');
 }
 
 function toRules(lesson: FirestoreEntity<ClassRecord>) {
   const desc = lesson.description ?? '';
   const source = `${lesson.title} ${desc}`.toLowerCase();
-  const sex = source.includes('femin') ? 'Feminino' : source.includes('masc') ? 'Masculino' : 'Misto';
+  const sex = source.includes('femin') ? t('Feminino') : source.includes('masc') ? t('Masculino') : t('Misto');
   const isSportVida = desc === 'sport' || desc === 'vida';
   // A regra da iniciante e a unica que o backend aplica de verdade (classRules.ts), entao ela
   // sai do CODIGO da turma, nao de um `includes` no titulo. As demais continuam informativas.
   const isBeginner = isBeginnerClassType(desc);
   const belt = source.includes('advanced') || source.includes('avanc')
-    ? 'Azul+'
+    ? t('Azul+')
     : source.includes('kids')
-      ? 'Kids'
+      ? t('Kids')
       : isBeginner
-        ? 'Branca'
+        ? t('Branca')
         : isSportVida
-          ? 'Branca+'
-          : 'Livre';
+          ? t('Branca+')
+          : t('Livre');
   const grade = source.includes('advanced') || source.includes('avanc')
-    ? 'Intermediário/Avançado'
+    ? t('Intermediário/Avançado')
     : isBeginner
-      ? `até ${MAX_BEGINNER_STRIPES}° grau`
+      ? t('até {count}° grau', { count: MAX_BEGINNER_STRIPES })
       : isSportVida
         ? `> ${MAX_BEGINNER_STRIPES}° grau`
-        : 'Todos os graus';
+        : t('Todos os graus');
 
   return { sex, belt, grade };
 }
@@ -89,15 +90,15 @@ function getStatusClass(status: DisplayStatus) {
 function getStatusLabel(status: DisplayStatus) {
   switch (status) {
     case 'active':
-      return 'Ativa';
+      return t('Ativa');
     case 'finished':
-      return 'Concluída';
+      return t('Concluída');
     case 'cancelled':
-      return 'Cancelada';
+      return t('Cancelada');
     case 'unfinished':
-      return 'Não finalizada';
+      return t('Não finalizada');
     default:
-      return 'Agendada';
+      return t('Agendada');
   }
 }
 
@@ -145,7 +146,7 @@ const ClassSessionCard: React.FC<ClassSessionCardProps> = ({
         <div className="app-list-card">
           <div className="flex items-center gap-2 text-sm text-[color:var(--text-muted)]">
             <MapPin size={16} />
-            <span>{lesson.tatame || 'Tatame principal'}</span>
+            <span>{lesson.tatame || t('Tatame principal')}</span>
           </div>
         </div>
 
@@ -155,8 +156,8 @@ const ClassSessionCard: React.FC<ClassSessionCardProps> = ({
               {getInitials(lesson.professorName)}
             </div>
             <div>
-              <p className="text-xs uppercase tracking-[0.18em] text-[color:var(--text-soft)]">Instrutor</p>
-              <p className="text-sm font-bold">{lesson.professorName || 'Equipe técnica'}</p>
+              <p className="text-xs uppercase tracking-[0.18em] text-[color:var(--text-soft)]">{t('Instrutor')}</p>
+              <p className="text-sm font-bold">{lesson.professorName || t('Equipe técnica')}</p>
             </div>
           </div>
         </div>
@@ -164,7 +165,7 @@ const ClassSessionCard: React.FC<ClassSessionCardProps> = ({
         <div className="app-list-card">
           <div className="flex items-center gap-2 text-sm text-[color:var(--text-muted)]">
             <Users size={16} />
-            <span>Capacidade {capacityLabel}</span>
+            <span>{t('Capacidade {count}', { count: capacityLabel })}</span>
           </div>
         </div>
       </div>
@@ -172,7 +173,7 @@ const ClassSessionCard: React.FC<ClassSessionCardProps> = ({
       <div className="mt-5 rounded-[1.4rem] border border-white/10 bg-white/5 p-4">
         <div className="flex items-center gap-2">
           <Shield size={16} className="text-[color:var(--gold-mid)]" />
-          <p className="text-xs font-bold uppercase tracking-[0.18em] text-[color:var(--text-soft)]">Regras</p>
+          <p className="text-xs font-bold uppercase tracking-[0.18em] text-[color:var(--text-soft)]">{t('Regras')}</p>
         </div>
 
         <div className="mt-3 grid gap-3 md:grid-cols-3">
@@ -180,19 +181,19 @@ const ClassSessionCard: React.FC<ClassSessionCardProps> = ({
             <div className="flex items-center gap-2">
               <UserRound size={15} className="text-[color:var(--gold-mid)]" />
               <div>
-                <p className="text-[11px] uppercase tracking-[0.16em] text-[color:var(--text-soft)]">Sexo</p>
+                <p className="text-[11px] uppercase tracking-[0.16em] text-[color:var(--text-soft)]">{t('Sexo')}</p>
                 <p className="text-sm font-bold">{rules.sex}</p>
               </div>
             </div>
           </div>
 
           <div className="app-list-card">
-            <p className="text-[11px] uppercase tracking-[0.16em] text-[color:var(--text-soft)]">Faixa</p>
+            <p className="text-[11px] uppercase tracking-[0.16em] text-[color:var(--text-soft)]">{t('Faixa')}</p>
             <p className="mt-1 text-sm font-bold">{rules.belt}</p>
           </div>
 
           <div className="app-list-card">
-            <p className="text-[11px] uppercase tracking-[0.16em] text-[color:var(--text-soft)]">Grau</p>
+            <p className="text-[11px] uppercase tracking-[0.16em] text-[color:var(--text-soft)]">{t('Grau')}</p>
             <p className="mt-1 text-sm font-bold">{rules.grade}</p>
           </div>
         </div>

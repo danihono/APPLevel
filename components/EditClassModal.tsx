@@ -5,6 +5,7 @@ import TimeField from './TimeField';
 import type { FirestoreEntity } from '../services/firebase/data';
 import type { UpdateRecurringClassSeriesResult } from '../services/firebase/functions';
 import type { ClassRecord } from '../services/firebase/models';
+import { t } from '../i18n';
 
 const TATAME_OPTIONS = [
   { label: 'Tatame 1', value: 'Tatame 1' },
@@ -95,7 +96,7 @@ const EditClassModal: React.FC<EditClassModalProps> = ({ lesson, professors, onC
   // Sem uma opcao para ele, o select exibiria outro nome sem que ninguem tivesse trocado nada.
   const professorOptions = professors.some((p) => p.id === professorId)
     ? professors
-    : [{ id: professorId, displayName: lesson.professorName || 'Professor nao cadastrado' }, ...professors];
+    : [{ id: professorId, displayName: lesson.professorName || t('Professor nao cadastrado') }, ...professors];
 
   function handleProfessorChange(id: string) {
     setProfessorId(id);
@@ -105,12 +106,12 @@ const EditClassModal: React.FC<EditClassModalProps> = ({ lesson, professors, onC
     event.preventDefault();
 
     if (!title.trim()) {
-      setError('Informe o nome da aula.');
+      setError(t('Informe o nome da aula.'));
       return;
     }
 
     if (!date) {
-      setError('Informe a data da aula.');
+      setError(t('Informe a data da aula.'));
       return;
     }
 
@@ -137,7 +138,7 @@ const EditClassModal: React.FC<EditClassModalProps> = ({ lesson, professors, onC
       });
       onClose();
     } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : 'Erro ao salvar aula.');
+      setError(submitError instanceof Error ? submitError.message : t('Erro ao salvar aula.'));
     } finally {
       setSubmitting(false);
     }
@@ -150,7 +151,7 @@ const EditClassModal: React.FC<EditClassModalProps> = ({ lesson, professors, onC
         onClick={(event) => event.stopPropagation()}
       >
         <div className="flex items-center justify-between">
-          <h2 className="text-xl font-bold">Editar aula</h2>
+          <h2 className="text-xl font-bold">{t('Editar aula')}</h2>
           <button type="button" onClick={onClose} className="app-button app-button--ghost app-button--icon">
             <X size={18} />
           </button>
@@ -159,47 +160,47 @@ const EditClassModal: React.FC<EditClassModalProps> = ({ lesson, professors, onC
         <form onSubmit={(event) => void handleSubmit(event)} className="mt-6 flex flex-col gap-5">
           {hasRecurringSeries ? (
             <div className="app-list-card">
-              <p className="app-field__label">Aplicar alteracao em</p>
+              <p className="app-field__label">{t('Aplicar alteracao em')}</p>
               <div className="mt-3 app-segment">
                 <button
                   type="button"
                   onClick={() => setScope('single')}
                   className={`app-segment__button ${scope === 'single' ? 'is-active' : ''}`}
                 >
-                  Somente esta aula
+                  {t('Somente esta aula')}
                 </button>
                 <button
                   type="button"
                   onClick={() => setScope('future')}
                   className={`app-segment__button ${scope === 'future' ? 'is-active' : ''}`}
                 >
-                  Esta e as proximas
+                  {t('Esta e as proximas')}
                 </button>
               </div>
               <p className="mt-3 text-xs text-[color:var(--text-soft)]">
-                A opcao em serie atualiza apenas as aulas agendadas futuras desta recorrencia.
+                {t('A opcao em serie atualiza apenas as aulas agendadas futuras desta recorrencia.')}
               </p>
             </div>
           ) : null}
 
           <div className="app-form-grid">
             <label className="app-field">
-              <span className="app-field__label">Nome da aula</span>
+              <span className="app-field__label">{t('Nome da aula')}</span>
               <input
                 type="text"
                 value={title}
                 onChange={(event) => setTitle(event.target.value)}
                 className="app-input"
-                placeholder="Ex: Treino, Fundamentos, Sparring"
+                placeholder={t('Ex: Treino, Fundamentos, Sparring')}
                 required
               />
             </label>
 
             <label className="app-field">
-              <span className="app-field__label">Tipo</span>
+              <span className="app-field__label">{t('Tipo')}</span>
               <select value={tipo} onChange={(event) => setTipo(event.target.value)} className="app-input">
                 {Array.from(new Map(TYPE_OPTIONS.map((o) => [o.group, o.group])).keys()).map((group) => (
-                  <optgroup key={group} label={group}>
+                  <optgroup key={group} label={t(group)}>
                     {TYPE_OPTIONS.filter((o) => o.group === group).map((option) => (
                       <option key={option.value} value={option.value}>{option.label}</option>
                     ))}
@@ -210,18 +211,18 @@ const EditClassModal: React.FC<EditClassModalProps> = ({ lesson, professors, onC
           </div>
 
           <label className="app-field">
-            <span className="app-field__label">Data</span>
+            <span className="app-field__label">{t('Data')}</span>
             <DateField value={date} onChange={setDate} required />
           </label>
 
           <div className="app-form-grid">
             <label className="app-field">
-              <span className="app-field__label">Horario</span>
+              <span className="app-field__label">{t('Horario')}</span>
               <TimeField value={time} onChange={setTime} required />
             </label>
 
             <label className="app-field">
-              <span className="app-field__label">Duracao</span>
+              <span className="app-field__label">{t('Duracao')}</span>
               <select value={duration} onChange={(event) => setDuration(Number(event.target.value))} className="app-input">
                 {DURATION_OPTIONS.map((option) => (
                   <option key={option.value} value={option.value}>{option.label}</option>
@@ -231,7 +232,7 @@ const EditClassModal: React.FC<EditClassModalProps> = ({ lesson, professors, onC
           </div>
 
           <label className="app-field">
-            <span className="app-field__label">Professor</span>
+            <span className="app-field__label">{t('Professor')}</span>
             <select value={professorId} onChange={(event) => handleProfessorChange(event.target.value)} className="app-input">
               {professorOptions.map((professor) => (
                 <option key={professor.id} value={professor.id}>{professor.label ?? professor.displayName}</option>
@@ -240,7 +241,7 @@ const EditClassModal: React.FC<EditClassModalProps> = ({ lesson, professors, onC
           </label>
 
           <label className="app-field">
-            <span className="app-field__label">Tatame</span>
+            <span className="app-field__label">{t('Tatame')}</span>
             <select value={tatame} onChange={(event) => setTatame(event.target.value)} className="app-input">
               {TATAME_OPTIONS.map((option) => (
                 <option key={option.value} value={option.value}>{option.label}</option>
@@ -252,10 +253,10 @@ const EditClassModal: React.FC<EditClassModalProps> = ({ lesson, professors, onC
 
           <div className="flex gap-3">
             <button type="button" onClick={onClose} disabled={submitting} className="app-button app-button--ghost flex-1">
-              Cancelar
+              {t('Cancelar')}
             </button>
             <button type="submit" disabled={submitting} className="app-button app-button--gold flex-1">
-              {submitting ? 'Salvando...' : scope === 'future' ? 'Salvar esta e as proximas' : 'Salvar alteracoes'}
+              {submitting ? t('Salvando...') : scope === 'future' ? t('Salvar esta e as proximas') : t('Salvar alteracoes')}
             </button>
           </div>
         </form>

@@ -6,7 +6,7 @@ import { resolveCommitment, summarizeMonthlyAttendanceByUser, type CommitmentRes
 import { stripDate } from '../calendarUtils';
 import type { FirestoreEntity } from '../services/firebase/data';
 import type { AttendanceRecord, ClassRecord, UserRecord } from '../services/firebase/models';
-import { createDateFormatter } from '../i18n';
+import { t, getLocale, createDateFormatter } from '../i18n';
 
 export type AttendanceRankingPeriod = '30d' | '3m' | 'total';
 
@@ -49,7 +49,7 @@ function getInitial(name: string) {
 
 function studentRankLabel(student: FirestoreEntity<UserRecord>) {
   const gradeValue = Number(student.grade ?? student.stripes ?? 0);
-  return `${beltLabel(student.belt)} · ${gradeValue}º Grau`;
+  return `${beltLabel(student.belt)} · ${t('{degree}º Grau', { degree: gradeValue })}`;
 }
 
 function onlyDigits(value?: string | null) {
@@ -90,7 +90,7 @@ function daysSince(date: Date): number {
 }
 
 function formatDaysLabel(days: number): string {
-  return days === 1 ? 'há 1 dia' : `há ${days} dias`;
+  return days === 1 ? t('há 1 dia') : t('há {count} dias', { count: days });
 }
 
 const AcademyAttendancePanels: React.FC<AcademyAttendancePanelsProps> = ({
@@ -266,7 +266,7 @@ const AcademyAttendancePanels: React.FC<AcademyAttendancePanelsProps> = ({
   ), [activeStudents, periodAttendanceByUserId, periodStartMillis]);
 
   const visibleRankingRows = rankingExpanded ? rankingRows : rankingRows.slice(0, RANKING_PREVIEW_SIZE);
-  const rankingPeriodLabel = RANKING_PERIOD_OPTIONS.find((option) => option.value === rankingPeriod)?.label ?? '';
+  const rankingPeriodLabel = t(RANKING_PERIOD_OPTIONS.find((option) => option.value === rankingPeriod)?.label ?? '');
 
   const absenceRows = useMemo(() => (
     activeStudents
@@ -354,15 +354,15 @@ const AcademyAttendancePanels: React.FC<AcademyAttendancePanelsProps> = ({
       <section className="academy-mobile__section academy-insight">
         <div className="academy-insight__head">
           <div>
-            <p className="academy-mobile__section-label">Ranking de presenças na unidade</p>
+            <p className="academy-mobile__section-label">{t('Ranking de presenças na unidade')}</p>
             <p className="academy-insight__hint">
               {rankingPeriod === 'total'
-                ? 'Total oficial de presenças acumuladas por aluno nesta unidade.'
-                : `Quem mais treinou nos últimos ${rankingPeriodLabel.toLocaleLowerCase('pt-BR')}.`}
+                ? t('Total oficial de presenças acumuladas por aluno nesta unidade.')
+                : t('Quem mais treinou nos últimos {period}.', { period: rankingPeriodLabel.toLocaleLowerCase(getLocale()) })}
             </p>
           </div>
 
-          <div className="academy-insight__chips" role="group" aria-label="Período do ranking">
+          <div className="academy-insight__chips" role="group" aria-label={t('Período do ranking')}>
             {RANKING_PERIOD_OPTIONS.map((option) => (
               <button
                 key={option.value}
@@ -374,7 +374,7 @@ const AcademyAttendancePanels: React.FC<AcademyAttendancePanelsProps> = ({
                 }}
                 className={`academy-insight__chip ${rankingPeriod === option.value ? 'is-active' : ''}`}
               >
-                {option.label}
+                {t(option.label)}
               </button>
             ))}
           </div>
@@ -382,7 +382,7 @@ const AcademyAttendancePanels: React.FC<AcademyAttendancePanelsProps> = ({
 
         {attendancesError && rankingPeriod !== 'total' ? (
           <div className="app-alert app-alert--error">
-            Não foi possível carregar as presenças do período: {attendancesError}
+            {t('Não foi possível carregar as presenças do período:')} {attendancesError}
           </div>
         ) : null}
 
@@ -405,15 +405,15 @@ const AcademyAttendancePanels: React.FC<AcademyAttendancePanelsProps> = ({
 
                 <span className="academy-insight__value">
                   {row.attendanceCount}
-                  <small>{row.attendanceCount === 1 ? 'presença' : 'presenças'}</small>
+                  <small>{row.attendanceCount === 1 ? t('presença') : t('presenças')}</small>
                 </span>
               </article>
             ))
           ) : (
             <div className="academy-mobile__empty">
               {rankingPeriod === 'total'
-                ? 'Nenhum aluno com presença registrada nesta unidade ainda.'
-                : 'Nenhuma presença registrada no período selecionado.'}
+                ? t('Nenhum aluno com presença registrada nesta unidade ainda.')
+                : t('Nenhuma presença registrada no período selecionado.')}
             </div>
           )}
         </div>
@@ -424,7 +424,7 @@ const AcademyAttendancePanels: React.FC<AcademyAttendancePanelsProps> = ({
             onClick={() => setRankingExpanded((current) => !current)}
             className="academy-insight__more"
           >
-            {rankingExpanded ? 'Mostrar só o top 10' : `Ver todos os ${rankingRows.length} alunos`}
+            {rankingExpanded ? t('Mostrar só o top 10') : t('Ver todos os {count} alunos', { count: rankingRows.length })}
           </button>
         ) : null}
       </section>
@@ -432,14 +432,14 @@ const AcademyAttendancePanels: React.FC<AcademyAttendancePanelsProps> = ({
       <section className="academy-mobile__section academy-insight">
         <div className="academy-insight__head">
           <div>
-            <p className="academy-mobile__section-label">Relação de faltantes</p>
+            <p className="academy-mobile__section-label">{t('Relação de faltantes')}</p>
             <p className="academy-insight__hint">
-              Alunos ativos sem presença há 7 dias ou mais — com telefone à mão para chamar de volta.
+              {t('Alunos ativos sem presença há 7 dias ou mais — com telefone à mão para chamar de volta.')}
             </p>
           </div>
         </div>
 
-        <div className="academy-insight__chips academy-insight__chips--buckets" role="group" aria-label="Faixas de ausência">
+        <div className="academy-insight__chips academy-insight__chips--buckets" role="group" aria-label={t('Faixas de ausência')}>
           <button
             type="button"
             aria-pressed={absenceBucketId === 'all'}
@@ -450,8 +450,8 @@ const AcademyAttendancePanels: React.FC<AcademyAttendancePanelsProps> = ({
             className={`academy-insight__bucket ${absenceBucketId === 'all' ? 'is-active' : ''}`}
           >
             <span className="academy-insight__bucket-count">{absenceRows.length}</span>
-            <span className="academy-insight__bucket-label">Todos</span>
-            <span className="academy-insight__bucket-caption">7 dias ou mais</span>
+            <span className="academy-insight__bucket-label">{t('Todos')}</span>
+            <span className="academy-insight__bucket-caption">{t('7 dias ou mais')}</span>
           </button>
 
           {ABSENCE_BUCKETS.map((bucket) => (
@@ -466,8 +466,8 @@ const AcademyAttendancePanels: React.FC<AcademyAttendancePanelsProps> = ({
               className={`academy-insight__bucket ${absenceBucketId === bucket.id ? 'is-active' : ''}`}
             >
               <span className="academy-insight__bucket-count">{absenceCountByBucketId.get(bucket.id) ?? 0}</span>
-              <span className="academy-insight__bucket-label">{bucket.label}</span>
-              <span className="academy-insight__bucket-caption">{bucket.caption}</span>
+              <span className="academy-insight__bucket-label">{t(bucket.label)}</span>
+              <span className="academy-insight__bucket-caption">{t(bucket.caption)}</span>
             </button>
           ))}
         </div>
@@ -487,11 +487,11 @@ const AcademyAttendancePanels: React.FC<AcademyAttendancePanelsProps> = ({
                     <p className="academy-insight__meta">{studentRankLabel(row.student)}</p>
                     <p className="academy-insight__meta">
                       {row.neverTrained
-                        ? 'Sem presença registrada'
-                        : `Última presença em ${dateFormatter.format(row.lastDate as Date)}`}
+                        ? t('Sem presença registrada')
+                        : t('Última presença em {date}', { date: dateFormatter.format(row.lastDate as Date) })}
                     </p>
                     <p className="academy-insight__meta academy-insight__phone">
-                      {row.student.phone || 'Sem telefone cadastrado'}
+                      {row.student.phone || t('Sem telefone cadastrado')}
                     </p>
                     {commitmentByUserId.has(row.student.id) ? (
                       <CommitmentBadge commitment={commitmentByUserId.get(row.student.id)!} />
@@ -508,10 +508,10 @@ const AcademyAttendancePanels: React.FC<AcademyAttendancePanelsProps> = ({
                         <a
                           href={telLink}
                           className="academy-insight__action"
-                          aria-label={`Ligar para ${row.student.displayName}`}
+                          aria-label={t('Ligar para {name}', { name: row.student.displayName })}
                         >
                           <Phone size={14} aria-hidden="true" />
-                          Ligar
+                          {t('Ligar')}
                         </a>
                       ) : null}
 
@@ -521,7 +521,7 @@ const AcademyAttendancePanels: React.FC<AcademyAttendancePanelsProps> = ({
                           target="_blank"
                           rel="noreferrer"
                           className="academy-insight__action"
-                          aria-label={`Enviar WhatsApp para ${row.student.displayName}`}
+                          aria-label={t('Enviar WhatsApp para {name}', { name: row.student.displayName })}
                         >
                           <MessageCircle size={14} aria-hidden="true" />
                           WhatsApp
@@ -536,8 +536,8 @@ const AcademyAttendancePanels: React.FC<AcademyAttendancePanelsProps> = ({
             <div className="academy-mobile__empty">
               <UserMinus size={16} aria-hidden="true" className="academy-insight__empty-icon" />
               {absenceRows.length === 0
-                ? 'Nenhum aluno ativo está sem treinar há 7 dias ou mais. Turma em dia!'
-                : 'Nenhum aluno nesta faixa de ausência.'}
+                ? t('Nenhum aluno ativo está sem treinar há 7 dias ou mais. Turma em dia!')
+                : t('Nenhum aluno nesta faixa de ausência.')}
             </div>
           )}
         </div>
@@ -549,8 +549,8 @@ const AcademyAttendancePanels: React.FC<AcademyAttendancePanelsProps> = ({
             className="academy-insight__more"
           >
             {absenceExpanded
-              ? `Mostrar só os primeiros ${ABSENCE_PREVIEW_SIZE}`
-              : `Ver todos os ${filteredAbsenceRows.length} faltantes`}
+              ? t('Mostrar só os primeiros {count}', { count: ABSENCE_PREVIEW_SIZE })
+              : t('Ver todos os {count} faltantes', { count: filteredAbsenceRows.length })}
           </button>
         ) : null}
       </section>

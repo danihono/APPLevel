@@ -4,6 +4,7 @@ import { ADULT_BELTS, beltLabel, getBlackBeltProgress, isBlackBelt } from '../be
 import DateField from './DateField';
 import type { FirestoreEntity } from '../services/firebase/data';
 import type { UserRecord } from '../services/firebase/models';
+import { t } from '../i18n';
 
 interface InstructorEditModalProps {
   instructor: FirestoreEntity<UserRecord>;
@@ -88,13 +89,13 @@ const InstructorEditModal: React.FC<InstructorEditModalProps> = ({ instructor, o
         plainPassword: newPassword.trim() ? newPassword.trim() : (plainPassword || undefined),
         newPassword: newPassword.trim() || undefined,
       });
-      setFeedback('Dados do instrutor atualizados com sucesso.');
+      setFeedback(t('Dados do instrutor atualizados com sucesso.'));
       if (newPassword.trim()) {
         setPlainPassword(newPassword.trim());
         setNewPassword('');
       }
     } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : 'Não foi possível salvar os dados.');
+      setError(submitError instanceof Error ? submitError.message : t('Não foi possível salvar os dados.'));
     } finally {
       setBusy(false);
     }
@@ -107,7 +108,7 @@ const InstructorEditModal: React.FC<InstructorEditModalProps> = ({ instructor, o
           <ArrowLeft size={18} />
         </button>
         <div>
-          <p className="app-section-label">Edição do instrutor</p>
+          <p className="app-section-label">{t('Edição do instrutor')}</p>
           <h1 className="text-2xl font-bold">{instructor.displayName}</h1>
         </div>
       </div>
@@ -126,36 +127,36 @@ const InstructorEditModal: React.FC<InstructorEditModalProps> = ({ instructor, o
               <User size={18} />
             </div>
             <div>
-              <p className="app-section-label">Dados pessoais</p>
-              <h2 className="text-xl font-bold">Informações cadastrais</h2>
+              <p className="app-section-label">{t('Dados pessoais')}</p>
+              <h2 className="text-xl font-bold">{t('Informações cadastrais')}</h2>
             </div>
           </div>
 
           <div className="mt-6 app-grid-2">
             <label className="app-field">
-              <span className="app-field__label">Nome</span>
+              <span className="app-field__label">{t('Nome')}</span>
               <input
                 type="text"
                 value={firstName}
                 onChange={(e) => setFirstName(e.target.value)}
                 className="app-input"
-                placeholder="Nome"
+                placeholder={t('Nome')}
               />
             </label>
 
             <label className="app-field">
-              <span className="app-field__label">Sobrenome</span>
+              <span className="app-field__label">{t('Sobrenome')}</span>
               <input
                 type="text"
                 value={lastName}
                 onChange={(e) => setLastName(e.target.value)}
                 className="app-input"
-                placeholder="Sobrenome"
+                placeholder={t('Sobrenome')}
               />
             </label>
 
             <label className="app-field">
-              <span className="app-field__label">E-mail</span>
+              <span className="app-field__label">{t('E-mail')}</span>
               <input
                 type="email"
                 value={email}
@@ -166,7 +167,7 @@ const InstructorEditModal: React.FC<InstructorEditModalProps> = ({ instructor, o
             </label>
 
             <label className="app-field">
-              <span className="app-field__label">Telefone</span>
+              <span className="app-field__label">{t('Telefone')}</span>
               <input
                 type="tel"
                 value={phone}
@@ -184,14 +185,14 @@ const InstructorEditModal: React.FC<InstructorEditModalProps> = ({ instructor, o
               <ShieldCheck size={18} />
             </div>
             <div>
-              <p className="app-section-label">Graduação</p>
-              <h2 className="text-xl font-bold">Faixa e grau</h2>
+              <p className="app-section-label">{t('Graduação')}</p>
+              <h2 className="text-xl font-bold">{t('Faixa e grau')}</h2>
             </div>
           </div>
 
           <div className="mt-6 app-grid-2">
             <label className="app-field">
-              <span className="app-field__label">Faixa</span>
+              <span className="app-field__label">{t('Faixa')}</span>
               <select value={belt} onChange={(e) => setBelt(e.target.value)} className="app-input">
                 {ADULT_BELTS.map((b) => (
                   <option key={b} value={b}>{beltLabel(b)}</option>
@@ -202,17 +203,17 @@ const InstructorEditModal: React.FC<InstructorEditModalProps> = ({ instructor, o
             {beltIsBlack ? (
               <>
                 <label className="app-field">
-                  <span className="app-field__label">Data da faixa preta</span>
+                  <span className="app-field__label">{t('Data da faixa preta')}</span>
                   <DateField value={blackBeltDate} onChange={setBlackBeltDate} />
                   <span className="app-field__hint">
                     {blackBeltPreview
-                      ? `${blackBeltPreview.label} · ${blackBeltPreview.years} ${blackBeltPreview.years === 1 ? 'ano' : 'anos'} de faixa preta${blackBeltPreview.styleNote ? ` (${blackBeltPreview.styleNote})` : ''}.`
-                      : 'Informe a data em que recebeu a preta para calcular o grau por tempo (IBJJF).'}
+                      ? `${blackBeltPreview.label} · ${blackBeltPreview.years === 1 ? t('1 ano de faixa preta') : t('{years} anos de faixa preta', { years: blackBeltPreview.years })}${blackBeltPreview.styleNote ? ` (${blackBeltPreview.styleNote})` : ''}.`
+                      : t('Informe a data em que recebeu a preta para calcular o grau por tempo (IBJJF).')}
                   </span>
                 </label>
 
                 <label className="app-field">
-                  <span className="app-field__label">Grau manual (opcional)</span>
+                  <span className="app-field__label">{t('Grau manual (opcional)')}</span>
                   <input
                     type="number"
                     min={0}
@@ -222,14 +223,14 @@ const InstructorEditModal: React.FC<InstructorEditModalProps> = ({ instructor, o
                       e.target.value === '' ? '' : String(Math.max(0, Math.min(9, Math.floor(Number(e.target.value) || 0)))),
                     )}
                     className="app-input"
-                    placeholder={`Automático (${autoBlackBeltDegree}º)`}
+                    placeholder={t('Automático ({degree}º)', { degree: autoBlackBeltDegree })}
                   />
-                  <span className="app-field__hint">Deixe vazio para usar o grau automático pela data. Preencha só para ajustar manualmente.</span>
+                  <span className="app-field__hint">{t('Deixe vazio para usar o grau automático pela data. Preencha só para ajustar manualmente.')}</span>
                 </label>
               </>
             ) : (
               <label className="app-field">
-                <span className="app-field__label">Grau</span>
+                <span className="app-field__label">{t('Grau')}</span>
                 <input
                   type="number"
                   min={0}
@@ -249,62 +250,62 @@ const InstructorEditModal: React.FC<InstructorEditModalProps> = ({ instructor, o
               <KeyRound size={18} />
             </div>
             <div>
-              <p className="app-section-label">Acesso</p>
-              <h2 className="text-xl font-bold">Senha do instrutor</h2>
+              <p className="app-section-label">{t('Acesso')}</p>
+              <h2 className="text-xl font-bold">{t('Senha do instrutor')}</h2>
             </div>
           </div>
 
           {!hasStoredPassword && !newPassword && (
             <div className="mt-4 app-alert app-alert--warning">
-              Senha não registrada. Este instrutor foi cadastrado antes desta funcionalidade. Defina uma nova senha abaixo para registrá-la.
+              {t('Senha não registrada. Este instrutor foi cadastrado antes desta funcionalidade. Defina uma nova senha abaixo para registrá-la.')}
             </div>
           )}
 
           <div className="mt-6 space-y-4">
             {hasStoredPassword && (
               <label className="app-field">
-                <span className="app-field__label">Senha atual (visível)</span>
+                <span className="app-field__label">{t('Senha atual (visível)')}</span>
                 <div className="flex gap-2">
                   <input
                     type={showPlain ? 'text' : 'password'}
                     value={plainPassword}
                     onChange={(e) => setPlainPassword(e.target.value)}
                     className="app-input flex-1"
-                    placeholder="Senha salva"
+                    placeholder={t('Senha salva')}
                   />
                   <button
                     type="button"
                     onClick={() => setShowPlain((v) => !v)}
                     className="app-button app-button--ghost app-button--icon"
-                    title={showPlain ? 'Ocultar senha' : 'Mostrar senha'}
+                    title={showPlain ? t('Ocultar senha') : t('Mostrar senha')}
                   >
                     {showPlain ? <EyeOff size={16} /> : <Eye size={16} />}
                   </button>
                 </div>
-                <span className="app-field__hint">Senha registrada no cadastro. Edite aqui se houve troca manual.</span>
+                <span className="app-field__hint">{t('Senha registrada no cadastro. Edite aqui se houve troca manual.')}</span>
               </label>
             )}
 
             <label className="app-field">
-              <span className="app-field__label">Redefinir senha</span>
+              <span className="app-field__label">{t('Redefinir senha')}</span>
               <div className="flex gap-2">
                 <input
                   type={showNew ? 'text' : 'password'}
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
                   className="app-input flex-1"
-                  placeholder="Nova senha (deixe vazio para não alterar)"
+                  placeholder={t('Nova senha (deixe vazio para não alterar)')}
                 />
                 <button
                   type="button"
                   onClick={() => setShowNew((v) => !v)}
                   className="app-button app-button--ghost app-button--icon"
-                  title={showNew ? 'Ocultar' : 'Mostrar'}
+                  title={showNew ? t('Ocultar') : t('Mostrar')}
                 >
                   {showNew ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
               </div>
-              <span className="app-field__hint">Se preenchido, altera o acesso do instrutor e salva aqui para consulta futura.</span>
+              <span className="app-field__hint">{t('Se preenchido, altera o acesso do instrutor e salva aqui para consulta futura.')}</span>
             </label>
           </div>
         </section>
@@ -312,10 +313,10 @@ const InstructorEditModal: React.FC<InstructorEditModalProps> = ({ instructor, o
         <div className="flex gap-3">
           <button type="submit" disabled={busy} className="app-button app-button--gold flex-1">
             <Save size={16} />
-            {busy ? 'Salvando...' : 'Salvar'}
+            {busy ? t('Salvando...') : t('Salvar')}
           </button>
           <button type="button" onClick={onClose} className="app-button app-button--ghost">
-            Cancelar
+            {t('Cancelar')}
           </button>
         </div>
       </form>

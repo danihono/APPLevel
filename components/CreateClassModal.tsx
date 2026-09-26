@@ -4,7 +4,7 @@ import { buildMonthGrid, MONTH_WEEK_HEADER, stripDate, toDateKey } from '../cale
 import DateField from './DateField';
 import TimeField from './TimeField';
 import type { CreateClassScheduleBatchResult } from '../services/firebase/functions';
-import { createDateFormatter } from '../i18n';
+import { t, createDateFormatter } from '../i18n';
 
 const TATAME_OPTIONS = [
   { label: 'Tatame 1', value: 'Tatame 1' },
@@ -179,7 +179,7 @@ const CreateClassModal: React.FC<CreateClassModalProps> = ({
   const [recurringEnd, setRecurringEnd] = useState(toInputDateValue(initDay));
   const [recurringWeekdays, setRecurringWeekdays] = useState<Set<number>>(new Set([initDay.getDay()]));
 
-  const [title, setTitle] = useState('Treino');
+  const [title, setTitle] = useState(() => t('Treino'));
   const [tipo, setTipo] = useState('iniciante');
   const [time, setTime] = useState(toHHMM(nextRound30(new Date())));
   const [duration, setDuration] = useState(60);
@@ -193,7 +193,7 @@ const CreateClassModal: React.FC<CreateClassModalProps> = ({
   // unico jeito honesto de nao atribuir a aula a alguem em silencio.
   const professorOptions = professors.length > 0
     ? professors
-    : [{ id: currentUserId, displayName: currentUserName || 'Voce' }];
+    : [{ id: currentUserId, displayName: currentUserName || t('Voce') }];
   const initialProfessor = professorOptions.find((p) => p.id === currentUserId);
   const [professorId, setProfessorId] = useState(initialProfessor?.id ?? '');
   const [professorName, setProfessorName] = useState(initialProfessor?.displayName ?? '');
@@ -292,28 +292,28 @@ const CreateClassModal: React.FC<CreateClassModalProps> = ({
     event.preventDefault();
 
     if (!title.trim()) {
-      setError('Informe o nome da aula.');
+      setError(t('Informe o nome da aula.'));
       return;
     }
 
     if (mode === 'single' && selectedKeys.size === 0) {
-      setError('Selecione pelo menos um dia no calendário.');
+      setError(t('Selecione pelo menos um dia no calendário.'));
       return;
     }
 
     if (mode === 'recurring') {
       if (!recurringStartDate || !recurringEndDate) {
-        setError('Informe a data inicial e a data final do período.');
+        setError(t('Informe a data inicial e a data final do período.'));
         return;
       }
 
       if (recurringEndDate.getTime() < recurringStartDate.getTime()) {
-        setError('A data final precisa ser igual ou posterior à data inicial.');
+        setError(t('A data final precisa ser igual ou posterior à data inicial.'));
         return;
       }
 
       if (recurringWeekdays.size === 0) {
-        setError('Selecione pelo menos um dia da semana para a recorrência.');
+        setError(t('Selecione pelo menos um dia da semana para a recorrência.'));
         return;
       }
     }
@@ -321,14 +321,14 @@ const CreateClassModal: React.FC<CreateClassModalProps> = ({
     // Sem professor escolhido o backend cairia para o `actor.uid` (resolveClassProfessor), ou seja,
     // a aula ficaria no admin da rede sem ninguem ter pedido isso. Melhor exigir a escolha.
     if (!professorId) {
-      setError('Escolha o professor da aula.');
+      setError(t('Escolha o professor da aula.'));
       return;
     }
 
     if (payloads.length === 0) {
       setError(mode === 'recurring'
-        ? 'Nenhuma aula caiu no período com os dias da semana escolhidos.'
-        : 'Selecione pelo menos um dia no calendário.');
+        ? t('Nenhuma aula caiu no período com os dias da semana escolhidos.')
+        : t('Selecione pelo menos um dia no calendário.'));
       return;
     }
 
@@ -344,14 +344,14 @@ const CreateClassModal: React.FC<CreateClassModalProps> = ({
 
       setSubmitResult(result);
     } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : 'Erro ao criar aula.');
+      setError(submitError instanceof Error ? submitError.message : t('Erro ao criar aula.'));
     } finally {
       setSubmitting(false);
     }
   }
 
   const count = payloads.length;
-  const submitLabel = submitting ? 'Criando...' : count > 1 ? `Criar ${count} aulas` : 'Criar aula';
+  const submitLabel = submitting ? t('Criando...') : count > 1 ? t('Criar {count} aulas', { count }) : t('Criar aula');
   const firstOccurrence = payloads[0];
   const lastOccurrence = payloads[payloads.length - 1];
 
@@ -362,7 +362,7 @@ const CreateClassModal: React.FC<CreateClassModalProps> = ({
         onClick={(event) => event.stopPropagation()}
       >
         <div className="flex items-center justify-between">
-          <h2 className="text-xl font-bold">Criar aula</h2>
+          <h2 className="text-xl font-bold">{t('Criar aula')}</h2>
           <button type="button" onClick={onClose} className="app-button app-button--ghost app-button--icon">
             <X size={18} />
           </button>
@@ -376,35 +376,35 @@ const CreateClassModal: React.FC<CreateClassModalProps> = ({
                 onClick={() => setMode('single')}
                 className={`app-segment__button ${mode === 'single' ? 'is-active' : ''}`}
               >
-                Dias avulsos
+                {t('Dias avulsos')}
               </button>
               <button
                 type="button"
                 onClick={() => setMode('recurring')}
                 className={`app-segment__button ${mode === 'recurring' ? 'is-active' : ''}`}
               >
-                Recorrente
+                {t('Recorrente')}
               </button>
             </div>
 
             <div className="app-form-grid">
               <label className="app-field">
-                <span className="app-field__label">Nome da aula</span>
+                <span className="app-field__label">{t('Nome da aula')}</span>
                 <input
                   type="text"
                   value={title}
                   onChange={(event) => setTitle(event.target.value)}
                   className="app-input"
-                  placeholder="Ex: Treino, Fundamentos, Sparring"
+                  placeholder={t('Ex: Treino, Fundamentos, Sparring')}
                   required
                 />
               </label>
 
               <label className="app-field">
-                <span className="app-field__label">Tipo</span>
+                <span className="app-field__label">{t('Tipo')}</span>
                 <select value={tipo} onChange={(event) => setTipo(event.target.value)} className="app-input">
                   {Array.from(new Map(TYPE_OPTIONS.map((o) => [o.group, o.group])).keys()).map((group) => (
-                    <optgroup key={group} label={group}>
+                    <optgroup key={group} label={t(group)}>
                       {TYPE_OPTIONS.filter((o) => o.group === group).map((option) => (
                         <option key={option.value} value={option.value}>{option.label}</option>
                       ))}
@@ -418,8 +418,8 @@ const CreateClassModal: React.FC<CreateClassModalProps> = ({
               <div>
                 <div className="mb-3 flex items-center justify-between">
                   <p className="app-field__label">
-                    Dias
-                    {count > 0 ? <span className="ml-2 text-[color:var(--gold-mid)]">{count} selecionado{count > 1 ? 's' : ''}</span> : null}
+                    {t('Dias')}
+                    {count > 0 ? <span className="ml-2 text-[color:var(--gold-mid)]">{count === 1 ? t('1 selecionado') : t('{count} selecionados', { count })}</span> : null}
                   </p>
                   <div className="flex items-center gap-1">
                     <button type="button" onClick={() => shiftMonth(-1)} className="app-button app-button--ghost app-button--icon" style={{ width: 28, height: 28 }}>
@@ -437,7 +437,7 @@ const CreateClassModal: React.FC<CreateClassModalProps> = ({
                 <div className="mb-1 grid grid-cols-7">
                   {MONTH_WEEK_HEADER.map((day) => (
                     <div key={day} className="py-1 text-center text-[10px] font-bold uppercase tracking-[0.12em] text-[color:var(--text-soft)]">
-                      {day}
+                      {t(day)}
                     </div>
                   ))}
                 </div>
@@ -476,12 +476,12 @@ const CreateClassModal: React.FC<CreateClassModalProps> = ({
               <div className="flex flex-col gap-5">
                 <div className="app-form-grid">
                   <label className="app-field">
-                    <span className="app-field__label">Data inicial</span>
+                    <span className="app-field__label">{t('Data inicial')}</span>
                     <DateField value={recurringStart} onChange={setRecurringStart} required />
                   </label>
 
                   <label className="app-field">
-                    <span className="app-field__label">Data final</span>
+                    <span className="app-field__label">{t('Data final')}</span>
                     <DateField value={recurringEnd} onChange={setRecurringEnd} required />
                   </label>
                 </div>
@@ -489,13 +489,13 @@ const CreateClassModal: React.FC<CreateClassModalProps> = ({
                 <div>
                   <div className="mb-3 flex items-start justify-between gap-3">
                     <div>
-                      <p className="app-field__label">Dias da semana</p>
+                      <p className="app-field__label">{t('Dias da semana')}</p>
                       <p className="mt-1 text-xs text-[color:var(--text-soft)]">
-                        Toque nos dias que devem repetir automaticamente dentro do período.
+                        {t('Toque nos dias que devem repetir automaticamente dentro do período.')}
                       </p>
                     </div>
                     <span className={recurringWeekdays.size > 0 ? 'app-badge app-badge--gold' : 'app-badge app-badge--muted'}>
-                      {recurringWeekdays.size} selecionado{recurringWeekdays.size === 1 ? '' : 's'}
+                      {recurringWeekdays.size === 1 ? t('1 selecionado') : t('{count} selecionados', { count: recurringWeekdays.size })}
                     </span>
                   </div>
 
@@ -511,13 +511,13 @@ const CreateClassModal: React.FC<CreateClassModalProps> = ({
                           aria-pressed={isSelected}
                         >
                           <div className="create-class-modal__weekday-top">
-                            <span className="create-class-modal__weekday-label">{option.label}</span>
+                            <span className="create-class-modal__weekday-label">{t(option.label)}</span>
                             <span className="create-class-modal__weekday-check" aria-hidden="true">
                               {isSelected ? <Check size={12} strokeWidth={3} /> : null}
                             </span>
                           </div>
                           <span className="create-class-modal__weekday-note">
-                            {isSelected ? 'Selecionado' : 'Disponível'}
+                            {isSelected ? t('Selecionado') : t('Disponível')}
                           </span>
                         </button>
                       );
@@ -529,12 +529,12 @@ const CreateClassModal: React.FC<CreateClassModalProps> = ({
 
             <div className="app-form-grid">
               <label className="app-field">
-                <span className="app-field__label">Horário</span>
+                <span className="app-field__label">{t('Horário')}</span>
                 <TimeField value={time} onChange={setTime} required />
               </label>
 
               <label className="app-field">
-                <span className="app-field__label">Duração</span>
+                <span className="app-field__label">{t('Duração')}</span>
                 <select value={duration} onChange={(event) => setDuration(Number(event.target.value))} className="app-input">
                   {DURATION_OPTIONS.map((option) => (
                     <option key={option.value} value={option.value}>{option.label}</option>
@@ -544,9 +544,9 @@ const CreateClassModal: React.FC<CreateClassModalProps> = ({
             </div>
 
             <label className="app-field">
-              <span className="app-field__label">Professor</span>
+              <span className="app-field__label">{t('Professor')}</span>
               <select value={professorId} onChange={(event) => handleProfessorChange(event.target.value)} className="app-input">
-                {professorId ? null : <option value="">Selecione o professor</option>}
+                {professorId ? null : <option value="">{t('Selecione o professor')}</option>}
                 {professorOptions.map((professor) => (
                   <option key={professor.id} value={professor.id}>{professor.label ?? professor.displayName}</option>
                 ))}
@@ -555,7 +555,7 @@ const CreateClassModal: React.FC<CreateClassModalProps> = ({
 
             <div className="app-form-grid">
               <label className="app-field">
-                <span className="app-field__label">Tatame</span>
+                <span className="app-field__label">{t('Tatame')}</span>
                 <select value={tatame} onChange={(event) => setTatame(event.target.value)} className="app-input">
                   {TATAME_OPTIONS.map((option) => (
                     <option key={option.value} value={option.value}>{option.label}</option>
@@ -564,7 +564,7 @@ const CreateClassModal: React.FC<CreateClassModalProps> = ({
               </label>
 
               <label className="app-field">
-                <span className="app-field__label">Capacidade</span>
+                <span className="app-field__label">{t('Capacidade')}</span>
                 <input
                   type="number"
                   value={capacity}
@@ -577,27 +577,27 @@ const CreateClassModal: React.FC<CreateClassModalProps> = ({
             </div>
 
             <div className="app-list-card">
-              <p className="text-xs font-bold uppercase tracking-[0.12em] text-[color:var(--text-soft)]">Resumo</p>
+              <p className="text-xs font-bold uppercase tracking-[0.12em] text-[color:var(--text-soft)]">{t('Resumo')}</p>
               {count > 0 && firstOccurrence && lastOccurrence ? (
                 <div className="mt-3 grid gap-3 sm:grid-cols-3">
                   <div>
-                    <p className="text-[11px] uppercase tracking-[0.12em] text-[color:var(--text-soft)]">Quantidade</p>
-                    <p className="mt-1 text-base font-bold">{count} {count === 1 ? 'aula' : 'aulas'}</p>
+                    <p className="text-[11px] uppercase tracking-[0.12em] text-[color:var(--text-soft)]">{t('Quantidade')}</p>
+                    <p className="mt-1 text-base font-bold">{count === 1 ? t('1 aula') : t('{count} aulas', { count })}</p>
                   </div>
                   <div>
-                    <p className="text-[11px] uppercase tracking-[0.12em] text-[color:var(--text-soft)]">Primeira</p>
+                    <p className="text-[11px] uppercase tracking-[0.12em] text-[color:var(--text-soft)]">{t('Primeira')}</p>
                     <p className="mt-1 text-sm font-semibold">{summaryDateTimeFormatter.format(new Date(firstOccurrence.scheduledStart))}</p>
                   </div>
                   <div>
-                    <p className="text-[11px] uppercase tracking-[0.12em] text-[color:var(--text-soft)]">Última</p>
+                    <p className="text-[11px] uppercase tracking-[0.12em] text-[color:var(--text-soft)]">{t('Última')}</p>
                     <p className="mt-1 text-sm font-semibold">{summaryDateTimeFormatter.format(new Date(lastOccurrence.scheduledStart))}</p>
                   </div>
                 </div>
               ) : (
                 <p className="mt-3 text-sm text-[color:var(--text-muted)]">
                   {mode === 'recurring'
-                    ? 'Defina o período e os dias da semana para visualizar quantas aulas serão geradas.'
-                    : 'Selecione pelo menos um dia no calendário para montar o lote.'}
+                    ? t('Defina o período e os dias da semana para visualizar quantas aulas serão geradas.')
+                    : t('Selecione pelo menos um dia no calendário para montar o lote.')}
                 </p>
               )}
             </div>
@@ -606,25 +606,25 @@ const CreateClassModal: React.FC<CreateClassModalProps> = ({
               <div className="app-panel app-panel--tint p-4">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
-                    <p className="text-xs font-bold uppercase tracking-[0.12em] text-[color:var(--text-soft)]">Resultado do lote</p>
+                    <p className="text-xs font-bold uppercase tracking-[0.12em] text-[color:var(--text-soft)]">{t('Resultado do lote')}</p>
                     <p className="mt-1 text-base font-bold">
-                      {submitResult.createdCount} criada{submitResult.createdCount === 1 ? '' : 's'} de {submitResult.requestedCount}
+                      {t('{created} de {requested} criada(s)', { created: submitResult.createdCount, requested: submitResult.requestedCount })}
                     </p>
                   </div>
                   <span className="app-badge app-badge--gold">
-                    {submitResult.skippedCount} pulada{submitResult.skippedCount === 1 ? '' : 's'}
+                    {t('{count} pulada(s)', { count: submitResult.skippedCount })}
                   </span>
                 </div>
 
                 <p className="mt-3 text-sm text-[color:var(--text-muted)]">
-                  As aulas criadas foram gravadas. As ocorrências abaixo ficaram de fora para você ajustar depois.
+                  {t('As aulas criadas foram gravadas. As ocorrências abaixo ficaram de fora para você ajustar depois.')}
                 </p>
 
                 <div className="mt-4 max-h-56 space-y-2 overflow-y-auto pr-1">
                   {submitResult.skipped.map((entry) => (
                     <div key={`${entry.scheduledStart}-${entry.reason}`} className="app-list-card">
                       <p className="text-sm font-semibold">{summaryDateTimeFormatter.format(new Date(entry.scheduledStart))}</p>
-                      <p className="mt-1 text-sm text-[color:var(--text-muted)]">{entry.reason}</p>
+                      <p className="mt-1 text-sm text-[color:var(--text-muted)]">{t(entry.reason)}</p>
                     </div>
                   ))}
                 </div>
@@ -633,7 +633,7 @@ const CreateClassModal: React.FC<CreateClassModalProps> = ({
 
             {mode === 'recurring' && recurringStartDate && recurringEndDate && recurringEndDate.getTime() >= recurringStartDate.getTime() ? (
               <p className="text-xs text-[color:var(--text-soft)]">
-                Período de {summaryDateFormatter.format(recurringStartDate)} até {summaryDateFormatter.format(recurringEndDate)}.
+                {t('Período de {start} até {end}.', { start: summaryDateFormatter.format(recurringStartDate), end: summaryDateFormatter.format(recurringEndDate) })}
               </p>
             ) : null}
           </div>
@@ -643,7 +643,7 @@ const CreateClassModal: React.FC<CreateClassModalProps> = ({
 
             <div className="flex gap-3">
               <button type="button" onClick={onClose} disabled={submitting} className="app-button app-button--ghost flex-1">
-                {submitResult ? 'Fechar' : 'Cancelar'}
+                {submitResult ? t('Fechar') : t('Cancelar')}
               </button>
               <button type="submit" disabled={submitting || count === 0} className="app-button app-button--gold flex-1">
                 {submitLabel}

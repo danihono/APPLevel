@@ -1,4 +1,7 @@
 import type { MessageCatalog } from './types';
+import { attendanceMessages } from './attendance';
+import { managementMessages } from './management';
+import { classesMessages } from './classes';
 import { competitionMessages } from './competition';
 import { graduationMessages } from './graduation';
 import { dashboardMessages } from './dashboard';
@@ -31,4 +34,7 @@ export const messages: MessageCatalog = {
   ...dashboardMessages,
   ...graduationMessages,
   ...competitionMessages,
+  ...classesMessages,
+  ...managementMessages,
+  ...attendanceMessages,
 };
