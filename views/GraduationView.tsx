@@ -12,6 +12,7 @@ import ProgressBar from '../components/ProgressBar';
 import type { FirestoreEntity } from '../services/firebase/data';
 import type { AcademyRecord, GraduationRecord, UserRecord } from '../services/firebase/models';
 import type { User } from '../types';
+import { t, getLocale } from '../i18n';
 
 interface GraduationViewProps {
   user: User;
@@ -84,19 +85,19 @@ const GraduationView: React.FC<GraduationViewProps> = ({
       <section className="app-panel app-panel-pad">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
-            <p className="app-section-label">Faixa atual</p>
+            <p className="app-section-label">{t('Faixa atual')}</p>
             <h2 className="mt-2 text-2xl font-bold">{beltLabel(profile.belt)}</h2>
             <p className="mt-2 text-sm text-[color:var(--text-muted)]">
-              Grau atual {profile.grade} • {progression.beltProgress} presenças nessa faixa
+              {t('Grau atual {grade} • {count} presenças nessa faixa', { grade: profile.grade, count: progression.beltProgress })}
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <span className="app-badge app-badge--muted">Regra v{normalizedRules.version}</span>
-            <span className="app-badge app-badge--muted">Trilha {trainingType}</span>
+            <span className="app-badge app-badge--muted">{t('Regra v{version}', { version: normalizedRules.version })}</span>
+            <span className="app-badge app-badge--muted">{t('Trilha {track}', { track: t(trainingType) })}</span>
             {trainingType === 'Kids' ? (
               <span className="app-badge app-badge--muted">{kidsCategoryLabel(inferredKidsCategory)}</span>
             ) : null}
-            {examWindow ? <span className="app-badge app-badge--gold">Janela de exame</span> : null}
+            {examWindow ? <span className="app-badge app-badge--gold">{t('Janela de exame')}</span> : null}
           </div>
         </div>
 
@@ -112,39 +113,39 @@ const GraduationView: React.FC<GraduationViewProps> = ({
               <Medal size={20} />
             </div>
             <div>
-              <p className="app-section-label">Requisitos</p>
-              <h2 className="text-xl font-bold">Proximo passo</h2>
+              <p className="app-section-label">{t('Requisitos')}</p>
+              <h2 className="text-xl font-bold">{t('Proximo passo')}</h2>
             </div>
           </div>
 
           <div className="mt-6 space-y-6">
             <div>
               <div className="flex items-center justify-between text-sm mb-2">
-                <span className="font-semibold">Próximo grau</span>
+                <span className="font-semibold">{t('Próximo grau')}</span>
                 <span className="text-[color:var(--text-muted)]">
-                  {stripeCycleTotal > 0 ? `${stripeCycleProgress} / ${stripeCycleTotal} aulas` : 'Progressão manual'}
+                  {stripeCycleTotal > 0 ? t('{current} / {total} aulas', { current: stripeCycleProgress, total: stripeCycleTotal }) : t('Progressão manual')}
                 </span>
               </div>
               <ProgressBar current={stripeCycleProgress} total={stripeCycleTotal} />
               <p className="mt-2 text-xs text-[color:var(--text-muted)]">
                 {stripeCycleRemaining === null
-                  ? 'Essa faixa não tem liberação automática de grau por aulas.'
-                  : `Restam ${stripeCycleRemaining} aula(s) para atingir o próximo grau.`}
+                  ? t('Essa faixa não tem liberação automática de grau por aulas.')
+                  : t('Restam {count} aula(s) para atingir o próximo grau.', { count: stripeCycleRemaining })}
               </p>
             </div>
 
             <div>
               <div className="flex items-center justify-between text-sm mb-2">
-                <span className="font-semibold">Próxima faixa</span>
+                <span className="font-semibold">{t('Próxima faixa')}</span>
                 <span className="text-[color:var(--text-muted)]">
-                  {beltTotal > 0 ? `${beltProgress} / ${beltTotal} aulas` : 'Progressão manual'}
+                  {beltTotal > 0 ? t('{current} / {total} aulas', { current: beltProgress, total: beltTotal }) : t('Progressão manual')}
                 </span>
               </div>
               <ProgressBar current={beltProgress} total={beltTotal} />
               <p className="mt-2 text-xs text-[color:var(--text-muted)]">
                 {nextBeltRemaining === null
-                  ? 'A próxima faixa depende de avaliação manual.'
-                  : `Restam ${nextBeltRemaining} aula(s) para a próxima faixa.`}
+                  ? t('A próxima faixa depende de avaliação manual.')
+                  : t('Restam {count} aula(s) para a próxima faixa.', { count: nextBeltRemaining })}
               </p>
             </div>
           </div>
@@ -156,8 +157,8 @@ const GraduationView: React.FC<GraduationViewProps> = ({
               <BellRing size={20} />
             </div>
             <div>
-              <p className="app-section-label">Aviso</p>
-              <h2 className="text-xl font-bold">Status de exame</h2>
+              <p className="app-section-label">{t('Aviso')}</p>
+              <h2 className="text-xl font-bold">{t('Status de exame')}</h2>
             </div>
           </div>
 
@@ -167,24 +168,24 @@ const GraduationView: React.FC<GraduationViewProps> = ({
               ? { background: 'var(--gold-mid)', color: '#000' }
               : { background: 'var(--bg-deep)' }}
           >
-            <p className="text-xs uppercase tracking-[0.3em] opacity-70">Status</p>
+            <p className="text-xs uppercase tracking-[0.3em] opacity-70">{t('Status')}</p>
             <p className="mt-3 text-2xl font-black">
-              {examWindow ? 'Próximo de avaliação' : 'Em acompanhamento'}
+              {examWindow ? t('Próximo de avaliação') : t('Em acompanhamento')}
             </p>
             <p className="mt-3 text-sm">
               {examWindow
-                ? 'Seu perfil já está perto da próxima avaliação. Vale alinhar a expectativa com o professor responsável.'
-                : 'Continue registrando presenças e acompanhando os marcos para a próxima graduação.'}
+                ? t('Seu perfil já está perto da próxima avaliação. Vale alinhar a expectativa com o professor responsável.')
+                : t('Continue registrando presenças e acompanhando os marcos para a próxima graduação.')}
             </p>
           </div>
 
           {currentRule ? (
             <div className="mt-5 app-list-card">
-              <p className="text-sm font-semibold">Regra atual — Faixa {beltLabel(currentRule.belt)}</p>
+              <p className="text-sm font-semibold">{t('Regra atual — Faixa {belt}', { belt: beltLabel(currentRule.belt) })}</p>
               <p className="mt-2 text-xs text-[color:var(--text-muted)]">
                 {currentRule.stripeEvery > 0
-                  ? `Novo grau a cada ${currentRule.stripeEvery} aulas • máximo ${currentRule.maxStripes} graus${beltTotal > 0 ? ` • ${beltTotal} aulas para a próxima faixa` : ''}`
-                  : 'Progressão manual para graus e faixas seguintes.'}
+                  ? `${t('Novo grau a cada {every} aulas • máximo {max} graus', { every: currentRule.stripeEvery, max: currentRule.maxStripes })}${beltTotal > 0 ? ` • ${t('{count} aulas para a próxima faixa', { count: beltTotal })}` : ''}`
+                  : t('Progressão manual para graus e faixas seguintes.')}
               </p>
             </div>
           ) : null}
@@ -197,8 +198,8 @@ const GraduationView: React.FC<GraduationViewProps> = ({
             <Award size={20} />
           </div>
           <div>
-            <p className="app-section-label">Conquistas</p>
-            <h2 className="text-xl font-bold">Histórico de graduações</h2>
+            <p className="app-section-label">{t('Conquistas')}</p>
+            <h2 className="text-xl font-bold">{t('Histórico de graduações')}</h2>
           </div>
         </div>
 
@@ -215,18 +216,18 @@ const GraduationView: React.FC<GraduationViewProps> = ({
                     {beltLabel(entry.previousBelt)} {entry.previousStripes}{' → '}{beltLabel(entry.newBelt)} {entry.newStripes}
                   </p>
                   <p className="mt-1 text-xs text-[color:var(--text-muted)]">
-                    {entry.attendanceCount} presenças • {entry.reason.replaceAll('_', ' ')}
+                    {t('{count} presenças', { count: entry.attendanceCount })} • {entry.reason.replaceAll('_', ' ')}
                   </p>
                 </div>
                 <span className="app-badge app-badge--gold">
-                  {entry.promotedAt ? entry.promotedAt.toDate().toLocaleDateString('pt-BR') : 'Sem data'}
+                  {entry.promotedAt ? entry.promotedAt.toDate().toLocaleDateString(getLocale()) : t('Sem data')}
                 </span>
               </div>
             </div>
           ))}
 
           {graduations.length === 0 ? (
-            <div className="app-empty">Ainda não há graduações registradas para este perfil.</div>
+            <div className="app-empty">{t('Ainda não há graduações registradas para este perfil.')}</div>
           ) : null}
         </div>
       </section>
@@ -237,12 +238,12 @@ const GraduationView: React.FC<GraduationViewProps> = ({
             <BookOpen size={20} />
           </div>
           <div>
-            <p className="app-section-label">Referência</p>
-            <h2 className="text-xl font-bold">Regra da faixa atual</h2>
+            <p className="app-section-label">{t('Referência')}</p>
+            <h2 className="text-xl font-bold">{t('Regra da faixa atual')}</h2>
             <p className="mt-1 text-sm text-[color:var(--text-muted)]">
               {trainingType === 'Kids'
-                ? `Configuração oficial da academia para ${kidsCategoryLabel(inferredKidsCategory)}.`
-                : 'Configuração oficial da academia para o programa adulto.'}
+                ? t('Configuração oficial da academia para {category}.', { category: kidsCategoryLabel(inferredKidsCategory) })
+                : t('Configuração oficial da academia para o programa adulto.')}
             </p>
           </div>
         </div>
@@ -255,15 +256,15 @@ const GraduationView: React.FC<GraduationViewProps> = ({
                 <TimerReset size={16} style={{ color: 'var(--gold-mid)' }} />
               </div>
               <p className="mt-2 text-xs text-[color:var(--text-muted)]">
-                {entry.stripeEvery > 0 ? `Grau a cada ${entry.stripeEvery} aulas` : 'Progressão manual'}
+                {entry.stripeEvery > 0 ? t('Grau a cada {count} aulas', { count: entry.stripeEvery }) : t('Progressão manual')}
               </p>
               <p className="mt-1 text-xs text-[color:var(--text-muted)]">
-                {entry.maxStripes > 0 ? `Máximo ${entry.maxStripes} graus` : 'Sem regra automática de graus'}
+                {entry.maxStripes > 0 ? t('Máximo {count} graus', { count: entry.maxStripes }) : t('Sem regra automática de graus')}
               </p>
               <p className="mt-1 text-xs text-[color:var(--text-muted)]">
                 {entry.stripeEvery > 0 && entry.maxStripes > 0
-                  ? `Próxima faixa em ${getClassesToNextBelt(entry)} aulas`
-                  : 'Avaliação definida manualmente'}
+                  ? t('Próxima faixa em {count} aulas', { count: getClassesToNextBelt(entry) })
+                  : t('Avaliação definida manualmente')}
               </p>
             </div>
           ))}

@@ -17,6 +17,7 @@ import { isUnreadNotificationForViewer } from '../services/firebase/notification
 import { getBlackBeltProgressForUser } from '../beltCatalog';
 import BjjBelt from '../components/BjjBelt';
 import type { User } from '../types';
+import { t } from '../i18n';
 
 interface StaffDashboardViewProps {
   user: User;
@@ -95,40 +96,40 @@ function getGreeting(date: Date) {
 function getPendingCopy(joinCount: number, attendanceCount: number, unreadCount: number) {
   if (joinCount > 0 && attendanceCount > 0) {
     return {
-      title: `${joinCount + attendanceCount} pendências aguardando ação`,
-      note: `${joinCount} pedidos de entrada e ${attendanceCount} solicitações de presença.`,
+      title: t('{count} pendências aguardando ação', { count: joinCount + attendanceCount }),
+      note: t('{join} pedidos de entrada e {attendance} solicitações de presença.', { join: joinCount, attendance: attendanceCount }),
     };
   }
 
   if (joinCount > 0) {
     return {
-      title: `${joinCount} ${joinCount === 1 ? 'pedido de entrada' : 'pedidos de entrada'}`,
-      note: 'Aguardando aprovação da unidade.',
+      title: joinCount === 1 ? t('1 pedido de entrada') : t('{count} pedidos de entrada', { count: joinCount }),
+      note: t('Aguardando aprovação da unidade.'),
     };
   }
 
   if (attendanceCount > 0) {
     return {
-      title: `${attendanceCount} ${attendanceCount === 1 ? 'solicitação de presença' : 'solicitações de presença'}`,
-      note: 'Aguardando análise do professor responsável.',
+      title: attendanceCount === 1 ? t('1 solicitação de presença') : t('{count} solicitações de presença', { count: attendanceCount }),
+      note: t('Aguardando análise do professor responsável.'),
     };
   }
 
   if (unreadCount > 0) {
     return {
-      title: `${unreadCount} ${unreadCount === 1 ? 'aviso recente' : 'avisos recentes'}`,
-      note: 'Abra a aba de avisos para revisar as atualizações da unidade.',
+      title: unreadCount === 1 ? t('1 aviso recente') : t('{count} avisos recentes', { count: unreadCount }),
+      note: t('Abra a aba de avisos para revisar as atualizações da unidade.'),
     };
   }
 
   return {
-    title: 'Nenhuma pendência agora',
-    note: 'Tudo em dia na rotina da unidade.',
+    title: t('Nenhuma pendência agora'),
+    note: t('Tudo em dia na rotina da unidade.'),
   };
 }
 
 function formatConfirmedLabel(count: number) {
-  return `${count} ${count === 1 ? 'confirmado' : 'confirmados'}`;
+  return count === 1 ? t('1 confirmado') : t('{count} confirmados', { count });
 }
 
 const StaffDashboardView: React.FC<StaffDashboardViewProps> = ({
@@ -152,11 +153,13 @@ const StaffDashboardView: React.FC<StaffDashboardViewProps> = ({
   const blackBeltProgress = getBlackBeltProgressForUser(user, now);
   const blackBeltMetaLine = blackBeltProgress
     ? [
-      blackBeltProgress.degreeLabel || 'Faixa lisa',
+      blackBeltProgress.degreeLabel || t('Faixa lisa'),
       blackBeltProgress.styleNote,
       blackBeltProgress.yearsToNextDegree != null && blackBeltProgress.nextDegree != null
-        ? `faltam ${blackBeltProgress.yearsToNextDegree} ${blackBeltProgress.yearsToNextDegree === 1 ? 'ano' : 'anos'} para o ${blackBeltProgress.nextDegree}º grau`
-        : 'Grau máximo alcançado',
+        ? (blackBeltProgress.yearsToNextDegree === 1
+          ? t('falta 1 ano para o {degree}º grau', { degree: blackBeltProgress.nextDegree })
+          : t('faltam {years} anos para o {degree}º grau', { years: blackBeltProgress.yearsToNextDegree, degree: blackBeltProgress.nextDegree }))
+        : t('Grau máximo alcançado'),
     ].filter(Boolean).join(' · ')
     : '';
   const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
@@ -238,7 +241,7 @@ const StaffDashboardView: React.FC<StaffDashboardViewProps> = ({
         setSelectedClassRsvpsLoading(false);
       },
       () => {
-        setSelectedClassRsvpsError('Não foi possível carregar os alunos confirmados.');
+        setSelectedClassRsvpsError(t('Não foi possível carregar os alunos confirmados.'));
         setSelectedClassRsvpsLoading(false);
       },
     );
@@ -248,10 +251,10 @@ const StaffDashboardView: React.FC<StaffDashboardViewProps> = ({
     <div className="view-shell staff-home">
       <section className="staff-home__hero">
         <div className="staff-home__hero-copy">
-          <p className="staff-home__eyebrow">{getGreeting(now)},</p>
+          <p className="staff-home__eyebrow">{t(getGreeting(now))},</p>
           <h1 className="staff-home__greeting">{user.name}</h1>
           <p className="staff-home__summary">
-            Visão do professor com equipe, agenda e pendências da unidade.
+            {t('Visão do professor com equipe, agenda e pendências da unidade.')}
           </p>
 
           {blackBeltProgress ? (
@@ -259,7 +262,7 @@ const StaffDashboardView: React.FC<StaffDashboardViewProps> = ({
               <div className="staff-home__belt-head">
                 <span className="staff-home__belt-title">{blackBeltProgress.label}</span>
                 <span className="staff-home__belt-since">
-                  {blackBeltProgress.title} desde: {blackBeltProgress.startDate.getFullYear()}
+                  {blackBeltProgress.title} {t('desde:')} {blackBeltProgress.startDate.getFullYear()}
                 </span>
               </div>
               <BjjBelt color={user.belt} stripes={blackBeltProgress.degree} blackBelt={blackBeltProgress} />
@@ -273,41 +276,41 @@ const StaffDashboardView: React.FC<StaffDashboardViewProps> = ({
         <div className="staff-home__vision">
           <div className="staff-home__vision-dot" aria-hidden="true" />
           <div className="staff-home__vision-copy">
-            <p className="staff-home__vision-label">Visão atual</p>
+            <p className="staff-home__vision-label">{t('Visão atual')}</p>
             <p className="staff-home__vision-title">{academy.name}</p>
           </div>
         </div>
       </section>
 
       <section className="staff-home__section">
-        <p className="staff-home__section-label">Visão geral</p>
+        <p className="staff-home__section-label">{t('Visão geral')}</p>
 
         <div className="staff-home__kpi-grid">
           <StaffKpiCard
-            label="Instrutores"
+            label={t('Instrutores')}
             value={instructors.length}
-            note="Equipe ativa"
+            note={t('Equipe ativa')}
             onClick={onNavigateToInstructors}
           />
 
           <StaffKpiCard
-            label="Alunos"
+            label={t('Alunos')}
             value={activeStudents.length}
-            note="Ativos"
+            note={t('Ativos')}
             onClick={onNavigateToStudents}
           />
 
           <StaffKpiCard
-            label="Aulas hoje"
+            label={t('Aulas hoje')}
             value={todayClasses.length}
-            note="Agendadas"
+            note={t('Agendadas')}
             onClick={onNavigateToClasses}
           />
 
           <StaffKpiCard
-            label="Inativos"
+            label={t('Inativos')}
             value={inactiveStudents.length}
-            note="Desativados"
+            note={t('Desativados')}
             onClick={onNavigateToInactiveStudents}
           />
         </div>
@@ -315,20 +318,20 @@ const StaffDashboardView: React.FC<StaffDashboardViewProps> = ({
 
       <section className="staff-home__section">
         <div className="staff-home__section-head">
-          <p className="staff-home__section-label">Aulas de hoje</p>
+          <p className="staff-home__section-label">{t('Aulas de hoje')}</p>
           <span className="app-badge app-badge--muted">{todayClasses.length}</span>
         </div>
 
         <div className="staff-home__list">
           {todayClasses.length > 0 ? (
             todayClasses.map((lesson) => {
-              const professorName = lesson.professorName || 'Equipe técnica';
+              const professorName = lesson.professorName || t('Equipe técnica');
               const plannedCount = lesson.rsvpCount ?? 0;
               const classMeta = lesson.status === 'scheduled'
-                ? `${formatConfirmedLabel(plannedCount)} para esta aula - ${professorName}`
+                ? t('{confirmed} para esta aula - {professor}', { confirmed: formatConfirmedLabel(plannedCount), professor: professorName })
                 : lesson.currentAttendanceCount > 0
-                  ? `${lesson.currentAttendanceCount} presenças registradas - ${professorName}`
-                  : `Professor: ${professorName}`;
+                  ? t('{count} presenças registradas - {professor}', { count: lesson.currentAttendanceCount, professor: professorName })
+                  : t('Professor: {professor}', { professor: professorName });
 
               return (
                 <button
@@ -350,7 +353,7 @@ const StaffDashboardView: React.FC<StaffDashboardViewProps> = ({
               );
             })
           ) : (
-            <div className="staff-home__empty">Nenhuma aula programada para hoje nesta unidade.</div>
+            <div className="staff-home__empty">{t('Nenhuma aula programada para hoje nesta unidade.')}</div>
           )}
         </div>
       </section>
@@ -370,10 +373,10 @@ const StaffDashboardView: React.FC<StaffDashboardViewProps> = ({
           >
             <div className="staff-home__lesson-head">
               <div className="staff-home__lesson-title-copy">
-                <p className="staff-home__section-label">Aula selecionada</p>
+                <p className="staff-home__section-label">{t('Aula selecionada')}</p>
                 <h2 id="staff-home-lesson-title" className="staff-home__lesson-title">{selectedClass.title}</h2>
                 <p className="staff-home__lesson-subtitle">
-                  {formatTimeLabel(selectedClass.scheduledStart)} - {selectedClass.professorName || 'Equipe tecnica'}
+                  {formatTimeLabel(selectedClass.scheduledStart)} - {selectedClass.professorName || t('Equipe tecnica')}
                 </p>
               </div>
 
@@ -381,7 +384,7 @@ const StaffDashboardView: React.FC<StaffDashboardViewProps> = ({
                 type="button"
                 onClick={() => setSelectedClassId(null)}
                 className="app-button app-button--ghost app-button--icon staff-home__lesson-close"
-                aria-label="Fechar detalhes da aula"
+                aria-label={t('Fechar detalhes da aula')}
               >
                 <X size={16} />
               </button>
@@ -396,23 +399,23 @@ const StaffDashboardView: React.FC<StaffDashboardViewProps> = ({
                   {formatConfirmedLabel(selectedClassRsvpsLoading ? (selectedClass.rsvpCount ?? 0) : selectedClassRsvps.length)}
                 </p>
                 <p className="staff-home__lesson-count-note">
-                  Alunos que confirmaram que vão nesta aula.
+                  {t('Alunos que confirmaram que vão nesta aula.')}
                 </p>
               </div>
             </div>
 
             <div className="staff-home__confirmed-list">
               <div className="staff-home__confirmed-head">
-                <p className="staff-home__section-label">Quem confirmou</p>
+                <p className="staff-home__section-label">{t('Quem confirmou')}</p>
                 {selectedClass.capacity ? (
-                  <span className="app-badge app-badge--muted">Capacidade {selectedClass.capacity}</span>
+                  <span className="app-badge app-badge--muted">{t('Capacidade {count}', { count: selectedClass.capacity })}</span>
                 ) : null}
               </div>
 
               {selectedClassRsvpsError ? (
                 <div className="staff-home__confirmed-empty">{selectedClassRsvpsError}</div>
               ) : selectedClassRsvpsLoading ? (
-                <div className="staff-home__confirmed-empty">Carregando confirmados...</div>
+                <div className="staff-home__confirmed-empty">{t('Carregando confirmados...')}</div>
               ) : selectedClassRsvps.length > 0 ? (
                 selectedClassRsvps.map((rsvp) => (
                   <div key={rsvp.id} className="staff-home__confirmed-row">
@@ -421,13 +424,13 @@ const StaffDashboardView: React.FC<StaffDashboardViewProps> = ({
                     </div>
                     <div className="staff-home__confirmed-copy">
                       <p className="staff-home__confirmed-name">{rsvp.userDisplayName}</p>
-                      <p className="staff-home__confirmed-meta">Presença futura confirmada</p>
+                      <p className="staff-home__confirmed-meta">{t('Presença futura confirmada')}</p>
                     </div>
                   </div>
                 ))
               ) : (
                 <div className="staff-home__confirmed-empty">
-                  Nenhum aluno confirmou que vai nesta aula ainda.
+                  {t('Nenhum aluno confirmou que vai nesta aula ainda.')}
                 </div>
               )}
             </div>
