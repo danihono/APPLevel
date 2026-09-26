@@ -29,7 +29,7 @@ import type {
 } from '../services/firebase/models';
 import { isUnreadNotificationForViewer } from '../services/firebase/notifications';
 import { UserRole, type KidsCategory } from '../types';
-import { getLocale } from '../i18n';
+import { t, getLocale } from '../i18n';
 
 interface NotificationsViewProps {
   academy: FirestoreEntity<AcademyRecord>;
@@ -131,14 +131,16 @@ type ReactivationRequestItem = {
 type RequestItem = JoinRequestItem | AttendanceRequestItem | FightVideoRequestItem | ReactivationRequestItem;
 type StaffTab = 'notifications' | 'requests' | 'communication' | 'graduations';
 
-const beltOptions = [
-  { value: '', label: 'Todas as faixas' },
-  ...ALL_BELTS.map((belt) => ({ value: belt, label: beltLabel(belt) })),
-];
+function getNotificationBeltOptions() {
+  return [
+    { value: '', label: t('Todas as faixas') },
+    ...ALL_BELTS.map((belt) => ({ value: belt, label: beltLabel(belt) })),
+  ];
+}
 
 function formatStamp(value?: { toDate(): Date } | null) {
   if (!value) {
-    return 'Agora';
+    return t('Agora');
   }
 
   return value.toDate().toLocaleString(getLocale(), {
@@ -152,7 +154,7 @@ function formatStamp(value?: { toDate(): Date } | null) {
 
 function formatDateOnly(value?: string | null) {
   if (!value) {
-    return 'Nao informado';
+    return t('Nao informado');
   }
 
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
@@ -171,41 +173,41 @@ function formatDateOnly(value?: string | null) {
 function roleLabel(value: UserRecord['role']) {
   switch (value) {
     case 'admin':
-      return 'Professor';
+      return t('Professor');
     case 'professor':
-      return 'Instrutor';
+      return t('Instrutor');
     case 'superadmin':
-      return 'Superadmin';
+      return t('Superadmin');
     default:
-      return 'Aluno';
+      return t('Aluno');
   }
 }
 
 function notificationType(notification: FirestoreEntity<NotificationRecord>) {
   switch (notification.kind) {
     case 'join_request':
-      return 'Pedido de acesso';
+      return t('Pedido de acesso');
     case 'attendance_request':
-      return 'Solicitação de presença';
+      return t('Solicitação de presença');
     case 'graduation':
-      return 'Graduação';
+      return t('Graduação');
     case 'fight_video_submission':
-      return 'Video';
+      return t('Video');
     case 'reactivation_request':
-      return 'Reativação';
+      return t('Reativação');
     default:
-      return notification.channel === 'team' ? 'Equipe' : 'Comunicado';
+      return notification.channel === 'team' ? t('Equipe') : t('Comunicado');
   }
 }
 
 function fightVideoSourceLabel(sourceKind: FightVideoSubmissionRecord['sourceKind']) {
   switch (sourceKind) {
     case 'upload':
-      return 'Arquivo enviado';
+      return t('Arquivo enviado');
     case 'youtube':
-      return 'Link do YouTube';
+      return t('Link do YouTube');
     default:
-      return 'Link externo';
+      return t('Link externo');
   }
 }
 
@@ -222,19 +224,21 @@ function getInitial(value: string) {
 
 function graduationTargetLabel(request: FirestoreEntity<GraduationApprovalRequestRecord>) {
   if (request.targetType === 'belt') {
-    return `Faixa ${beltLabel(request.targetBelt)}`;
+    return t('Faixa {belt}', { belt: beltLabel(request.targetBelt) });
   }
 
-  return `${request.targetStripes} grau na faixa ${beltLabel(request.targetBelt)}`;
+  return t('{count} grau na faixa {belt}', { count: request.targetStripes, belt: beltLabel(request.targetBelt) });
 }
 
 function graduationStatusLabel(request: FirestoreEntity<GraduationApprovalRequestRecord>) {
   if (request.remainingClasses <= 0) {
-    return 'Meta atingida. Aguardando aprovação.';
+    return t('Meta atingida. Aguardando aprovação.');
   }
-  const target = request.targetType === 'belt' ? 'mudar de faixa' : 'ganhar um grau';
   const n = request.remainingClasses;
-  return `${n === 1 ? 'Falta' : 'Faltam'} ${n} ${n === 1 ? 'presença' : 'presenças'} para ${target}.`;
+  if (request.targetType === 'belt') {
+    return n === 1 ? t('Falta 1 presença para mudar de faixa.') : t('Faltam {count} presenças para mudar de faixa.', { count: n });
+  }
+  return n === 1 ? t('Falta 1 presença para ganhar um grau.') : t('Faltam {count} presenças para ganhar um grau.', { count: n });
 }
 
 function shouldRebuildGraduationState(user: FirestoreEntity<UserRecord>, rules?: AcademyRecord['progressionRules']) {
@@ -336,8 +340,8 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
     userRole === UserRole.SUPERADMIN;
   const focusedAcademyName = isSuperAdmin
     ? (selectedAcademyId
-      ? (academies.find((entry) => entry.id === selectedAcademyId)?.name ?? 'Academia em foco')
-      : 'Toda a rede')
+      ? (academies.find((entry) => entry.id === selectedAcademyId)?.name ?? t('Academia em foco'))
+      : t('Toda a rede'))
     : academy.name;
   const notificationActionState = useMemo(
     () => ({
@@ -409,7 +413,7 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
           id: entry.id,
           kind: 'join_request' as const,
           title: entry.displayName,
-          body: `${entry.email} | faixa ${beltLabel(entry.requestedBelt)} | grau ${entry.requestedGrade}`,
+          body: `${entry.email} | ${t('faixa {belt}', { belt: beltLabel(entry.requestedBelt) })} | ${t('grau {grade}', { grade: entry.requestedGrade })}`,
           meta: `${entry.academyName} | CPF ${entry.cpf}`,
           createdAt: entry.createdAt,
           request: entry,
@@ -426,8 +430,8 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
         id: entry.id,
         kind: 'attendance_request' as const,
         title: entry.userDisplayName,
-        body: `${entry.classTitle} | professor ${entry.professorName || 'responsável da aula'}`,
-        meta: `Solicitada em ${formatStamp(entry.requestedAt)}`,
+        body: `${entry.classTitle} | ${t('professor {name}', { name: entry.professorName || t('responsável da aula') })}`,
+        meta: t('Solicitada em {date}', { date: formatStamp(entry.requestedAt) }),
         createdAt: entry.requestedAt,
       }));
 
@@ -449,8 +453,8 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
         id: entry.id,
         kind: 'reactivation_request' as const,
         title: entry.userDisplayName,
-        body: `${entry.userEmail} — solicitou reativação da conta`,
-        meta: `Solicitada em ${formatStamp(entry.requestedAt)}`,
+        body: `${entry.userEmail} — ${t('solicitou reativação da conta')}`,
+        meta: t('Solicitada em {date}', { date: formatStamp(entry.requestedAt) }),
         createdAt: entry.createdAt,
         request: entry,
       }));
@@ -566,9 +570,9 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
       setTargetRole('');
       setTargetBelt('');
       setChannel('academy');
-      setFeedback('Aviso enviado com sucesso.');
+      setFeedback(t('Aviso enviado com sucesso.'));
     } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : 'Não foi possível enviar o aviso.');
+      setError(submitError instanceof Error ? submitError.message : t('Não foi possível enviar o aviso.'));
     } finally {
       setBusy(false);
     }
@@ -589,9 +593,9 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
       });
       setTitle('');
       setBody('');
-      setFeedback('Comunicado enviado com sucesso.');
+      setFeedback(t('Comunicado enviado com sucesso.'));
     } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : 'Não foi possível criar o comunicado.');
+      setError(submitError instanceof Error ? submitError.message : t('Não foi possível criar o comunicado.'));
     } finally {
       setBusy(false);
     }
@@ -601,7 +605,7 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
     try {
       await onMarkRead(notificationId);
     } catch (markError) {
-      setError(markError instanceof Error ? markError.message : 'Não foi possível marcar a notificação como lida.');
+      setError(markError instanceof Error ? markError.message : t('Não foi possível marcar a notificação como lida.'));
     }
   }
 
@@ -619,10 +623,10 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
       setShowAllStudent(false);
       setShowAllStaff(false);
       if (result.deleted === 0) {
-        setError('Nenhuma notificação foi removida. Atualize a lista e tente novamente.');
+        setError(t('Nenhuma notificação foi removida. Atualize a lista e tente novamente.'));
       }
     } catch (clearError) {
-      setError(clearError instanceof Error ? clearError.message : 'Não foi possível limpar as notificações.');
+      setError(clearError instanceof Error ? clearError.message : t('Não foi possível limpar as notificações.'));
     } finally {
       setClearing(false);
     }
@@ -648,7 +652,7 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
         await onApproveAttendanceRequest(item.id);
       }
     } catch (actionError) {
-      setError(actionError instanceof Error ? actionError.message : 'Não foi possível aprovar a solicitação.');
+      setError(actionError instanceof Error ? actionError.message : t('Não foi possível aprovar a solicitação.'));
     } finally {
       setProcessingRequestId(null);
     }
@@ -656,16 +660,16 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
 
   async function handleReject(item: RequestItem) {
     const label = item.kind === 'join_request'
-      ? 'solicitação de cadastro'
+      ? t('solicitação de cadastro')
       : item.kind === 'fight_video_submission'
-        ? 'solicitação de vídeo'
+        ? t('solicitação de vídeo')
         : item.kind === 'reactivation_request'
-          ? 'solicitação de reativação'
-          : 'solicitação de presença';
+          ? t('solicitação de reativação')
+          : t('solicitação de presença');
     if (!(await confirm({
-      title: 'Rejeitar solicitação',
-      message: `Tem certeza que deseja rejeitar esta ${label}? Esta ação não pode ser desfeita.`,
-      confirmLabel: 'Rejeitar',
+      title: t('Rejeitar solicitação'),
+      message: t('Tem certeza que deseja rejeitar esta {label}? Esta ação não pode ser desfeita.', { label }),
+      confirmLabel: t('Rejeitar'),
       tone: 'danger',
     }))) {
       return;
@@ -685,7 +689,7 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
         await onRejectAttendanceRequest(item.id);
       }
     } catch (actionError) {
-      setError(actionError instanceof Error ? actionError.message : 'Não foi possível rejeitar a solicitação.');
+      setError(actionError instanceof Error ? actionError.message : t('Não foi possível rejeitar a solicitação.'));
     } finally {
       setProcessingRequestId(null);
     }
@@ -732,7 +736,7 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
       });
       cancelEditJoinRequest();
     } catch (err) {
-      setEditingError(err instanceof Error ? err.message : 'Não foi possível salvar a edição.');
+      setEditingError(err instanceof Error ? err.message : t('Não foi possível salvar a edição.'));
     } finally {
       setEditingBusy(false);
     }
@@ -755,9 +759,9 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
       return;
     }
     if (!(await confirm({
-      title: 'Transferir solicitação',
-      message: 'A solicitação sairá desta unidade e será encaminhada para a unidade escolhida. Confirma?',
-      confirmLabel: 'Transferir',
+      title: t('Transferir solicitação'),
+      message: t('A solicitação sairá desta unidade e será encaminhada para a unidade escolhida. Confirma?'),
+      confirmLabel: t('Transferir'),
     }))) {
       return;
     }
@@ -770,7 +774,7 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
       });
       cancelTransferJoinRequest();
     } catch (err) {
-      setTransferError(err instanceof Error ? err.message : 'Não foi possível encaminhar a solicitação.');
+      setTransferError(err instanceof Error ? err.message : t('Não foi possível encaminhar a solicitação.'));
     } finally {
       setTransferBusy(false);
     }
@@ -783,7 +787,7 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
     try {
       await onApproveGraduationRequest(item.id);
     } catch (actionError) {
-      setError(actionError instanceof Error ? actionError.message : 'Não foi possível aprovar a graduação.');
+      setError(actionError instanceof Error ? actionError.message : t('Não foi possível aprovar a graduação.'));
     } finally {
       setProcessingRequestId(null);
     }
@@ -799,7 +803,7 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
           className="app-button app-button--ghost app-button--small"
         >
           <Trash2 size={14} />
-          Limpar tudo
+          {t('Limpar tudo')}
         </button>
       </div>
     );
@@ -821,7 +825,7 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
               <div className="app-icon-shell" style={{ color: '#ef4444' }}>
                 <Trash2 size={18} />
               </div>
-              <h2 className="text-xl font-bold">Limpar notificações</h2>
+              <h2 className="text-xl font-bold">{t('Limpar notificações')}</h2>
             </div>
             <button
               type="button"
@@ -834,7 +838,7 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
 
           <div className="mt-6 app-list-card">
             <p className="text-sm text-[color:var(--text-muted)]">
-              Todas as notificações serão removidas permanentemente, inclusive as não lidas. Esta ação não pode ser desfeita.
+              {t('Todas as notificações serão removidas permanentemente, inclusive as não lidas. Esta ação não pode ser desfeita.')}
             </p>
           </div>
 
@@ -847,7 +851,7 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
               disabled={clearing}
               className="app-button app-button--ghost flex-1"
             >
-              Cancelar
+              {t('Cancelar')}
             </button>
             <button
               type="button"
@@ -856,7 +860,7 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
               className="app-button app-button--solid-danger flex-1"
             >
               <Trash2 size={14} />
-              {clearing ? 'Limpando...' : 'Confirmar'}
+              {clearing ? t('Limpando...') : t('Confirmar')}
             </button>
           </div>
         </div>
@@ -868,7 +872,7 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
     return (
       <div className="view-shell notice-mobile">
         <section className="notice-mobile__hero">
-          <div className="notice-mobile__tabs" role="tablist" aria-label="Central de avisos">
+          <div className="notice-mobile__tabs" role="tablist" aria-label={t('Central de avisos')}>
             <button
               type="button"
               role="tab"
@@ -876,7 +880,7 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
               onClick={() => setActiveTab('notifications')}
               className={`notice-mobile__tab ${activeTab === 'notifications' ? 'is-active' : ''}`}
             >
-              Notificações
+              {t('Notificações')}
             </button>
             <button
               type="button"
@@ -885,7 +889,7 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
               onClick={() => setActiveTab('requests')}
               className={`notice-mobile__tab ${activeTab === 'requests' ? 'is-active' : ''}`}
             >
-              Solicitações
+              {t('Solicitações')}
             </button>
             <button
               type="button"
@@ -894,7 +898,7 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
               onClick={() => setActiveTab('communication')}
               className={`notice-mobile__tab ${activeTab === 'communication' ? 'is-active' : ''}`}
             >
-              Comunicação
+              {t('Comunicação')}
             </button>
             <button
               type="button"
@@ -904,7 +908,7 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
               className={`notice-mobile__tab ${activeTab === 'graduations' ? 'is-active' : ''}`}
             >
               <span className="notice-mobile__tab-inner">
-                Graduações
+                {t('Graduações')}
                 {graduationItems.length > 0
                   ? <span className="notice-mobile__tab-badge">{graduationItems.length}</span>
                   : null}
@@ -954,12 +958,12 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
                 onClick={() => setShowAllStaff(true)}
                 className="app-button app-button--ghost w-full"
               >
-                Ver mais ({professorNotifications.length - 5} restantes)
+                {t('Ver mais ({count} restantes)', { count: professorNotifications.length - 5 })}
               </button>
             ) : null}
 
             {professorNotifications.length === 0 ? (
-              <div className="notice-mobile__empty">Nenhuma notificação encontrada para a unidade.</div>
+              <div className="notice-mobile__empty">{t('Nenhuma notificação encontrada para a unidade.')}</div>
             ) : null}
           </section>
         ) : null}
@@ -997,12 +1001,12 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
                       <div className="mt-2 flex flex-wrap gap-2">
                         {joinRequest.transferredFromAcademyName ? (
                           <span className="app-badge app-badge--gold">
-                            Encaminhada de {joinRequest.transferredFromAcademyName}
+                            {t('Encaminhada de {name}', { name: joinRequest.transferredFromAcademyName })}
                           </span>
                         ) : null}
                         {groupOtherCount > 0 ? (
                           <span className="app-badge app-badge--muted">
-                            Aluno também solicitou em {groupOtherCount} outra(s) unidade(s)
+                            {t('Aluno também solicitou em {count} outra(s) unidade(s)', { count: groupOtherCount })}
                           </span>
                         ) : null}
                       </div>
@@ -1017,7 +1021,7 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
                           className="app-button app-button--green app-button--small"
                         >
                           <CheckCircle2 size={15} />
-                          {isProcessing ? 'Processando...' : 'Aprovar'}
+                          {isProcessing ? t('Processando...') : t('Aprovar')}
                         </button>
                         {isJoinRequest && onUpdateJoinRequest ? (
                           <button
@@ -1026,7 +1030,7 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
                             onClick={() => startEditJoinRequest(item.request)}
                             className="app-button app-button--ghost app-button--small"
                           >
-                            Editar
+                            {t('Editar')}
                           </button>
                         ) : null}
                         {isJoinRequest && onTransferJoinRequest ? (
@@ -1036,7 +1040,7 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
                             onClick={() => startTransferJoinRequest(item.request)}
                             className="app-button app-button--ghost app-button--small"
                           >
-                            Transferir
+                            {t('Transferir')}
                           </button>
                         ) : null}
                         <button
@@ -1046,23 +1050,23 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
                           className="app-button app-button--danger app-button--small"
                         >
                           <XCircle size={15} />
-                          Recusar
+                          {t('Recusar')}
                         </button>
                       </div>
                     ) : (
-                      <div className="notice-mobile__request-note">Sem permissão para agir sobre esta solicitação.</div>
+                      <div className="notice-mobile__request-note">{t('Sem permissão para agir sobre esta solicitação.')}</div>
                     )}
                   </article>
 
                   {isJoinRequest && editingRequestId === item.id && editingDraft ? (
                     <div className="app-panel app-panel--soft p-4 mt-2">
-                      <p className="app-section-label">Editar dados do aluno</p>
+                      <p className="app-section-label">{t('Editar dados do aluno')}</p>
                       {editingError ? (
                         <div className="app-alert app-alert--error mt-3">{editingError}</div>
                       ) : null}
                       <div className="mt-4 flex flex-col gap-3">
                         <label className="app-field">
-                          <span className="app-field__label">Nome</span>
+                          <span className="app-field__label">{t('Nome')}</span>
                           <input
                             className="app-input"
                             value={editingDraft.firstName}
@@ -1070,7 +1074,7 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
                           />
                         </label>
                         <label className="app-field">
-                          <span className="app-field__label">Sobrenome</span>
+                          <span className="app-field__label">{t('Sobrenome')}</span>
                           <input
                             className="app-input"
                             value={editingDraft.lastName}
@@ -1086,7 +1090,7 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
                           />
                         </label>
                         <label className="app-field">
-                          <span className="app-field__label">Telefone</span>
+                          <span className="app-field__label">{t('Telefone')}</span>
                           <input
                             className="app-input"
                             value={editingDraft.phone}
@@ -1094,25 +1098,25 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
                           />
                         </label>
                         <label className="app-field">
-                          <span className="app-field__label">Nascimento</span>
+                          <span className="app-field__label">{t('Nascimento')}</span>
                           <DateField
                             value={editingDraft.birthDate}
                             onChange={(value) => setEditingDraft({ ...editingDraft, birthDate: value })}
                           />
                         </label>
                         <label className="app-field">
-                          <span className="app-field__label">Competidor</span>
+                          <span className="app-field__label">{t('Competidor')}</span>
                           <select
                             className="app-select"
                             value={editingDraft.isCompetitor ? 'yes' : 'no'}
                             onChange={(event) => setEditingDraft({ ...editingDraft, isCompetitor: event.target.value === 'yes' })}
                           >
-                            <option value="no">Não</option>
-                            <option value="yes">Sim</option>
+                            <option value="no">{t('Não')}</option>
+                            <option value="yes">{t('Sim')}</option>
                           </select>
                         </label>
                         <label className="app-field">
-                          <span className="app-field__label">Faixa</span>
+                          <span className="app-field__label">{t('Faixa')}</span>
                           <select
                             className="app-select"
                             value={editingDraft.requestedBelt}
@@ -1124,7 +1128,7 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
                           </select>
                         </label>
                         <label className="app-field">
-                          <span className="app-field__label">Grau</span>
+                          <span className="app-field__label">{t('Grau')}</span>
                           <input
                             type="number"
                             min={0}
@@ -1148,7 +1152,7 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
                           onClick={() => void submitEditJoinRequest()}
                           className="app-button app-button--gold app-button--small"
                         >
-                          {editingBusy ? 'Salvando...' : 'Salvar alterações'}
+                          {editingBusy ? t('Salvando...') : t('Salvar alterações')}
                         </button>
                         <button
                           type="button"
@@ -1156,7 +1160,7 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
                           onClick={() => cancelEditJoinRequest()}
                           className="app-button app-button--ghost app-button--small"
                         >
-                          Cancelar
+                          {t('Cancelar')}
                         </button>
                       </div>
                     </div>
@@ -1164,22 +1168,22 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
 
                   {isJoinRequest && transferringRequestId === item.id ? (
                     <div className="app-panel app-panel--soft p-4 mt-2">
-                      <p className="app-section-label">Transferir para outra unidade</p>
+                      <p className="app-section-label">{t('Transferir para outra unidade')}</p>
                       <p className="mt-2 text-sm text-[color:var(--text-muted)]">
-                        A solicitação sai desta unidade e vai para a unidade escolhida. Só os professores da nova unidade poderão aprovar.
+                        {t('A solicitação sai desta unidade e vai para a unidade escolhida. Só os professores da nova unidade poderão aprovar.')}
                       </p>
                       {transferError ? (
                         <div className="app-alert app-alert--error mt-3">{transferError}</div>
                       ) : null}
                       <label className="app-field mt-4">
-                        <span className="app-field__label">Unidade de destino</span>
+                        <span className="app-field__label">{t('Unidade de destino')}</span>
                         <select
                           className="app-select"
                           value={transferTargetAcademyId}
                           onChange={(event) => setTransferTargetAcademyId(event.target.value)}
                           disabled={transferBusy}
                         >
-                          <option value="">Selecione a unidade</option>
+                          <option value="">{t('Selecione a unidade')}</option>
                           {academies
                             .filter((entry) => entry.id !== item.request.academyId)
                             .map((entry) => (
@@ -1194,7 +1198,7 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
                           onClick={() => void submitTransferJoinRequest()}
                           className="app-button app-button--gold app-button--small"
                         >
-                          {transferBusy ? 'Encaminhando...' : 'Confirmar transferência'}
+                          {transferBusy ? t('Encaminhando...') : t('Confirmar transferência')}
                         </button>
                         <button
                           type="button"
@@ -1202,7 +1206,7 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
                           onClick={() => cancelTransferJoinRequest()}
                           className="app-button app-button--ghost app-button--small"
                         >
-                          Cancelar
+                          {t('Cancelar')}
                         </button>
                       </div>
                     </div>
@@ -1212,7 +1216,7 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
             })}
 
             {requestItems.length === 0 ? (
-              <div className="notice-mobile__empty">Sem solicitações pendentes no momento.</div>
+              <div className="notice-mobile__empty">{t('Sem solicitações pendentes no momento.')}</div>
             ) : null}
           </section>
         ) : null}
@@ -1222,31 +1226,31 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
             {canBroadcast ? (
               <form onSubmit={handleProfessorCommunicationSubmit} className="notice-mobile__compose-card">
                 <div>
-                  <p className="notice-mobile__compose-label">Comunicação</p>
-                  <h2 className="notice-mobile__compose-title">Criar comunicado</h2>
-                  <p className="notice-mobile__compose-copy">Envie um aviso rápido para toda a unidade.</p>
+                  <p className="notice-mobile__compose-label">{t('Comunicação')}</p>
+                  <h2 className="notice-mobile__compose-title">{t('Criar comunicado')}</h2>
+                  <p className="notice-mobile__compose-copy">{t('Envie um aviso rápido para toda a unidade.')}</p>
                 </div>
 
                 {feedback ? <div className="app-alert app-alert--success">{feedback}</div> : null}
                 {error ? <div className="app-alert app-alert--error">{error}</div> : null}
 
                 <label className="app-field">
-                  <span className="app-field__label">Título</span>
+                  <span className="app-field__label">{t('Título')}</span>
                   <input value={title} onChange={(event) => setTitle(event.target.value)} className="app-input" required />
                 </label>
 
                 <label className="app-field">
-                  <span className="app-field__label">Mensagem</span>
+                  <span className="app-field__label">{t('Mensagem')}</span>
                   <textarea value={body} onChange={(event) => setBody(event.target.value)} className="app-textarea" required />
                 </label>
 
                 <button type="submit" disabled={busy} className="app-button app-button--gold">
                   <Send size={16} />
-                  {busy ? 'Enviando...' : 'Criar comunicado'}
+                  {busy ? t('Enviando...') : t('Criar comunicado')}
                 </button>
               </form>
             ) : (
-              <div className="notice-mobile__empty">Seu perfil não pode criar comunicados.</div>
+              <div className="notice-mobile__empty">{t('Seu perfil não pode criar comunicados.')}</div>
             )}
           </section>
         ) : null}
@@ -1271,20 +1275,20 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
                     <div className="notice-mobile__request-copy">
                       <p className="notice-mobile__request-name">{item.userDisplayName}</p>
                       <p className="notice-mobile__request-body">
-                        Atual: {beltLabel(item.currentBelt)} • {item.currentStripes} grau(s)
+                        {t('Atual: {belt} • {count} grau(s)', { belt: beltLabel(item.currentBelt), count: item.currentStripes })}
                       </p>
                       <p className="notice-mobile__request-time">
-                        Próximo passo: {graduationTargetLabel(item)}
+                        {t('Próximo passo: {target}', { target: graduationTargetLabel(item) })}
                       </p>
                       <p className="notice-mobile__request-time">{graduationStatusLabel(item)}</p>
                       {item.targetType === 'belt' && item.remainingClasses <= 0 ? (
                         <p className="notice-mobile__belt-ready-alert">
-                          Esse aluno está apto a mudar de faixa
+                          {t('Esse aluno está apto a mudar de faixa')}
                         </p>
                       ) : null}
                       {item.targetType === 'stripe' && item.remainingClasses <= 0 ? (
                         <p className="notice-mobile__belt-ready-alert">
-                          Esse aluno está apto a subir de grau
+                          {t('Esse aluno está apto a subir de grau')}
                         </p>
                       ) : null}
                     </div>
@@ -1292,7 +1296,7 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
 
                   {isBlocked ? (
                     <div className="app-alert app-alert--warning text-sm">
-                      Este aluno já foi graduado recentemente. Aguarde ele completar a próxima aula para liberar a próxima graduação.
+                      {t('Este aluno já foi graduado recentemente. Aguarde ele completar a próxima aula para liberar a próxima graduação.')}
                     </div>
                   ) : null}
 
@@ -1304,14 +1308,14 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
                       className="app-button app-button--green app-button--small"
                     >
                       <CheckCircle2 size={15} />
-                      {isProcessing ? 'Processando...' : 'Aprovar'}
+                      {isProcessing ? t('Processando...') : t('Aprovar')}
                     </button>
                     <button
                       type="button"
                       onClick={() => onOpenStudent?.(item.userId)}
                       className="app-button app-button--ghost app-button--small"
                     >
-                      Abrir aluno
+                      {t('Abrir aluno')}
                     </button>
                   </div>
                 </article>
@@ -1319,7 +1323,7 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
             })}
 
             {graduationItems.length === 0 ? (
-              <div className="notice-mobile__empty">Nenhuma graduação pendente na unidade.</div>
+              <div className="notice-mobile__empty">{t('Nenhuma graduação pendente na unidade.')}</div>
             ) : null}
           </section>
         ) : null}
@@ -1337,14 +1341,14 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
             <p className="text-sm font-bold">{isStudent ? academy.name : focusedAcademyName}</p>
             <p className="mt-2 text-sm text-[color:var(--text-muted)]">
               {isStudent
-                ? 'Avisos da academia e da equipe em um fluxo mais direto.'
-                : 'Comunicados, solicitações e graduações do contexto atual.'}
+                ? t('Avisos da academia e da equipe em um fluxo mais direto.')
+                : t('Comunicados, solicitações e graduações do contexto atual.')}
             </p>
           </div>
 
           <div className="app-orb">
             <Bell size={16} />
-            {unreadCount} não lidas
+            {t('{count} não lidas', { count: unreadCount })}
           </div>
         </div>
 
@@ -1356,7 +1360,7 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
               className={`app-segment__button ${studentChannelTab === 'academy' ? 'is-active' : ''}`}
             >
               <BellRing size={16} />
-              Academia
+              {t('Academia')}
             </button>
             <button
               type="button"
@@ -1364,7 +1368,7 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
               className={`app-segment__button ${studentChannelTab === 'team' ? 'is-active' : ''}`}
             >
               <ClipboardCheck size={16} />
-              Equipe
+              {t('Equipe')}
             </button>
           </div>
         ) : (
@@ -1375,7 +1379,7 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
               className={`app-segment__button ${activeTab === 'notifications' ? 'is-active' : ''}`}
             >
               <BellRing size={16} />
-              Notificações
+              {t('Notificações')}
             </button>
             <button
               type="button"
@@ -1383,7 +1387,7 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
               className={`app-segment__button ${activeTab === 'requests' ? 'is-active' : ''}`}
             >
               <ClipboardCheck size={16} />
-              {`Solicitações${requestItems.length > 0 ? ` (${requestItems.length})` : ''}`}
+              {`${t('Solicitações')}${requestItems.length > 0 ? ` (${requestItems.length})` : ''}`}
             </button>
             <button
               type="button"
@@ -1391,9 +1395,9 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
               className={`app-segment__button ${activeTab === 'graduations' ? 'is-active' : ''}`}
             >
               <GraduationCap size={16} />
-              {`Graduações${graduationItems.length > 0 ? ` (${graduationItems.length})` : ''}`}
-              {beltReadyCount > 0 ? <span className="app-badge app-badge--gold">{beltReadyCount} faixa</span> : null}
-              {grauReadyCount > 0 ? <span className="app-badge app-badge--muted">{grauReadyCount} grau</span> : null}
+              {`${t('Graduações')}${graduationItems.length > 0 ? ` (${graduationItems.length})` : ''}`}
+              {beltReadyCount > 0 ? <span className="app-badge app-badge--gold">{t('{count} faixa', { count: beltReadyCount })}</span> : null}
+              {grauReadyCount > 0 ? <span className="app-badge app-badge--muted">{t('{count} grau', { count: grauReadyCount })}</span> : null}
             </button>
           </div>
         )}
@@ -1418,7 +1422,7 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
                     <div className="flex flex-wrap items-center gap-3">
                       <h2 className="text-lg font-bold">{notification.title}</h2>
                       <span className="app-badge app-badge--muted">{notificationType(notification)}</span>
-                      {unread ? <span className="app-badge app-badge--gold">Novo</span> : null}
+                      {unread ? <span className="app-badge app-badge--gold">{t('Novo')}</span> : null}
                     </div>
                     <p className="mt-3 text-sm leading-7 text-[color:var(--text-muted)]">{notification.body}</p>
                   </div>
@@ -1436,7 +1440,7 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
                       className="app-button app-button--ghost app-button--small"
                     >
                       <CheckCircle2 size={15} />
-                      Marcar como lida
+                      {t('Marcar como lida')}
                     </button>
                   </div>
                 ) : null}
@@ -1450,12 +1454,12 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
               onClick={() => setShowAllStudent(true)}
               className="app-button app-button--ghost w-full"
             >
-              Ver mais ({studentNotifications.length - 5} restantes)
+              {t('Ver mais ({count} restantes)', { count: studentNotifications.length - 5 })}
             </button>
           ) : null}
 
           {studentNotifications.length === 0 ? (
-            <div className="app-empty">Nenhum aviso encontrado para este canal.</div>
+            <div className="app-empty">{t('Nenhum aviso encontrado para este canal.')}</div>
           ) : null}
         </section>
       ) : null}
@@ -1478,7 +1482,7 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
                       <div className="flex flex-wrap items-center gap-3">
                         <h2 className="text-lg font-bold">{notification.title}</h2>
                         <span className="app-badge app-badge--muted">{notificationType(notification)}</span>
-                        {unread ? <span className="app-badge app-badge--gold">Novo</span> : null}
+                        {unread ? <span className="app-badge app-badge--gold">{t('Novo')}</span> : null}
                       </div>
                       <p className="mt-3 text-sm leading-7 text-[color:var(--text-muted)]">{notification.body}</p>
                     </div>
@@ -1491,9 +1495,9 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
 
                   {(notification.targetRole || notification.targetBelt) ? (
                     <div className="mt-5 flex flex-wrap gap-3">
-                      <span className="app-badge app-badge--muted">Canal: {notification.channel}</span>
-                      {notification.targetRole ? <span className="app-badge app-badge--muted">Perfil: {notification.targetRole}</span> : null}
-                      {notification.targetBelt ? <span className="app-badge app-badge--muted">Faixa: {beltLabel(notification.targetBelt)}</span> : null}
+                      <span className="app-badge app-badge--muted">{t('Canal: {channel}', { channel: notification.channel })}</span>
+                      {notification.targetRole ? <span className="app-badge app-badge--muted">{t('Perfil: {role}', { role: notification.targetRole })}</span> : null}
+                      {notification.targetBelt ? <span className="app-badge app-badge--muted">{t('Faixa: {belt}', { belt: beltLabel(notification.targetBelt) })}</span> : null}
                     </div>
                   ) : null}
 
@@ -1505,7 +1509,7 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
                         className="app-button app-button--ghost app-button--small"
                       >
                         <CheckCircle2 size={15} />
-                        Marcar como lida
+                        {t('Marcar como lida')}
                       </button>
                     </div>
                   ) : null}
@@ -1519,12 +1523,12 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
                 onClick={() => setShowAllStaff(true)}
                 className="app-button app-button--ghost w-full"
               >
-                Ver mais ({professorNotifications.length - 5} restantes)
+                {t('Ver mais ({count} restantes)', { count: professorNotifications.length - 5 })}
               </button>
             ) : null}
 
             {professorNotifications.length === 0 ? (
-              <div className="app-empty">Nenhuma notificação encontrada para o contexto atual.</div>
+              <div className="app-empty">{t('Nenhuma notificação encontrada para o contexto atual.')}</div>
             ) : null}
           </section>
 
@@ -1535,8 +1539,8 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
                   <Send size={18} />
                 </div>
                 <div>
-                  <p className="app-section-label">Comunicação</p>
-                  <h2 className="text-xl font-bold">Enviar aviso</h2>
+                  <p className="app-section-label">{t('Comunicação')}</p>
+                  <h2 className="text-xl font-bold">{t('Enviar aviso')}</h2>
                 </div>
               </div>
 
@@ -1546,13 +1550,13 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
               <div className="mt-6 app-grid-2">
                 {isSuperAdmin ? (
                   <label className="app-field md:col-span-2">
-                    <span className="app-field__label">Destino</span>
+                    <span className="app-field__label">{t('Destino')}</span>
                     <select
                       value={selectedAcademyId}
                       onChange={(event) => onSelectAcademy?.(event.target.value)}
                       className="app-select"
                     >
-                      <option value="">Toda a rede</option>
+                      <option value="">{t('Toda a rede')}</option>
                       {academies.map((academyOption) => (
                         <option key={academyOption.id} value={academyOption.id}>{academyOption.name}</option>
                       ))}
@@ -1561,37 +1565,37 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
                 ) : null}
 
                 <label className="app-field">
-                  <span className="app-field__label">Canal</span>
+                  <span className="app-field__label">{t('Canal')}</span>
                   <select value={channel} onChange={(event) => setChannel(event.target.value as NotificationChannel)} className="app-select">
-                    <option value="academy">Academia</option>
-                    <option value="team">Equipe</option>
+                    <option value="academy">{t('Academia')}</option>
+                    <option value="team">{t('Equipe')}</option>
                   </select>
                 </label>
 
                 <label className="app-field">
-                  <span className="app-field__label">Perfil alvo</span>
+                  <span className="app-field__label">{t('Perfil alvo')}</span>
                   <select value={targetRole} onChange={(event) => setTargetRole(event.target.value)} className="app-select">
-                    <option value="">Toda a academia</option>
-                    <option value="student">Alunos</option>
-                    <option value="professor">Professores</option>
-                    {userRole === UserRole.SUPERADMIN ? <option value="superadmin">Superadmin</option> : null}
+                    <option value="">{t('Toda a academia')}</option>
+                    <option value="student">{t('Alunos')}</option>
+                    <option value="professor">{t('Professores')}</option>
+                    {userRole === UserRole.SUPERADMIN ? <option value="superadmin">{t('Superadmin')}</option> : null}
                   </select>
                 </label>
 
                 <label className="app-field md:col-span-2">
-                  <span className="app-field__label">Título</span>
+                  <span className="app-field__label">{t('Título')}</span>
                   <input value={title} onChange={(event) => setTitle(event.target.value)} className="app-input" required />
                 </label>
 
                 <label className="app-field md:col-span-2">
-                  <span className="app-field__label">Mensagem</span>
+                  <span className="app-field__label">{t('Mensagem')}</span>
                   <textarea value={body} onChange={(event) => setBody(event.target.value)} className="app-textarea" required />
                 </label>
 
                 <label className="app-field">
-                  <span className="app-field__label">Faixa alvo</span>
+                  <span className="app-field__label">{t('Faixa alvo')}</span>
                   <select value={targetBelt} onChange={(event) => setTargetBelt(event.target.value)} className="app-select">
-                    {beltOptions.map((option, index) => (
+                    {getNotificationBeltOptions().map((option, index) => (
                       <option key={option.value || `belt-option-${index}`} value={option.value}>{option.label}</option>
                     ))}
                   </select>
@@ -1600,7 +1604,7 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
 
               <button type="submit" disabled={busy} className="app-button app-button--gold mt-6">
                 <Send size={16} />
-                {busy ? 'Enviando...' : 'Enviar aviso'}
+                {busy ? t('Enviando...') : t('Enviar aviso')}
               </button>
             </form>
           ) : null}
@@ -1630,14 +1634,14 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
                       <div>
                         <div className="flex flex-wrap items-center gap-3">
                           <h2 className="text-lg font-bold">{item.title}</h2>
-                          <span className="app-badge app-badge--gold">Pedido de acesso</span>
+                          <span className="app-badge app-badge--gold">{t('Pedido de acesso')}</span>
                         </div>
                         <div className="mt-3 flex flex-wrap gap-2">
-                          <span className="app-badge app-badge--muted">Faixa {beltLabel(item.request.requestedBelt)}</span>
-                          <span className="app-badge app-badge--muted">Grau {item.request.requestedGrade}</span>
+                          <span className="app-badge app-badge--muted">{t('Faixa {belt}', { belt: beltLabel(item.request.requestedBelt) })}</span>
+                          <span className="app-badge app-badge--muted">{t('Grau {grade}', { grade: item.request.requestedGrade })}</span>
                         </div>
                         <div className="mt-3 flex flex-wrap items-center gap-2 text-xs font-bold uppercase tracking-[0.16em] text-[color:var(--text-soft)]">
-                          <span>{isExpanded ? 'Ocultar detalhes' : 'Toque para ver detalhes'}</span>
+                          <span>{isExpanded ? t('Ocultar detalhes') : t('Toque para ver detalhes')}</span>
                           {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
                         </div>
                       </div>
@@ -1647,14 +1651,14 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
                   {isExpanded ? (
                     <>
                       <div className="mt-5 flex flex-wrap items-center gap-3">
-                        <span className="app-badge app-badge--muted">Trilha {item.trainingType}</span>
+                        <span className="app-badge app-badge--muted">{t('Trilha {track}', { track: t(item.trainingType) })}</span>
                         {item.inferredKidsCategory ? (
                           <span className="app-badge app-badge--muted">{kidsCategoryLabel(item.inferredKidsCategory)}</span>
                         ) : null}
                         <span className="app-badge app-badge--muted">{formatStamp(item.createdAt)}</span>
                         {item.request.transferredFromAcademyName ? (
                           <span className="app-badge app-badge--gold">
-                            Encaminhada de {item.request.transferredFromAcademyName}
+                            {t('Encaminhada de {name}', { name: item.request.transferredFromAcademyName })}
                           </span>
                         ) : null}
                         {item.request.requestGroupId ? (
@@ -1665,7 +1669,7 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
                             ).length;
                             return otherCount > 0 ? (
                               <span className="app-badge app-badge--muted">
-                                Aluno também solicitou em {otherCount} outra(s) unidade(s)
+                                {t('Aluno também solicitou em {count} outra(s) unidade(s)', { count: otherCount })}
                               </span>
                             ) : null;
                           })()
@@ -1674,11 +1678,11 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
 
                       <div className="mt-5 app-grid-2">
                         <div className="app-list-card">
-                          <p className="text-[11px] uppercase tracking-[0.16em] text-[color:var(--text-soft)]">Nome completo</p>
+                          <p className="text-[11px] uppercase tracking-[0.16em] text-[color:var(--text-soft)]">{t('Nome completo')}</p>
                           <p className="mt-1 text-sm font-bold">{item.request.firstName} {item.request.lastName}</p>
                         </div>
                         <div className="app-list-card">
-                          <p className="text-[11px] uppercase tracking-[0.16em] text-[color:var(--text-soft)]">E-mail</p>
+                          <p className="text-[11px] uppercase tracking-[0.16em] text-[color:var(--text-soft)]">{t('E-mail')}</p>
                           <p className="mt-1 text-sm font-bold">{item.request.email}</p>
                         </div>
                         <div className="app-list-card">
@@ -1686,24 +1690,24 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
                           <p className="mt-1 text-sm font-bold">{item.request.cpf}</p>
                         </div>
                         <div className="app-list-card">
-                          <p className="text-[11px] uppercase tracking-[0.16em] text-[color:var(--text-soft)]">Nascimento</p>
+                          <p className="text-[11px] uppercase tracking-[0.16em] text-[color:var(--text-soft)]">{t('Nascimento')}</p>
                           <p className="mt-1 text-sm font-bold">{formatDateOnly(item.request.birthDate)}</p>
                         </div>
                         <div className="app-list-card">
-                          <p className="text-[11px] uppercase tracking-[0.16em] text-[color:var(--text-soft)]">Faixa solicitada</p>
+                          <p className="text-[11px] uppercase tracking-[0.16em] text-[color:var(--text-soft)]">{t('Faixa solicitada')}</p>
                           <p className="mt-1 text-sm font-bold">{beltLabel(item.request.requestedBelt)}</p>
                         </div>
                         <div className="app-list-card">
-                          <p className="text-[11px] uppercase tracking-[0.16em] text-[color:var(--text-soft)]">Grau solicitado</p>
+                          <p className="text-[11px] uppercase tracking-[0.16em] text-[color:var(--text-soft)]">{t('Grau solicitado')}</p>
                           <p className="mt-1 text-sm font-bold">{item.request.requestedGrade}</p>
                         </div>
                         <div className="app-list-card">
-                          <p className="text-[11px] uppercase tracking-[0.16em] text-[color:var(--text-soft)]">Competidor</p>
-                          <p className="mt-1 text-sm font-bold">{item.request.isCompetitor ? 'Sim' : 'Nao'}</p>
+                          <p className="text-[11px] uppercase tracking-[0.16em] text-[color:var(--text-soft)]">{t('Competidor')}</p>
+                          <p className="mt-1 text-sm font-bold">{item.request.isCompetitor ? t('Sim') : t('Nao')}</p>
                         </div>
                         <div className="app-list-card">
-                          <p className="text-[11px] uppercase tracking-[0.16em] text-[color:var(--text-soft)]">Responsável pela aprovação</p>
-                          <p className="mt-1 text-sm font-bold">Professores da unidade</p>
+                          <p className="text-[11px] uppercase tracking-[0.16em] text-[color:var(--text-soft)]">{t('Responsável pela aprovação')}</p>
+                          <p className="mt-1 text-sm font-bold">{t('Professores da unidade')}</p>
                         </div>
                       </div>
 
@@ -1712,16 +1716,16 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
                           <div className="mt-5 app-panel app-panel--soft p-4">
                             <div className="flex flex-wrap items-center justify-between gap-3">
                               <div>
-                                <p className="app-section-label">Graduacao de entrada</p>
+                                <p className="app-section-label">{t('Graduacao de entrada')}</p>
                                 <p className="mt-2 text-sm text-[color:var(--text-muted)]">
-                                  Ajuste faixa e grau antes de aprovar. O aluno será criado com essa graduação.
+                                  {t('Ajuste faixa e grau antes de aprovar. O aluno será criado com essa graduação.')}
                                 </p>
                               </div>
                             </div>
 
                             <div className="mt-4 app-grid-2">
                               <label className="app-field">
-                                <span className="app-field__label">Faixa</span>
+                                <span className="app-field__label">{t('Faixa')}</span>
                                 <select
                                   value={draft.belt}
                                   onChange={(event) => setJoinRequestDraft(item.id, {
@@ -1738,7 +1742,7 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
                               </label>
 
                               <label className="app-field">
-                                <span className="app-field__label">Grau</span>
+                                <span className="app-field__label">{t('Grau')}</span>
                                 <input
                                   type="number"
                                   min={0}
@@ -1762,7 +1766,7 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
                               className="app-button app-button--green app-button--small"
                             >
                               <CheckCircle2 size={15} />
-                              {isProcessing ? 'Processando...' : 'Aprovar aluno'}
+                              {isProcessing ? t('Processando...') : t('Aprovar aluno')}
                             </button>
                             {onUpdateJoinRequest ? (
                               <button
@@ -1771,7 +1775,7 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
                                 onClick={() => startEditJoinRequest(item.request)}
                                 className="app-button app-button--ghost app-button--small"
                               >
-                                Editar dados
+                                {t('Editar dados')}
                               </button>
                             ) : null}
                             {onTransferJoinRequest ? (
@@ -1781,7 +1785,7 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
                                 onClick={() => startTransferJoinRequest(item.request)}
                                 className="app-button app-button--ghost app-button--small"
                               >
-                                Transferir unidade
+                                {t('Transferir unidade')}
                               </button>
                             ) : null}
                             <button
@@ -1791,19 +1795,19 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
                               className="app-button app-button--danger app-button--small"
                             >
                               <XCircle size={15} />
-                              Rejeitar
+                              {t('Rejeitar')}
                             </button>
                           </div>
 
                           {editingRequestId === item.id && editingDraft ? (
                             <div className="mt-5 app-panel app-panel--soft p-4">
-                              <p className="app-section-label">Editar dados do aluno</p>
+                              <p className="app-section-label">{t('Editar dados do aluno')}</p>
                               {editingError ? (
                                 <div className="app-alert app-alert--error mt-3">{editingError}</div>
                               ) : null}
                               <div className="mt-4 app-grid-2">
                                 <label className="app-field">
-                                  <span className="app-field__label">Nome</span>
+                                  <span className="app-field__label">{t('Nome')}</span>
                                   <input
                                     className="app-input"
                                     value={editingDraft.firstName}
@@ -1811,7 +1815,7 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
                                   />
                                 </label>
                                 <label className="app-field">
-                                  <span className="app-field__label">Sobrenome</span>
+                                  <span className="app-field__label">{t('Sobrenome')}</span>
                                   <input
                                     className="app-input"
                                     value={editingDraft.lastName}
@@ -1827,7 +1831,7 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
                                   />
                                 </label>
                                 <label className="app-field">
-                                  <span className="app-field__label">Telefone</span>
+                                  <span className="app-field__label">{t('Telefone')}</span>
                                   <input
                                     className="app-input"
                                     value={editingDraft.phone}
@@ -1835,21 +1839,21 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
                                   />
                                 </label>
                                 <label className="app-field">
-                                  <span className="app-field__label">Nascimento</span>
+                                  <span className="app-field__label">{t('Nascimento')}</span>
                                   <DateField
                                     value={editingDraft.birthDate}
                                     onChange={(value) => setEditingDraft({ ...editingDraft, birthDate: value })}
                                   />
                                 </label>
                                 <label className="app-field">
-                                  <span className="app-field__label">Competidor</span>
+                                  <span className="app-field__label">{t('Competidor')}</span>
                                   <select
                                     className="app-select"
                                     value={editingDraft.isCompetitor ? 'yes' : 'no'}
                                     onChange={(event) => setEditingDraft({ ...editingDraft, isCompetitor: event.target.value === 'yes' })}
                                   >
-                                    <option value="no">Não</option>
-                                    <option value="yes">Sim</option>
+                                    <option value="no">{t('Não')}</option>
+                                    <option value="yes">{t('Sim')}</option>
                                   </select>
                                 </label>
                               </div>
@@ -1860,7 +1864,7 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
                                   onClick={() => void submitEditJoinRequest()}
                                   className="app-button app-button--gold app-button--small"
                                 >
-                                  {editingBusy ? 'Salvando...' : 'Salvar alterações'}
+                                  {editingBusy ? t('Salvando...') : t('Salvar alterações')}
                                 </button>
                                 <button
                                   type="button"
@@ -1868,7 +1872,7 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
                                   onClick={() => cancelEditJoinRequest()}
                                   className="app-button app-button--ghost app-button--small"
                                 >
-                                  Cancelar
+                                  {t('Cancelar')}
                                 </button>
                               </div>
                             </div>
@@ -1876,22 +1880,22 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
 
                           {transferringRequestId === item.id ? (
                             <div className="mt-5 app-panel app-panel--soft p-4">
-                              <p className="app-section-label">Transferir para outra unidade</p>
+                              <p className="app-section-label">{t('Transferir para outra unidade')}</p>
                               <p className="mt-2 text-sm text-[color:var(--text-muted)]">
-                                A solicitação sai desta unidade e vai para a unidade escolhida. Só os professores da nova unidade poderão aprovar.
+                                {t('A solicitação sai desta unidade e vai para a unidade escolhida. Só os professores da nova unidade poderão aprovar.')}
                               </p>
                               {transferError ? (
                                 <div className="app-alert app-alert--error mt-3">{transferError}</div>
                               ) : null}
                               <label className="app-field mt-4">
-                                <span className="app-field__label">Unidade de destino</span>
+                                <span className="app-field__label">{t('Unidade de destino')}</span>
                                 <select
                                   className="app-select"
                                   value={transferTargetAcademyId}
                                   onChange={(event) => setTransferTargetAcademyId(event.target.value)}
                                   disabled={transferBusy}
                                 >
-                                  <option value="">Selecione a unidade</option>
+                                  <option value="">{t('Selecione a unidade')}</option>
                                   {academies
                                     .filter((entry) => entry.id !== item.request.academyId)
                                     .map((entry) => (
@@ -1906,7 +1910,7 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
                                   onClick={() => void submitTransferJoinRequest()}
                                   className="app-button app-button--gold app-button--small"
                                 >
-                                  {transferBusy ? 'Encaminhando...' : 'Confirmar transferência'}
+                                  {transferBusy ? t('Encaminhando...') : t('Confirmar transferência')}
                                 </button>
                                 <button
                                   type="button"
@@ -1914,14 +1918,14 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
                                   onClick={() => cancelTransferJoinRequest()}
                                   className="app-button app-button--ghost app-button--small"
                                 >
-                                  Cancelar
+                                  {t('Cancelar')}
                                 </button>
                               </div>
                             </div>
                           ) : null}
                         </>
                       ) : (
-                        <div className="mt-5 app-empty">Somente professores da unidade podem agir sobre esta solicitação.</div>
+                        <div className="mt-5 app-empty">{t('Somente professores da unidade podem agir sobre esta solicitação.')}</div>
                       )}
                     </>
                   ) : null}
@@ -1936,7 +1940,7 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
                     <div>
                       <div className="flex flex-wrap items-center gap-3">
                         <h2 className="text-lg font-bold">{item.title}</h2>
-                        <span className="app-badge app-badge--gold">Solicitacao de video</span>
+                        <span className="app-badge app-badge--gold">{t('Solicitacao de video')}</span>
                       </div>
                       <p className="mt-3 text-sm leading-7 text-[color:var(--text-muted)]">{item.body}</p>
                       <div className="mt-4 flex flex-wrap gap-2">
@@ -1945,7 +1949,7 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
                           <span className="app-badge app-badge--muted">vs {item.request.opponentName}</span>
                         ) : null}
                         <span className="app-badge app-badge--muted">
-                          {item.request.occurredAt ? item.request.occurredAt.toDate().toLocaleDateString(getLocale()) : 'Data não informada'}
+                          {item.request.occurredAt ? item.request.occurredAt.toDate().toLocaleDateString(getLocale()) : t('Data não informada')}
                         </span>
                       </div>
                     </div>
@@ -1971,7 +1975,7 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
                         className="app-button app-button--green app-button--small"
                       >
                         <CheckCircle2 size={15} />
-                        {isProcessing ? 'Processando...' : 'Aprovar video'}
+                        {isProcessing ? t('Processando...') : t('Aprovar video')}
                       </button>
                       <button
                         type="button"
@@ -1980,18 +1984,18 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
                         className="app-button app-button--danger app-button--small"
                       >
                         <XCircle size={15} />
-                        Rejeitar
+                        {t('Rejeitar')}
                       </button>
                       <button
                         type="button"
                         onClick={() => onOpenStudent?.(item.request.athleteId)}
                         className="app-button app-button--ghost app-button--small"
                       >
-                        Abrir aluno
+                        {t('Abrir aluno')}
                       </button>
                     </div>
                   ) : (
-                    <div className="mt-5 app-empty">Somente professor ou superadmin podem agir sobre esta solicitação.</div>
+                    <div className="mt-5 app-empty">{t('Somente professor ou superadmin podem agir sobre esta solicitação.')}</div>
                   )}
                 </article>
               );
@@ -2003,7 +2007,7 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
                   <div>
                     <div className="flex flex-wrap items-center gap-3">
                       <h2 className="text-lg font-bold">{item.title}</h2>
-                      <span className="app-badge app-badge--gold">Solicitação de presença</span>
+                      <span className="app-badge app-badge--gold">{t('Solicitação de presença')}</span>
                     </div>
                     <p className="mt-3 text-sm leading-7 text-[color:var(--text-muted)]">{item.body}</p>
                     <p className="mt-2 text-xs text-[color:var(--text-soft)]">{item.meta}</p>
@@ -2022,7 +2026,7 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
                       className="app-button app-button--green app-button--small"
                     >
                       <CheckCircle2 size={15} />
-                      {isProcessing ? 'Processando...' : 'Aprovar'}
+                      {isProcessing ? t('Processando...') : t('Aprovar')}
                     </button>
                     <button
                       type="button"
@@ -2031,18 +2035,18 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
                       className="app-button app-button--danger app-button--small"
                     >
                       <XCircle size={15} />
-                      Rejeitar
+                      {t('Rejeitar')}
                     </button>
                   </div>
                 ) : (
-                  <div className="mt-5 app-empty">Somente professor ou superadmin podem agir sobre esta solicitação.</div>
+                  <div className="mt-5 app-empty">{t('Somente professor ou superadmin podem agir sobre esta solicitação.')}</div>
                 )}
               </article>
             );
           })}
 
           {requestItems.length === 0 ? (
-            <div className="app-empty">Sem solicitações pendentes no momento.</div>
+            <div className="app-empty">{t('Sem solicitações pendentes no momento.')}</div>
           ) : null}
         </section>
       ) : null}
@@ -2067,36 +2071,36 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
                 <div>
                   <div className="flex flex-wrap items-center gap-3">
                     <h2 className="text-lg font-bold">{item.userDisplayName}</h2>
-                    <span className="app-badge app-badge--muted">Atual: {beltLabel(item.currentBelt)}</span>
-                    <span className="app-badge app-badge--gold">{item.targetType === 'belt' ? 'Faixa' : 'Grau'}</span>
+                    <span className="app-badge app-badge--muted">{t('Atual: {belt}', { belt: beltLabel(item.currentBelt) })}</span>
+                    <span className="app-badge app-badge--gold">{item.targetType === 'belt' ? t('Faixa') : t('Grau')}</span>
                   </div>
                   <p className="mt-3 text-sm leading-7 text-[color:var(--text-muted)]">{graduationStatusLabel(item)}</p>
                   {item.targetType === 'belt' && item.remainingClasses <= 0 ? (
                     <div className="app-alert app-alert--success mt-3 text-sm">
-                      Esse aluno está apto a mudar de faixa
+                      {t('Esse aluno está apto a mudar de faixa')}
                     </div>
                   ) : null}
                   {item.targetType === 'stripe' && item.remainingClasses <= 0 ? (
                     <div className="app-alert app-alert--success mt-3 text-sm">
-                      Esse aluno está apto a subir de grau
+                      {t('Esse aluno está apto a subir de grau')}
                     </div>
                   ) : null}
                   <div className="mt-4 flex flex-wrap gap-2">
-                    <span className="app-badge app-badge--muted">Atual: {item.currentStripes} grau(s)</span>
-                    <span className="app-badge app-badge--muted">Próximo passo: {graduationTargetLabel(item)}</span>
+                    <span className="app-badge app-badge--muted">{t('Atual: {count} grau(s)', { count: item.currentStripes })}</span>
+                    <span className="app-badge app-badge--muted">{t('Próximo passo: {target}', { target: graduationTargetLabel(item) })}</span>
                     <span className="app-badge app-badge--muted">
-                      {item.remainingClasses <= 0 ? 'Meta atingida' : `Restam ${item.remainingClasses} aula(s)`}
+                      {item.remainingClasses <= 0 ? t('Meta atingida') : t('Restam {count} aula(s)', { count: item.remainingClasses })}
                     </span>
                   </div>
                 </div>
                 <div className="app-orb">
-                  {item.attendanceCount} presenças
+                  {t('{count} presenças', { count: item.attendanceCount })}
                 </div>
               </div>
 
               {isBlocked ? (
                 <div className="app-alert app-alert--warning mt-3 text-sm">
-                  Este aluno já foi graduado recentemente. Aguarde ele completar a próxima aula para liberar a próxima graduação.
+                  {t('Este aluno já foi graduado recentemente. Aguarde ele completar a próxima aula para liberar a próxima graduação.')}
                 </div>
               ) : null}
 
@@ -2108,14 +2112,14 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
                   className="app-button app-button--green app-button--small"
                 >
                   <CheckCircle2 size={15} />
-                  {isProcessing ? 'Processando...' : 'Aprovar próxima graduação'}
+                  {isProcessing ? t('Processando...') : t('Aprovar próxima graduação')}
                 </button>
                 <button
                   type="button"
                   onClick={() => onOpenStudent?.(item.userId)}
                   className="app-button app-button--ghost app-button--small"
                 >
-                  Abrir aluno
+                  {t('Abrir aluno')}
                 </button>
               </div>
             </article>
@@ -2123,7 +2127,7 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
           })}
 
           {graduationItems.length === 0 ? (
-            <div className="app-empty">Nenhuma graduação pendente no contexto atual.</div>
+            <div className="app-empty">{t('Nenhuma graduação pendente no contexto atual.')}</div>
           ) : null}
         </section>
       ) : null}
