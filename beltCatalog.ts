@@ -1,4 +1,5 @@
 import { BeltColor, type KidsCategory } from './types';
+import { t } from './i18n';
 
 export type TrainingType = 'Adulto' | 'Kids';
 
@@ -654,7 +655,7 @@ export function getBeltMeta(value?: string | null): BeltMeta {
 }
 
 export function beltLabel(value?: string | null): string {
-  return getBeltMeta(value).label;
+  return t(getBeltMeta(value).label);
 }
 
 function getBirthYear(birthDate?: string | null): number | null {
@@ -715,7 +716,7 @@ export function inferKidsCategoryFromBirthDate(birthDate?: string | null): KidsC
 }
 
 export function kidsCategoryLabel(value?: KidsCategory | null): string {
-  return KIDS_CATEGORIES.find((entry) => entry.value === value)?.label ?? 'Kids';
+  return t(KIDS_CATEGORIES.find((entry) => entry.value === value)?.label ?? 'Kids');
 }
 
 export function getBeltOptions(type: TrainingType, kidsCategory?: KidsCategory | null): Array<{ value: BeltColor; label: string }> {
@@ -725,7 +726,7 @@ export function getBeltOptions(type: TrainingType, kidsCategory?: KidsCategory |
 
   return source.map((belt) => ({
     value: belt,
-    label: type === 'Kids' && belt === BeltColor.BRANCA ? 'Branca Infantil' : beltLabel(belt),
+    label: type === 'Kids' && belt === BeltColor.BRANCA ? t('Branca Infantil') : beltLabel(belt),
   }));
 }
 
@@ -793,18 +794,18 @@ export function getBlackBeltStyle(degree: number): BlackBeltStyle {
 }
 
 function buildBlackBeltLabels(degree: number, style: BlackBeltStyle): Pick<BlackBeltProgress, 'title' | 'degreeLabel' | 'styleNote' | 'label'> {
-  const degreeLabel = degree > 0 ? `${degree}º Grau` : '';
-  let title = 'Faixa Preta';
+  const degreeLabel = degree > 0 ? t('{degree}º Grau', { degree }) : '';
+  let title = t('Faixa Preta');
   let styleNote = '';
 
   if (style === 'vermelha') {
-    title = 'Faixa Vermelha';
+    title = t('Faixa Vermelha');
   } else if (style === 'coral-branca') {
-    title = 'Faixa Coral';
-    styleNote = 'Vermelha e Branca';
+    title = t('Faixa Coral');
+    styleNote = t('Vermelha e Branca');
   } else if (style === 'coral-preta') {
-    title = 'Faixa Coral';
-    styleNote = 'Vermelha e Preta';
+    title = t('Faixa Coral');
+    styleNote = t('Vermelha e Preta');
   }
 
   const label = degreeLabel ? `${title} · ${degreeLabel}` : title;

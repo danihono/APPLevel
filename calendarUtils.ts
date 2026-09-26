@@ -1,3 +1,4 @@
+import { t } from './i18n';
 export const MONTH_WEEK_HEADER = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sab', 'Dom'] as const;
 
 // `academy.timezone` alimenta Intl.DateTimeFormat. Valores fora do padrao IANA
@@ -49,7 +50,7 @@ export function resolveFocusPeriod(preset: FocusPeriodPreset): FocusPeriod {
       startDate: FOCUS_PERIOD_EPOCH,
       startMillis: FOCUS_PERIOD_EPOCH.getTime(),
       endMillis,
-      label: 'Todo o historico',
+      label: t('Todo o historico'),
     };
   }
 
@@ -67,7 +68,7 @@ export function resolveFocusPeriod(preset: FocusPeriodPreset): FocusPeriod {
     startDate: start,
     startMillis: start.getTime(),
     endMillis,
-    label: `Ultimos ${option?.label ?? preset}`,
+    label: t('Ultimos {period}', { period: option ? t(option.label) : preset }),
   };
 }
 

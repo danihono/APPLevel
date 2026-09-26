@@ -7,8 +7,10 @@ import {
   kidsCategoryLabel,
 } from '../beltCatalog';
 import DateField from '../components/DateField';
+import LanguagePicker from '../components/LanguagePicker';
 import { requestPasswordReset } from '../services/firebase/auth';
 import { backendFunctions, isRetryableSignupAcademyFetchError } from '../services/firebase/functions';
+import { t, tKey } from '../i18n';
 
 interface LoginViewProps {
   onLogin: (email: string, password: string) => Promise<void>;
@@ -19,17 +21,17 @@ interface LoginViewProps {
 
 function getSignupPasswordError(password: string): string {
   if (password.length < 8) {
-    return 'A senha deve ter no mínimo 8 caracteres.';
+    return t('A senha deve ter no mínimo 8 caracteres.');
   }
 
   if (!/[0-9]/.test(password)) {
-    return 'A senha deve conter pelo menos um número.';
+    return t('A senha deve conter pelo menos um número.');
   }
 
   return '';
 }
 
-const PASSWORD_RESET_SUCCESS_MESSAGE = 'Se este e-mail estiver cadastrado, enviaremos um link para redefinir sua senha.';
+const PASSWORD_RESET_SUCCESS_MESSAGE = tKey('Se este e-mail estiver cadastrado, enviaremos um link para redefinir sua senha.');
 
 function getPasswordResetError(error: unknown): string {
   const code = typeof error === 'object' && error && 'code' in error
@@ -39,26 +41,26 @@ function getPasswordResetError(error: unknown): string {
   switch (code) {
     case 'auth/invalid-email':
     case 'functions/invalid-argument':
-      return 'Informe um e-mail valido para receber o link de redefinicao.';
+      return t('Informe um e-mail valido para receber o link de redefinicao.');
     case 'auth/too-many-requests':
-      return 'Muitas tentativas de redefinicao. Aguarde alguns minutos e tente de novo.';
+      return t('Muitas tentativas de redefinicao. Aguarde alguns minutos e tente de novo.');
     case 'functions/resource-exhausted':
       // O servidor explica qual limite foi atingido (1 por minuto ou 5 por hora).
       return error instanceof Error && error.message
-        ? error.message
-        : 'Muitas tentativas de redefinicao. Aguarde alguns minutos e tente de novo.';
+        ? t(error.message)
+        : t('Muitas tentativas de redefinicao. Aguarde alguns minutos e tente de novo.');
     case 'functions/unavailable':
     case 'functions/internal':
     case 'functions/deadline-exceeded':
-      return 'Nao foi possivel enviar o e-mail agora. Tente novamente em alguns minutos.';
+      return t('Nao foi possivel enviar o e-mail agora. Tente novamente em alguns minutos.');
     case 'auth/network-request-failed':
-      return 'Falha na conexao com o servidor. Verifique sua internet e tente novamente.';
+      return t('Falha na conexao com o servidor. Verifique sua internet e tente novamente.');
     default:
       if (error instanceof Error && error.message) {
-        return error.message;
+        return t(error.message);
       }
 
-      return 'Nao foi possivel enviar o link de redefinicao agora.';
+      return t('Nao foi possivel enviar o link de redefinicao agora.');
   }
 }
 
@@ -120,12 +122,12 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onRequestReactivation, i
       setAcademyOptions(records);
 
       if (records.length === 0) {
-        setSignupError('Nenhuma unidade ativa está disponível no momento.');
+        setSignupError(t('Nenhuma unidade ativa está disponível no momento.'));
       }
     };
 
     const applyAcademyError = (fetchError: unknown) => {
-      setSignupError(fetchError instanceof Error ? fetchError.message : 'Não foi possível carregar as unidades.');
+      setSignupError(fetchError instanceof Error ? fetchError.message : t('Não foi possível carregar as unidades.'));
     };
 
     const loadAcademies = async () => {
@@ -206,7 +208,7 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onRequestReactivation, i
       await onRequestReactivation();
       setReactivationSent(true);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Não foi possível enviar a solicitação.');
+      setError(err instanceof Error ? err.message : t('Não foi possível enviar a solicitação.'));
     } finally {
       setReactivationBusy(false);
     }
@@ -218,7 +220,7 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onRequestReactivation, i
     setPasswordResetSuccess('');
 
     if (!trimmedEmail) {
-      setError('Informe seu e-mail para receber o link de redefinicao.');
+      setError(t('Informe seu e-mail para receber o link de redefinicao.'));
       return;
     }
 
@@ -226,14 +228,14 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onRequestReactivation, i
 
     try {
       await requestPasswordReset(trimmedEmail);
-      setPasswordResetSuccess(PASSWORD_RESET_SUCCESS_MESSAGE);
+      setPasswordResetSuccess(t(PASSWORD_RESET_SUCCESS_MESSAGE));
     } catch (resetError) {
       const code = typeof resetError === 'object' && resetError && 'code' in resetError
         ? String((resetError as { code: unknown }).code)
         : '';
 
       if (code === 'auth/user-not-found' || code === 'auth/user-disabled') {
-        setPasswordResetSuccess(PASSWORD_RESET_SUCCESS_MESSAGE);
+        setPasswordResetSuccess(t(PASSWORD_RESET_SUCCESS_MESSAGE));
         return;
       }
 
@@ -252,7 +254,7 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onRequestReactivation, i
     try {
       await onLogin(email, password);
     } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : 'Não foi possível entrar agora.');
+      setError(submitError instanceof Error ? submitError.message : t('Não foi possível entrar agora.'));
     } finally {
       setIsLoading(false);
     }
@@ -277,7 +279,7 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onRequestReactivation, i
     }
 
     if (academyIdsForSubmit.length === 0) {
-      setSignupError('Selecione ao menos uma unidade.');
+      setSignupError(t('Selecione ao menos uma unidade.'));
       return;
     }
 
@@ -299,7 +301,7 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onRequestReactivation, i
       });
       setMode('success');
     } catch (submitError) {
-      setSignupError(submitError instanceof Error ? submitError.message : 'Não foi possível enviar o cadastro.');
+      setSignupError(submitError instanceof Error ? submitError.message : t('Não foi possível enviar o cadastro.'));
     } finally {
       setSignupLoading(false);
     }
@@ -315,19 +317,19 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onRequestReactivation, i
             <img src="/logo3.png" alt="Level Jiu Jitsu" className="lv-login__logo" />
           </div>
           <div className="lv-login__body">
-            <p className="lv-login__kicker">ACESSO BLOQUEADO</p>
+            <p className="lv-login__kicker">{t('ACESSO BLOQUEADO')}</p>
             <h1 className="lv-login__headline">
-              Conta desativada<span className="lv-login__headline-period">.</span>
+              {t('Conta desativada')}<span className="lv-login__headline-period">.</span>
             </h1>
             <p className="lv-login__sub">
-              Sua conta foi desativada pelo seu professor. Para voltar a treinar, solicite a reativação.
+              {t('Sua conta foi desativada pelo seu professor. Para voltar a treinar, solicite a reativação.')}
             </p>
 
             {error ? <div className="lv-login__error">{error}</div> : null}
 
             {reactivationSent ? (
               <div style={{ color: '#22c55e', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '0.75rem', padding: '0.75rem 1rem', fontSize: '0.875rem', marginBottom: '1rem' }}>
-                Solicitação enviada! Aguarde a resposta do seu professor.
+                {t('Solicitação enviada! Aguarde a resposta do seu professor.')}
               </div>
             ) : (
               <button
@@ -338,7 +340,7 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onRequestReactivation, i
                 style={{ marginTop: '1rem' }}
               >
                 <span className="lv-btn-entrar__label">
-                  {reactivationBusy ? 'Enviando...' : 'Solicitar Reativação'}
+                  {reactivationBusy ? t('Enviando...') : t('Solicitar Reativação')}
                 </span>
                 <span className="lv-btn-entrar__arrow"><ArrowRight size={18} /></span>
               </button>
@@ -346,7 +348,7 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onRequestReactivation, i
 
             <p className="lv-login__register" style={{ marginTop: '1.5rem' }}>
               <button type="button" className="lv-login__register-link" onClick={() => window.location.reload()}>
-                Voltar ao login
+                {t('Voltar ao login')}
               </button>
             </p>
           </div>
@@ -368,12 +370,15 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onRequestReactivation, i
 
           {/* Form body */}
           <div className="lv-login__body">
-            <p className="lv-login__kicker">BEM-VINDO DE VOLTA</p>
+            <div style={{ marginBottom: '1rem' }}>
+              <LanguagePicker compact />
+            </div>
+            <p className="lv-login__kicker">{t('BEM-VINDO DE VOLTA')}</p>
             <h1 className="lv-login__headline">
-              Acesse sua<br />evolução<span className="lv-login__headline-period">.</span>
+              {t('Acesse sua')}<br />{t('evolução')}<span className="lv-login__headline-period">.</span>
             </h1>
             <p className="lv-login__sub">
-              Entre para acompanhar seus treinos, conquistas e sua jornada no tatame.
+              {t('Entre para acompanhar seus treinos, conquistas e sua jornada no tatame.')}
             </p>
 
             {error || initialError ? (
@@ -389,7 +394,7 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onRequestReactivation, i
               <div className="lv-field">
                 <span className="lv-field__icon"><Mail size={18} /></span>
                 <div className="lv-field__inner">
-                  <span className="lv-field__label">E-mail</span>
+                  <span className="lv-field__label">{t('E-mail')}</span>
                   <input
                     type="email"
                     autoComplete="username"
@@ -399,7 +404,7 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onRequestReactivation, i
                       setPasswordResetSuccess('');
                     }}
                     className="lv-field__input"
-                    placeholder="você@academia.com"
+                    placeholder={t('você@academia.com')}
                     required
                   />
                 </div>
@@ -409,14 +414,14 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onRequestReactivation, i
               <div className="lv-field">
                 <span className="lv-field__icon"><Lock size={18} /></span>
                 <div className="lv-field__inner">
-                  <span className="lv-field__label">Senha</span>
+                  <span className="lv-field__label">{t('Senha')}</span>
                   <input
                     type={showPassword ? 'text' : 'password'}
                     autoComplete="current-password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     className="lv-field__input"
-                    placeholder="Sua senha"
+                    placeholder={t('Sua senha')}
                     required
                   />
                 </div>
@@ -424,7 +429,7 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onRequestReactivation, i
                   type="button"
                   className="lv-field__eye"
                   onClick={() => setShowPassword((v) => !v)}
-                  aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
+                  aria-label={showPassword ? t('Ocultar senha') : t('Mostrar senha')}
                 >
                   {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                 </button>
@@ -438,7 +443,7 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onRequestReactivation, i
                     checked={rememberMe}
                     onChange={(e) => setRememberMe(e.target.checked)}
                   />
-                  Lembrar de mim
+                  {t('Lembrar de mim')}
                 </label>
                 <button
                   type="button"
@@ -446,26 +451,26 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onRequestReactivation, i
                   disabled={passwordResetLoading}
                   onClick={() => void handlePasswordReset()}
                 >
-                  {passwordResetLoading ? 'Enviando...' : 'Esqueci minha senha'}
+                  {passwordResetLoading ? t('Enviando...') : t('Esqueci minha senha')}
                 </button>
               </div>
 
               {/* Entrar button */}
               <button type="submit" disabled={isLoading} className="lv-btn-entrar">
-                <span className="lv-btn-entrar__label">{isLoading ? 'Entrando...' : 'Entrar'}</span>
+                <span className="lv-btn-entrar__label">{isLoading ? t('Entrando...') : t('Entrar')}</span>
                 <span className="lv-btn-entrar__arrow"><ArrowRight size={18} /></span>
               </button>
             </form>
 
             {/* Register link */}
             <p className="lv-login__register">
-              Ainda não tem uma conta?{' '}
+              {t('Ainda não tem uma conta?')}{' '}
               <button
                 type="button"
                 className="lv-login__register-link"
                 onClick={() => setMode('signup')}
               >
-                Cadastre-se
+                {t('Cadastre-se')}
               </button>
             </p>
           </div>
@@ -488,7 +493,7 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onRequestReactivation, i
             <div className="app-brand__text">
               <p className="app-kicker">Applevel</p>
               <h1 className="app-headline">
-                {mode === 'signup' ? 'Crie seu acesso como aluno.' : 'Cadastro enviado!'}
+                {mode === 'signup' ? t('Crie seu acesso como aluno.') : t('Cadastro enviado!')}
               </h1>
             </div>
           </div>
@@ -498,9 +503,9 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onRequestReactivation, i
               <UserPlus size={18} />
             </div>
             <div>
-              <p className="app-section-label">{mode === 'signup' ? 'Cadastro do aluno' : ''}</p>
+              <p className="app-section-label">{mode === 'signup' ? t('Cadastro do aluno') : ''}</p>
               <h2 className="text-3xl font-bold">
-                {mode === 'signup' ? 'Solicite seu acesso' : 'Cadastro enviado'}
+                {mode === 'signup' ? t('Solicite seu acesso') : t('Cadastro enviado')}
               </h2>
             </div>
           </div>
@@ -508,7 +513,7 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onRequestReactivation, i
           {mode === 'signup' ? (
             <>
               <p className="app-note mt-4">
-                Seu cadastro fica pendente até aprovação do professor da unidade.
+                {t('Seu cadastro fica pendente até aprovação do professor da unidade.')}
               </p>
 
               <form className="mt-6 app-form-grid" onSubmit={handleSignup}>
@@ -517,22 +522,22 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onRequestReactivation, i
                 ) : null}
 
                 <label className="app-field">
-                  <span className="app-field__label">Nome</span>
+                  <span className="app-field__label">{t('Nome')}</span>
                   <input value={firstName} onChange={(event) => setFirstName(event.target.value)} className="app-input" required />
                 </label>
 
                 <label className="app-field">
-                  <span className="app-field__label">Sobrenome</span>
+                  <span className="app-field__label">{t('Sobrenome')}</span>
                   <input value={lastName} onChange={(event) => setLastName(event.target.value)} className="app-input" required />
                 </label>
 
                 <label className="app-field">
-                  <span className="app-field__label">E-mail</span>
+                  <span className="app-field__label">{t('E-mail')}</span>
                   <input type="email" value={signupEmail} onChange={(event) => setSignupEmail(event.target.value)} className="app-input" required />
                 </label>
 
                 <label className="app-field">
-                  <span className="app-field__label">Senha</span>
+                  <span className="app-field__label">{t('Senha')}</span>
                   <input
                     type="password"
                     value={signupPassword}
@@ -540,11 +545,11 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onRequestReactivation, i
                     className="app-input"
                     minLength={8}
                     pattern="(?=.*[0-9]).{8,}"
-                    title="A senha deve ter no mínimo 8 caracteres e conter pelo menos um número."
+                    title={t('A senha deve ter no mínimo 8 caracteres e conter pelo menos um número.')}
                     autoComplete="new-password"
                     required
                   />
-                  <span className="app-field__hint">Use pelo menos 8 caracteres e 1 número.</span>
+                  <span className="app-field__hint">{t('Use pelo menos 8 caracteres e 1 número.')}</span>
                 </label>
 
                 <label className="app-field">
@@ -553,23 +558,23 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onRequestReactivation, i
                 </label>
 
                 <label className="app-field">
-                  <span className="app-field__label">Data de nascimento</span>
+                  <span className="app-field__label">{t('Data de nascimento')}</span>
                   <DateField value={birthDate} onChange={setBirthDate} required />
                   <span className="app-field__hint">
-                    Trilha detectada: {trainingType}
+                    {t('Trilha detectada:')} {t(trainingType)}
                     {trainingType === 'Kids' ? ` • ${kidsCategoryLabel(inferredKidsCategory)}` : ''}
                   </span>
                 </label>
 
                 <div className="app-field">
-                  <span className="app-field__label">Unidades</span>
+                  <span className="app-field__label">{t('Unidades')}</span>
                   <span className="app-field__hint">
-                    Marque uma ou mais unidades. Cada unidade vai analisar sua solicitação separadamente.
+                    {t('Marque uma ou mais unidades. Cada unidade vai analisar sua solicitação separadamente.')}
                   </span>
                   {academyLoading ? (
-                    <div className="app-note" style={{ marginTop: '0.5rem' }}>Carregando unidades...</div>
+                    <div className="app-note" style={{ marginTop: '0.5rem' }}>{t('Carregando unidades...')}</div>
                   ) : academyOptions.length === 0 ? (
-                    <div className="app-note" style={{ marginTop: '0.5rem' }}>Nenhuma unidade disponível no momento.</div>
+                    <div className="app-note" style={{ marginTop: '0.5rem' }}>{t('Nenhuma unidade disponível no momento.')}</div>
                   ) : (
                     <div className="signup-units">
                       {academyOptions.map((academyOption) => {
@@ -592,22 +597,22 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onRequestReactivation, i
                   )}
                   {selectedAcademyIds.length > 0 ? (
                     <span className="app-field__hint" style={{ marginTop: '0.5rem' }}>
-                      Solicitando entrada em <strong>{selectedAcademyIds.length}</strong> unidade(s).
+                      {t('Solicitando entrada em {count} unidade(s).', { count: selectedAcademyIds.length })}
                     </span>
                   ) : null}
                 </div>
 
                 {!academyLoading && academyOptions.length === 0 ? (
                   <label className="app-field">
-                    <span className="app-field__label">Academy ID manual</span>
+                    <span className="app-field__label">{t('Academy ID manual')}</span>
                     <input
                       value={manualAcademyId}
                       onChange={(event) => setManualAcademyId(event.target.value)}
                       className="app-input"
-                      placeholder="Cole aqui o Academy ID da unidade"
+                      placeholder={t('Cole aqui o Academy ID da unidade')}
                     />
                     <span className="app-field__hint">
-                      Se a lista não carregar, você ainda pode entrar com o ID da academia manualmente.
+                      {t('Se a lista não carregar, você ainda pode entrar com o ID da academia manualmente.')}
                     </span>
                   </label>
                 ) : null}
@@ -618,12 +623,12 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onRequestReactivation, i
                     onClick={handleRetryAcademies}
                     className="app-button app-button--ghost app-button--block"
                   >
-                    Tentar carregar unidades novamente
+                    {t('Tentar carregar unidades novamente')}
                   </button>
                 ) : null}
 
                 <label className="app-field">
-                  <span className="app-field__label">Faixa</span>
+                  <span className="app-field__label">{t('Faixa')}</span>
                   <select value={belt} onChange={(event) => setBelt(event.target.value)} className="app-select" required>
                     {signupBeltOptions.map((option) => (
                       <option key={option.value} value={option.value}>{option.label}</option>
@@ -632,20 +637,20 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onRequestReactivation, i
                 </label>
 
                 <label className="app-field">
-                  <span className="app-field__label">Grau</span>
+                  <span className="app-field__label">{t('Grau')}</span>
                   <input type="number" min={0} value={grade} onChange={(event) => setGrade(Number(event.target.value))} className="app-input" required />
                 </label>
 
                 <label className="app-field">
-                  <span className="app-field__label">Competidor</span>
+                  <span className="app-field__label">{t('Competidor')}</span>
                   <select value={isCompetitor ? 'yes' : 'no'} onChange={(event) => setIsCompetitor(event.target.value === 'yes')} className="app-select">
-                    <option value="no">Não</option>
-                    <option value="yes">Sim</option>
+                    <option value="no">{t('Não')}</option>
+                    <option value="yes">{t('Sim')}</option>
                   </select>
                 </label>
 
                 <button type="submit" disabled={signupLoading || academyLoading || academyIdsForSubmit.length === 0} className="app-button app-button--gold app-button--block">
-                  {signupLoading ? 'Enviando...' : 'Enviar cadastro'}
+                  {signupLoading ? t('Enviando...') : t('Enviar cadastro')}
                 </button>
               </form>
 
@@ -657,7 +662,7 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onRequestReactivation, i
                 }}
                 className="mt-6 w-full text-sm font-semibold text-[color:var(--gold-mid)]"
               >
-                Já tem login? Entrar
+                {t('Já tem login? Entrar')}
               </button>
             </>
           ) : null}
@@ -665,7 +670,7 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onRequestReactivation, i
           {mode === 'success' ? (
             <div className="mt-6 app-form-grid">
               <div className="app-alert app-alert--success">
-                Cadastro enviado com sucesso. Cada unidade selecionada vai analisar sua solicitação separadamente — você receberá uma notificação assim que algum professor aprovar.
+                {t('Cadastro enviado com sucesso. Cada unidade selecionada vai analisar sua solicitação separadamente — você receberá uma notificação assim que algum professor aprovar.')}
               </div>
 
               <button
@@ -676,7 +681,7 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onRequestReactivation, i
                 }}
                 className="app-button app-button--gold app-button--block"
               >
-                Voltar para o login
+                {t('Voltar para o login')}
               </button>
             </div>
           ) : null}

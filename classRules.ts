@@ -1,5 +1,6 @@
 import { normalizeBeltId } from './beltCatalog';
 import { BeltColor } from './types';
+import { t } from './i18n';
 
 // Espelho, no frontend, das regras de presenca do backend
 // (`functions/src/services/attendanceRules.ts`). Aqui elas servem so para AVISAR o aluno antes
@@ -28,9 +29,9 @@ export function isEligibleForBeginnerClass(belt?: string | null, stripes?: numbe
 export function nonCountingReasonLabel(reason?: AttendanceNonCountingReason | null): string | null {
   switch (reason) {
     case 'beginner_class_belt':
-      return 'aula iniciante';
+      return t('aula iniciante');
     case 'daily_limit':
-      return 'limite diário';
+      return t('limite diário');
     default:
       return null;
   }
@@ -41,6 +42,13 @@ export const BEGINNER_CLASS_WARNING =
 
 export const DAILY_LIMIT_WARNING =
   `Você já tem ${MAX_COUNTED_ATTENDANCES_PER_DAY} presenças computadas neste dia; esta aula não será computada.`;
+
+/** Aviso (traduzido) de por que a presenca nao computa. */
+export function nonCountingWarning(reason?: AttendanceNonCountingReason | null): string {
+  return reason === 'beginner_class_belt'
+    ? t('Você pode treinar, mas esta aula não vai contar como presença: a LEVEL Iniciante é para faixa branca até 2 graus.')
+    : t('Você já tem {max} presenças computadas neste dia; esta aula não será computada.', { max: MAX_COUNTED_ATTENDANCES_PER_DAY });
+}
 
 // Dia da aula no fuso do dispositivo — o backend usa o fuso da academia, que na pratica e o
 // mesmo de quem esta treinando. Serve so para o aviso previo.

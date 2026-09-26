@@ -6,6 +6,7 @@ import type {
   LearningLessonRecord,
   LearningTrackRecord,
 } from './services/firebase/models';
+import { t } from './i18n';
 
 /**
  * Espelho de `functions/src/services/learningAudience.ts`.
@@ -150,21 +151,21 @@ export function isEmptyAudience(effective: EffectiveAudience): boolean {
 /** Rotulo curto para chips: "Alunos e professores · todas as faixas". */
 export function describeAudience(effective: EffectiveAudience): string {
   if (isEmptyAudience(effective)) {
-    return 'Ninguém — configuração conflitante';
+    return t('Ninguém — configuração conflitante');
   }
 
   const roleLabel = effective.roles.length === ALL_AUDIENCE_ROLES.length
-    ? 'Alunos e professores'
+    ? t('Alunos e professores')
     : effective.roles
-      .map((role) => AUDIENCE_ROLE_OPTIONS.find((option) => option.value === role)?.label ?? role)
-      .join(' e ');
+      .map((role) => t(AUDIENCE_ROLE_OPTIONS.find((option) => option.value === role)?.label ?? role))
+      .join(` ${t('e')} `);
 
   if (effective.belts.length === ALL_BELTS.length) {
-    return `${roleLabel} · todas as faixas`;
+    return t('{roles} · todas as faixas', { roles: roleLabel });
   }
 
   if (effective.belts.length > 4) {
-    return `${roleLabel} · ${effective.belts.length} faixas`;
+    return t('{roles} · {count} faixas', { roles: roleLabel, count: effective.belts.length });
   }
 
   return `${roleLabel} · ${effective.belts.map((belt) => beltLabel(belt)).join(', ')}`;

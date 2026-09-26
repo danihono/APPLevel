@@ -20,6 +20,7 @@ import {
   Camera,
   ChevronRight,
   History,
+  Languages,
   LogOut,
   Mail,
   Moon,
@@ -36,10 +37,12 @@ import {
 import AvatarWithBelt from '../components/AvatarWithBelt';
 import DateField from '../components/DateField';
 import ExamRulesModal from '../components/ExamRulesModal';
+import LanguagePicker from '../components/LanguagePicker';
 import ProgressBar from '../components/ProgressBar';
 import type { FirestoreEntity } from '../services/firebase/data';
 import type { AttendanceRecord, GraduationRecord, UserRecord } from '../services/firebase/models';
 import type { User } from '../types';
+import { t, getLocale } from '../i18n';
 
 interface ProfileViewProps {
   user: User;
@@ -82,13 +85,13 @@ interface ProfileViewProps {
 function roleLabel(role: UserRecord['role']) {
   switch (role) {
     case 'admin':
-      return 'Professor';
+      return t('Professor');
     case 'professor':
-      return 'Instrutor';
+      return t('Instrutor');
     case 'superadmin':
-      return 'Superadmin';
+      return t('Superadmin');
     default:
-      return 'Aluno';
+      return t('Aluno');
   }
 }
 
@@ -179,11 +182,11 @@ const ProfileView: React.FC<ProfileViewProps> = ({
     setRequestAcademyFeedback('');
     try {
       await onRequestAdditionalAcademy(requestAcademyId);
-      setRequestAcademyFeedback('Solicitação enviada. Aguarde a aprovação do professor da unidade.');
+      setRequestAcademyFeedback(t('Solicitação enviada. Aguarde a aprovação do professor da unidade.'));
       setRequestAcademyId('');
       setRequestAcademyOpen(false);
     } catch (err) {
-      setRequestAcademyError(err instanceof Error ? err.message : 'Não foi possível enviar a solicitação.');
+      setRequestAcademyError(err instanceof Error ? err.message : t('Não foi possível enviar a solicitação.'));
     } finally {
       setRequestAcademyBusy(false);
     }
@@ -224,31 +227,31 @@ const ProfileView: React.FC<ProfileViewProps> = ({
   const nextBeltRemaining = progression.beltRemaining ?? 0;
   const canEditProfile = profile.role === 'student';
   const isStaffMobileProfile = profile.role !== 'student';
-  const currentThemeLabel = isDarkMode ? 'Escuro' : 'Claro';
+  const currentThemeLabel = isDarkMode ? t('Escuro') : t('Claro');
   const isNextBeltMilestone = progression.stripeRemaining === null;
   const nextMilestoneCurrent = isNextBeltMilestone ? beltProgress : stripeProgress;
   const nextMilestoneRemaining = isNextBeltMilestone ? nextBeltRemaining : nextStripeRemaining;
   const nextMilestoneGoal = Math.max(nextMilestoneCurrent + nextMilestoneRemaining, 1);
   const nextMilestonePercent = Math.round((nextMilestoneCurrent / nextMilestoneGoal) * 100);
   const nextMilestoneLabel = isNextBeltMilestone
-    ? `Próxima faixa - ${beltLabel(user.belt)}`
-    : `${user.stripes + 1}o Grau - Faixa ${beltLabel(user.belt)}`;
+    ? t('Próxima faixa - {belt}', { belt: beltLabel(user.belt) })
+    : t('{stripe}o Grau - Faixa {belt}', { stripe: user.stripes + 1, belt: beltLabel(user.belt) });
   const currentGradeLabel = blackBeltProgress
-    ? (blackBeltProgress.degreeLabel || 'Faixa lisa')
-    : user.stripes > 0 ? `${user.stripes}o Grau` : '0 Grau';
+    ? (blackBeltProgress.degreeLabel || t('Faixa lisa'))
+    : user.stripes > 0 ? t('{stripe}o Grau', { stripe: user.stripes }) : t('0 Grau');
   const [activeSection, setActiveSection] = useState<'settings' | 'history' | 'achievements' | null>(null);
-  const [activeStudentSection, setActiveStudentSection] = useState<'dados-pessoais' | 'acesso-email' | 'aparencia' | 'historicos' | 'excluir-conta' | null>(null);
+  const [activeStudentSection, setActiveStudentSection] = useState<'dados-pessoais' | 'acesso-email' | 'aparencia' | 'idioma' | 'historicos' | 'excluir-conta' | null>(null);
   const [examRulesOpen, setExamRulesOpen] = useState(false);
   const [deletePassword, setDeletePassword] = useState('');
   const [deleteConfirmChecked, setDeleteConfirmChecked] = useState(false);
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [deleteError, setDeleteError] = useState('');
   const staffMenuItems = [
-    { id: 'settings' as const, icon: Settings2, label: 'Configurações da conta' },
-    { id: 'notifications' as const, icon: Bell, label: 'Notificações' },
-    { id: 'exam-rules' as const, icon: ScrollText, label: 'Regras de exame' },
-    { id: 'history' as const, icon: History, label: 'Histórico de aulas' },
-    { id: 'achievements' as const, icon: Award, label: 'Conquistas' },
+    { id: 'settings' as const, icon: Settings2, label: t('Configurações da conta') },
+    { id: 'notifications' as const, icon: Bell, label: t('Notificações') },
+    { id: 'exam-rules' as const, icon: ScrollText, label: t('Regras de exame') },
+    { id: 'history' as const, icon: History, label: t('Histórico de aulas') },
+    { id: 'achievements' as const, icon: Award, label: t('Conquistas') },
   ];
 
   useEffect(() => {
@@ -281,9 +284,9 @@ const ProfileView: React.FC<ProfileViewProps> = ({
         blackBeltDate: staffBeltIsBlack ? (staffBlackBeltDate || undefined) : undefined,
         blackBeltDegreeManual: staffBeltIsBlack ? staffBlackBeltManualDegree : undefined,
       });
-      setBeltGradeFeedback('Faixa e grau atualizados com sucesso.');
+      setBeltGradeFeedback(t('Faixa e grau atualizados com sucesso.'));
     } catch (err) {
-      setBeltGradeError(err instanceof Error ? err.message : 'Não foi possível salvar.');
+      setBeltGradeError(err instanceof Error ? err.message : t('Não foi possível salvar.'));
     } finally {
       setBeltGradeBusy(false);
     }
@@ -296,9 +299,9 @@ const ProfileView: React.FC<ProfileViewProps> = ({
     setError('');
     try {
       await onSaveProfile({ phone });
-      setFeedback('Dados atualizados com sucesso.');
+      setFeedback(t('Dados atualizados com sucesso.'));
     } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : 'Não foi possível salvar.');
+      setError(submitError instanceof Error ? submitError.message : t('Não foi possível salvar.'));
     } finally {
       setBusy(false);
     }
@@ -312,9 +315,9 @@ const ProfileView: React.FC<ProfileViewProps> = ({
     setStaffPhotoError('');
     try {
       await onSaveProfile({ photoFile: file });
-      setStaffPhotoFeedback('Foto atualizada com sucesso.');
+      setStaffPhotoFeedback(t('Foto atualizada com sucesso.'));
     } catch (err) {
-      setStaffPhotoError(err instanceof Error ? err.message : 'Não foi possível salvar a foto.');
+      setStaffPhotoError(err instanceof Error ? err.message : t('Não foi possível salvar a foto.'));
     } finally {
       setStaffPhotoBusy(false);
       event.target.value = '';
@@ -338,9 +341,9 @@ const ProfileView: React.FC<ProfileViewProps> = ({
         photoFile,
       });
       setPhotoFile(null);
-      setFeedback('Perfil atualizado com sucesso.');
+      setFeedback(t('Perfil atualizado com sucesso.'));
     } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : 'Não foi possível salvar o perfil.');
+      setError(submitError instanceof Error ? submitError.message : t('Não foi possível salvar o perfil.'));
     } finally {
       setBusy(false);
     }
@@ -355,9 +358,9 @@ const ProfileView: React.FC<ProfileViewProps> = ({
     try {
       await onChangeEmail(newEmail, currentPassword);
       setCurrentPassword('');
-      setEmailFeedback('E-mail atualizado com sucesso.');
+      setEmailFeedback(t('E-mail atualizado com sucesso.'));
     } catch (submitError) {
-      setEmailError(submitError instanceof Error ? submitError.message : 'Não foi possível atualizar o e-mail.');
+      setEmailError(submitError instanceof Error ? submitError.message : t('Não foi possível atualizar o e-mail.'));
     } finally {
       setEmailBusy(false);
     }
@@ -375,7 +378,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({
       await onDeleteAccount(deletePassword);
       // Em caso de sucesso a sessão é encerrada e o app volta ao login; nada mais a fazer aqui.
     } catch (submitError) {
-      setDeleteError(submitError instanceof Error ? submitError.message : 'Não foi possível excluir a conta.');
+      setDeleteError(submitError instanceof Error ? submitError.message : t('Não foi possível excluir a conta.'));
       setDeleteBusy(false);
     }
   }
@@ -390,7 +393,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({
               onClick={() => staffPhotoInputRef.current?.click()}
               disabled={staffPhotoBusy}
               className="block focus:outline-none"
-              aria-label="Trocar foto de perfil"
+              aria-label={t('Trocar foto de perfil')}
             >
               <AvatarWithBelt
                 avatar={user.avatar}
@@ -424,9 +427,9 @@ const ProfileView: React.FC<ProfileViewProps> = ({
           </div>
 
           <div className="profile-mobile__tags">
-            <span className="profile-mobile__tag is-gold">{blackBeltProgress ? blackBeltProgress.title : `Faixa ${beltLabel(user.belt)}`}</span>
+            <span className="profile-mobile__tag is-gold">{blackBeltProgress ? blackBeltProgress.title : t('Faixa {belt}', { belt: beltLabel(user.belt) })}</span>
             <span className="profile-mobile__tag">{currentGradeLabel}</span>
-            <span className="profile-mobile__tag">{user.type}</span>
+            <span className="profile-mobile__tag">{t(user.type)}</span>
           </div>
 
           {staffPhotoFeedback ? <p className="text-xs text-green-400 text-center">{staffPhotoFeedback}</p> : null}
@@ -435,17 +438,17 @@ const ProfileView: React.FC<ProfileViewProps> = ({
 
         {onSetSuperadminViewMode ? (
           <section className="profile-mobile__progress-card">
-            <p className="profile-mobile__section-label">Visão atual</p>
-            <div className="app-vision-switch" role="group" aria-label="Trocar visão">
+            <p className="profile-mobile__section-label">{t('Visão atual')}</p>
+            <div className="app-vision-switch" role="group" aria-label={t('Trocar visão')}>
               <button
                 type="button"
                 onClick={() => onSetSuperadminViewMode('superadmin')}
                 className={`app-vision-switch__button ${superadminViewMode !== 'professor' ? 'is-active' : ''}`}
                 aria-pressed={superadminViewMode !== 'professor'}
-                title="Visão da rede"
+                title={t('Visão da rede')}
               >
                 <Shield size={13} strokeWidth={2} />
-                <span>Rede</span>
+                <span>{t('Rede')}</span>
               </button>
               <button
                 type="button"
@@ -453,10 +456,10 @@ const ProfileView: React.FC<ProfileViewProps> = ({
                 disabled={(superadminAcademyCount ?? 0) === 0}
                 className={`app-vision-switch__button ${superadminViewMode === 'professor' ? 'is-active' : ''}`}
                 aria-pressed={superadminViewMode === 'professor'}
-                title="Visão professor"
+                title={t('Visão professor')}
               >
                 <Building2 size={13} strokeWidth={2} />
-                <span>Professor</span>
+                <span>{t('Professor')}</span>
               </button>
             </div>
           </section>
@@ -464,36 +467,38 @@ const ProfileView: React.FC<ProfileViewProps> = ({
 
         <section className="profile-mobile__kpis">
           <article className="profile-mobile__kpi-card">
-            <p className="profile-mobile__kpi-label">Total de aulas</p>
+            <p className="profile-mobile__kpi-label">{t('Total de aulas')}</p>
             <p className="profile-mobile__kpi-value">{totalClasses}</p>
-            <p className="profile-mobile__kpi-note">Presenças registradas</p>
+            <p className="profile-mobile__kpi-note">{t('Presenças registradas')}</p>
           </article>
 
           <article className="profile-mobile__kpi-card">
-            <p className="profile-mobile__kpi-label">Frequência</p>
+            <p className="profile-mobile__kpi-label">{t('Frequência')}</p>
             <p className="profile-mobile__kpi-value">{attendanceRate}%</p>
-            <p className="profile-mobile__kpi-note">No mês atual</p>
+            <p className="profile-mobile__kpi-note">{t('No mês atual')}</p>
           </article>
         </section>
 
         <section className="profile-mobile__progress-card">
-          <p className="profile-mobile__section-label">{isNextBeltMilestone ? 'Próxima faixa' : 'Próximo grau'}</p>
+          <p className="profile-mobile__section-label">{isNextBeltMilestone ? t('Próxima faixa') : t('Próximo grau')}</p>
           <h2 className="profile-mobile__progress-title">{nextMilestoneLabel}</h2>
           <p className="profile-mobile__progress-copy">
-            {nextMilestoneRemaining > 0 ? `${nextMilestoneRemaining} aulas restantes para elegibilidade` : 'Progressão manual ou meta atingida'}
+            {nextMilestoneRemaining > 0 ? t('{count} aulas restantes para elegibilidade', { count: nextMilestoneRemaining }) : t('Progressão manual ou meta atingida')}
           </p>
           <div className="profile-mobile__progress-bar">
             <ProgressBar current={nextMilestoneCurrent} total={nextMilestoneGoal} />
           </div>
-          <p className="profile-mobile__progress-caption">{nextMilestonePercent}% do objetivo</p>
+          <p className="profile-mobile__progress-caption">{t('{percent}% do objetivo', { percent: nextMilestonePercent })}</p>
           <p className="profile-mobile__progress-caption">
             {progression.classesPerStripe > 0
-              ? `Regra da faixa: ${progression.classesPerStripe} aulas por grau${progression.beltTotal > 0 ? ` / ${progression.beltTotal} aulas para a próxima faixa` : ''}.`
-              : 'Regra da faixa: progressão manual.'}
+              ? (progression.beltTotal > 0
+                ? t('Regra da faixa: {perStripe} aulas por grau / {beltTotal} aulas para a próxima faixa.', { perStripe: progression.classesPerStripe, beltTotal: progression.beltTotal })
+                : t('Regra da faixa: {perStripe} aulas por grau.', { perStripe: progression.classesPerStripe }))
+              : t('Regra da faixa: progressão manual.')}
           </p>
         </section>
 
-        <section className="profile-mobile__menu-card" aria-label="Menu do perfil">
+        <section className="profile-mobile__menu-card" aria-label={t('Menu do perfil')}>
           {staffMenuItems.map((item) => {
             const Icon = item.icon;
             const isExpanded = activeSection === item.id;
@@ -530,22 +535,22 @@ const ProfileView: React.FC<ProfileViewProps> = ({
                       {feedback ? <div className="app-alert app-alert--success">{feedback}</div> : null}
                       {error ? <div className="app-alert app-alert--error">{error}</div> : null}
                       <label className="app-field">
-                        <span className="app-field__label">Telefone</span>
+                        <span className="app-field__label">{t('Telefone')}</span>
                         <input value={phone} onChange={(e) => setPhone(e.target.value)} className="app-input" placeholder="+55 11 99999-9999" />
                       </label>
                       <button type="submit" disabled={busy} className="app-button app-button--gold app-button--block app-button--small">
                         <Save size={14} />
-                        {busy ? 'Salvando...' : 'Salvar telefone'}
+                        {busy ? t('Salvando...') : t('Salvar telefone')}
                       </button>
                     </form>
 
                     {onSaveBeltGrade ? (
                       <form onSubmit={(e) => void handleBeltGradeSubmit(e)} className="space-y-3 pt-3 border-t border-white/10">
-                        <p className="text-[10px] font-bold uppercase tracking-widest text-[color:var(--text-soft)] pt-1">Faixa e Grau</p>
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-[color:var(--text-soft)] pt-1">{t('Faixa e Grau')}</p>
                         {beltGradeFeedback ? <div className="app-alert app-alert--success">{beltGradeFeedback}</div> : null}
                         {beltGradeError ? <div className="app-alert app-alert--error">{beltGradeError}</div> : null}
                         <label className="app-field">
-                          <span className="app-field__label">Faixa</span>
+                          <span className="app-field__label">{t('Faixa')}</span>
                           <select value={staffBelt} onChange={(e) => setStaffBelt(e.target.value)} className="app-select">
                             {ADULT_BELTS.map((b) => (
                               <option key={b} value={b}>{beltLabel(b)}</option>
@@ -555,16 +560,16 @@ const ProfileView: React.FC<ProfileViewProps> = ({
                         {staffBeltIsBlack ? (
                           <>
                             <label className="app-field">
-                              <span className="app-field__label">Data da faixa preta</span>
+                              <span className="app-field__label">{t('Data da faixa preta')}</span>
                               <DateField value={staffBlackBeltDate} onChange={setStaffBlackBeltDate} />
                               <span className="app-field__hint">
                                 {staffBlackBeltPreview
-                                  ? `${staffBlackBeltPreview.label} · ${staffBlackBeltPreview.years} ${staffBlackBeltPreview.years === 1 ? 'ano' : 'anos'} de faixa preta${staffBlackBeltPreview.styleNote ? ` (${staffBlackBeltPreview.styleNote})` : ''}.`
-                                  : 'Informe a data em que recebeu a preta para calcular o grau por tempo (IBJJF).'}
+                                  ? `${staffBlackBeltPreview.label} · ${staffBlackBeltPreview.years === 1 ? t('1 ano de faixa preta') : t('{years} anos de faixa preta', { years: staffBlackBeltPreview.years })}${staffBlackBeltPreview.styleNote ? ` (${staffBlackBeltPreview.styleNote})` : ''}.`
+                                  : t('Informe a data em que recebeu a preta para calcular o grau por tempo (IBJJF).')}
                               </span>
                             </label>
                             <label className="app-field">
-                              <span className="app-field__label">Grau manual (opcional)</span>
+                              <span className="app-field__label">{t('Grau manual (opcional)')}</span>
                               <input
                                 type="number"
                                 min={0}
@@ -574,23 +579,23 @@ const ProfileView: React.FC<ProfileViewProps> = ({
                                   e.target.value === '' ? '' : String(Math.max(0, Math.min(9, Math.floor(Number(e.target.value) || 0)))),
                                 )}
                                 className="app-input"
-                                placeholder={`Automático (${staffAutoBlackDegree}º)`}
+                                placeholder={t('Automático ({degree}º)', { degree: staffAutoBlackDegree })}
                               />
-                              <span className="app-field__hint">Deixe vazio para usar o grau automático pela data. Preencha só para ajustar manualmente.</span>
+                              <span className="app-field__hint">{t('Deixe vazio para usar o grau automático pela data. Preencha só para ajustar manualmente.')}</span>
                             </label>
                           </>
                         ) : (
                           <>
                             <label className="app-field">
-                              <span className="app-field__label">Grau</span>
+                              <span className="app-field__label">{t('Grau')}</span>
                               <select value={staffStripes} onChange={(e) => setStaffStripes(Number(e.target.value))} className="app-select">
                                 {[1, 2, 3, 4, 5, 6].map((g) => (
-                                  <option key={g} value={g}>{g}º grau</option>
+                                  <option key={g} value={g}>{t('{degree}º grau', { degree: g })}</option>
                                 ))}
                               </select>
                             </label>
                             <label className="app-field">
-                              <span className="app-field__label">Aulas bônus</span>
+                              <span className="app-field__label">{t('Aulas bônus')}</span>
                               <input
                                 type="number"
                                 min="0"
@@ -603,39 +608,44 @@ const ProfileView: React.FC<ProfileViewProps> = ({
                         )}
                         <button type="submit" disabled={beltGradeBusy} className="app-button app-button--gold app-button--block app-button--small">
                           <Save size={14} />
-                          {beltGradeBusy ? 'Salvando...' : 'Salvar faixa e grau'}
+                          {beltGradeBusy ? t('Salvando...') : t('Salvar faixa e grau')}
                         </button>
                       </form>
                     ) : null}
 
                     <form onSubmit={(e) => void handleEmailSubmit(e)} className="space-y-3 pt-3 border-t border-white/10">
-                      <p className="text-[10px] font-bold uppercase tracking-widest text-[color:var(--text-soft)] pt-1">Alterar e-mail</p>
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-[color:var(--text-soft)] pt-1">{t('Alterar e-mail')}</p>
                       {emailFeedback ? <div className="app-alert app-alert--success">{emailFeedback}</div> : null}
                       {emailError ? <div className="app-alert app-alert--error">{emailError}</div> : null}
                       <label className="app-field">
-                        <span className="app-field__label">Novo e-mail</span>
+                        <span className="app-field__label">{t('Novo e-mail')}</span>
                         <input type="email" value={newEmail} onChange={(e) => setNewEmail(e.target.value)} className="app-input" required />
                       </label>
                       <label className="app-field">
-                        <span className="app-field__label">Senha atual</span>
+                        <span className="app-field__label">{t('Senha atual')}</span>
                         <input type="password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} className="app-input" required />
                       </label>
                       <button type="submit" disabled={emailBusy} className="app-button app-button--ghost app-button--block app-button--small">
                         <Mail size={14} />
-                        {emailBusy ? 'Atualizando...' : 'Atualizar e-mail'}
+                        {emailBusy ? t('Atualizando...') : t('Atualizar e-mail')}
                       </button>
                     </form>
 
                     <div className="pt-3 border-t border-white/10">
-                      <p className="text-[10px] font-bold uppercase tracking-widest text-[color:var(--text-soft)] pb-3">Aparência</p>
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-[color:var(--text-soft)] pb-3">{t('Aparência')}</p>
                       <div className="flex gap-2">
                         <button type="button" onClick={() => onSetThemeMode('light')} aria-pressed={!isDarkMode} className="app-button app-button--small flex-1 app-button--theme-light">
-                          <Sun size={14} />Claro
+                          <Sun size={14} />{t('Claro')}
                         </button>
                         <button type="button" onClick={() => onSetThemeMode('dark')} aria-pressed={isDarkMode} className="app-button app-button--small flex-1 app-button--theme-dark">
-                          <Moon size={14} />Escuro
+                          <Moon size={14} />{t('Escuro')}
                         </button>
                       </div>
+                    </div>
+
+                    <div className="pt-3 border-t border-white/10">
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-[color:var(--text-soft)] pb-3">{t('Idioma')}</p>
+                      <LanguagePicker userId={profile.id} />
                     </div>
                   </div>
                 ) : null}
@@ -645,13 +655,13 @@ const ProfileView: React.FC<ProfileViewProps> = ({
                     <div className="pt-4 space-y-2">
                       {sortedAttendances.slice(0, 8).map((attendance) => (
                         <div key={attendance.id} className="app-list-card">
-                          <p className="text-sm font-bold">{classNameById.get(attendance.classId) || 'Aula da academia'}</p>
+                          <p className="text-sm font-bold">{classNameById.get(attendance.classId) || t('Aula da academia')}</p>
                           <p className="mt-1 text-xs text-[color:var(--text-soft)]">
-                            {resolveAttendanceDate(attendance, classStartById.get(attendance.classId))?.toLocaleString('pt-BR') ?? 'Sem data'} • {attendance.checkInMethod}
+                            {resolveAttendanceDate(attendance, classStartById.get(attendance.classId))?.toLocaleString(getLocale()) ?? t('Sem data')} • {attendance.checkInMethod}
                           </p>
                         </div>
                       ))}
-                      {attendances.length === 0 ? <div className="app-empty">Nenhuma presença registrada.</div> : null}
+                      {attendances.length === 0 ? <div className="app-empty">{t('Nenhuma presença registrada.')}</div> : null}
                     </div>
                   </div>
                 ) : null}
@@ -665,11 +675,11 @@ const ProfileView: React.FC<ProfileViewProps> = ({
                             {beltLabel(graduation.previousBelt)} {graduation.previousStripes} → {beltLabel(graduation.newBelt)} {graduation.newStripes}
                           </p>
                           <p className="mt-1 text-xs text-[color:var(--text-soft)]">
-                            {graduation.promotedAt?.toDate().toLocaleDateString('pt-BR')} • {graduation.reason.replaceAll('_', ' ')}
+                            {graduation.promotedAt?.toDate().toLocaleDateString(getLocale())} • {graduation.reason.replaceAll('_', ' ')}
                           </p>
                         </div>
                       ))}
-                      {graduations.length === 0 ? <div className="app-empty">Nenhuma graduação registrada.</div> : null}
+                      {graduations.length === 0 ? <div className="app-empty">{t('Nenhuma graduação registrada.')}</div> : null}
                     </div>
                   </div>
                 ) : null}
@@ -686,7 +696,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({
               className="app-button app-button--ghost app-button--block"
               style={{ marginBottom: '0.5rem' }}
             >
-              Trocar de academia
+              {t('Trocar de academia')}
             </button>
           ) : null}
 
@@ -706,7 +716,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({
                     onChange={(event) => setRequestAcademyId(event.target.value)}
                     className="app-select"
                   >
-                    <option value="">Selecione a unidade</option>
+                    <option value="">{t('Selecione a unidade')}</option>
                     {availableAcademiesForRequest!.map((entry) => (
                       <option key={entry.id} value={entry.id}>{entry.name}</option>
                     ))}
@@ -718,14 +728,14 @@ const ProfileView: React.FC<ProfileViewProps> = ({
                       disabled={!requestAcademyId || requestAcademyBusy}
                       className="app-button app-button--gold app-button--block"
                     >
-                      {requestAcademyBusy ? 'Enviando...' : 'Enviar solicitação'}
+                      {requestAcademyBusy ? t('Enviando...') : t('Enviar solicitação')}
                     </button>
                     <button
                       type="button"
                       onClick={() => { setRequestAcademyOpen(false); setRequestAcademyError(''); }}
                       className="app-button app-button--ghost app-button--block"
                     >
-                      Cancelar
+                      {t('Cancelar')}
                     </button>
                   </div>
                 </div>
@@ -735,7 +745,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({
                   onClick={() => setRequestAcademyOpen(true)}
                   className="app-button app-button--ghost app-button--block"
                 >
-                  Solicitar entrada em outra unidade
+                  {t('Solicitar entrada em outra unidade')}
                 </button>
               )}
             </div>
@@ -743,7 +753,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({
 
           <button type="button" onClick={() => void onLogout()} className="app-button app-button--danger app-button--block">
             <LogOut size={16} />
-            Sair
+            {t('Sair')}
           </button>
         </div>
 
@@ -771,13 +781,13 @@ const ProfileView: React.FC<ProfileViewProps> = ({
           <div className="min-w-0 flex-1">
             <h2 className="text-2xl font-bold">{user.name}</h2>
             <p className="mt-2 text-sm text-[color:var(--text-muted)]">
-              {academyName || 'Academia ativa'} • {roleLabel(profile.role)}
+              {academyName || t('Academia ativa')} • {roleLabel(profile.role)}
             </p>
             <div className="mt-3 flex flex-wrap items-center gap-2">
-              <span className="app-badge app-badge--gold">{blackBeltProgress ? blackBeltProgress.title : `Faixa ${beltLabel(user.belt)}`}</span>
-              <span className="app-badge app-badge--muted">{blackBeltProgress ? (blackBeltProgress.degreeLabel || 'Faixa lisa') : `${user.stripes} graus`}</span>
-              <span className="app-badge app-badge--muted">{user.type}</span>
-              {profile.isCompetitor ? <span className="app-badge app-badge--muted">Competidor</span> : null}
+              <span className="app-badge app-badge--gold">{blackBeltProgress ? blackBeltProgress.title : t('Faixa {belt}', { belt: beltLabel(user.belt) })}</span>
+              <span className="app-badge app-badge--muted">{blackBeltProgress ? (blackBeltProgress.degreeLabel || t('Faixa lisa')) : t('{count} graus', { count: user.stripes })}</span>
+              <span className="app-badge app-badge--muted">{t(user.type)}</span>
+              {profile.isCompetitor ? <span className="app-badge app-badge--muted">{t('Competidor')}</span> : null}
             </div>
           </div>
         </div>
@@ -785,36 +795,36 @@ const ProfileView: React.FC<ProfileViewProps> = ({
 
       {commitment ? (
         <section className="app-panel app-panel-pad">
-          <CommitmentBar commitment={commitment} title="Comprometimento" />
+          <CommitmentBar commitment={commitment} title={t('Comprometimento')} />
         </section>
       ) : null}
 
       {/* KPIs 2x2 */}
       <section className="grid grid-cols-2 gap-3">
         <article className="app-panel app-panel-pad">
-          <p className="app-stat-card__label">Total de aulas</p>
+          <p className="app-stat-card__label">{t('Total de aulas')}</p>
           <p className="app-stat-card__value">{totalClasses}</p>
-          <p className="app-stat-card__note">Presenças registradas</p>
+          <p className="app-stat-card__note">{t('Presenças registradas')}</p>
         </article>
         <article className="app-panel app-panel-pad">
-          <p className="app-stat-card__label">Frequência</p>
+          <p className="app-stat-card__label">{t('Frequência')}</p>
           <p className="app-stat-card__value">{attendanceRate}%</p>
-          <p className="app-stat-card__note">No mês atual</p>
+          <p className="app-stat-card__note">{t('No mês atual')}</p>
         </article>
         <article className="app-panel app-panel-pad">
-          <p className="app-stat-card__label">Próximo grau</p>
+          <p className="app-stat-card__label">{t('Próximo grau')}</p>
           <p className="app-stat-card__value">{progression.stripeCycleRemaining ?? 0}</p>
-          <p className="app-stat-card__note">Aulas restantes</p>
+          <p className="app-stat-card__note">{t('Aulas restantes')}</p>
         </article>
         <article className="app-panel app-panel-pad">
-          <p className="app-stat-card__label">Próxima faixa</p>
+          <p className="app-stat-card__label">{t('Próxima faixa')}</p>
           <p className="app-stat-card__value">{nextBeltRemaining}</p>
-          <p className="app-stat-card__note">Aulas para elegibilidade</p>
+          <p className="app-stat-card__note">{t('Aulas para elegibilidade')}</p>
         </article>
       </section>
 
       {/* Accordion menu */}
-      <section className="app-panel" aria-label="Configurações do perfil">
+      <section className="app-panel" aria-label={t('Configurações do perfil')}>
         {/* Dados pessoais */}
         <div>
           <button
@@ -823,7 +833,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({
             onClick={() => setActiveStudentSection(activeStudentSection === 'dados-pessoais' ? null : 'dados-pessoais')}
           >
             <div className="profile-mobile__menu-icon"><UserRound size={18} /></div>
-            <span className="profile-mobile__menu-label">Dados pessoais</span>
+            <span className="profile-mobile__menu-label">{t('Dados pessoais')}</span>
             <ChevronRight
               size={18}
               className={`profile-mobile__menu-arrow transition-transform duration-200 ${activeStudentSection === 'dados-pessoais' ? 'rotate-90' : ''}`}
@@ -838,12 +848,12 @@ const ProfileView: React.FC<ProfileViewProps> = ({
                   {error ? <div className="app-alert app-alert--error">{error}</div> : null}
 
                   <label className="app-field">
-                    <span className="app-field__label">Nome</span>
+                    <span className="app-field__label">{t('Nome')}</span>
                     <input value={firstName} onChange={(event) => setFirstName(event.target.value)} className="app-input" required />
                   </label>
 
                   <label className="app-field">
-                    <span className="app-field__label">Sobrenome</span>
+                    <span className="app-field__label">{t('Sobrenome')}</span>
                     <input value={lastName} onChange={(event) => setLastName(event.target.value)} className="app-input" required />
                   </label>
 
@@ -853,37 +863,37 @@ const ProfileView: React.FC<ProfileViewProps> = ({
                   </label>
 
                   <label className="app-field">
-                    <span className="app-field__label">Telefone</span>
+                    <span className="app-field__label">{t('Telefone')}</span>
                     <input value={phone} onChange={(event) => setPhone(event.target.value)} className="app-input" />
                   </label>
 
                   <label className="app-field">
-                    <span className="app-field__label">Nascimento</span>
+                    <span className="app-field__label">{t('Nascimento')}</span>
                     <DateField value={birthDate} onChange={setBirthDate} required />
                   </label>
 
                   <label className="app-field">
-                    <span className="app-field__label">Competidor</span>
+                    <span className="app-field__label">{t('Competidor')}</span>
                     <select value={isCompetitor ? 'yes' : 'no'} onChange={(event) => setIsCompetitor(event.target.value === 'yes')} className="app-select">
-                      <option value="no">Não</option>
-                      <option value="yes">Sim</option>
+                      <option value="no">{t('Não')}</option>
+                      <option value="yes">{t('Sim')}</option>
                     </select>
                   </label>
 
                   <label className="app-field md:col-span-2">
-                    <span className="app-field__label">Foto</span>
+                    <span className="app-field__label">{t('Foto')}</span>
                     <input type="file" accept="image/*" onChange={(event) => setPhotoFile(event.target.files?.[0] ?? null)} className="app-input" />
                   </label>
 
                   <button type="submit" disabled={busy} className="app-button app-button--gold app-button--block md:col-span-2">
                     <Save size={16} />
-                    {busy ? 'Salvando...' : 'Salvar perfil'}
+                    {busy ? t('Salvando...') : t('Salvar perfil')}
                   </button>
                 </form>
               ) : (
                 <div className="mt-4 app-list">
                   <div className="app-list-card">
-                    <p className="text-[11px] uppercase tracking-[0.16em] text-[color:var(--text-soft)]">Função</p>
+                    <p className="text-[11px] uppercase tracking-[0.16em] text-[color:var(--text-soft)]">{t('Função')}</p>
                     <p className="mt-1 text-sm font-bold">{roleLabel(profile.role)}</p>
                   </div>
                   <div className="app-list-card">
@@ -895,7 +905,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({
                   <div className="app-list-card">
                     <div className="flex items-center gap-2 text-sm font-bold">
                       <Phone size={16} className="text-[color:var(--gold-mid)]" />
-                      {profile.phone || 'Telefone não informado'}
+                      {profile.phone || t('Telefone não informado')}
                     </div>
                   </div>
                 </div>
@@ -912,7 +922,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({
             onClick={() => setActiveStudentSection(activeStudentSection === 'acesso-email' ? null : 'acesso-email')}
           >
             <div className="profile-mobile__menu-icon"><ShieldCheck size={18} /></div>
-            <span className="profile-mobile__menu-label">Acesso conta email</span>
+            <span className="profile-mobile__menu-label">{t('Acesso conta email')}</span>
             <ChevronRight
               size={18}
               className={`profile-mobile__menu-arrow transition-transform duration-200 ${activeStudentSection === 'acesso-email' ? 'rotate-90' : ''}`}
@@ -923,39 +933,39 @@ const ProfileView: React.FC<ProfileViewProps> = ({
             <div className="px-4 pb-5 border-t border-white/10">
               <div className="mt-4 app-list">
                 <div className="app-list-card">
-                  <p className="text-sm font-bold">Permissões</p>
-                  <p className="mt-1 text-xs text-[color:var(--text-soft)]">Perfil atual: {roleLabel(profile.role)}</p>
+                  <p className="text-sm font-bold">{t('Permissões')}</p>
+                  <p className="mt-1 text-xs text-[color:var(--text-soft)]">{t('Perfil atual: {role}', { role: roleLabel(profile.role) })}</p>
                 </div>
                 <div className="app-list-card">
-                  <p className="text-sm font-bold">Academia</p>
-                  <p className="mt-1 text-xs text-[color:var(--text-soft)]">{academyName || 'Sem academia vinculada'}</p>
+                  <p className="text-sm font-bold">{t('Academia')}</p>
+                  <p className="mt-1 text-xs text-[color:var(--text-soft)]">{academyName || t('Sem academia vinculada')}</p>
                 </div>
                 <div className="app-list-card">
-                  <p className="text-sm font-bold">Faixa e grau</p>
-                  <p className="mt-1 text-xs text-[color:var(--text-soft)]">Alteração feita apenas por professor ou superadmin.</p>
+                  <p className="text-sm font-bold">{t('Faixa e grau')}</p>
+                  <p className="mt-1 text-xs text-[color:var(--text-soft)]">{t('Alteração feita apenas por professor ou superadmin.')}</p>
                 </div>
               </div>
 
               {canEditProfile ? (
                 <form onSubmit={handleEmailSubmit} className="mt-4 app-form-grid">
-                  <p className="app-section-label md:col-span-2">Alterar e-mail</p>
+                  <p className="app-section-label md:col-span-2">{t('Alterar e-mail')}</p>
 
                   {emailFeedback ? <div className="app-alert app-alert--success md:col-span-2">{emailFeedback}</div> : null}
                   {emailError ? <div className="app-alert app-alert--error md:col-span-2">{emailError}</div> : null}
 
                   <label className="app-field">
-                    <span className="app-field__label">Novo e-mail</span>
+                    <span className="app-field__label">{t('Novo e-mail')}</span>
                     <input type="email" value={newEmail} onChange={(event) => setNewEmail(event.target.value)} className="app-input" required />
                   </label>
 
                   <label className="app-field">
-                    <span className="app-field__label">Senha atual</span>
+                    <span className="app-field__label">{t('Senha atual')}</span>
                     <input type="password" value={currentPassword} onChange={(event) => setCurrentPassword(event.target.value)} className="app-input" required />
                   </label>
 
                   <button type="submit" disabled={emailBusy} className="app-button app-button--ghost app-button--block md:col-span-2">
                     <Mail size={16} />
-                    {emailBusy ? 'Atualizando e-mail...' : 'Atualizar e-mail'}
+                    {emailBusy ? t('Atualizando e-mail...') : t('Atualizar e-mail')}
                   </button>
                 </form>
               ) : null}
@@ -973,7 +983,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({
             <div className="profile-mobile__menu-icon">
               {isDarkMode ? <Moon size={18} /> : <Sun size={18} />}
             </div>
-            <span className="profile-mobile__menu-label">Aparência</span>
+            <span className="profile-mobile__menu-label">{t('Aparência')}</span>
             <ChevronRight
               size={18}
               className={`profile-mobile__menu-arrow transition-transform duration-200 ${activeStudentSection === 'aparencia' ? 'rotate-90' : ''}`}
@@ -982,7 +992,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({
 
           {activeStudentSection === 'aparencia' ? (
             <div className="px-4 pb-5 border-t border-white/10">
-              <p className="mt-4 text-sm text-[color:var(--text-muted)]">Tema atual: {currentThemeLabel}.</p>
+              <p className="mt-4 text-sm text-[color:var(--text-muted)]">{t('Tema atual: {theme}.', { theme: currentThemeLabel })}</p>
               <div className="profile-theme-picker mt-3">
                 <button
                   type="button"
@@ -991,7 +1001,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({
                   aria-pressed={!isDarkMode}
                 >
                   <Sun size={16} />
-                  Claro
+                  {t('Claro')}
                 </button>
                 <button
                   type="button"
@@ -1000,9 +1010,32 @@ const ProfileView: React.FC<ProfileViewProps> = ({
                   aria-pressed={isDarkMode}
                 >
                   <Moon size={16} />
-                  Escuro
+                  {t('Escuro')}
                 </button>
               </div>
+            </div>
+          ) : null}
+        </div>
+
+        {/* Idioma */}
+        <div>
+          <button
+            type="button"
+            className="profile-mobile__menu-row w-full text-left"
+            onClick={() => setActiveStudentSection(activeStudentSection === 'idioma' ? null : 'idioma')}
+          >
+            <div className="profile-mobile__menu-icon"><Languages size={18} /></div>
+            <span className="profile-mobile__menu-label">{t('Idioma')}</span>
+            <ChevronRight
+              size={18}
+              className={`profile-mobile__menu-arrow transition-transform duration-200 ${activeStudentSection === 'idioma' ? 'rotate-90' : ''}`}
+            />
+          </button>
+
+          {activeStudentSection === 'idioma' ? (
+            <div className="px-4 pb-5 border-t border-white/10">
+              <p className="mt-4 mb-3 text-sm text-[color:var(--text-muted)]">{t('Escolha o idioma do aplicativo. A preferência fica salva no seu perfil.')}</p>
+              <LanguagePicker userId={profile.id} />
             </div>
           ) : null}
         </div>
@@ -1015,7 +1048,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({
             onClick={() => setActiveStudentSection(activeStudentSection === 'historicos' ? null : 'historicos')}
           >
             <div className="profile-mobile__menu-icon"><History size={18} /></div>
-            <span className="profile-mobile__menu-label">Históricos</span>
+            <span className="profile-mobile__menu-label">{t('Históricos')}</span>
             <ChevronRight
               size={18}
               className={`profile-mobile__menu-arrow transition-transform duration-200 ${activeStudentSection === 'historicos' ? 'rotate-90' : ''}`}
@@ -1024,29 +1057,29 @@ const ProfileView: React.FC<ProfileViewProps> = ({
 
           {activeStudentSection === 'historicos' ? (
             <div className="px-4 pb-5 border-t border-white/10">
-              <p className="mt-4 text-[10px] font-bold uppercase tracking-widest text-[color:var(--text-soft)]">Presenças recentes</p>
+              <p className="mt-4 text-[10px] font-bold uppercase tracking-widest text-[color:var(--text-soft)]">{t('Presenças recentes')}</p>
               <div className="mt-2 app-list">
                 {recentAttendances.map((attendance) => (
                   <div key={attendance.id} className="app-list-card">
-                    <p className="text-sm font-bold">{classNameById.get(attendance.classId) || 'Aula da academia'}</p>
+                    <p className="text-sm font-bold">{classNameById.get(attendance.classId) || t('Aula da academia')}</p>
                     <p className="mt-1 text-xs text-[color:var(--text-soft)]">
-                      {resolveAttendanceDate(attendance, classStartById.get(attendance.classId))?.toLocaleString('pt-BR') ?? 'Sem data'} • método {attendance.checkInMethod}
+                      {resolveAttendanceDate(attendance, classStartById.get(attendance.classId))?.toLocaleString(getLocale()) ?? t('Sem data')} • {t('método {method}', { method: attendance.checkInMethod })}
                     </p>
                     {attendance.countsAsAttendance === false ? (
                       <span className="app-badge app-badge--muted mt-2 inline-flex">
                         {nonCountingReasonLabel(attendance.nonCountingReason)
-                          ? `Não computada · ${nonCountingReasonLabel(attendance.nonCountingReason)}`
-                          : 'Não computada'}
+                          ? `${t('Não computada')} · ${nonCountingReasonLabel(attendance.nonCountingReason)}`
+                          : t('Não computada')}
                       </span>
                     ) : null}
                   </div>
                 ))}
                 {recentAttendances.length === 0 ? (
-                  <div className="app-empty">Ainda não há presenças registradas neste perfil.</div>
+                  <div className="app-empty">{t('Ainda não há presenças registradas neste perfil.')}</div>
                 ) : null}
               </div>
 
-              <p className="mt-4 text-[10px] font-bold uppercase tracking-widest text-[color:var(--text-soft)]">Graduações</p>
+              <p className="mt-4 text-[10px] font-bold uppercase tracking-widest text-[color:var(--text-soft)]">{t('Graduações')}</p>
               <div className="mt-2 app-list">
                 {graduations.slice(0, 5).map((graduation) => (
                   <div key={graduation.id} className="app-list-card">
@@ -1054,12 +1087,12 @@ const ProfileView: React.FC<ProfileViewProps> = ({
                       {beltLabel(graduation.previousBelt)} {graduation.previousStripes} → {beltLabel(graduation.newBelt)} {graduation.newStripes}
                     </p>
                     <p className="mt-1 text-xs text-[color:var(--text-soft)]">
-                      {graduation.promotedAt?.toDate().toLocaleDateString('pt-BR')} • {graduation.reason.replaceAll('_', ' ')}
+                      {graduation.promotedAt?.toDate().toLocaleDateString(getLocale())} • {graduation.reason.replaceAll('_', ' ')}
                     </p>
                   </div>
                 ))}
                 {graduations.length === 0 ? (
-                  <div className="app-empty">Ainda não há graduações registradas para este perfil.</div>
+                  <div className="app-empty">{t('Ainda não há graduações registradas para este perfil.')}</div>
                 ) : null}
               </div>
             </div>
@@ -1074,7 +1107,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({
             onClick={() => setExamRulesOpen(true)}
           >
             <div className="profile-mobile__menu-icon"><ScrollText size={18} /></div>
-            <span className="profile-mobile__menu-label">Regras de exame</span>
+            <span className="profile-mobile__menu-label">{t('Regras de exame')}</span>
             <ChevronRight size={18} className="profile-mobile__menu-arrow" />
           </button>
         </div>
@@ -1088,7 +1121,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({
               onClick={() => onRequestAcademyChange()}
             >
               <div className="profile-mobile__menu-icon"><History size={18} /></div>
-              <span className="profile-mobile__menu-label">Trocar de academia</span>
+              <span className="profile-mobile__menu-label">{t('Trocar de academia')}</span>
               <ChevronRight size={18} className="profile-mobile__menu-arrow" />
             </button>
           </div>
@@ -1111,7 +1144,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({
                   onChange={(event) => setRequestAcademyId(event.target.value)}
                   className="app-select"
                 >
-                  <option value="">Selecione a unidade</option>
+                  <option value="">{t('Selecione a unidade')}</option>
                   {availableAcademiesForRequest!.map((entry) => (
                     <option key={entry.id} value={entry.id}>{entry.name}</option>
                   ))}
@@ -1123,14 +1156,14 @@ const ProfileView: React.FC<ProfileViewProps> = ({
                     disabled={!requestAcademyId || requestAcademyBusy}
                     className="app-button app-button--gold app-button--block"
                   >
-                    {requestAcademyBusy ? 'Enviando...' : 'Enviar solicitação'}
+                    {requestAcademyBusy ? t('Enviando...') : t('Enviar solicitação')}
                   </button>
                   <button
                     type="button"
                     onClick={() => { setRequestAcademyOpen(false); setRequestAcademyError(''); }}
                     className="app-button app-button--ghost app-button--block"
                   >
-                    Cancelar
+                    {t('Cancelar')}
                   </button>
                 </div>
               </div>
@@ -1140,7 +1173,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({
                 onClick={() => setRequestAcademyOpen(true)}
                 className="app-button app-button--ghost app-button--block"
               >
-                Solicitar entrada em outra unidade
+                {t('Solicitar entrada em outra unidade')}
               </button>
             )}
           </div>
@@ -1158,7 +1191,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({
               }}
             >
               <div className="profile-mobile__menu-icon" style={{ color: 'var(--color-danger, #ef4444)' }}><Trash2 size={18} /></div>
-              <span className="profile-mobile__menu-label" style={{ color: 'var(--color-danger, #ef4444)' }}>Excluir minha conta</span>
+              <span className="profile-mobile__menu-label" style={{ color: 'var(--color-danger, #ef4444)' }}>{t('Excluir minha conta')}</span>
               <ChevronRight
                 size={18}
                 className={`profile-mobile__menu-arrow transition-transform duration-200 ${activeStudentSection === 'excluir-conta' ? 'rotate-90' : ''}`}
@@ -1171,11 +1204,10 @@ const ProfileView: React.FC<ProfileViewProps> = ({
                   <div className="flex items-start gap-2">
                     <AlertTriangle size={18} className="shrink-0 mt-0.5" />
                     <div>
-                      <p className="text-sm font-bold">Esta ação é permanente e não pode ser desfeita.</p>
+                      <p className="text-sm font-bold">{t('Esta ação é permanente e não pode ser desfeita.')}</p>
                       <p className="mt-1 text-xs">
-                        Sua conta, perfil, foto, vídeos enviados e progresso serão excluídos. Registros financeiros e
-                        históricos exigidos por lei são mantidos de forma anonimizada. Saiba mais em{' '}
-                        <a href="/exclusao-de-conta/" target="_blank" rel="noopener noreferrer">exclusão de conta</a>.
+                        {t('Sua conta, perfil, foto, vídeos enviados e progresso serão excluídos. Registros financeiros e históricos exigidos por lei são mantidos de forma anonimizada. Saiba mais em')}{' '}
+                        <a href="/exclusao-de-conta/" target="_blank" rel="noopener noreferrer">{t('exclusão de conta')}</a>.
                       </p>
                     </div>
                   </div>
@@ -1185,7 +1217,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({
                   {deleteError ? <div className="app-alert app-alert--error md:col-span-2">{deleteError}</div> : null}
 
                   <label className="app-field md:col-span-2">
-                    <span className="app-field__label">Confirme sua senha</span>
+                    <span className="app-field__label">{t('Confirme sua senha')}</span>
                     <input
                       type="password"
                       value={deletePassword}
@@ -1203,7 +1235,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({
                       onChange={(event) => setDeleteConfirmChecked(event.target.checked)}
                       className="mt-0.5"
                     />
-                    <span>Entendo que minha conta e meus dados pessoais serão excluídos permanentemente.</span>
+                    <span>{t('Entendo que minha conta e meus dados pessoais serão excluídos permanentemente.')}</span>
                   </label>
 
                   <button
@@ -1212,7 +1244,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({
                     className="app-button app-button--solid-danger app-button--block md:col-span-2"
                   >
                     <Trash2 size={16} />
-                    {deleteBusy ? 'Excluindo conta...' : 'Excluir minha conta permanentemente'}
+                    {deleteBusy ? t('Excluindo conta...') : t('Excluir minha conta permanentemente')}
                   </button>
                 </form>
               </div>
@@ -1228,7 +1260,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({
             onClick={() => void onLogout()}
           >
             <div className="profile-mobile__menu-icon" style={{ color: 'var(--color-danger, #ef4444)' }}><LogOut size={18} /></div>
-            <span className="profile-mobile__menu-label" style={{ color: 'var(--color-danger, #ef4444)' }}>Sair da conta</span>
+            <span className="profile-mobile__menu-label" style={{ color: 'var(--color-danger, #ef4444)' }}>{t('Sair da conta')}</span>
             <ChevronRight size={18} className="profile-mobile__menu-arrow" />
           </button>
         </div>

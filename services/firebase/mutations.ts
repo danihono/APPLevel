@@ -70,6 +70,14 @@ export async function updateUserProfile(userId: string, payload: EditableUserPro
   });
 }
 
+// Qualquer papel pode salvar o proprio idioma (regra do Firestore libera so este campo para o proprio usuario).
+export async function updateUserLanguage(userId: string, language: string) {
+  await updateDoc(doc(firebaseDb, 'users', userId), {
+    language,
+    updatedAt: serverTimestamp(),
+  });
+}
+
 export async function uploadUserPhoto(userId: string, file: File) {
   // Comprime no cliente: uma foto de celular tem alguns MB, mas o avatar e
   // exibido pequeno. Isso reduz drasticamente o tempo de download.

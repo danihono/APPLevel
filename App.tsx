@@ -13,8 +13,7 @@ import StaffDashboardView from './views/StaffDashboardView';
 import { getUserProgressionSummary, normalizeBeltId } from './beltCatalog';
 import { resolveMonthlyCommitment } from './commitmentScale';
 import {
-  BEGINNER_CLASS_WARNING,
-  DAILY_LIMIT_WARNING,
+  nonCountingWarning,
   previewNonCountingReason,
   type AttendanceNonCountingReason,
 } from './classRules';
@@ -109,6 +108,7 @@ import type {
 } from './services/firebase/models';
 import { UserRole, type UserVideo } from './types';
 import { normalizePersonName } from './utils';
+import { t, getLocale, isAppLanguage, useI18n } from './i18n';
 
 const CalendarView = lazy(() => import('./views/CalendarView'));
 const CompetitionView = lazy(() => import('./views/CompetitionView'));
@@ -214,34 +214,35 @@ function getErrorMessage(error: unknown): string {
     case 'auth/invalid-credential':
     case 'auth/wrong-password':
     case 'auth/user-not-found':
-      return 'E-mail ou senha inválidos.';
+      return t('E-mail ou senha inválidos.');
     case 'auth/user-disabled':
-      return 'Seu cadastro ainda está aguardando aprovação do professor da unidade.';
+      return t('Seu cadastro ainda está aguardando aprovação do professor da unidade.');
     case 'auth/invalid-email':
-      return 'Informe um e-mail válido.';
+      return t('Informe um e-mail válido.');
     case 'auth/too-many-requests':
-      return 'Muitas tentativas de login. Aguarde alguns minutos e tente de novo.';
+      return t('Muitas tentativas de login. Aguarde alguns minutos e tente de novo.');
     case 'functions/permission-denied':
     case 'permission-denied':
-      return 'Sua sessão não tem permissão para acessar este recurso.';
+      return t('Sua sessão não tem permissão para acessar este recurso.');
     case 'functions/unauthenticated':
     case 'unauthenticated':
-      return 'Sua sessão expirou. Entre novamente.';
+      return t('Sua sessão expirou. Entre novamente.');
     case 'functions/internal':
     case 'internal':
-      return 'Não foi possível concluir a operação no servidor agora. Atualize a página e tente novamente.';
+      return t('Não foi possível concluir a operação no servidor agora. Atualize a página e tente novamente.');
     case 'functions/unavailable':
     case 'unavailable':
-      return 'O servidor não respondeu agora. Tente novamente em alguns instantes.';
+      return t('O servidor não respondeu agora. Tente novamente em alguns instantes.');
     case 'functions/resource-exhausted':
     case 'resource-exhausted':
-      return 'O sistema atingiu o limite de uso agora. Tente novamente em alguns minutos.';
+      return t('O sistema atingiu o limite de uso agora. Tente novamente em alguns minutos.');
     default:
       if (error instanceof Error && error.message) {
-        return error.message;
+        // Mensagens do backend chegam em pt-BR; traduz as que estao no catalogo.
+        return t(error.message);
       }
 
-      return 'Não foi possível concluir esta operação agora.';
+      return t('Não foi possível concluir esta operação agora.');
   }
 }
 
@@ -327,12 +328,12 @@ function buildAcademyAccessIssueView(params: {
           <div className="mx-auto flex items-center justify-center">
             <img src="/logo3.png" alt="APPLevel" className="h-32 w-32 object-contain" />
           </div>
-          <h2 className="mt-6 text-2xl font-bold">Revise o acesso desta conta</h2>
+          <h2 className="mt-6 text-2xl font-bold">{t('Revise o acesso desta conta')}</h2>
           <p className="mt-3 app-note">
             {params.note}
           </p>
           <button type="button" onClick={() => void params.onLogout()} className="app-button app-button--gold mt-6 app-button--block">
-            Voltar ao login
+            {t('Voltar ao login')}
           </button>
         </section>
       </div>
@@ -342,20 +343,20 @@ function buildAcademyAccessIssueView(params: {
 
 function buildMissingAcademyView(onLogout: () => Promise<void>) {
   return buildAcademyAccessIssueView({
-    eyebrow: 'Acesso bloqueado',
-    title: 'Sua unidade não está mais disponível.',
-    description: 'Esta conta ainda existe, mas a unidade vinculada foi removida ou perdeu o contexto necessário para abrir o painel.',
-    note: 'Saia e entre novamente depois que um superadmin da LEVEL corrigir a unidade vinculada ao seu cadastro.',
+    eyebrow: t('Acesso bloqueado'),
+    title: t('Sua unidade não está mais disponível.'),
+    description: t('Esta conta ainda existe, mas a unidade vinculada foi removida ou perdeu o contexto necessário para abrir o painel.'),
+    note: t('Saia e entre novamente depois que um superadmin da LEVEL corrigir a unidade vinculada ao seu cadastro.'),
     onLogout,
   });
 }
 
 function buildAcademyLoadErrorView(message: string, onLogout: () => Promise<void>) {
   return buildAcademyAccessIssueView({
-    eyebrow: 'Falha ao validar unidade',
-    title: 'Nao foi possivel confirmar a sua unidade.',
+    eyebrow: t('Falha ao validar unidade'),
+    title: t('Nao foi possivel confirmar a sua unidade.'),
     description: message,
-    note: 'Saia e entre novamente. Se continuar igual, um superadmin precisa revisar o academyId e as permissoes desta conta.',
+    note: t('Saia e entre novamente. Se continuar igual, um superadmin precisa revisar o academyId e as permissoes desta conta.'),
     onLogout,
   });
 }
@@ -372,13 +373,13 @@ function buildSuperadminVisionChoiceView(params: {
       <div className="flex-1 flex flex-col max-w-md mx-auto w-full px-5 pt-14 pb-10">
 
         <p className="text-xs font-bold tracking-widest uppercase text-[#C9A465] mb-4">
-          Superadmin LEVEL
+          {t('Superadmin LEVEL')}
         </p>
         <h1 className="text-4xl font-bold text-white leading-tight mb-3">
-          Como você<br />quer entrar?
+          {t('Como você')}<br />{t('quer entrar?')}
         </h1>
         <p className="text-sm text-[#888] mb-10">
-          A conta continua superadmin. Escolha o modo de operação.
+          {t('A conta continua superadmin. Escolha o modo de operação.')}
         </p>
 
         <div className="flex flex-col gap-3">
@@ -391,8 +392,8 @@ function buildSuperadminVisionChoiceView(params: {
               <div className="w-2.5 h-2.5 rounded-full bg-[#C9A465]" />
             </div>
             <div>
-              <p className="font-bold text-white text-base mb-1">Visão superadmin</p>
-              <p className="text-sm text-[#888] leading-snug">Rede consolidada, gestão global e learning LEVEL</p>
+              <p className="font-bold text-white text-base mb-1">{t('Visão superadmin')}</p>
+              <p className="text-sm text-[#888] leading-snug">{t('Rede consolidada, gestão global e learning LEVEL')}</p>
             </div>
           </button>
 
@@ -404,16 +405,16 @@ function buildSuperadminVisionChoiceView(params: {
           >
             <div className="mt-0.5 w-5 h-5 rounded-full border-2 border-[#444] flex-shrink-0" />
             <div>
-              <p className="font-bold text-white text-base mb-1">Visão professor</p>
-              <p className="text-sm text-[#888] leading-snug">Opera uma unidade com agenda, aulas e avisos</p>
+              <p className="font-bold text-white text-base mb-1">{t('Visão professor')}</p>
+              <p className="text-sm text-[#888] leading-snug">{t('Opera uma unidade com agenda, aulas e avisos')}</p>
             </div>
           </button>
         </div>
 
         <p className="text-sm text-[#555] text-center mt-8">
           {canUseProfessorVision
-            ? `${params.academyCount} unidade${params.academyCount === 1 ? '' : 's'} disponíve${params.academyCount === 1 ? 'l' : 'is'}`
-            : 'Crie a primeira unidade na visão superadmin para liberar a visão professor.'}
+            ? (params.academyCount === 1 ? t('1 unidade disponível') : t('{count} unidades disponíveis', { count: params.academyCount }))
+            : t('Crie a primeira unidade na visão superadmin para liberar a visão professor.')}
         </p>
       </div>
     </div>
@@ -477,7 +478,7 @@ function buildAcademyUnitSelectionView(params: {
             >
               <div>
                 <p className="text-[10px] font-bold tracking-widest uppercase text-zinc-500 mb-1">
-                  Unidade Level
+                  {t('Unidade Level')}
                 </p>
                 <p className="text-base font-bold text-white">{entry.name}</p>
                 {params.itemHint ? (
@@ -502,13 +503,13 @@ function buildSuperadminUnitFocusView(params: {
   onBackToNetwork: () => void;
 }) {
   return buildAcademyUnitSelectionView({
-    kicker: 'Visão professor',
-    headline: <>Escolha<br />uma unidade.</>,
-    subtitle: 'Acesso global mantido. Operação focada em uma unidade específica.',
-    itemHint: 'Agenda · equipe · learning',
+    kicker: t('Visão professor'),
+    headline: <>{t('Escolha')}<br />{t('uma unidade.')}</>,
+    subtitle: t('Acesso global mantido. Operação focada em uma unidade específica.'),
+    itemHint: t('Agenda · equipe · learning'),
     academies: params.academies,
     onSelectAcademy: params.onSelectAcademy,
-    backAction: { label: 'Voltar para a rede', onClick: params.onBackToNetwork },
+    backAction: { label: t('Voltar para a rede'), onClick: params.onBackToNetwork },
   });
 }
 
@@ -519,10 +520,10 @@ function buildStudentAcademySelectionView(params: {
   busy?: boolean;
 }) {
   return buildAcademyUnitSelectionView({
-    kicker: 'Suas unidades',
-    headline: <>Selecione<br />sua unidade.</>,
-    subtitle: 'Você tem acesso a mais de uma unidade. Escolha qual quer usar agora — você pode trocar depois pelo menu.',
-    itemHint: 'Treinos · ranking · learning',
+    kicker: t('Suas unidades'),
+    headline: <>{t('Selecione')}<br />{t('sua unidade.')}</>,
+    subtitle: t('Você tem acesso a mais de uma unidade. Escolha qual quer usar agora — você pode trocar depois pelo menu.'),
+    itemHint: t('Treinos · ranking · learning'),
     academies: params.academies,
     onSelectAcademy: params.onSelectAcademy,
     errorMessage: params.errorMessage,
@@ -582,10 +583,11 @@ async function refreshAuthClaimsForSession(user: FirebaseUser, session: Validate
     }
   }
 
-  throw new Error('Nao foi possivel atualizar as permissoes da sessao. Saia e entre novamente.');
+  throw new Error(t('Nao foi possivel atualizar as permissoes da sessao. Saia e entre novamente.'));
 }
 
 const App: React.FC = () => {
+  const { language, setLanguage } = useI18n();
   const [authReady, setAuthReady] = useState(false);
   const [authUser, setAuthUser] = useState<FirebaseUser | null>(null);
   const [activeTab, setActiveTab] = useState('home');
@@ -707,6 +709,15 @@ const App: React.FC = () => {
     });
   };
 
+  // O idioma salvo no perfil vale em qualquer dispositivo: ao carregar o perfil, aplica-o.
+  useEffect(() => {
+    if (isAppLanguage(profile?.language) && profile.language !== language) {
+      setLanguage(profile.language);
+    }
+  // Apenas quando o perfil muda: a troca local (LanguagePicker) salva no perfil logo em seguida.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile?.language]);
+
   useEffect(() => {
     document.documentElement.classList.toggle('dark', isDarkMode);
     document.documentElement.dataset.theme = isDarkMode ? 'dark' : 'light';
@@ -804,7 +815,7 @@ const App: React.FC = () => {
         setProfileLoading(false);
 
         if (!record) {
-          recoverInvalidSession('profile:missing', new Error('Seu cadastro não foi encontrado. Entre com outra conta.'));
+          recoverInvalidSession('profile:missing', new Error(t('Seu cadastro não foi encontrado. Entre com outra conta.')));
         }
       },
       (error) => {
@@ -1765,7 +1776,7 @@ const App: React.FC = () => {
   ): Promise<AttendanceNonCountingReason | null> {
     const trimmedToken = qrToken?.trim();
     if (profile?.role === 'student' && !trimmedToken) {
-      throw new Error('Informe o token do QR para registrar a presenca.');
+      throw new Error(t('Informe o token do QR para registrar a presenca.'));
     }
 
     try {
@@ -2232,7 +2243,7 @@ const App: React.FC = () => {
     photoFile?: File | null;
   }) {
     if (!authUser) {
-      throw new Error('Sessao invalida.');
+      throw new Error(t('Sessao invalida.'));
     }
 
     let photoPath: string | undefined;
@@ -2263,7 +2274,7 @@ const App: React.FC = () => {
   }
 
   async function handleSaveOwnBeltGrade(payload: { belt: string; grade: number; stripes: number; attendanceCountBonus: number; blackBeltDate?: string; blackBeltDegreeManual?: number | null }) {
-    if (!authUser) throw new Error('Sessao invalida.');
+    if (!authUser) throw new Error(t('Sessao invalida.'));
     try {
       await backendFunctions.updateOwnStaffBeltGrade(payload);
     } catch (error) {
@@ -2299,7 +2310,7 @@ const App: React.FC = () => {
 
   async function handleUploadFightVideoAsset(file: File) {
     if (!authUser) {
-      throw new Error('Sessao invalida.');
+      throw new Error(t('Sessao invalida.'));
     }
 
     try {
@@ -2426,7 +2437,7 @@ const App: React.FC = () => {
   }, [academyFights, fightVideoSubmissions]);
 
   if (!authReady) {
-    return <LoadingScreen message="Validando a sua sessao com o Firebase." />;
+    return <LoadingScreen message={t('Validando a sua sessao com o Firebase.')} />;
   }
 
   if (!authUser) {
@@ -2445,7 +2456,7 @@ const App: React.FC = () => {
   }
 
   if (profileLoading || !profile) {
-    return <LoadingScreen message="Carregando perfil, academia e permissoes." />;
+    return <LoadingScreen message={t('Carregando perfil, academia e permissoes.')} />;
   }
 
   const currentUser = toUiUser({
@@ -2505,24 +2516,24 @@ const App: React.FC = () => {
     : [];
   const needsStudentMembershipChoice = isMultiAcademyStudent && !studentSessionAcademyChosen;
   const bootstrapMessage = !sessionValidated
-    ? 'Sincronizando permissoes da sua sessao.'
-    : 'Carregando perfil, academia e permissoes.';
+    ? t('Sincronizando permissoes da sua sessao.')
+    : t('Carregando perfil, academia e permissoes.');
   const isBootstrapPending = !sessionValidated || superadminDirectoryLoading || (!isSuperAdmin && (academyLoading || academyStatus === 'idle'));
   const mobileUnitLabel = isSuperAdmin
     ? (
       isSuperadminProfessorView
         ? (
           selectedAcademyId
-            ? (allAcademies.find((entry) => entry.id === selectedAcademyId)?.name ?? academy?.name ?? 'Unidade em foco')
-            : 'Escolha uma unidade'
+            ? (allAcademies.find((entry) => entry.id === selectedAcademyId)?.name ?? academy?.name ?? t('Unidade em foco'))
+            : t('Escolha uma unidade')
         )
         : (
           selectedAcademyId
-            ? (allAcademies.find((entry) => entry.id === selectedAcademyId)?.name ?? academy?.name ?? 'Academia em foco')
-            : (isFirstAcademySetup ? 'Sem academias' : 'Toda a rede')
+            ? (allAcademies.find((entry) => entry.id === selectedAcademyId)?.name ?? academy?.name ?? t('Academia em foco'))
+            : (isFirstAcademySetup ? t('Sem academias') : t('Toda a rede'))
         )
     )
-    : (academy?.name ?? 'Sincronizando unidade');
+    : (academy?.name ?? t('Sincronizando unidade'));
   const isMissingRequiredAcademy = !isSuperAdmin && sessionValidated && !academyLoading && academyStatus === 'missing';
   const hasAcademyAccessError = !isSuperAdmin && sessionValidated && !academyLoading && academyStatus === 'error';
 
@@ -2561,7 +2572,7 @@ const App: React.FC = () => {
 
   if (hasAcademyAccessError) {
     return buildAcademyLoadErrorView(
-      sessionError || 'Sua sessão não conseguiu confirmar a unidade vinculada a esta conta.',
+      sessionError || t('Sua sessão não conseguiu confirmar a unidade vinculada a esta conta.'),
       handleLogout,
     );
   }
@@ -2601,7 +2612,7 @@ const App: React.FC = () => {
 
   if (needsStudentMembershipChoice) {
     if (studentAcademies.length === 0) {
-      return <LoadingScreen message={studentAcademySwitching ? 'Trocando de unidade...' : 'Carregando suas unidades.'} />;
+      return <LoadingScreen message={studentAcademySwitching ? t('Trocando de unidade...') : t('Carregando suas unidades.')} />;
     }
     return buildStudentAcademySelectionView({
       academies: studentAcademies,
@@ -2823,7 +2834,7 @@ const App: React.FC = () => {
           : [
             ...academyProfessors,
             { id: currentUser.id, displayName: currentUserDisplayName, role: profile.role },
-          ].sort((left, right) => left.displayName.localeCompare(right.displayName, 'pt-BR'));
+          ].sort((left, right) => left.displayName.localeCompare(right.displayName, getLocale()));
 
         // Uma mesma pessoa pode ter duas contas — o superadmin da rede e o professor da unidade —
         // com o mesmo `displayName`. No seletor as duas apareciam como opcoes identicas, e nao havia
@@ -2840,7 +2851,7 @@ const App: React.FC = () => {
           id: entry.id,
           displayName: entry.displayName,
           label: (professorNameCount.get(normalizePersonName(entry.displayName)) ?? 0) > 1
-            ? `${entry.displayName} (${entry.role === 'superadmin' ? 'admin da rede' : 'professor da unidade'})`
+            ? `${entry.displayName} (${entry.role === 'superadmin' ? t('admin da rede') : t('professor da unidade')})`
             : entry.displayName,
         }));
 
@@ -2913,7 +2924,7 @@ const App: React.FC = () => {
                 ? (
                   hasFocusedAcademy
                     ? (allAcademies.find((entry) => entry.id === selectedAcademyId)?.name ?? resolvedAcademy.name)
-                    : 'Toda a rede LEVEL'
+                    : t('Toda a rede LEVEL')
                 )
                 : resolvedAcademy.name
             }
@@ -3103,7 +3114,9 @@ const App: React.FC = () => {
   };
 
   return (
-    <>
+    // key={language}: trocar o idioma remonta as telas (o estado global do App e mantido),
+    // assim nenhum texto memoizado fica no idioma anterior.
+    <React.Fragment key={language}>
       {sessionError ? (
         <div className="fixed top-24 left-4 right-4 z-[70] mx-auto max-w-lg">
           <div className="app-toast text-sm">
@@ -3136,7 +3149,7 @@ const App: React.FC = () => {
           }}>
             {/* Header */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, alignSelf: 'stretch', justifyContent: 'space-between' }}>
-              <span style={{ fontWeight: 700, fontSize: '1rem' }}>Confirmar presença</span>
+              <span style={{ fontWeight: 700, fontSize: '1rem' }}>{t('Confirmar presença')}</span>
               <button
                 type="button"
                 className="app-button app-button--ghost app-button--icon"
@@ -3153,11 +3166,11 @@ const App: React.FC = () => {
               <>
                 <CheckCircle size={48} style={{ color: '#22c55e' }} />
                 <p style={{ fontWeight: 600, fontSize: '1rem', color: '#22c55e' }}>
-                  {checkinNonCountingReason ? 'Você está na lista!' : 'Presença confirmada!'}
+                  {checkinNonCountingReason ? t('Você está na lista!') : t('Presença confirmada!')}
                 </p>
                 {checkinNonCountingReason ? (
                   <p className="app-alert app-alert--warning" style={{ textAlign: 'center' }}>
-                    {checkinNonCountingReason === 'beginner_class_belt' ? BEGINNER_CLASS_WARNING : DAILY_LIMIT_WARNING}
+                    {nonCountingWarning(checkinNonCountingReason)}
                   </p>
                 ) : null}
                 <button
@@ -3166,18 +3179,18 @@ const App: React.FC = () => {
                   style={{ background: '#fff', color: '#22c55e', fontWeight: 700, border: '1.5px solid #22c55e' }}
                   onClick={() => { setPendingCheckin(null); setCheckinStatus('idle'); setCheckinStep('initial'); setCheckinNonCountingReason(null); setActiveTab('calendar'); }}
                 >
-                  Ver calendário
+                  {t('Ver calendário')}
                 </button>
               </>
             ) : checkinStep === 'initial' ? (
               /* Etapa 1 — pergunta */
               <>
                 <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', textAlign: 'center', lineHeight: 1.5 }}>
-                  Deseja registrar sua presença nesta aula?
+                  {t('Deseja registrar sua presença nesta aula?')}
                 </p>
                 {pendingCheckinNonCountingReason ? (
                   <p className="app-alert app-alert--warning" style={{ textAlign: 'center' }}>
-                    {pendingCheckinNonCountingReason === 'beginner_class_belt' ? BEGINNER_CLASS_WARNING : DAILY_LIMIT_WARNING}
+                    {nonCountingWarning(pendingCheckinNonCountingReason)}
                   </p>
                 ) : null}
                 {checkinError ? (
@@ -3190,7 +3203,7 @@ const App: React.FC = () => {
                     style={{ background: '#fff', color: '#f87171', fontWeight: 700, border: '1.5px solid #f87171' }}
                     onClick={() => { setPendingCheckin(null); setCheckinStatus('idle'); setCheckinStep('initial'); setCheckinError(''); setCheckinNonCountingReason(null); }}
                   >
-                    Cancelar
+                    {t('Cancelar')}
                   </button>
                   <button
                     type="button"
@@ -3198,7 +3211,7 @@ const App: React.FC = () => {
                     style={{ background: '#fff', color: '#22c55e', fontWeight: 700, border: '1.5px solid #22c55e' }}
                     onClick={() => { setCheckinStep('confirm'); setCheckinError(''); }}
                   >
-                    Confirmar
+                    {t('Confirmar')}
                   </button>
                 </div>
               </>
@@ -3206,12 +3219,12 @@ const App: React.FC = () => {
               /* Etapa 2 — confirmação final */
               <>
                 <p style={{ fontSize: '0.9rem', fontWeight: 600, textAlign: 'center' }}>
-                  Tem certeza?
+                  {t('Tem certeza?')}
                 </p>
                 <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', textAlign: 'center', lineHeight: 1.5 }}>
                   {pendingCheckinNonCountingReason
-                    ? 'Sua participação será registrada permanentemente, mas sem contar como aula.'
-                    : 'Sua presença será registrada permanentemente.'}
+                    ? t('Sua participação será registrada permanentemente, mas sem contar como aula.')
+                    : t('Sua presença será registrada permanentemente.')}
                 </p>
                 {checkinError ? (
                   <p style={{ fontSize: '0.8rem', color: '#f87171', textAlign: 'center' }}>{checkinError}</p>
@@ -3224,7 +3237,7 @@ const App: React.FC = () => {
                     onClick={() => { setCheckinStep('initial'); setCheckinError(''); }}
                     disabled={checkinStatus === 'loading'}
                   >
-                    Cancelar
+                    {t('Cancelar')}
                   </button>
                   <button
                     type="button"
@@ -3243,11 +3256,11 @@ const App: React.FC = () => {
                       }).catch((err: unknown) => {
                         setCheckinStatus('error');
                         setCheckinStep('initial');
-                        setCheckinError(err instanceof Error ? err.message : 'Erro ao registrar presença.');
+                        setCheckinError(err instanceof Error ? err.message : t('Erro ao registrar presença.'));
                       });
                     }}
                   >
-                    {checkinStatus === 'loading' ? 'Registrando...' : 'Sim, confirmar'}
+                    {checkinStatus === 'loading' ? t('Registrando...') : t('Sim, confirmar')}
                   </button>
                 </div>
               </>
@@ -3271,11 +3284,11 @@ const App: React.FC = () => {
         isDarkMode={isDarkMode}
         onSetThemeMode={setThemeMode}
       >
-        <Suspense fallback={<LoadingScreen message="Carregando esta area do APPLevel." />}>
+        <Suspense fallback={<LoadingScreen message={t('Carregando esta area do APPLevel.')} />}>
           {renderContent()}
         </Suspense>
       </Layout>
-    </>
+    </React.Fragment>
   );
 };
 

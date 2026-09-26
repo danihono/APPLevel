@@ -89,6 +89,11 @@ service cloud.firestore {
       // Staff edita perfil pelo SDK cliente, mas faixa/grau/progressao/identidade so mudam via
       // Cloud Functions (Admin SDK ignora estas regras). Bloquear a escrita direta desses campos
       // fecha o bypass do gate de graduacao e da contabilidade marco+bonus.
+      // Qualquer usuario pode trocar o proprio idioma da interface (e nada mais por este caminho).
+      allow update: if isSelf(userId)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['language', 'updatedAt'])
+        && request.resource.data.language in ['pt-BR', 'en', 'es'];
+
       allow update: if isAcademyStaff(resource.data.academyId)
         && !request.resource.data.diff(resource.data).affectedKeys().hasAny([
           'belt', 'stripes', 'grade', 'blackBeltDegreeManual',

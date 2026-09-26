@@ -92,6 +92,8 @@ export interface UserRecord {
   lastAttendanceAt?: Timestamp;
   lastLoginAt?: Timestamp;
   fcmTokens?: string[];
+  /** Idioma da interface escolhido pelo usuario ('pt-BR' | 'en' | 'es'). Ausente = pt-BR. */
+  language?: string;
   trainingStartDate?: Timestamp;
   lastGraduationDateOverride?: Timestamp;
   lastStripeDateOverride?: Timestamp;

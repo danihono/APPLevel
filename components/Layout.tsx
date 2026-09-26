@@ -16,6 +16,7 @@ import {
   Users,
 } from 'lucide-react';
 import { UserRole } from '../types';
+import { t } from '../i18n';
 
 type SuperadminViewMode = 'superadmin' | 'professor';
 
@@ -217,40 +218,40 @@ const Layout: React.FC<LayoutProps> = ({
   const navItems = useMemo<NavItem[]>(() => (
     navigationRole === UserRole.SUPERADMIN
       ? [
-        { id: 'home', icon: Home, label: 'Central' },
-        { id: 'controle-total', icon: DollarSign, label: 'Controle Total' },
-        { id: 'notifications', icon: Bell, label: 'Comunicação' },
-        { id: 'students', icon: Users, label: 'Alunos' },
-        { id: 'management', icon: Shield, label: 'Gestão' },
-        { id: 'learning', icon: BookOpen, label: 'Learning' },
-        { id: 'profile', icon: UserIcon, label: 'Perfil' },
+        { id: 'home', icon: Home, label: t('Central') },
+        { id: 'controle-total', icon: DollarSign, label: t('Controle Total') },
+        { id: 'notifications', icon: Bell, label: t('Comunicação') },
+        { id: 'students', icon: Users, label: t('Alunos') },
+        { id: 'management', icon: Shield, label: t('Gestão') },
+        { id: 'learning', icon: BookOpen, label: t('Learning') },
+        { id: 'profile', icon: UserIcon, label: t('Perfil') },
       ]
       : navigationRole === UserRole.PROFESSOR
         ? [
-          { id: 'home', icon: Home, label: 'Início' },
-          { id: 'calendar', icon: Calendar, label: 'Calendário' },
-          { id: 'management', icon: Building2, label: 'Academia' },
-          { id: 'notifications', icon: Bell, label: 'Avisos' },
-          { id: 'learning', icon: BookOpen, label: 'Learning' },
-          { id: 'profile', icon: UserIcon, label: 'Perfil' },
+          { id: 'home', icon: Home, label: t('Início') },
+          { id: 'calendar', icon: Calendar, label: t('Calendário') },
+          { id: 'management', icon: Building2, label: t('Academia') },
+          { id: 'notifications', icon: Bell, label: t('Avisos') },
+          { id: 'learning', icon: BookOpen, label: t('Learning') },
+          { id: 'profile', icon: UserIcon, label: t('Perfil') },
         ]
         : isStaff
           ? [
-            { id: 'home', icon: Home, label: 'Início' },
-            { id: 'calendar', icon: Calendar, label: 'Calendário' },
-            { id: 'management', icon: Building2, label: 'Academia' },
-            { id: 'notifications', icon: Bell, label: 'Avisos' },
-            { id: 'learning', icon: BookOpen, label: 'Learning' },
-            { id: 'profile', icon: UserIcon, label: 'Perfil' },
+            { id: 'home', icon: Home, label: t('Início') },
+            { id: 'calendar', icon: Calendar, label: t('Calendário') },
+            { id: 'management', icon: Building2, label: t('Academia') },
+            { id: 'notifications', icon: Bell, label: t('Avisos') },
+            { id: 'learning', icon: BookOpen, label: t('Learning') },
+            { id: 'profile', icon: UserIcon, label: t('Perfil') },
           ]
         : [
-        { id: 'home', icon: Home, label: 'Início' },
-        { id: 'calendar', icon: Calendar, label: 'Aulas' },
-        { id: 'graduation', icon: Award, label: 'Graduação' },
-        { id: 'learning', icon: BookOpen, label: 'Learning' },
-        { id: 'competition', icon: Trophy, label: 'Compete' },
-        { id: 'notifications', icon: Bell, label: 'Avisos' },
-        { id: 'profile', icon: UserIcon, label: 'Perfil' },
+        { id: 'home', icon: Home, label: t('Início') },
+        { id: 'calendar', icon: Calendar, label: t('Aulas') },
+        { id: 'graduation', icon: Award, label: t('Graduação') },
+        { id: 'learning', icon: BookOpen, label: t('Learning') },
+        { id: 'competition', icon: Trophy, label: t('Compete') },
+        { id: 'notifications', icon: Bell, label: t('Avisos') },
+        { id: 'profile', icon: UserIcon, label: t('Perfil') },
         ]
   ), [isStaff, navigationRole]);
 
@@ -265,16 +266,16 @@ const Layout: React.FC<LayoutProps> = ({
   const professorVisionDisabled = superadminAcademies.length === 0;
 
   const renderVisionSwitch = () => (
-    <div className="app-vision-switch" role="group" aria-label="Trocar visão">
+    <div className="app-vision-switch" role="group" aria-label={t('Trocar visão')}>
       <button
         type="button"
         onClick={() => onSetSuperadminViewMode?.('superadmin')}
         className={`app-vision-switch__button ${!isProfessorVision ? 'is-active' : ''}`}
         aria-pressed={!isProfessorVision}
-        title="Visão da rede"
+        title={t('Visão da rede')}
       >
         <Shield size={13} strokeWidth={2} />
-        <span>Rede</span>
+        <span>{t('Rede')}</span>
       </button>
       <button
         type="button"
@@ -282,10 +283,10 @@ const Layout: React.FC<LayoutProps> = ({
         disabled={professorVisionDisabled}
         className={`app-vision-switch__button ${isProfessorVision ? 'is-active' : ''}`}
         aria-pressed={isProfessorVision}
-        title="Visão professor"
+        title={t('Visão professor')}
       >
         <Building2 size={13} strokeWidth={2} />
-        <span>Professor</span>
+        <span>{t('Professor')}</span>
       </button>
     </div>
   );
@@ -296,7 +297,7 @@ const Layout: React.FC<LayoutProps> = ({
         type="button"
         onClick={onUnitClick}
         className="app-mobile-header__unit cursor-pointer hover:opacity-80 transition-opacity"
-        aria-label="Trocar unidade"
+        aria-label={t('Trocar unidade')}
       >
         <img src="/logo3.png" alt="" aria-hidden="true" className="app-mobile-header__unit-mark" />
         <span className="app-mobile-header__unit-name">{mobileUnitLabel}</span>
@@ -369,12 +370,12 @@ const Layout: React.FC<LayoutProps> = ({
 
   const sidebarIdentity = isSuperAdmin
     ? {
-      title: isProfessorVision ? 'Visão professor' : 'Superadmin',
-      subtitle: isProfessorVision ? 'Operação por unidade' : 'Controle da rede',
+      title: isProfessorVision ? t('Visão professor') : t('Superadmin'),
+      subtitle: isProfessorVision ? t('Operação por unidade') : t('Controle da rede'),
     }
     : navigationRole === UserRole.ADMIN
-      ? { title: 'Administração', subtitle: 'Gestão da academia' }
-      : { title: 'Professor', subtitle: mobileUnitLabel || 'Operação da academia' };
+      ? { title: t('Administração'), subtitle: t('Gestão da academia') }
+      : { title: t('Professor'), subtitle: mobileUnitLabel || t('Operação da academia') };
 
   const renderDesktopSidebar = () => (
     <aside className={`app-sidebar app-panel ${sidebarCollapsed ? 'app-sidebar--collapsed' : ''}`}>
@@ -382,7 +383,7 @@ const Layout: React.FC<LayoutProps> = ({
         <div className="app-sidebar__brand">
           <img src="/logo3.png" alt="APPLevel" className="h-20 w-20 object-contain flex-shrink-0" />
           <div className="app-sidebar__brand-copy" aria-hidden={sidebarCollapsed}>
-            <p className="app-kicker">Plataforma APPLevel</p>
+            <p className="app-kicker">{t('Plataforma APPLevel')}</p>
             <h2 className="app-sidebar__title">{sidebarIdentity.title}</h2>
             <p className="mt-1 text-xs text-[color:var(--text-soft)]">
               {sidebarIdentity.subtitle}
@@ -394,15 +395,15 @@ const Layout: React.FC<LayoutProps> = ({
           type="button"
           onClick={() => setIsSidebarCollapsed((current) => !current)}
           className="app-sidebar__collapse"
-          aria-label={sidebarCollapsed ? 'Expandir barra lateral' : 'Minimizar barra lateral'}
+          aria-label={sidebarCollapsed ? t('Expandir barra lateral') : t('Minimizar barra lateral')}
           aria-pressed={sidebarCollapsed}
-          title={sidebarCollapsed ? 'Expandir barra lateral' : 'Minimizar barra lateral'}
+          title={sidebarCollapsed ? t('Expandir barra lateral') : t('Minimizar barra lateral')}
         >
           {sidebarCollapsed ? <ChevronRight size={18} strokeWidth={2} /> : <ChevronLeft size={18} strokeWidth={2} />}
         </button>
       </div>
 
-      <nav className="app-sidebar__nav" aria-label="Navegação principal">
+      <nav className="app-sidebar__nav" aria-label={t('Navegação principal')}>
         {navItems.map((item) => {
           const Icon = item.icon;
           const isActive = activeTab === item.id;
@@ -452,8 +453,8 @@ const Layout: React.FC<LayoutProps> = ({
               >
                 <div className="app-mobile-header__bar">
                   <div className="app-mobile-header__title-copy">
-                    <span className="app-mobile-header__eyebrow">Visão atual</span>
-                    <p className="app-mobile-header__title">{currentPage.title}</p>
+                    <span className="app-mobile-header__eyebrow">{t('Visão atual')}</span>
+                    <p className="app-mobile-header__title">{t(currentPage.title)}</p>
                   </div>
 
                   <div className="app-mobile-header__actions">
@@ -463,9 +464,9 @@ const Layout: React.FC<LayoutProps> = ({
                           value={selectedAcademyId}
                           onChange={(event) => onSelectAcademy?.(event.target.value)}
                           className="app-select app-select--compact app-mobile-header__select"
-                          aria-label="Selecionar unidade em foco"
+                          aria-label={t('Selecionar unidade em foco')}
                         >
-                          <option value="">Escolha uma unidade</option>
+                          <option value="">{t('Escolha uma unidade')}</option>
                           {superadminAcademies.map((entry) => (
                             <option key={entry.id} value={entry.id}>{entry.name}</option>
                           ))}
@@ -484,7 +485,7 @@ const Layout: React.FC<LayoutProps> = ({
                 className={`app-pagebar ${isSuperAdmin ? 'app-topbar-panel--superadmin' : ''} ${canToggleVision ? 'app-pagebar--with-vision-switch' : ''}`.trim()}
               >
                 <div className="app-pagebar__row">
-                  <h1 className="app-pagebar__title">{currentPage.title}</h1>
+                  <h1 className="app-pagebar__title">{t(currentPage.title)}</h1>
 
                   {showSuperadminAcademyPicker ? (
                     <div className="app-pagebar__context">
@@ -492,9 +493,9 @@ const Layout: React.FC<LayoutProps> = ({
                         value={selectedAcademyId}
                         onChange={(event) => onSelectAcademy?.(event.target.value)}
                         className="app-select app-select--compact app-pagebar__select"
-                        aria-label="Selecionar unidade em foco"
+                        aria-label={t('Selecionar unidade em foco')}
                       >
-                        <option value="">Escolha uma unidade</option>
+                        <option value="">{t('Escolha uma unidade')}</option>
                         {superadminAcademies.map((entry) => (
                           <option key={entry.id} value={entry.id}>{entry.name}</option>
                         ))}
@@ -523,7 +524,7 @@ const Layout: React.FC<LayoutProps> = ({
         </div>
       </div>
 
-      <nav className={`app-toolbar safe-area-bottom ${isSuperAdmin ? 'app-toolbar--superadmin' : ''} ${isDesktopShell ? 'app-toolbar--desk' : ''}`.trim()} aria-label="Navegação principal">
+      <nav className={`app-toolbar safe-area-bottom ${isSuperAdmin ? 'app-toolbar--superadmin' : ''} ${isDesktopShell ? 'app-toolbar--desk' : ''}`.trim()} aria-label={t('Navegação principal')}>
         <div className="app-toolbar__surface">
           <div className="app-toolbar__track" ref={navTrackRef}>
             <div

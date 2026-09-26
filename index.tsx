@@ -3,6 +3,7 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
 import { ConfirmProvider } from './components/ConfirmDialog';
+import { LanguageProvider } from './i18n';
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {
@@ -12,8 +13,10 @@ if (!rootElement) {
 const root = ReactDOM.createRoot(rootElement);
 root.render(
   <React.StrictMode>
-    <ConfirmProvider>
-      <App />
-    </ConfirmProvider>
+    <LanguageProvider>
+      <ConfirmProvider>
+        <App />
+      </ConfirmProvider>
+    </LanguageProvider>
   </React.StrictMode>
 );
