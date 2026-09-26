@@ -9,8 +9,7 @@ import DeleteClassModal, { type DeleteClassPayload } from '../components/DeleteC
 import EditClassModal, { type EditClassPayload } from '../components/EditClassModal';
 import { beltLabel, getGradeProgressLabel, inferTrainingTypeFromBirthDate, type ProgressionRules } from '../beltCatalog';
 import {
-  BEGINNER_CLASS_WARNING,
-  DAILY_LIMIT_WARNING,
+  nonCountingWarning,
   isBeginnerClassType,
   isEligibleForBeginnerClass,
   nonCountingReasonLabel,
@@ -30,7 +29,7 @@ import type { AttendanceRecord, AttendanceRequestRecord, ClassRecord, ClassRsvpR
 import { formatDateLabel, formatTimeLabel } from '../services/firebase/adapters';
 import { UserRole, type BeltColor, type KidsCategory } from '../types';
 import { normalizePersonName } from '../utils';
-import { getLocale, createDateFormatter } from '../i18n';
+import { t, getLocale, createDateFormatter } from '../i18n';
 
 // photoPath so e uma URL exibivel quando comeca com http (ver adapters.ts).
 const photoToAvatar = (p?: string) => (p && p.startsWith('http') ? p : undefined);
@@ -91,7 +90,7 @@ const shortWeekdayFormatter = createDateFormatter({ weekday: 'short' });
 // "ter." -> "TER", "sáb." -> "SÁB". Sai do proprio Intl em vez de uma lista fixa para nao perder o
 // acento de sabado (MONTH_WEEK_HEADER, do grid do mes, escreve "Sab").
 function weekdayShortLabel(date: Date): string {
-  return shortWeekdayFormatter.format(date).replace('.', '').toLocaleUpperCase('pt-BR');
+  return shortWeekdayFormatter.format(date).replace('.', '').toLocaleUpperCase(getLocale());
 }
 
 // Semana de segunda a domingo que contem `reference` — mesma origem do grid do mes
@@ -123,7 +122,7 @@ function classTypeLabel(description?: string | null): string | null {
   if (!code) {
     return null;
   }
-  return CLASS_TYPE_LABELS[code] ?? code;
+  return CLASS_TYPE_LABELS[code] ? t(CLASS_TYPE_LABELS[code]) : code;
 }
 
 function capitalize(value: string) {
@@ -155,46 +154,46 @@ function buildSkippedNote(skipped: ClassScheduleMutationSkippedItem[]): string |
   }
 
   const [firstItem] = skipped;
-  const extra = skipped.length > 1 ? ` Mais ${skipped.length - 1} ocorrência${skipped.length - 1 === 1 ? '' : 's'}.` : '';
-  return `${firstItem.reason}${extra}`;
+  const extra = skipped.length > 1 ? ` ${t('Mais {count} ocorrência(s).', { count: skipped.length - 1 })}` : '';
+  return `${t(firstItem.reason)}${extra}`;
 }
 
 function buildEditToast(result: UpdateRecurringClassSeriesResult): FeedbackToast {
   if (result.updatedCount === 1 && result.requestedCount === 1 && result.skippedCount === 0) {
-    return { title: 'Aula atualizada.' };
+    return { title: t('Aula atualizada.') };
   }
 
   if (result.updatedCount === 0) {
     return {
-      title: 'Nenhuma aula foi atualizada.',
+      title: t('Nenhuma aula foi atualizada.'),
       note: buildSkippedNote(result.skipped),
     };
   }
 
   return {
-    title: `${result.updatedCount} ${result.updatedCount === 1 ? 'aula atualizada' : 'aulas atualizadas'}.`,
+    title: result.updatedCount === 1 ? t('1 aula atualizada.') : t('{count} aulas atualizadas.', { count: result.updatedCount }),
     note: result.skippedCount > 0
-      ? `${result.skippedCount} mantida${result.skippedCount === 1 ? '' : 's'}. ${buildSkippedNote(result.skipped) ?? ''}`.trim()
+      ? `${t('{count} mantida(s).', { count: result.skippedCount })} ${buildSkippedNote(result.skipped) ?? ''}`.trim()
       : undefined,
   };
 }
 
 function buildDeleteToast(result: DeleteClassScheduleResult): FeedbackToast {
   if (result.deletedCount === 1 && result.requestedCount === 1 && result.skippedCount === 0) {
-    return { title: 'Aula excluída.' };
+    return { title: t('Aula excluída.') };
   }
 
   if (result.deletedCount === 0) {
     return {
-      title: 'Nenhuma aula foi excluída.',
+      title: t('Nenhuma aula foi excluída.'),
       note: buildSkippedNote(result.skipped),
     };
   }
 
   return {
-    title: `${result.deletedCount} ${result.deletedCount === 1 ? 'aula excluída' : 'aulas excluídas'}.`,
+    title: result.deletedCount === 1 ? t('1 aula excluída.') : t('{count} aulas excluídas.', { count: result.deletedCount }),
     note: result.skippedCount > 0
-      ? `${result.skippedCount} mantida${result.skippedCount === 1 ? '' : 's'}. ${buildSkippedNote(result.skipped) ?? ''}`.trim()
+      ? `${t('{count} mantida(s).', { count: result.skippedCount })} ${buildSkippedNote(result.skipped) ?? ''}`.trim()
       : undefined,
   };
 }
@@ -238,15 +237,15 @@ function statusColors(status: DisplayClassStatus) {
 function statusLabel(status: DisplayClassStatus) {
   switch (status) {
     case 'active':
-      return 'Ativa';
+      return t('Ativa');
     case 'finished':
-      return 'Concluída';
+      return t('Concluída');
     case 'cancelled':
-      return 'Cancelada';
+      return t('Cancelada');
     case 'unfinished':
-      return 'Não finalizada';
+      return t('Não finalizada');
     default:
-      return 'Agendada';
+      return t('Agendada');
   }
 }
 
@@ -286,9 +285,9 @@ function methodLabel(method: AttendanceRecord['checkInMethod']) {
     case 'qr':
       return 'QR';
     case 'request':
-      return 'Solicitado';
+      return t('Solicitado');
     case 'manual':
-      return 'Manual';
+      return t('Manual');
     default:
       return method;
   }
@@ -330,22 +329,22 @@ const ClassListItem: React.FC<ClassListItemProps> = ({ lesson, onOpen, nowMs, co
   const colors = statusColors(displayStatus);
 
   if (compact) {
-    const professorName = lesson.professorName || 'Equipe técnica';
-    const tatameName = lesson.tatame || 'Tatame principal';
+    const professorName = lesson.professorName || t('Equipe técnica');
+    const tatameName = lesson.tatame || t('Tatame principal');
 
     return (
       <button
         type="button"
         onClick={() => onOpen(lesson.id)}
         className="calendar-mobile__class-card"
-        // Sem isto o nome acessivel do botao vira a concatenacao crua do conteudo, e o "Vou"
+        // Sem isto o nome acessivel do botao vira a concatenacao crua do conteudo, e o t('Vou')
         // sozinho no fim fica indecifravel. Um rotulo explicito monta a frase na ordem que faz
         // sentido ouvir.
         aria-label={[
           `Aula ${lesson.title}`,
           showDate ? `dia ${classDateParts(lesson).day}` : null,
           classTimeRange(lesson),
-          `status ${statusLabel(displayStatus).toLocaleLowerCase('pt-BR')}`,
+          t('status {status}', { status: statusLabel(displayStatus).toLocaleLowerCase(getLocale()) }),
           professorName,
           tatameName,
           isConfirmed ? 'presença confirmada' : null,
@@ -389,7 +388,7 @@ const ClassListItem: React.FC<ClassListItemProps> = ({ lesson, onOpen, nowMs, co
               {tatameName}
             </span>
             {isConfirmed ? (
-              <span className="app-badge app-badge--success app-badge--compact">Vou</span>
+              <span className="app-badge app-badge--success app-badge--compact">{t('Vou')}</span>
             ) : null}
           </p>
         </div>
@@ -442,7 +441,7 @@ const ClassListItem: React.FC<ClassListItemProps> = ({ lesson, onOpen, nowMs, co
             }}
           >
             <p style={{ fontSize: '0.68rem', fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--text-soft)' }}>
-              Horario
+              {t('Horario')}
             </p>
             <p style={{ marginTop: 6, fontSize: '0.92rem', fontWeight: 800 }}>{classTimeRange(lesson)}</p>
           </div>
@@ -452,7 +451,7 @@ const ClassListItem: React.FC<ClassListItemProps> = ({ lesson, onOpen, nowMs, co
               <p style={{ fontSize: '1rem', fontWeight: 700 }}>{lesson.title}</p>
               <span className={statusBadgeClass(displayStatus)}>{statusLabel(displayStatus)}</span>
               {isConfirmed ? (
-                <span className="app-badge app-badge--success" style={{ fontSize: '0.65rem' }}>Vou</span>
+                <span className="app-badge app-badge--success" style={{ fontSize: '0.65rem' }}>{t('Vou')}</span>
               ) : null}
             </div>
 
@@ -466,8 +465,8 @@ const ClassListItem: React.FC<ClassListItemProps> = ({ lesson, onOpen, nowMs, co
       </div>
 
       <div className="app-meta-row">
-        <span>{lesson.professorName || 'Equipe técnica'}</span>
-        <span className="inline-flex items-center gap-2"><MapPin size={14} />{lesson.tatame || 'Tatame principal'}</span>
+        <span>{lesson.professorName || t('Equipe técnica')}</span>
+        <span className="inline-flex items-center gap-2"><MapPin size={14} />{lesson.tatame || t('Tatame principal')}</span>
       </div>
     </button>
   );
@@ -482,9 +481,7 @@ interface DayOverflowModalProps {
 }
 
 const DayOverflowModal: React.FC<DayOverflowModalProps> = ({ date, dayClasses, onOpenClass, onClose, nowMs }) => {
-  const DAYS = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
-  const MONTHS = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
-  const title = `${DAYS[date.getDay()]}, ${date.getDate()} de ${MONTHS[date.getMonth()]}`;
+  const title = date.toLocaleDateString(getLocale(), { weekday: 'long', day: 'numeric', month: 'short' });
 
   return (
     <div
@@ -498,11 +495,11 @@ const DayOverflowModal: React.FC<DayOverflowModalProps> = ({ date, dayClasses, o
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.2rem' }}>
           <div>
             <p style={{ fontSize: '0.7rem', fontWeight: 800, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-soft)' }}>
-              Aulas do dia
+              {t('Aulas do dia')}
             </p>
             <p style={{ fontSize: '1.05rem', fontWeight: 700, marginTop: 2 }}>{title}</p>
           </div>
-          <button type="button" onClick={onClose} className="app-icon-btn" aria-label="Fechar">
+          <button type="button" onClick={onClose} className="app-icon-btn" aria-label={t('Fechar')}>
             <X size={20} />
           </button>
         </div>
@@ -607,7 +604,7 @@ const DesktopMonthGrid: React.FC<MonthGridProps> = React.memo(function DesktopMo
           <button
             type="button"
             onClick={() => onSelectDay(stripDate(cell))}
-            aria-label={`Selecionar ${formatDateLabel(cell)}`}
+            aria-label={t('Selecionar {date}', { date: formatDateLabel(cell) })}
             aria-pressed={isSelected}
             className="app-calendar-month-day__select"
           />
@@ -657,7 +654,7 @@ const DesktopMonthGrid: React.FC<MonthGridProps> = React.memo(function DesktopMo
 
             {dayClasses.length === 0 ? (
               <span className="app-calendar-month-day__empty">
-                Sem aulas
+                {t('Sem aulas')}
               </span>
             ) : null}
 
@@ -724,7 +721,7 @@ const CompactMonthGrid: React.FC<Omit<MonthGridProps, 'onOpenClass' | 'nowMs'>> 
           key={key}
           type="button"
           onClick={() => onSelectDay(stripDate(cell))}
-          aria-label={`Selecionar ${formatDateLabel(cell)}`}
+          aria-label={t('Selecionar {date}', { date: formatDateLabel(cell) })}
           aria-pressed={isSelected}
           className={`app-calendar-month-day app-calendar-month-day--compact ${isToday ? 'is-today' : ''} ${isSelected ? 'is-selected' : ''}`.trim()}
         >
@@ -769,8 +766,8 @@ function isKidsStudent(student: FirestoreEntity<UserRecord>): boolean {
 //
 // A versao anterior desta regra so caia no nome quando o `professorId` era orfao, para nao roubar
 // aula de um dono real. Mas e justamente no caso corrompido que o id resolve para alguem da
-// unidade, entao a excecao silenciava exatamente as aulas que a tela dizia ser da pessoa: "Todas"
-// listava as aulas com "Ricardo Saldanha" no card e "Minhas" mostrava zero, sem nenhum sinal —
+// unidade, entao a excecao silenciava exatamente as aulas que a tela dizia ser da pessoa: t('Todas')
+// listava as aulas com "Ricardo Saldanha" no card e t('Minhas') mostrava zero, sem nenhum sinal —
 // porque o id nunca e exibido.
 //
 // Agora casamos pelo nome tambem com id valido. O preco e incluir demais (dois homonimos na rede,
@@ -1113,7 +1110,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
       ).catch((error: unknown) => {
         setMessageByClass((current) => ({
           ...current,
-          [scannerClassId]: `Camera: ${error instanceof Error ? error.message : 'Acesso negado'}`,
+          [scannerClassId]: `${t('Câmera')}: ${error instanceof Error ? error.message : t('Acesso negado')}`,
         }));
         setScannerOpen(false);
       });
@@ -1127,7 +1124,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
     };
   }, [scannerOpen, scannerClassId, onRegisterAttendance]);
 
-  // Ver classBelongsToProfessor: "Minhas" casa pelo id OU pelo nome que o card exibe.
+  // Ver classBelongsToProfessor: t('Minhas') casa pelo id OU pelo nome que o card exibe.
   const normalizedCurrentUserName = normalizePersonName(currentUserName);
   const isMyClass = useCallback(
     (entry: FirestoreEntity<ClassRecord>) => classBelongsToProfessor(entry, currentUserId, normalizedCurrentUserName),
@@ -1136,7 +1133,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
 
   // O dropdown lista pessoas (id), mas as aulas corrompidas guardam o id de um e o nome de outro:
   // casar so pelo id faz o professor se escolher no filtro e nao achar nada — mesmo defeito do
-  // "Minhas", mesma regra de casamento. Precisa ficar declarado ANTES de filteredClasses, que o usa.
+  // t('Minhas'), mesma regra de casamento. Precisa ficar declarado ANTES de filteredClasses, que o usa.
   const normalizedFilterProfessorName = useMemo(
     () => normalizePersonName(professors.find((entry) => entry.id === filterProfessor)?.displayName),
     [filterProfessor, professors],
@@ -1277,14 +1274,14 @@ const CalendarView: React.FC<CalendarViewProps> = ({
 
   // Resumo do dia no cabecalho.
   const agendaSummaryLabel = selectedDayClasses.length === 0
-    ? 'Nenhuma aula nesta data'
-    : `${selectedDayClasses.length} ${selectedDayClasses.length === 1 ? 'aula' : 'aulas'}`;
+    ? t('Nenhuma aula nesta data')
+    : (selectedDayClasses.length === 1 ? t('1 aula') : t('{count} aulas', { count: selectedDayClasses.length }));
 
   const surfaceCopy = surfaceTab === 'calendar'
-    ? 'Use o calendário mensal para localizar as aulas do dia e abrir a agenda logo abaixo.'
+    ? t('Use o calendário mensal para localizar as aulas do dia e abrir a agenda logo abaixo.')
     : surfaceTab === 'unfinished'
-      ? 'Acompanhe as suas aulas que já passaram do horário e ainda precisam ser finalizadas.'
-      : 'Veja as aulas de hoje em lista, com leitura rápida e acesso direto aos detalhes.';
+      ? t('Acompanhe as suas aulas que já passaram do horário e ainda precisam ser finalizadas.')
+      : t('Veja as aulas de hoje em lista, com leitura rápida e acesso direto aos detalhes.');
 
   const selectedClass = selectedClassId ? classes.find((entry) => entry.id === selectedClassId) ?? null : null;
   const selectedClassRsvpCount = selectedClass
@@ -1395,7 +1392,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
         const student = studentById.get(userId);
         return {
           userId,
-          displayName: rsvp?.userDisplayName ?? student?.displayName ?? 'Aluno',
+          displayName: rsvp?.userDisplayName ?? student?.displayName ?? t('Aluno'),
           record: attendance,
           sourceOrder: rsvp ? 0 : 1,
           belt: student?.belt,
@@ -1439,16 +1436,16 @@ const CalendarView: React.FC<CalendarViewProps> = ({
 
   const isMineView = isStaff && view === 'minhas';
   // Sem nenhuma aula atribuída ao usuário (caso típico do superadmin em visão professor),
-  // "Minhas" resultaria numa lista vazia sem explicação — avisamos e apontamos o "Todas".
+  // t('Minhas') resultaria numa lista vazia sem explicação — avisamos e apontamos o t('Todas').
   const hasNoOwnClasses = isStaff && myClassCount === 0;
-  const noOwnClassesMessage = 'Nenhuma aula desta unidade está atribuída a você. Toque em "Todas" para ver a agenda completa.';
+  const noOwnClassesMessage = t('Nenhuma aula desta unidade está atribuída a você. Toque em "Todas" para ver a agenda completa.');
   const selectedDayEmptyMessage = isMineView
-    ? (hasNoOwnClasses ? noOwnClassesMessage : 'Você não tem aulas programadas nesta data.')
-    : 'Nenhuma aula programada para esta data.';
+    ? (hasNoOwnClasses ? noOwnClassesMessage : t('Você não tem aulas programadas nesta data.'))
+    : t('Nenhuma aula programada para esta data.');
   const todayEmptyMessage = isMineView
-    ? (hasNoOwnClasses ? noOwnClassesMessage : 'Você não tem aulas programadas para hoje.')
-    : 'Nenhuma aula programada para hoje.';
-  const unfinishedEmptyMessage = 'Nenhuma aula não finalizada para você.';
+    ? (hasNoOwnClasses ? noOwnClassesMessage : t('Você não tem aulas programadas para hoje.'))
+    : t('Nenhuma aula programada para hoje.');
+  const unfinishedEmptyMessage = t('Nenhuma aula não finalizada para você.');
 
   async function runClassAction(
     classId: string,
@@ -1460,22 +1457,22 @@ const CalendarView: React.FC<CalendarViewProps> = ({
       const result = await action();
       if (result && typeof result === 'object' && 'qrToken' in result) {
         setQrByClass((current) => ({ ...current, [classId]: result }));
-        setMessageByClass((current) => ({ ...current, [classId]: 'QR atualizado.' }));
+        setMessageByClass((current) => ({ ...current, [classId]: t('QR atualizado.') }));
       } else if (typeof result === 'string') {
         // Presenca gravada, mas fora da contagem: dizer "operação concluída" aqui seria mentira.
         setMessageByClass((current) => ({
           ...current,
-          [classId]: `Participação registrada, mas sem contar como aula — ${
-            result === 'beginner_class_belt' ? 'a LEVEL Iniciante é para faixa branca até 2 graus.' : 'limite de 2 presenças no dia.'
+          [classId]: `${t('Participação registrada, mas sem contar como aula —')} ${
+            result === 'beginner_class_belt' ? t('a LEVEL Iniciante é para faixa branca até 2 graus.') : t('limite de 2 presenças no dia.')
           }`,
         }));
       } else {
-        setMessageByClass((current) => ({ ...current, [classId]: 'Operação concluída.' }));
+        setMessageByClass((current) => ({ ...current, [classId]: t('Operação concluída.') }));
       }
     } catch (error) {
       setMessageByClass((current) => ({
         ...current,
-        [classId]: error instanceof Error ? error.message : 'Não foi possível concluir.',
+        [classId]: error instanceof Error ? error.message : t('Não foi possível concluir.'),
       }));
     } finally {
       setBusyByClass((current) => ({ ...current, [classId]: false }));
@@ -1492,7 +1489,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
     } catch (error) {
       setMessageByClass((current) => ({
         ...current,
-        [classId]: error instanceof Error ? error.message : 'Erro ao gerar QR',
+        [classId]: error instanceof Error ? error.message : t('Erro ao gerar QR'),
       }));
     } finally {
       setFinishBusy(false);
@@ -1508,7 +1505,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
     } catch (error) {
       setMessageByClass((current) => ({
         ...current,
-        [classId]: error instanceof Error ? error.message : 'Erro ao confirmar ida.',
+        [classId]: error instanceof Error ? error.message : t('Erro ao confirmar ida.'),
       }));
     } finally {
       setRsvpBusyByClass((current) => ({ ...current, [classId]: false }));
@@ -1522,7 +1519,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
     try {
       await backendFunctions.toggleClassRsvp({ classId, targetUserId: studentId });
     } catch (error) {
-      const msg = error instanceof Error ? error.message : 'Erro ao atualizar confirmação.';
+      const msg = error instanceof Error ? error.message : t('Erro ao atualizar confirmação.');
       setStudentErrorById((prev) => ({ ...prev, [studentId]: msg }));
     } finally {
       setBusyByClass((prev) => ({ ...prev, [busyKey]: false }));
@@ -1536,7 +1533,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
     try {
       await onMarkStudentPresent?.(classId, studentId);
     } catch (error) {
-      const msg = error instanceof Error ? error.message : 'Erro ao marcar presença.';
+      const msg = error instanceof Error ? error.message : t('Erro ao marcar presença.');
       setStudentErrorById((prev) => ({ ...prev, [studentId]: msg }));
     } finally {
       setBusyByClass((prev) => ({ ...prev, [busyKey]: false }));
@@ -1555,7 +1552,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
       if (removedRecord) {
         setClassAttendances((prev) => [...prev, removedRecord]);
       }
-      const msg = error instanceof Error ? error.message : 'Erro ao remover presença.';
+      const msg = error instanceof Error ? error.message : t('Erro ao remover presença.');
       setStudentErrorById((prev) => ({ ...prev, [studentId]: msg }));
     } finally {
       setBusyByClass((prev) => ({ ...prev, [busyKey]: false }));
@@ -1648,10 +1645,10 @@ const CalendarView: React.FC<CalendarViewProps> = ({
         className="app-input"
         style={{ width: 'auto', minWidth: 140 }}
       >
-        <option value="all">Todos os tipos</option>
+        <option value="all">{t('Todos os tipos')}</option>
         {availableClassTypes.map((type) => (
           <option key={type || '__sem_tipo'} value={type}>
-            {type === '' ? 'Adulto / Geral' : (CLASS_TYPE_LABELS[type] ?? type)}
+            {type === '' ? t('Adulto / Geral') : (CLASS_TYPE_LABELS[type] ? t(CLASS_TYPE_LABELS[type]) : type)}
           </option>
         ))}
       </select>
@@ -1662,7 +1659,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
         className="app-input"
         style={{ width: 'auto', minWidth: 160 }}
       >
-        <option value="all">Todos os professores</option>
+        <option value="all">{t('Todos os professores')}</option>
         {professors.map((prof) => (
           <option key={prof.id} value={prof.id}>{prof.label ?? prof.displayName}</option>
         ))}
@@ -1675,7 +1672,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
           className="app-input"
           style={{ width: 'auto', minWidth: 140 }}
         >
-          <option value="all">Todos os tatames</option>
+          <option value="all">{t('Todos os tatames')}</option>
           {availableTatames.map((tatame) => (
             <option key={tatame} value={tatame}>{tatame}</option>
           ))}
@@ -1684,7 +1681,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
 
       {activeFilterCount > 0 ? (
         <button type="button" onClick={clearFilters} className="app-button app-button--ghost">
-          Limpar filtros
+          {t('Limpar filtros')}
           <span className="app-badge app-badge--gold" style={{ marginLeft: 6 }}>{activeFilterCount}</span>
         </button>
       ) : null}
@@ -1699,14 +1696,14 @@ const CalendarView: React.FC<CalendarViewProps> = ({
         onClick={() => setSurfaceTab('calendar')}
         className={`app-segment__button ${surfaceTab === 'calendar' ? 'is-active' : ''}`}
       >
-        Calendário
+        {t('Calendário')}
       </button>
       <button
         type="button"
         onClick={() => setSurfaceTab('today')}
         className={`app-segment__button ${surfaceTab === 'today' ? 'is-active' : ''}`}
       >
-        Hoje
+        {t('Hoje')}
       </button>
       {isStaff ? (
         <button
@@ -1714,7 +1711,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
           onClick={() => setSurfaceTab('unfinished')}
           className={`app-segment__button ${surfaceTab === 'unfinished' ? 'is-active' : ''}`}
         >
-          Não finalizadas
+          {t('Não finalizadas')}
         </button>
       ) : null}
     </div>
@@ -1733,7 +1730,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
       className="fixed inset-0 z-[90] flex items-end justify-center bg-black/60"
       role="dialog"
       aria-modal="true"
-      aria-label="Filtros das aulas"
+      aria-label={t('Filtros das aulas')}
       onClick={() => setFiltersOpen(false)}
     >
       <div
@@ -1742,10 +1739,10 @@ const CalendarView: React.FC<CalendarViewProps> = ({
       >
         <div className="agenda-sheet__head">
           <div>
-            <p className="app-section-label">Filtros</p>
-            <h2 className="agenda-sheet__title">Refinar a agenda</h2>
+            <p className="app-section-label">{t('Filtros')}</p>
+            <h2 className="agenda-sheet__title">{t('Refinar a agenda')}</h2>
           </div>
-          <button type="button" onClick={() => setFiltersOpen(false)} className="app-button app-button--ghost app-button--icon" aria-label="Fechar filtros">
+          <button type="button" onClick={() => setFiltersOpen(false)} className="app-button app-button--ghost app-button--icon" aria-label={t('Fechar filtros')}>
             <X size={18} />
           </button>
         </div>
@@ -1753,7 +1750,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
         <div className="agenda-sheet__fields">
           {isStaff ? (
             <div className="agenda-sheet__field">
-              <span className="agenda-sheet__label">Aulas</span>
+              <span className="agenda-sheet__label">{t('Aulas')}</span>
               <div className="app-segment app-segment--block">
                 <button
                   type="button"
@@ -1761,14 +1758,14 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                   title={hasNoOwnClasses ? noOwnClassesMessage : undefined}
                   className={`app-segment__button ${view === 'minhas' ? 'is-active' : ''} ${hasNoOwnClasses ? 'is-empty' : ''}`}
                 >
-                  Minhas
+                  {t('Minhas')}
                 </button>
                 <button
                   type="button"
                   onClick={() => setView('todas')}
                   className={`app-segment__button ${view === 'todas' ? 'is-active' : ''}`}
                 >
-                  Todas
+                  {t('Todas')}
                 </button>
               </div>
               {hasNoOwnClasses ? <p className="agenda-sheet__hint">{noOwnClassesMessage}</p> : null}
@@ -1776,21 +1773,21 @@ const CalendarView: React.FC<CalendarViewProps> = ({
           ) : null}
 
           <label className="agenda-sheet__field">
-            <span className="agenda-sheet__label">Tipo de aula</span>
+            <span className="agenda-sheet__label">{t('Tipo de aula')}</span>
             <select value={filterType} onChange={(event) => setFilterType(event.target.value)} className="app-input">
-              <option value="all">Todos os tipos</option>
+              <option value="all">{t('Todos os tipos')}</option>
               {availableClassTypes.map((type) => (
                 <option key={type || '__sem_tipo'} value={type}>
-                  {type === '' ? 'Adulto / Geral' : (CLASS_TYPE_LABELS[type] ?? type)}
+                  {type === '' ? t('Adulto / Geral') : (CLASS_TYPE_LABELS[type] ? t(CLASS_TYPE_LABELS[type]) : type)}
                 </option>
               ))}
             </select>
           </label>
 
           <label className="agenda-sheet__field">
-            <span className="agenda-sheet__label">Professor</span>
+            <span className="agenda-sheet__label">{t('Professor')}</span>
             <select value={filterProfessor} onChange={(event) => setFilterProfessor(event.target.value)} className="app-input">
-              <option value="all">Todos os professores</option>
+              <option value="all">{t('Todos os professores')}</option>
               {professors.map((prof) => (
                 <option key={prof.id} value={prof.id}>{prof.label ?? prof.displayName}</option>
               ))}
@@ -1799,9 +1796,9 @@ const CalendarView: React.FC<CalendarViewProps> = ({
 
           {availableTatames.length > 0 ? (
             <label className="agenda-sheet__field">
-              <span className="agenda-sheet__label">Tatame</span>
+              <span className="agenda-sheet__label">{t('Tatame')}</span>
               <select value={filterTatame} onChange={(event) => setFilterTatame(event.target.value)} className="app-input">
-                <option value="all">Todos os tatames</option>
+                <option value="all">{t('Todos os tatames')}</option>
                 {availableTatames.map((tatame) => (
                   <option key={tatame} value={tatame}>{tatame}</option>
                 ))}
@@ -1817,10 +1814,10 @@ const CalendarView: React.FC<CalendarViewProps> = ({
             disabled={activeFilterCount === 0}
             className="app-button app-button--ghost app-button--block"
           >
-            Limpar filtros
+            {t('Limpar filtros')}
           </button>
           <button type="button" onClick={() => setFiltersOpen(false)} className="app-button app-button--gold app-button--block">
-            Ver aulas
+            {t('Ver aulas')}
           </button>
         </div>
       </div>
@@ -1853,10 +1850,10 @@ const CalendarView: React.FC<CalendarViewProps> = ({
         <h3 className="agenda-hero__month">{capitalize(monthFormatter.format(visibleMonth))}</h3>
 
         <div className="calendar-mobile__month-nav">
-          <button type="button" onClick={() => shiftMonth(-1)} className="calendar-mobile__month-button" aria-label="Mês anterior">
+          <button type="button" onClick={() => shiftMonth(-1)} className="calendar-mobile__month-button" aria-label={t('Mês anterior')}>
             <ChevronLeft size={16} />
           </button>
-          <button type="button" onClick={() => shiftMonth(1)} className="calendar-mobile__month-button" aria-label="Próximo mês">
+          <button type="button" onClick={() => shiftMonth(1)} className="calendar-mobile__month-button" aria-label={t('Próximo mês')}>
             <ChevronRight size={16} />
           </button>
         </div>
@@ -1877,17 +1874,17 @@ const CalendarView: React.FC<CalendarViewProps> = ({
         {!isStaff ? (
           <span className="agenda-hero__legend-item">
             <span className="app-calendar-month-day__dot app-calendar-month-day__dot--green" aria-hidden="true" />
-            Presença registrada
+            {t('Presença registrada')}
           </span>
         ) : null}
         <span className="agenda-hero__legend-item">
           <span className="app-calendar-month-day__dot app-calendar-month-day__dot--gold" aria-hidden="true" />
-          Tem aula
+          {t('Tem aula')}
         </span>
       </div>
 
       <button type="button" onClick={() => { goToToday(); setCalendarOpen(false); }} className="agenda-hero__today">
-        Voltar para hoje
+        {t('Voltar para hoje')}
       </button>
     </div>
   );
@@ -1895,7 +1892,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
   // Semana compacta sempre visivel: trocar de dia dentro da semana e um toque, sem abrir nada.
   // Sair da semana e trabalho do botao "Calendario" — por isso a faixa nao tem setas.
   const renderAgendaWeekStrip = () => (
-    <nav className="agenda-week" aria-label="Dias da semana">
+    <nav className="agenda-week" aria-label={t('Dias da semana')}>
       {weekDays.map((day) => {
         const key = toDateKey(day);
         const dayClassCount = classesByDay.get(key)?.length ?? 0;
@@ -1938,14 +1935,14 @@ const CalendarView: React.FC<CalendarViewProps> = ({
     <section className="calendar-mobile__hero agenda-hero">
       <div className="calendar-mobile__hero-head">
         <div>
-          <p className="calendar-mobile__eyebrow">{isSelectedToday ? 'Aulas de hoje' : 'Aulas do dia'}</p>
+          <p className="calendar-mobile__eyebrow">{isSelectedToday ? t('Aulas de hoje') : t('Aulas do dia')}</p>
           <h2 className="agenda-hero__date">{selectedDayLabel}</h2>
           <p className="agenda-hero__summary">{agendaSummaryLabel}</p>
         </div>
 
         {!isSelectedToday ? (
           <button type="button" onClick={goToToday} className="agenda-hero__pill agenda-hero__pill--quiet">
-            Hoje
+            {t('Hoje')}
           </button>
         ) : null}
       </div>
@@ -1959,7 +1956,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
           className={`agenda-hero__pill ${calendarOpen ? 'is-active' : ''}`.trim()}
         >
           <CalendarDays size={16} aria-hidden="true" />
-          Calendário
+          {t('Calendário')}
           <ChevronDown size={14} aria-hidden="true" className={`agenda-hero__pill-chevron ${calendarOpen ? 'is-open' : ''}`.trim()} />
         </button>
 
@@ -1969,7 +1966,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
           className={`agenda-hero__pill ${activeFilterCount > 0 ? 'is-active' : ''}`.trim()}
         >
           <Sliders size={16} aria-hidden="true" />
-          Filtros
+          {t('Filtros')}
           {activeFilterCount > 0 ? <span className="agenda-hero__pill-count">{activeFilterCount}</span> : null}
         </button>
 
@@ -1980,7 +1977,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
             className={`agenda-hero__pill ${unfinishedClasses.length > 0 ? 'agenda-hero__pill--alert' : ''}`.trim()}
           >
             <AlertTriangle size={16} aria-hidden="true" />
-            Pendentes
+            {t('Pendentes')}
             {unfinishedClasses.length > 0 ? <span className="agenda-hero__pill-count">{unfinishedClasses.length}</span> : null}
           </button>
         ) : null}
@@ -1988,7 +1985,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
         {isStaff ? (
           <button type="button" onClick={() => setCreateModalOpen(true)} className="agenda-hero__pill agenda-hero__pill--gold">
             <Plus size={16} aria-hidden="true" />
-            Criar aula
+            {t('Criar aula')}
           </button>
         ) : null}
       </div>
@@ -2014,10 +2011,10 @@ const CalendarView: React.FC<CalendarViewProps> = ({
       <section className="calendar-mobile__hero agenda-hero">
         <div className="calendar-mobile__hero-head">
           <div>
-            <p className="calendar-mobile__eyebrow">Não finalizadas</p>
-            <h2 className="agenda-hero__date">Aulas pendentes</h2>
+            <p className="calendar-mobile__eyebrow">{t('Não finalizadas')}</p>
+            <h2 className="agenda-hero__date">{t('Aulas pendentes')}</h2>
             <p className="agenda-hero__summary">
-              {unfinishedClasses.length === 1 ? '1 aula aguardando' : `${unfinishedClasses.length} aulas aguardando`}
+              {unfinishedClasses.length === 1 ? t('1 aula aguardando') : t('{count} aulas aguardando', { count: unfinishedClasses.length })}
             </p>
           </div>
         </div>
@@ -2025,7 +2022,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
         <div className="agenda-hero__actions">
           <button type="button" onClick={() => setSurfaceTab('today')} className="agenda-hero__pill">
             <ChevronLeft size={16} aria-hidden="true" />
-            Voltar para a agenda
+            {t('Voltar para a agenda')}
           </button>
 
           <button
@@ -2034,7 +2031,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
             className={`agenda-hero__pill ${activeFilterCount > 0 ? 'is-active' : ''}`.trim()}
           >
             <Sliders size={16} aria-hidden="true" />
-            Filtros
+            {t('Filtros')}
             {activeFilterCount > 0 ? <span className="agenda-hero__pill-count">{activeFilterCount}</span> : null}
           </button>
         </div>
@@ -2043,8 +2040,8 @@ const CalendarView: React.FC<CalendarViewProps> = ({
       <section className="calendar-mobile__day-section">
         <p className="calendar-mobile__day-note">
           {isSuperAdmin
-            ? 'Aulas da academia que já passaram do horário e ainda estão agendadas ou ativas.'
-            : 'Aulas suas que já passaram do horário e ainda estão agendadas ou ativas.'}
+            ? t('Aulas da academia que já passaram do horário e ainda estão agendadas ou ativas.')
+            : t('Aulas suas que já passaram do horário e ainda estão agendadas ou ativas.')}
         </p>
 
         {renderAgendaList(unfinishedClasses, unfinishedEmptyMessage, true)}
@@ -2067,8 +2064,8 @@ const CalendarView: React.FC<CalendarViewProps> = ({
         <section className="app-panel app-panel-pad">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
-              <p className="app-section-label">Agenda</p>
-              <h1 className="app-section-title">Calendário de aulas</h1>
+              <p className="app-section-label">{t('Agenda')}</p>
+              <h1 className="app-section-title">{t('Calendário de aulas')}</h1>
               <p className="app-section-copy mt-4">
                 {surfaceCopy}
               </p>
@@ -2080,7 +2077,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
               {isStaff ? (
                 <button type="button" onClick={() => setCreateModalOpen(true)} className="app-button app-button--dark">
                   <Plus size={14} />
-                  Criar aula
+                  {t('Criar aula')}
                 </button>
               ) : null}
             </div>
@@ -2097,10 +2094,10 @@ const CalendarView: React.FC<CalendarViewProps> = ({
           <section className="app-panel app-panel-pad calendar-desktop__month">
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div>
-                <p className="app-section-label">Mês em foco</p>
+                <p className="app-section-label">{t('Mês em foco')}</p>
                 <h2 className="text-2xl font-bold capitalize">{capitalize(monthFormatter.format(visibleMonth))}</h2>
                 <p className="mt-3 text-sm text-[color:var(--text-muted)]">
-                  Toque em um dia para listar as aulas abaixo. O filtro atual vale para o calendário inteiro.
+                  {t('Toque em um dia para listar as aulas abaixo. O filtro atual vale para o calendário inteiro.')}
                 </p>
               </div>
 
@@ -2112,10 +2109,10 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                   <ChevronRight size={16} />
                 </button>
                 <button type="button" onClick={goToToday} className="app-button app-button--ghost">
-                  Hoje
+                  {t('Hoje')}
                 </button>
                 <span className={visibleMonthClassCount > 0 ? 'app-badge app-badge--gold' : 'app-badge app-badge--muted'}>
-                  {visibleMonthClassCount} {visibleMonthClassCount === 1 ? 'aula no mês' : 'aulas no mês'}
+                  {visibleMonthClassCount === 1 ? t('1 aula no mês') : t('{count} aulas no mês', { count: visibleMonthClassCount })}
                 </span>
               </div>
             </div>
@@ -2139,11 +2136,11 @@ const CalendarView: React.FC<CalendarViewProps> = ({
           <section className="app-panel app-panel-pad calendar-desktop__day">
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div>
-                <p className="app-section-label">{sameCalendarDay(selectedDay, today) ? 'Agenda de hoje' : 'Dia selecionado'}</p>
+                <p className="app-section-label">{sameCalendarDay(selectedDay, today) ? t('Agenda de hoje') : t('Dia selecionado')}</p>
                 <h2 className="text-2xl font-bold" style={{ textTransform: 'capitalize' }}>{selectedDayLabel}</h2>
                 <p className="app-section-copy mt-4">
                   {selectedDayClasses.length > 0
-                    ? 'Selecione uma aula para abrir detalhes, presença e QR.'
+                    ? t('Selecione uma aula para abrir detalhes, presença e QR.')
                     : selectedDayEmptyMessage}
                 </p>
               </div>
@@ -2160,14 +2157,14 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                       title={hasNoOwnClasses ? noOwnClassesMessage : undefined}
                       className={`app-segment__button ${view === 'minhas' ? 'is-active' : ''} ${hasNoOwnClasses ? 'is-empty' : ''}`}
                     >
-                      Minhas
+                      {t('Minhas')}
                     </button>
                     <button
                       type="button"
                       onClick={() => setView('todas')}
                       className={`app-segment__button ${view === 'todas' ? 'is-active' : ''}`}
                     >
-                      Todas
+                      {t('Todas')}
                     </button>
                   </div>
                 ) : null}
@@ -2189,14 +2186,14 @@ const CalendarView: React.FC<CalendarViewProps> = ({
         <section className="app-panel app-panel-pad">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
-              <p className="app-section-label">Não finalizadas</p>
+              <p className="app-section-label">{t('Não finalizadas')}</p>
               <h2 className="text-2xl font-bold">
-                Aulas pendentes
+                {t('Aulas pendentes')}
               </h2>
               <p className="app-section-copy mt-4">
                 {isSuperAdmin
-                  ? 'Aulas da academia que já passaram do horário e ainda estão agendadas ou ativas.'
-                  : 'Aulas suas que já passaram do horário e ainda estão agendadas ou ativas.'}
+                  ? t('Aulas da academia que já passaram do horário e ainda estão agendadas ou ativas.')
+                  : t('Aulas suas que já passaram do horário e ainda estão agendadas ou ativas.')}
               </p>
             </div>
 
@@ -2228,16 +2225,16 @@ const CalendarView: React.FC<CalendarViewProps> = ({
         <section className="app-panel app-panel-pad">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
-              <p className="app-section-label">Aulas de hoje</p>
+              <p className="app-section-label">{t('Aulas de hoje')}</p>
               <h2 className="text-2xl font-bold" style={{ textTransform: 'capitalize' }}>{todayLabel}</h2>
               <p className="app-section-copy mt-4">
-                Visualização em lista para acompanhar rapidamente as aulas do dia sem usar o formato de calendário.
+                {t('Visualização em lista para acompanhar rapidamente as aulas do dia sem usar o formato de calendário.')}
               </p>
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
               <span className={todayClasses.length > 0 ? 'app-badge app-badge--gold' : 'app-badge app-badge--muted'}>
-                {todayClasses.length} {todayClasses.length === 1 ? 'aula hoje' : 'aulas hoje'}
+                {todayClasses.length === 1 ? t('1 aula hoje') : t('{count} aulas hoje', { count: todayClasses.length })}
               </span>
               {isStaff ? (
                 <div className="app-segment">
@@ -2247,14 +2244,14 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                     title={hasNoOwnClasses ? noOwnClassesMessage : undefined}
                     className={`app-segment__button ${view === 'minhas' ? 'is-active' : ''} ${hasNoOwnClasses ? 'is-empty' : ''}`}
                   >
-                    Minhas
+                    {t('Minhas')}
                   </button>
                   <button
                     type="button"
                     onClick={() => setView('todas')}
                     className={`app-segment__button ${view === 'todas' ? 'is-active' : ''}`}
                   >
-                    Todas
+                    {t('Todas')}
                   </button>
                 </div>
               ) : null}
@@ -2321,7 +2318,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                         className={`app-button app-button--block ${myRsvpByClass[selectedClass.id] ? 'app-button--danger' : 'app-button--green'}`}
                       >
                         <CheckCircle size={14} />
-                        {rsvpBusyByClass[selectedClass.id] ? 'Aguarde...' : myRsvpByClass[selectedClass.id] ? 'Cancelar ida' : 'Confirmar ida'}
+                        {rsvpBusyByClass[selectedClass.id] ? t('Aguarde...') : myRsvpByClass[selectedClass.id] ? t('Cancelar ida') : t('Confirmar ida')}
                       </button>
                       <button
                         type="button"
@@ -2329,22 +2326,20 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                         className="app-button app-button--block app-button--ghost"
                       >
                         <Users size={14} />
-                        {`Ver Participantes${selectedClass.rsvpCount ? ` (${selectedClass.rsvpCount})` : ''}`}
+                        {`${t('Ver Participantes')}${selectedClass.rsvpCount ? ` (${selectedClass.rsvpCount})` : ''}`}
                       </button>
                     </>
                   ) : (
                     <>
                       {attendanceRate !== undefined ? (
                         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                          <span className="app-badge app-badge--gold">{attendanceRate}% frequência</span>
-                          <span style={{ fontSize: '0.75rem', color: 'var(--text-soft)' }}>no mes atual</span>
+                          <span className="app-badge app-badge--gold">{t('{rate}% frequência', { rate: attendanceRate })}</span>
+                          <span style={{ fontSize: '0.75rem', color: 'var(--text-soft)' }}>{t('no mes atual')}</span>
                         </div>
                       ) : null}
                       {selectedClassNonCountingReason ? (
                         <p className="app-alert app-alert--warning">
-                          {selectedClassNonCountingReason === 'beginner_class_belt'
-                            ? BEGINNER_CLASS_WARNING
-                            : DAILY_LIMIT_WARNING}
+                          {nonCountingWarning(selectedClassNonCountingReason)}
                         </p>
                       ) : null}
                       <div style={{ display: 'flex', gap: 8 }}>
@@ -2355,7 +2350,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                           onChange={(event) =>
                             setQrInputByClass((current) => ({ ...current, [selectedClass.id]: event.target.value }))
                           }
-                          placeholder="Cole aqui o token do QR"
+                          placeholder={t('Cole aqui o token do QR')}
                           disabled={!selectedClassCanUseQr || busy}
                           className="app-input"
                           style={{ flex: 1 }}
@@ -2368,7 +2363,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                           }}
                           disabled={!selectedClassCanUseQr || busy}
                           className="app-button app-button--ghost app-button--icon"
-                          title="Escanear QR com camera"
+                          title={t('Escanear QR com camera')}
                           style={{ width: 42, height: 42, flexShrink: 0 }}
                         >
                           <Camera size={16} />
@@ -2383,7 +2378,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                         className="app-button app-button--gold app-button--block"
                       >
                         <ShieldCheck size={14} />
-                        {busy ? 'Registrando...' : 'Registrar presença'}
+                        {busy ? t('Registrando...') : t('Registrar presença')}
                       </button>
                       <button
                         type="button"
@@ -2392,7 +2387,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                         className="app-button app-button--ghost app-button--block"
                       >
                         <CheckCircle size={14} />
-                        {pendingRequest ? 'Solicitação pendente' : 'Solicitar presença'}
+                        {pendingRequest ? t('Solicitação pendente') : t('Solicitar presença')}
                       </button>
                     </>
                   )}
@@ -2409,21 +2404,21 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                         onClick={() => setSheetTab('detalhes')}
                         className={`app-segment__button class-detail-tabs__button ${sheetTab === 'detalhes' ? 'is-active' : ''}`}
                       >
-                        Detalhes
+                        {t('Detalhes')}
                       </button>
                       <button
                         type="button"
                         onClick={() => setSheetTab('agendamento')}
                         className={`app-segment__button class-detail-tabs__button ${sheetTab === 'agendamento' ? 'is-active' : ''}`}
                       >
-                        Presenças
+                        {t('Presenças')}
                       </button>
                       <button
                         type="button"
                         onClick={() => setSheetTab('historico')}
                         className={`app-segment__button class-detail-tabs__button ${sheetTab === 'historico' ? 'is-active' : ''}`}
                       >
-                        Histórico
+                        {t('Histórico')}
                       </button>
                     </div>
                   </div>
@@ -2432,16 +2427,16 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                     <div style={{ padding: '0 20px 16px', display: 'flex', flexDirection: 'column', gap: 12 }}>
                       {/* Seção confirmados */}
                       <p style={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--text-soft)' }}>
-                        Confirmados ({confirmedRoster.length})
+                        {t('Confirmados ({count})', { count: confirmedRoster.length })}
                       </p>
 
                       {classRsvpsLoading && confirmedRoster.length === 0 ? (
                         <div style={{ textAlign: 'center', padding: '12px 0', color: 'var(--text-soft)', fontSize: '0.85rem' }}>
-                          Carregando confirmados...
+                          {t('Carregando confirmados...')}
                         </div>
                       ) : confirmedRoster.length === 0 ? (
                         <div style={{ textAlign: 'center', padding: '12px 0', color: 'var(--text-soft)', fontSize: '0.85rem' }}>
-                          Nenhum aluno confirmado nesta aula
+                          {t('Nenhum aluno confirmado nesta aula')}
                         </div>
                       ) : (
                         confirmedRoster.map((entry) => {
@@ -2469,15 +2464,15 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                                   {entry.displayName}
                                 </p>
                                 <p style={{ fontSize: '0.72rem', color: 'var(--text-soft)', marginTop: 2 }}>
-                                  Faixa {beltLabel(entry.belt)} · Grau {entry.grade}
-                                  {entry.gradeProgress ? ` · ${entry.gradeProgress} aulas` : ''}
+                                  {t('Faixa {belt}', { belt: beltLabel(entry.belt) })} · {t('Grau {grade}', { grade: entry.grade })}
+                                  {entry.gradeProgress ? ` · ${t('{count} aulas', { count: entry.gradeProgress })}` : ''}
                                 </p>
                                 {record ? (
                                   <p style={{ fontSize: '0.72rem', color: 'var(--text-soft)', marginTop: 2 }}>
                                     {record.checkedInAt ? formatTimeLabel(record.checkedInAt) : '-'} · {methodLabel(record.checkInMethod)}
                                   </p>
                                 ) : (
-                                  <p style={{ fontSize: '0.72rem', color: 'var(--text-soft)', marginTop: 2 }}>Confirmou · não marcado</p>
+                                  <p style={{ fontSize: '0.72rem', color: 'var(--text-soft)', marginTop: 2 }}>{t('Confirmou · não marcado')}</p>
                                 )}
                                 {studentError ? (
                                   <p style={{ fontSize: '0.7rem', color: 'var(--danger)', marginTop: 2 }}>{studentError}</p>
@@ -2492,7 +2487,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                                     className="app-button app-button--danger app-button--small"
                                     style={{ fontSize: '0.7rem', padding: '4px 10px' }}
                                   >
-                                    {removeBusy ? '...' : 'Desmarcar'}
+                                    {removeBusy ? '...' : t('Desmarcar')}
                                   </button>
                                 ) : selectedClass.status === 'scheduled' ? (
                                   <button
@@ -2502,7 +2497,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                                     className="app-button app-button--danger app-button--small"
                                     style={{ fontSize: '0.7rem', padding: '4px 10px' }}
                                   >
-                                    {rsvpBusy ? '...' : 'Remover'}
+                                    {rsvpBusy ? '...' : t('Remover')}
                                   </button>
                                 ) : (
                                   <button
@@ -2512,7 +2507,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                                     className="app-button app-button--gold app-button--small"
                                     style={{ fontSize: '0.7rem', padding: '4px 10px' }}
                                   >
-                                    {markBusy ? '...' : 'Marcar'}
+                                    {markBusy ? '...' : t('Marcar')}
                                   </button>
                                 )}
                               </div>
@@ -2525,9 +2520,9 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                       <div style={{ marginTop: 8, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                         <div className="app-segment" style={{ flex: '1 1 100%', padding: 3 }}>
                           {[
-                            { value: 'all', label: 'Todos' },
-                            { value: 'kids', label: 'Kids' },
-                            { value: 'adult', label: 'Adultos' },
+                            { value: 'all', label: t('Todos') },
+                            { value: 'kids', label: t('Kids') },
+                            { value: 'adult', label: t('Adultos') },
                           ].map((option) => (
                             <button
                               key={option.value}
@@ -2544,7 +2539,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                           type="search"
                           value={presencaSearch}
                           onChange={(e) => setPresencaSearch(e.target.value)}
-                          placeholder="Buscar aluno..."
+                          placeholder={t('Buscar aluno...')}
                           className="app-input"
                           style={{ flex: '1 1 120px', fontSize: '0.82rem' }}
                         />
@@ -2554,30 +2549,30 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                           className="app-input"
                           style={{ flex: '0 0 auto', fontSize: '0.82rem' }}
                         >
-                          <option value="all">Todas as faixas</option>
-                          <option value="white">Branca</option>
-                          <option value="blue">Azul</option>
-                          <option value="purple">Roxa</option>
-                          <option value="brown">Marrom</option>
-                          <option value="black">Preta</option>
-                          <option value="gray">Cinza</option>
-                          <option value="yellow">Amarela</option>
-                          <option value="orange">Laranja</option>
-                          <option value="green">Verde</option>
+                          <option value="all">{t('Todas as faixas')}</option>
+                          <option value="white">{t('Branca')}</option>
+                          <option value="blue">{t('Azul')}</option>
+                          <option value="purple">{t('Roxa')}</option>
+                          <option value="brown">{t('Marrom')}</option>
+                          <option value="black">{t('Preta')}</option>
+                          <option value="gray">{t('Cinza')}</option>
+                          <option value="yellow">{t('Amarela')}</option>
+                          <option value="orange">{t('Laranja')}</option>
+                          <option value="green">{t('Verde')}</option>
                         </select>
                       </div>
 
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                         <p style={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--text-soft)' }}>
-                          Nao confirmados
+                          {t('Nao confirmados')}
                         </p>
                         <p style={{ fontSize: '0.72rem', color: 'var(--text-soft)' }}>
                           {filteredPresencaStudents.length !== pendingPresencaStudents.length
-                            ? `${filteredPresencaStudents.length} de ${pendingPresencaStudents.length}`
+                            ? t('{count} de {total}', { count: filteredPresencaStudents.length, total: pendingPresencaStudents.length })
                             : pendingPresencaStudents.length}
-                          {' '}· {classAttendances.length} presentes
+                          {' '}· {t('{count} presentes', { count: classAttendances.length })}
                           {countedClassAttendances !== classAttendances.length
-                            ? ` (${countedClassAttendances} computadas)`
+                            ? ` (${t('{count} computadas', { count: countedClassAttendances })})`
                             : ''}
                         </p>
                       </div>
@@ -2586,18 +2581,18 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                         <div className="app-panel app-panel--tint" style={{ padding: '10px 14px', display: 'flex', gap: 10, alignItems: 'flex-start' }}>
                           <UserCheck size={15} style={{ color: 'var(--gold-mid)', flexShrink: 0, marginTop: 1 }} />
                           <p style={{ fontSize: '0.78rem', color: 'var(--text-soft)', lineHeight: 1.5 }}>
-                            Aula encerrada. Você ainda pode marcar presenças manualmente.
+                            {t('Aula encerrada. Você ainda pode marcar presenças manualmente.')}
                           </p>
                         </div>
                       ) : null}
 
                       {academyStudents.length === 0 ? (
                         <div style={{ textAlign: 'center', padding: '20px 0', color: 'var(--text-soft)', fontSize: '0.85rem' }}>
-                          Nenhum aluno cadastrado
+                          {t('Nenhum aluno cadastrado')}
                         </div>
                       ) : filteredPresencaStudents.length === 0 ? (
                         <div style={{ textAlign: 'center', padding: '20px 0', color: 'var(--text-soft)', fontSize: '0.85rem' }}>
-                          Nenhum aluno pendente
+                          {t('Nenhum aluno pendente')}
                         </div>
                       ) : (
                         filteredPresencaStudents.map((student) => {
@@ -2616,7 +2611,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                               )}
                               <AvatarWithBelt
                                 avatar={photoToAvatar(student.photoPath)}
-                                name={student.displayName ?? 'Aluno'}
+                                name={student.displayName ?? t('Aluno')}
                                 belt={(student.belt ?? 'white') as BeltColor}
                                 stripes={student.stripes ?? 0}
                                 size="sm"
@@ -2626,14 +2621,14 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                                   {student.displayName}
                                 </p>
                                 <p style={{ fontSize: '0.72rem', color: 'var(--text-soft)', marginTop: 2 }}>
-                                  Faixa {beltLabel(student.belt)} · Grau {student.grade ?? 0}
-                                  {gradeProgress ? ` · ${gradeProgress} aulas` : ''}
+                                  {t('Faixa {belt}', { belt: beltLabel(student.belt) })} · {t('Grau {grade}', { grade: student.grade ?? 0 })}
+                                  {gradeProgress ? ` · ${t('{count} aulas', { count: gradeProgress })}` : ''}
                                 </p>
                                 {record ? (
                                   <p style={{ fontSize: '0.72rem', color: 'var(--text-soft)', marginTop: 2 }}>
                                     {record.checkedInAt ? formatTimeLabel(record.checkedInAt) : '-'} · {methodLabel(record.checkInMethod)}
                                     {record.countsAsAttendance === false
-                                      ? ` · não computada${
+                                      ? ` · ${t('não computada')}${
                                           nonCountingReasonLabel(record.nonCountingReason)
                                             ? ` (${nonCountingReasonLabel(record.nonCountingReason)})`
                                             : ''
@@ -2643,9 +2638,9 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                                 ) : selectedClassIsBeginner && !isEligibleForBeginnerClass(student.belt, student.stripes) ? (
                                   <p
                                     style={{ fontSize: '0.72rem', color: 'var(--text-soft)', marginTop: 2 }}
-                                    title="Pode treinar, mas não computa presença nesta aula"
+                                    title={t('Pode treinar, mas não computa presença nesta aula')}
                                   >
-                                    Não computa presença
+                                    {t('Não computa presença')}
                                   </p>
                                 ) : null}
                                 {studentError ? (
@@ -2660,7 +2655,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                                     className="app-button app-button--ghost app-button--small"
                                     style={{ fontSize: '0.7rem', padding: '4px 10px' }}
                                   >
-                                    Ir em aluno
+                                    {t('Ir em aluno')}
                                   </button>
                                 ) : null}
                                 {record ? (
@@ -2671,7 +2666,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                                     className="app-button app-button--danger app-button--small"
                                     style={{ fontSize: '0.7rem', padding: '4px 10px' }}
                                   >
-                                    {removeBusy ? '...' : 'Desmarcar'}
+                                    {removeBusy ? '...' : t('Desmarcar')}
                                   </button>
                                 ) : selectedClass.status === 'scheduled' ? (
                                   <button
@@ -2681,7 +2676,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                                     className="app-button app-button--gold app-button--small"
                                     style={{ fontSize: '0.7rem', padding: '4px 10px' }}
                                   >
-                                    {rsvpBusy ? '...' : 'Adicionar'}
+                                    {rsvpBusy ? '...' : t('Adicionar')}
                                   </button>
                                 ) : (
                                   <button
@@ -2691,7 +2686,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                                     className="app-button app-button--gold app-button--small"
                                     style={{ fontSize: '0.7rem', padding: '4px 10px' }}
                                   >
-                                    {markBusy ? '...' : 'Marcar'}
+                                    {markBusy ? '...' : t('Marcar')}
                                   </button>
                                 )}
                               </div>
@@ -2707,14 +2702,14 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2 text-sm font-bold text-[color:var(--gold-mid)]">
                               <QrCode size={16} />
-                              QR da aula
+                              {t('QR da aula')}
                             </div>
                             <button
                               type="button"
                               onClick={() => void runClassAction(selectedClass.id, () => onRefreshQr(selectedClass.id))}
                               disabled={busy}
                               className="app-button app-button--ghost app-button--icon"
-                              title="Gerar novo QR"
+                              title={t('Gerar novo QR')}
                               style={{ width: 30, height: 30 }}
                             >
                               <RefreshCw size={13} />
@@ -2738,7 +2733,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                           </div>
                           {qrData && qrCountdown && qrCountdown !== '00:00' ? (
                             <p className="mt-2 text-center text-xs text-[color:var(--text-soft)]">
-                              Expira em {qrCountdown}
+                              {t('Expira em {time}', { time: qrCountdown })}
                             </p>
                           ) : null}
                         </div>
@@ -2748,11 +2743,11 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                   ) : (
                     <div style={{ padding: '0 20px 16px', display: 'flex', flexDirection: 'column', gap: 12 }}>
                       <p style={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--text-soft)' }}>
-                        Últimas presenças
+                        {t('Últimas presenças')}
                       </p>
                       {myAttendances.length === 0 ? (
                         <div style={{ textAlign: 'center', padding: '20px 0', color: 'var(--text-soft)', fontSize: '0.85rem' }}>
-                          Nenhuma presença registrada ainda
+                          {t('Nenhuma presença registrada ainda')}
                         </div>
                       ) : (
                         myAttendances.slice(0, 30).map((attendance) => (
@@ -2760,7 +2755,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                             <CheckCircle size={16} style={{ color: methodColor(attendance.checkInMethod), flexShrink: 0 }} />
                             <div style={{ flex: 1, minWidth: 0 }}>
                               <p style={{ fontSize: '0.82rem', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                {classNameById?.get(attendance.classId) ?? 'Aula'}
+                                {classNameById?.get(attendance.classId) ?? t('Aula')}
                               </p>
                               <p style={{ fontSize: '0.72rem', color: 'var(--text-soft)', marginTop: 2 }}>
                                 {formatAttendanceDateTime(attendance, classStartById.get(attendance.classId))}
@@ -2780,24 +2775,24 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                 <div style={{ padding: '0 20px 16px', display: 'flex', flexDirection: 'column', gap: 12 }}>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
                     <div className="app-stat-card" style={{ padding: '12px 14px' }}>
-                      <p className="app-stat-card__label">Frequência</p>
+                      <p className="app-stat-card__label">{t('Frequência')}</p>
                       <p className="app-stat-card__value" style={{ fontSize: '1.4rem' }}>{attendanceRate ?? 0}%</p>
-                      <p className="app-stat-card__note">no mes atual</p>
+                      <p className="app-stat-card__note">{t('no mes atual')}</p>
                     </div>
                     <div className="app-stat-card" style={{ padding: '12px 14px' }}>
-                      <p className="app-stat-card__label">Presenças</p>
+                      <p className="app-stat-card__label">{t('Presenças')}</p>
                       <p className="app-stat-card__value" style={{ fontSize: '1.4rem' }}>{myAttendances.length}</p>
-                      <p className="app-stat-card__note">confirmadas</p>
+                      <p className="app-stat-card__note">{t('confirmadas')}</p>
                     </div>
                   </div>
 
                   <p style={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--text-soft)' }}>
-                    Últimas presenças
+                    {t('Últimas presenças')}
                   </p>
 
                   {myAttendances.length === 0 ? (
                     <div style={{ textAlign: 'center', padding: '20px 0', color: 'var(--text-soft)', fontSize: '0.85rem' }}>
-                      Nenhuma presença registrada ainda
+                      {t('Nenhuma presença registrada ainda')}
                     </div>
                   ) : (
                     myAttendances.slice(0, 30).map((attendance) => (
@@ -2805,7 +2800,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                         <CheckCircle size={16} style={{ color: methodColor(attendance.checkInMethod), flexShrink: 0 }} />
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <p style={{ fontSize: '0.82rem', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                            {classNameById?.get(attendance.classId) ?? 'Aula'}
+                            {classNameById?.get(attendance.classId) ?? t('Aula')}
                           </p>
                           <p style={{ fontSize: '0.72rem', color: 'var(--text-soft)', marginTop: 2 }}>
                             {formatAttendanceDateTime(attendance, classStartById.get(attendance.classId))}
@@ -2838,7 +2833,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                   <div className="flex flex-wrap gap-3">
                     <button type="button" onClick={() => setSelectedClassId(null)} className="app-button app-button--ghost app-button--small">
                       <X size={14} />
-                      Fechar
+                      {t('Fechar')}
                     </button>
 
                     <button
@@ -2848,7 +2843,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                       className="app-button app-button--ghost app-button--small"
                     >
                       <Pencil size={14} />
-                      Editar
+                      {t('Editar')}
                     </button>
 
                     <button
@@ -2858,7 +2853,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                       className="app-button app-button--danger app-button--small"
                     >
                       <Trash2 size={14} />
-                      Excluir
+                      {t('Excluir')}
                     </button>
 
                     {selectedClass.status === 'scheduled' ? (
@@ -2869,7 +2864,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                         className="app-button app-button--gold app-button--small"
                       >
                         <Play size={14} />
-                        {busy ? 'Iniciando...' : 'Iniciar aula'}
+                        {busy ? t('Iniciando...') : t('Iniciar aula')}
                       </button>
                     ) : null}
 
@@ -2881,7 +2876,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                         className="app-button app-button--green app-button--small"
                       >
                         <CheckCircle size={14} />
-                        {busy || finishBusy ? 'Aguarde...' : 'Finalizar aula'}
+                        {busy || finishBusy ? t('Aguarde...') : t('Finalizar aula')}
                       </button>
                     ) : null}
 
@@ -2889,10 +2884,10 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                         <span className="app-badge app-badge--success" style={{ fontSize: '0.72rem', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                           <CheckCircle size={11} />
-                          Aula encerrada
+                          {t('Aula encerrada')}
                         </span>
                         <span style={{ fontSize: '0.75rem', color: 'var(--text-soft)' }}>
-                          {classAttendances.length} presente{classAttendances.length !== 1 ? 's' : ''} · use a aba Presenças para ajustes
+                          {classAttendances.length === 1 ? t('1 presente') : t('{count} presentes', { count: classAttendances.length })} · {t('use a aba Presenças para ajustes')}
                         </span>
                       </div>
                     ) : null}
@@ -2901,7 +2896,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
               ) : (
                 <button type="button" onClick={() => setSelectedClassId(null)} className="app-button app-button--ghost app-button--block">
                   <X size={14} />
-                  Fechar
+                  {t('Fechar')}
                 </button>
               )}
             </div>
@@ -2937,24 +2932,24 @@ const CalendarView: React.FC<CalendarViewProps> = ({
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <StopCircle size={20} style={{ color: 'var(--danger, #e05252)' }} />
-              <span style={{ fontWeight: 700, fontSize: '1rem' }}>Encerrar aula?</span>
+              <span style={{ fontWeight: 700, fontSize: '1rem' }}>{t('Encerrar aula?')}</span>
             </div>
 
             {/* Resumo de presença */}
             <div style={{ display: 'flex', gap: 12, width: '100%', justifyContent: 'center' }}>
               <div style={{ textAlign: 'center' }}>
                 <p style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--text-strong)' }}>{classAttendances.length}</p>
-                <p style={{ fontSize: '0.7rem', color: 'var(--text-soft)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>marcados</p>
+                <p style={{ fontSize: '0.7rem', color: 'var(--text-soft)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{t('marcados')}</p>
               </div>
               <div style={{ width: 1, background: 'var(--border)', alignSelf: 'stretch' }} />
               <div style={{ textAlign: 'center' }}>
                 <p style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--text-strong)' }}>{selectedClassRsvpCount}</p>
-                <p style={{ fontSize: '0.7rem', color: 'var(--text-soft)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>confirmaram ida</p>
+                <p style={{ fontSize: '0.7rem', color: 'var(--text-soft)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{t('confirmaram ida')}</p>
               </div>
             </div>
 
             <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', textAlign: 'center', lineHeight: 1.5 }}>
-              Mostre este QR para quem ainda não marcou presença
+              {t('Mostre este QR para quem ainda não marcou presença')}
             </p>
             <div style={{ background: '#fff', padding: 14, borderRadius: 16 }}>
               <QRCodeSVG
@@ -2964,12 +2959,12 @@ const CalendarView: React.FC<CalendarViewProps> = ({
               />
             </div>
             <p style={{ fontSize: '0.78rem', color: 'var(--text-soft)' }}>
-              {finishCountdown && finishCountdown !== '00:00' ? `Expira em ${finishCountdown}` : 'Renovando QR...'}
+              {finishCountdown && finishCountdown !== '00:00' ? t('Expira em {time}', { time: finishCountdown }) : t('Renovando QR...')}
             </p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10, width: '100%' }}>
               <button type="button" onClick={() => void handleConfirmFinish()} disabled={finishBusy} className="app-button app-button--green app-button--block">
                 <StopCircle size={14} />
-                {finishBusy ? 'Encerrando...' : 'Confirmar encerramento'}
+                {finishBusy ? t('Encerrando...') : t('Confirmar encerramento')}
               </button>
               <button
                 type="button"
@@ -2980,11 +2975,11 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                 disabled={finishBusy}
                 className="app-button app-button--ghost app-button--block"
               >
-                Continuar aula
+                {t('Continuar aula')}
               </button>
             </div>
             <p style={{ fontSize: '0.72rem', color: 'var(--text-soft)', textAlign: 'center', lineHeight: 1.5 }}>
-              Após encerrar, você ainda poderá marcar presenças manualmente.
+              {t('Após encerrar, você ainda poderá marcar presenças manualmente.')}
             </p>
           </div>
         </div>
@@ -3010,7 +3005,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
             >
               <X size={18} />
             </button>
-            <span style={{ color: '#fff', fontWeight: 600, fontSize: '0.9rem' }}>Aponte para o QR da aula</span>
+            <span style={{ color: '#fff', fontWeight: 600, fontSize: '0.9rem' }}>{t('Aponte para o QR da aula')}</span>
           </div>
 
           <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
@@ -3041,7 +3036,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
 
           <div style={{ padding: '16px 20px', flexShrink: 0, textAlign: 'center' }}>
             <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: '0.8rem', marginBottom: 12 }}>
-              Posicione o QR code dentro do quadro
+              {t('Posicione o QR code dentro do quadro')}
             </p>
             <button
               type="button"
@@ -3052,7 +3047,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
               className="app-button app-button--ghost"
               style={{ color: '#fff', border: '1px solid rgba(255,255,255,0.2)', fontSize: '0.8rem' }}
             >
-              Inserir token manualmente
+              {t('Inserir token manualmente')}
             </button>
           </div>
         </div>
@@ -3109,7 +3104,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
           >
             <div className="staff-home__lesson-head">
               <div className="staff-home__lesson-title-copy">
-                <p className="staff-home__section-label">Participantes confirmados</p>
+                <p className="staff-home__section-label">{t('Participantes confirmados')}</p>
                 <h2 id="participants-title" className="staff-home__lesson-title">{selectedClass.title}</h2>
                 <p className="staff-home__lesson-subtitle">{formatTimeLabel(selectedClass.scheduledStart)}</p>
               </div>
@@ -3117,7 +3112,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                 type="button"
                 onClick={() => setShowParticipants(false)}
                 className="app-button app-button--ghost app-button--icon staff-home__lesson-close"
-                aria-label="Fechar participantes"
+                aria-label={t('Fechar participantes')}
               >
                 <X size={16} />
               </button>
@@ -3125,11 +3120,11 @@ const CalendarView: React.FC<CalendarViewProps> = ({
 
             <div className="staff-home__confirmed-list">
               <div className="staff-home__confirmed-head">
-                <p className="staff-home__section-label">Quem confirmou</p>
+                <p className="staff-home__section-label">{t('Quem confirmou')}</p>
               </div>
 
               {participantsLoading ? (
-                <div className="staff-home__confirmed-empty">Carregando...</div>
+                <div className="staff-home__confirmed-empty">{t('Carregando...')}</div>
               ) : participantsList.length > 0 ? (
                 participantsList.map((rsvp) => (
                   <div key={rsvp.id} className="staff-home__confirmed-row">
@@ -3138,13 +3133,13 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                     </div>
                     <div className="staff-home__confirmed-copy">
                       <p className="staff-home__confirmed-name">{rsvp.userDisplayName}</p>
-                      <p className="staff-home__confirmed-meta">Presença futura confirmada</p>
+                      <p className="staff-home__confirmed-meta">{t('Presença futura confirmada')}</p>
                     </div>
                   </div>
                 ))
               ) : (
                 <div className="staff-home__confirmed-empty">
-                  Nenhum aluno confirmou ainda.
+                  {t('Nenhum aluno confirmou ainda.')}
                 </div>
               )}
             </div>
