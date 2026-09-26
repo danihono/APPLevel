@@ -1,4 +1,5 @@
 import type { MessageCatalog } from './types';
+import { superadminMessages } from './superadmin';
 import { notificationsMessages } from './notifications';
 import { studentsMessages } from './students';
 import { learningMessages } from './learning';
@@ -45,4 +46,5 @@ export const messages: MessageCatalog = {
   ...learningMessages,
   ...studentsMessages,
   ...notificationsMessages,
+  ...superadminMessages,
 };

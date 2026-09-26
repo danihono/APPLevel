@@ -30,7 +30,7 @@ import type {
 } from '../services/firebase/models';
 import DailyTrainingChart, { useDailyTraining } from '../components/DailyTrainingTable';
 import InstructorEditModal from '../components/InstructorEditModal';
-import { getLocale } from '../i18n';
+import { t, getLocale } from '../i18n';
 
 interface SuperadminDashboardViewProps {
   academies: Array<FirestoreEntity<AcademyRecord>>;
@@ -114,11 +114,11 @@ function formatNumber(value: number) {
 function getStatusLabel(status: AcademyRecord['status']) {
   switch (status) {
     case 'active':
-      return 'Ativa';
+      return t('Ativa');
     case 'inactive':
-      return 'Inativa';
+      return t('Inativa');
     case 'suspended':
-      return 'Suspensa';
+      return t('Suspensa');
     default:
       return status;
   }
@@ -206,18 +206,18 @@ function getActivityLabel(date: Date | null) {
   const daysSince = getDaysSince(date);
 
   if (daysSince === null) {
-    return 'Sem atividade recente';
+    return t('Sem atividade recente');
   }
 
   if (daysSince === 0) {
-    return 'Atividade hoje';
+    return t('Atividade hoje');
   }
 
   if (daysSince === 1) {
-    return 'Atividade ontem';
+    return t('Atividade ontem');
   }
 
-  return `Atividade há ${daysSince} dias`;
+  return t('Atividade há {count} dias', { count: daysSince });
 }
 
 const WEEKDAY_SHORT_TO_INDEX: Record<string, number> = {
@@ -304,7 +304,7 @@ function getZonedParts(date: Date, formatter: Intl.DateTimeFormat): ZonedParts |
       weekdayIndex,
       hour,
       monthKey: `${yearValue}-${monthValue}`,
-      monthLabel: `${MONTH_LABELS_PT[monthNumber - 1] ?? ''}/${yearValue.slice(-2)}`,
+      monthLabel: `${t(MONTH_LABELS_PT[monthNumber - 1] ?? '')}/${yearValue.slice(-2)}`,
     };
   } catch {
     return null;
@@ -483,24 +483,24 @@ const SuperadminDashboardView: React.FC<SuperadminDashboardViewProps> = ({
     const attentionReasons: string[] = [];
 
     if (academyEntry.status !== 'active') {
-      attentionReasons.push('Status operacional fora do padrao ativo');
+      attentionReasons.push(t('Status operacional fora do padrao ativo'));
     }
 
     if (leaderCount === 0) {
-      attentionReasons.push('Sem lideranca ativa cadastrada');
+      attentionReasons.push(t('Sem lideranca ativa cadastrada'));
     }
 
     if (activeStudents.length === 0) {
-      attentionReasons.push('Sem alunos ativos na base');
+      attentionReasons.push(t('Sem alunos ativos na base'));
     }
 
     if (masterBlackCount > masterBlackLimit) {
-      attentionReasons.push('Limite de master black ultrapassado');
+      attentionReasons.push(t('Limite de master black ultrapassado'));
     }
 
     const daysSinceActivity = getDaysSince(lastActivityAt);
     if (daysSinceActivity !== null && daysSinceActivity > 21) {
-      attentionReasons.push(`Sem atividade recente ha ${daysSinceActivity} dias`);
+      attentionReasons.push(t('Sem atividade recente ha {count} dias', { count: daysSinceActivity }));
     }
 
     return {
@@ -602,6 +602,7 @@ const SuperadminDashboardView: React.FC<SuperadminDashboardViewProps> = ({
     const total = filteredActiveUsers.filter((user) => user.role === entry.role).length;
     return {
       ...entry,
+      label: t(entry.label),
       total,
       share: percentOf(total, filteredActiveUsers.length),
     };
@@ -615,6 +616,7 @@ const SuperadminDashboardView: React.FC<SuperadminDashboardViewProps> = ({
 
       return {
         ...belt,
+        label: t(belt.label),
         total,
         share: percentOf(total, activeStudents.length),
       };
@@ -722,7 +724,7 @@ const SuperadminDashboardView: React.FC<SuperadminDashboardViewProps> = ({
         : (attendanceCountByClassId.get(item.id) ?? 0)
     );
 
-    const weekdayBuckets = MONTH_WEEK_HEADER.map((label) => ({ label, attendances: 0, classCount: 0 }));
+    const weekdayBuckets = MONTH_WEEK_HEADER.map((label) => ({ label: t(label), attendances: 0, classCount: 0 }));
     const hourBuckets = new Map<number, { attendances: number; classCount: number }>();
     const monthBuckets = new Map<string, { label: string; attendances: number }>();
     const professorBuckets = new Map<string, FocusProfessor>();
@@ -753,7 +755,7 @@ const SuperadminDashboardView: React.FC<SuperadminDashboardViewProps> = ({
       const professorId = item.professorId || 'desconhecido';
       const resolvedName = item.professorName
         || academyUsers.find((user) => user.id === item.professorId)?.displayName
-        || 'Professor';
+        || t('Professor');
       const professorBucket = professorBuckets.get(professorId)
         ?? { id: professorId, name: resolvedName, classCount: 0, totalAttendances: 0, avgPerClass: 0 };
       professorBucket.classCount += 1;
@@ -854,7 +856,7 @@ const SuperadminDashboardView: React.FC<SuperadminDashboardViewProps> = ({
       const total = activeStudentsList.filter((user) => normalizeBelt(user.belt) === belt.key).length;
       return {
         key: belt.key,
-        label: belt.label,
+        label: t(belt.label),
         color: belt.color,
         total,
         share: percentOf(total, activeStudentsList.length),
@@ -898,7 +900,7 @@ const SuperadminDashboardView: React.FC<SuperadminDashboardViewProps> = ({
         .slice(0, 5)
         .map(([userId, attendanceCount]) => ({
           id: userId,
-          name: userById.get(userId)?.displayName ?? 'Aluno',
+          name: userById.get(userId)?.displayName ?? t('Aluno'),
           attendanceCount,
         }));
 
@@ -930,30 +932,30 @@ const SuperadminDashboardView: React.FC<SuperadminDashboardViewProps> = ({
       loadedClassCount: classes.length,
       timeZoneWarning: zone.isValid
         ? null
-        : `Fuso horário "${zone.requested}" não é reconhecido — usando ${zone.timeZone}. Corrija em Gestão › Academia.`,
+        : t('Fuso horário "{requested}" não é reconhecido — usando {zone}. Corrija em Gestão › Academia.', { requested: zone.requested, zone: zone.timeZone }),
       profileAttendanceTotal: activeStudentsList.reduce((sum, user) => sum + (user.attendanceCount ?? 0), 0),
     } satisfies FocusStatistics;
   }, [attendances, classes, academyUsers, academy?.timezone, focusPeriod, focusPeriodRange, selectedAcademyId]);
   // Explica POR QUE um card está vazio: sem aula cadastrada, sem aula no período escolhido,
   // ou aulas realizadas sem nenhuma presença lançada. Reaproveitado no desktop e no mobile.
   const focusEmptyLabel = !focusStatistics
-    ? 'Sem dados.'
+    ? t('Sem dados.')
     : focusStatistics.loadedClassCount === 0
-      ? 'Nenhuma aula cadastrada nesta unidade.'
+      ? t('Nenhuma aula cadastrada nesta unidade.')
       : focusStatistics.finishedClassCount === 0
-        ? `Nenhuma aula realizada em "${focusStatistics.periodLabel}". A unidade tem ${formatNumber(focusStatistics.loadedClassCount)} aulas no histórico — experimente um período maior.`
+        ? t('Nenhuma aula realizada em "{period}". A unidade tem {count} aulas no histórico — experimente um período maior.', { period: focusStatistics.periodLabel, count: formatNumber(focusStatistics.loadedClassCount) })
         : attendancesError
-          ? `Não foi possível carregar as presenças: ${attendancesError}`
+          ? t('Não foi possível carregar as presenças: {error}', { error: attendancesError })
           : focusStatistics.profileAttendanceTotal > 0
             // Os perfis somam presenças mas a consulta não trouxe nenhuma: o problema está no
             // acesso aos documentos (índice/regra/janela), não na ausência de check-in.
-            ? `${formatNumber(focusStatistics.finishedClassCount)} aulas no período. Os alunos somam ${formatNumber(focusStatistics.profileAttendanceTotal)} presenças no perfil, mas nenhuma foi carregada — verifique os índices do Firestore.`
-            : `${formatNumber(focusStatistics.finishedClassCount)} aulas realizadas no período, nenhum check-in registrado.`;
+            ? t('{classes} aulas no período. Os alunos somam {total} presenças no perfil, mas nenhuma foi carregada — verifique os índices do Firestore.', { classes: formatNumber(focusStatistics.finishedClassCount), total: formatNumber(focusStatistics.profileAttendanceTotal) })
+            : t('{classes} aulas realizadas no período, nenhum check-in registrado.', { classes: formatNumber(focusStatistics.finishedClassCount) });
   const focusHasNoAttendances = !!focusStatistics && focusStatistics.totalAttendances === 0;
 
   // Mesmo seletor renderizado no painel desktop e no bloco mobile.
   const focusPeriodChips = (
-    <div className="app-chip-row" role="group" aria-label="Periodo das estatisticas">
+    <div className="app-chip-row" role="group" aria-label={t('Periodo das estatisticas')}>
       {FOCUS_PERIOD_OPTIONS.map((option) => (
         <button
           key={option.value}
@@ -961,7 +963,7 @@ const SuperadminDashboardView: React.FC<SuperadminDashboardViewProps> = ({
           onClick={() => onFocusPeriodChange(option.value)}
           className={`app-chip ${focusPeriod === option.value ? 'is-active' : ''}`}
         >
-          {option.label}
+          {t(option.label)}
         </button>
       ))}
     </div>
@@ -970,40 +972,40 @@ const SuperadminDashboardView: React.FC<SuperadminDashboardViewProps> = ({
   const activeStudentBase = filteredActiveUsers.filter((user) => user.role === 'student').length;
   const overviewKpis = [
     {
-      label: 'Academias',
+      label: t('Academias'),
       value: formatNumber(totalAcademies),
-      note: `${formatNumber(activeAcademies)} ativas`,
+      note: t('{count} ativas', { count: formatNumber(activeAcademies) }),
     },
     {
-      label: 'Alunos ativos',
+      label: t('Alunos ativos'),
       value: formatNumber(globalStudents),
-      note: `${formatNumber(globalUsers)} usuarios`,
+      note: t('{count} usuarios', { count: formatNumber(globalUsers) }),
     },
     {
-      label: 'Liderancas',
+      label: t('Liderancas'),
       value: formatNumber(globalLeaders),
-      note: `${formatNumber(globalMasterBlack)} master black`,
+      note: t('{count} master black', { count: formatNumber(globalMasterBlack) }),
     },
     {
-      label: 'Presenca media',
+      label: t('Presenca media'),
       value: formatNumber(averageAttendance),
-      note: `${formatNumber(academiesInAttention)} em atencao`,
+      note: t('{count} em atencao', { count: formatNumber(academiesInAttention) }),
     },
   ];
   const focusStats = focusAcademyRow
     ? [
-      { label: 'Alunos ativos', value: formatNumber(focusActiveStudents) },
-      { label: 'Liderancas', value: formatNumber(focusLeaders) },
-      { label: 'Aulas ao vivo', value: formatNumber(focusActiveClasses) },
-      { label: 'Competicoes abertas', value: formatNumber(focusOpenCompetitions) },
+      { label: t('Alunos ativos'), value: formatNumber(focusActiveStudents) },
+      { label: t('Liderancas'), value: formatNumber(focusLeaders) },
+      { label: t('Aulas ao vivo'), value: formatNumber(focusActiveClasses) },
+      { label: t('Competicoes abertas'), value: formatNumber(focusOpenCompetitions) },
     ]
     : [];
   const focusOperationalRows = focusAcademyRow
     ? [
-      { label: 'Presenca media', value: formatNumber(focusAcademyRow.averageAttendance) },
-      { label: 'Aulas agendadas', value: formatNumber(focusScheduledClasses) },
-      { label: 'Competicoes concluidas', value: formatNumber(focusFinishedCompetitions) },
-      { label: 'Ultima atividade', value: focusAcademyRow.lastActivityLabel },
+      { label: t('Presenca media'), value: formatNumber(focusAcademyRow.averageAttendance) },
+      { label: t('Aulas agendadas'), value: formatNumber(focusScheduledClasses) },
+      { label: t('Competicoes concluidas'), value: formatNumber(focusFinishedCompetitions) },
+      { label: t('Ultima atividade'), value: focusAcademyRow.lastActivityLabel },
     ]
     : [];
 
@@ -1013,34 +1015,34 @@ const SuperadminDashboardView: React.FC<SuperadminDashboardViewProps> = ({
   const suspendedDegrees = inactiveDegrees + ((suspendedAcademies / totalRowsForRing) * 360);
   const healthBadgeClass = academiesInAttention > 0 ? 'app-badge app-badge--danger' : 'app-badge app-badge--success';
   const healthBadgeLabel = academiesInAttention > 0
-    ? `${formatNumber(academiesInAttention)} em atencao`
-    : 'Operacao estavel';
+    ? t('{count} em atencao', { count: formatNumber(academiesInAttention) })
+    : t('Operacao estavel');
   const healthHeadline = totalAcademies === 0
-    ? 'Sem academias no recorte'
+    ? t('Sem academias no recorte')
     : suspendedAcademies > 0
-      ? 'Rede pede acao imediata em pontos criticos'
+      ? t('Rede pede acao imediata em pontos criticos')
       : activeShare >= 85
-        ? 'Rede operando com alta estabilidade'
-        : 'Rede em transicao operacional';
+        ? t('Rede operando com alta estabilidade')
+        : t('Rede em transicao operacional');
   const healthCopy = totalAcademies === 0
-    ? 'Ajuste os filtros para reconstruir o panorama da rede.'
-    : `${formatNumber(activeAcademies)} de ${formatNumber(totalAcademies)} academias seguem ativas no recorte atual. ${academiesInAttention > 0 ? `${formatNumber(academiesInAttention)} aparecem no radar de atencao.` : 'Nenhuma academia entrou no radar de atencao.'}`;
+    ? t('Ajuste os filtros para reconstruir o panorama da rede.')
+    : `${t('{active} de {total} academias seguem ativas no recorte atual.', { active: formatNumber(activeAcademies), total: formatNumber(totalAcademies) })} ${academiesInAttention > 0 ? t('{count} aparecem no radar de atencao.', { count: formatNumber(academiesInAttention) }) : t('Nenhuma academia entrou no radar de atencao.')}`;
   const healthSummaryCards = [
     {
       key: 'coverage',
-      label: 'Cobertura ativa',
+      label: t('Cobertura ativa'),
       value: `${activeShare}%`,
       toneClass: 'superadmin-health-pill--success',
     },
     {
       key: 'attention',
-      label: 'Radar de atencao',
+      label: t('Radar de atencao'),
       value: formatNumber(academiesInAttention),
       toneClass: academiesInAttention > 0 ? 'superadmin-health-pill--danger' : 'superadmin-health-pill--success',
     },
     {
       key: 'out-of-flow',
-      label: 'Fora do fluxo',
+      label: t('Fora do fluxo'),
       value: formatNumber(inactiveAcademies + suspendedAcademies),
       toneClass: inactiveAcademies + suspendedAcademies > 0 ? 'superadmin-health-pill--gold' : 'superadmin-health-pill--muted',
     },
@@ -1048,28 +1050,28 @@ const SuperadminDashboardView: React.FC<SuperadminDashboardViewProps> = ({
   const operationalStatusCards = [
     {
       key: 'active',
-      label: 'Ativas',
+      label: t('Ativas'),
       count: activeAcademies,
       share: activeShare,
-      note: 'Operando no recorte atual',
+      note: t('Operando no recorte atual'),
       badgeClass: 'app-badge app-badge--success',
       toneClass: 'superadmin-status-card--success',
     },
     {
       key: 'inactive',
-      label: 'Inativas',
+      label: t('Inativas'),
       count: inactiveAcademies,
       share: inactiveShare,
-      note: 'Fora da rotina principal',
+      note: t('Fora da rotina principal'),
       badgeClass: 'app-badge app-badge--muted',
       toneClass: 'superadmin-status-card--muted',
     },
     {
       key: 'suspended',
-      label: 'Suspensas',
+      label: t('Suspensas'),
       count: suspendedAcademies,
       share: suspendedShare,
-      note: 'Pedem acao imediata',
+      note: t('Pedem acao imediata'),
       badgeClass: 'app-badge app-badge--danger',
       toneClass: 'superadmin-status-card--danger',
     },
@@ -1083,31 +1085,31 @@ const SuperadminDashboardView: React.FC<SuperadminDashboardViewProps> = ({
 
   const desktopKpis = [
     {
-      key: 'academias',
-      label: 'Academias',
+      key: t('academias'),
+      label: t('Academias'),
       value: formatNumber(totalAcademies),
-      note: `${formatNumber(activeAcademies)} ativas`,
+      note: t('{count} ativas', { count: formatNumber(activeAcademies) }),
       icon: Building2,
     },
     {
-      key: 'alunos',
-      label: 'Alunos ativos',
+      key: t('alunos'),
+      label: t('Alunos ativos'),
       value: formatNumber(globalStudents),
-      note: `${formatNumber(globalUsers)} usuarios no total`,
+      note: t('{count} usuarios no total', { count: formatNumber(globalUsers) }),
       icon: Users,
     },
     {
       key: 'liderancas',
-      label: 'Liderancas',
+      label: t('Liderancas'),
       value: formatNumber(globalLeaders),
-      note: `${formatNumber(globalMasterBlack)} master black`,
+      note: t('{count} master black', { count: formatNumber(globalMasterBlack) }),
       icon: ShieldCheck,
     },
     {
       key: 'presenca',
-      label: 'Presenca media',
+      label: t('Presenca media'),
       value: formatNumber(averageAttendance),
-      note: 'Media consolidada da rede',
+      note: t('Media consolidada da rede'),
       icon: TrendingUp,
     },
   ];
@@ -1116,23 +1118,23 @@ const SuperadminDashboardView: React.FC<SuperadminDashboardViewProps> = ({
   const healthLegend = [
     {
       key: 'active',
-      label: 'Ativas',
+      label: t('Ativas'),
       color: 'var(--success)',
-      detail: `${formatNumber(activeAcademies)} academias`,
+      detail: t('{count} academias', { count: formatNumber(activeAcademies) }),
       share: activeShare,
     },
     {
       key: 'inactive',
-      label: 'Inativas',
+      label: t('Inativas'),
       color: 'rgba(127, 127, 147, 0.55)',
-      detail: `${formatNumber(outOfFlowAcademies)} academias`,
+      detail: t('{count} academias', { count: formatNumber(outOfFlowAcademies) }),
       share: percentOf(outOfFlowAcademies, totalAcademies),
     },
     {
       key: 'attention',
-      label: 'Em atencao',
+      label: t('Em atencao'),
       color: '#e8af48',
-      detail: `${formatNumber(academiesInAttention)} academias`,
+      detail: t('{count} academias', { count: formatNumber(academiesInAttention) }),
       share: percentOf(academiesInAttention, totalAcademies),
     },
   ];
@@ -1169,7 +1171,7 @@ const SuperadminDashboardView: React.FC<SuperadminDashboardViewProps> = ({
     .map((academyRow) => ({
       id: academyRow.id,
       title: academyRow.name,
-      desc: academyRow.attentionReasons[0] ?? 'Operacao dentro do padrao',
+      desc: academyRow.attentionReasons[0] ?? t('Operacao dentro do padrao'),
       time: academyRow.lastActivityLabel,
       tone: academyRow.attentionReasons.length > 0 ? 'is-warn' : 'is-ok',
     }));
@@ -1196,14 +1198,14 @@ const SuperadminDashboardView: React.FC<SuperadminDashboardViewProps> = ({
         <div className="sa-mob-header">
           <div className="sa-mob-header__avatar">SA</div>
           <div className="sa-mob-header__copy">
-            <p className="sa-mob-header__eyebrow">Superadmin</p>
+            <p className="sa-mob-header__eyebrow">{t('Superadmin')}</p>
             <h1 className="sa-mob-header__title">
-              {focusAcademyRow ? focusAcademyRow.name : 'Rede inteira'}
+              {focusAcademyRow ? focusAcademyRow.name : t('Rede inteira')}
             </h1>
           </div>
           <div className="sa-mob-status-pill">
             <span className="sa-mob-status-pill__dot" />
-            Leitura consolidada · {formatNumber(totalAcademies)} academias
+            {t('Leitura consolidada · {count} academias', { count: formatNumber(totalAcademies) })}
           </div>
         </div>
 
@@ -1211,42 +1213,42 @@ const SuperadminDashboardView: React.FC<SuperadminDashboardViewProps> = ({
         {focusAcademyRow && focusStatistics ? (
           <>
             <div className="sa-mob-section">
-              <p className="sa-mob-section__label">Estatísticas · {focusAcademyRow.name}</p>
+              <p className="sa-mob-section__label">{t('Estatísticas · {name}', { name: focusAcademyRow.name })}</p>
               {focusPeriodChips}
               <p className="sa-mob-section__hint">
                 {focusStatistics.periodLabel}
-                {focusStatistics.usesClassCounterFallback ? ' · via contador da aula' : ''}
+                {focusStatistics.usesClassCounterFallback ? ` · ${t('via contador da aula')}` : ''}
               </p>
               {focusStatistics.timeZoneWarning ? (
                 <p className="sa-warning-note">{focusStatistics.timeZoneWarning}</p>
               ) : null}
               <div className="sa-mob-kpi-grid">
                 <div className="sa-mob-kpi-tile">
-                  <p className="sa-mob-kpi-tile__label">Presenças</p>
+                  <p className="sa-mob-kpi-tile__label">{t('Presenças')}</p>
                   <p className="sa-mob-kpi-tile__value">{formatNumber(focusStatistics.totalAttendances)}</p>
-                  <p className="sa-mob-kpi-tile__sublabel">{formatNumber(focusStatistics.finishedClassCount)} aulas</p>
+                  <p className="sa-mob-kpi-tile__sublabel">{t('{count} aulas', { count: formatNumber(focusStatistics.finishedClassCount) })}</p>
                 </div>
                 <div className="sa-mob-kpi-tile">
-                  <p className="sa-mob-kpi-tile__label">Ocupação</p>
+                  <p className="sa-mob-kpi-tile__label">{t('Ocupação')}</p>
                   <p className="sa-mob-kpi-tile__value">{focusStatistics.occupancyRate}%</p>
-                  <p className="sa-mob-kpi-tile__sublabel">média</p>
+                  <p className="sa-mob-kpi-tile__sublabel">{t('média')}</p>
                 </div>
                 <div className="sa-mob-kpi-tile">
-                  <p className="sa-mob-kpi-tile__label">Média/aula</p>
+                  <p className="sa-mob-kpi-tile__label">{t('Média/aula')}</p>
                   <p className="sa-mob-kpi-tile__value">{formatNumber(focusStatistics.avgPerClass)}</p>
-                  <p className="sa-mob-kpi-tile__sublabel">alunos</p>
+                  <p className="sa-mob-kpi-tile__sublabel">{t('alunos')}</p>
                 </div>
                 <div className={`sa-mob-kpi-tile ${focusStatistics.atRiskStudents > 0 ? 'sa-mob-kpi-tile--danger' : ''}`}>
-                  <p className="sa-mob-kpi-tile__label">Em risco</p>
+                  <p className="sa-mob-kpi-tile__label">{t('Em risco')}</p>
                   <p className="sa-mob-kpi-tile__value">{formatNumber(focusStatistics.atRiskStudents)}</p>
-                  <p className="sa-mob-kpi-tile__sublabel">alunos</p>
+                  <p className="sa-mob-kpi-tile__sublabel">{t('alunos')}</p>
                 </div>
               </div>
             </div>
 
             <div className="sa-mob-section">
               <p className="sa-mob-section__label">
-                Dias mais frequentados{focusStatistics.peakWeekday ? ` · pico ${focusStatistics.peakWeekday.label}` : ''}
+                {t('Dias mais frequentados')}{focusStatistics.peakWeekday ? ` · ${t('pico {label}', { label: focusStatistics.peakWeekday.label })}` : ''}
               </p>
               {focusHasNoAttendances ? <p className="sa-mob-section__hint">{focusEmptyLabel}</p> : null}
               <FocusBarList
@@ -1255,14 +1257,14 @@ const SuperadminDashboardView: React.FC<SuperadminDashboardViewProps> = ({
                   key: bucket.key,
                   label: bucket.label,
                   value: bucket.attendances,
-                  caption: `${formatNumber(bucket.classCount)} aulas`,
+                  caption: t('{count} aulas', { count: formatNumber(bucket.classCount) }),
                 }))}
               />
             </div>
 
             <div className="sa-mob-section">
               <p className="sa-mob-section__label">
-                Horários de pico{focusStatistics.peakHour ? ` · ${focusStatistics.peakHour.label}` : ''}
+                {t('Horários de pico')}{focusStatistics.peakHour ? ` · ${focusStatistics.peakHour.label}` : ''}
               </p>
               <FocusBarList
                 emptyLabel={focusEmptyLabel}
@@ -1270,19 +1272,19 @@ const SuperadminDashboardView: React.FC<SuperadminDashboardViewProps> = ({
                   key: bucket.key,
                   label: bucket.label,
                   value: bucket.attendances,
-                  caption: `${formatNumber(bucket.classCount)} aulas`,
+                  caption: t('{count} aulas', { count: formatNumber(bucket.classCount) }),
                 }))}
               />
             </div>
 
             <div className="sa-mob-section">
-              <p className="sa-mob-section__label">Professores mais ativos</p>
+              <p className="sa-mob-section__label">{t('Professores mais ativos')}</p>
               {focusStatistics.professors.length > 0 ? (
                 <div className="superadmin-detail-list">
                   {focusStatistics.professors.slice(0, 6).map((professor) => (
                     <div key={professor.id} className="superadmin-detail-row">
                       <span>{professor.name}</span>
-                      <strong>{formatNumber(professor.classCount)} aulas · {formatNumber(professor.totalAttendances)} pres.</strong>
+                      <strong>{t('{classes} aulas · {attendances} pres.', { classes: formatNumber(professor.classCount), attendances: formatNumber(professor.totalAttendances) })}</strong>
                     </div>
                   ))}
                 </div>
@@ -1292,7 +1294,7 @@ const SuperadminDashboardView: React.FC<SuperadminDashboardViewProps> = ({
             </div>
 
             <div className="sa-mob-section">
-              <p className="sa-mob-section__label">Faixas da unidade</p>
+              <p className="sa-mob-section__label">{t('Faixas da unidade')}</p>
               <div className="sa-mob-belt-grid">
                 {focusStatistics.belts.map((entry) => (
                   <div key={entry.key} className="sa-mob-belt-item">
@@ -1306,7 +1308,7 @@ const SuperadminDashboardView: React.FC<SuperadminDashboardViewProps> = ({
 
             {focusStatistics.monthlyTrend.length > 0 ? (
               <div className="sa-mob-section">
-                <p className="sa-mob-section__label">Tendência mensal</p>
+                <p className="sa-mob-section__label">{t('Tendência mensal')}</p>
                 <FocusBarList
                   emptyLabel={focusEmptyLabel}
                   items={focusStatistics.monthlyTrend.map((bucket) => ({
@@ -1319,7 +1321,7 @@ const SuperadminDashboardView: React.FC<SuperadminDashboardViewProps> = ({
             ) : null}
 
             <div className="sa-mob-section">
-              <p className="sa-mob-section__label">Top frequentadores</p>
+              <p className="sa-mob-section__label">{t('Top frequentadores')}</p>
               {focusPeriodChips}
               <p className="sa-mob-section__hint">{focusStatistics.periodLabel}</p>
               {focusStatistics.topStudents.length > 0 ? (
@@ -1327,12 +1329,12 @@ const SuperadminDashboardView: React.FC<SuperadminDashboardViewProps> = ({
                   {focusStatistics.topStudents.map((student) => (
                     <div key={student.id} className="superadmin-detail-row">
                       <span>{student.name}</span>
-                      <strong>{formatNumber(student.attendanceCount)} presenças</strong>
+                      <strong>{t('{count} presenças', { count: formatNumber(student.attendanceCount) })}</strong>
                     </div>
                   ))}
                 </div>
               ) : (
-                <div className="app-empty">Sem presenças registradas neste período.</div>
+                <div className="app-empty">{t('Sem presenças registradas neste período.')}</div>
               )}
             </div>
           </>
@@ -1341,24 +1343,24 @@ const SuperadminDashboardView: React.FC<SuperadminDashboardViewProps> = ({
         {/* KPI 2×2 */}
         <div className="sa-mob-kpi-grid">
           <div className="sa-mob-kpi-tile">
-            <p className="sa-mob-kpi-tile__label">Academias</p>
+            <p className="sa-mob-kpi-tile__label">{t('Academias')}</p>
             <p className="sa-mob-kpi-tile__value">{formatNumber(totalAcademies)}</p>
-            <p className="sa-mob-kpi-tile__sublabel">{formatNumber(activeAcademies)} ativas</p>
+            <p className="sa-mob-kpi-tile__sublabel">{t('{count} ativas', { count: formatNumber(activeAcademies) })}</p>
           </div>
           <div className={`sa-mob-kpi-tile ${academiesInAttention > 0 ? 'sa-mob-kpi-tile--danger' : ''}`}>
-            <p className="sa-mob-kpi-tile__label">Em atenção</p>
+            <p className="sa-mob-kpi-tile__label">{t('Em atenção')}</p>
             <p className="sa-mob-kpi-tile__value">{formatNumber(academiesInAttention)}</p>
-            <p className="sa-mob-kpi-tile__sublabel">academias</p>
+            <p className="sa-mob-kpi-tile__sublabel">{t('academias')}</p>
           </div>
           <div className="sa-mob-kpi-tile">
-            <p className="sa-mob-kpi-tile__label">Alunos ativos</p>
+            <p className="sa-mob-kpi-tile__label">{t('Alunos ativos')}</p>
             <p className="sa-mob-kpi-tile__value">{formatNumber(globalStudents)}</p>
-            <p className="sa-mob-kpi-tile__sublabel">{formatNumber(globalUsers)} usuários</p>
+            <p className="sa-mob-kpi-tile__sublabel">{t('{count} usuários', { count: formatNumber(globalUsers) })}</p>
           </div>
           <div className="sa-mob-kpi-tile">
-            <p className="sa-mob-kpi-tile__label">Lideranças</p>
+            <p className="sa-mob-kpi-tile__label">{t('Lideranças')}</p>
             <p className="sa-mob-kpi-tile__value">{formatNumber(globalLeaders)}</p>
-            <p className="sa-mob-kpi-tile__sublabel">{formatNumber(globalMasterBlack)} master black</p>
+            <p className="sa-mob-kpi-tile__sublabel">{t('{count} master black', { count: formatNumber(globalMasterBlack) })}</p>
           </div>
         </div>
 
@@ -1366,9 +1368,9 @@ const SuperadminDashboardView: React.FC<SuperadminDashboardViewProps> = ({
         <div className="sa-mob-health-card">
           <div className="sa-mob-health-card__left">
             <p className="sa-mob-health-card__percent">{activeShare}%</p>
-            <p className="sa-mob-health-card__label">Cobertura ativa</p>
+            <p className="sa-mob-health-card__label">{t('Cobertura ativa')}</p>
             <p className="sa-mob-health-card__sub">
-              {formatNumber(activeAcademies)} de {formatNumber(totalAcademies)} academias
+              {t('{active} de {total} academias', { active: formatNumber(activeAcademies), total: formatNumber(totalAcademies) })}
             </p>
           </div>
           <div className="sa-mob-health-card__ring">
@@ -1386,7 +1388,7 @@ const SuperadminDashboardView: React.FC<SuperadminDashboardViewProps> = ({
         {/* Radar de atenção — condicional */}
         {attentionRows.length > 0 && (
           <div className="sa-mob-section">
-            <p className="sa-mob-section__label">Radar de atenção</p>
+            <p className="sa-mob-section__label">{t('Radar de atenção')}</p>
             <div className="sa-mob-alert-list">
               {attentionRows.map((academyRow) => (
                 <div key={academyRow.id} className="sa-mob-alert-item">
@@ -1395,7 +1397,7 @@ const SuperadminDashboardView: React.FC<SuperadminDashboardViewProps> = ({
                     <p className="sa-mob-alert-item__desc">
                       {academyRow.attentionReasons[0]}
                       {academyRow.attentionReasons.length > 1
-                        ? ` +${academyRow.attentionReasons.length - 1} sinal`
+                        ? ` +${t('{count} sinal', { count: academyRow.attentionReasons.length - 1 })}`
                         : ''}
                     </p>
                   </div>
@@ -1412,7 +1414,7 @@ const SuperadminDashboardView: React.FC<SuperadminDashboardViewProps> = ({
 
         {/* Lista de academias */}
         <div className="sa-mob-section">
-          <p className="sa-mob-section__label">Academias da rede</p>
+          <p className="sa-mob-section__label">{t('Academias da rede')}</p>
           <div className="sa-mob-academy-list">
             {filteredRows.map((academyRow) => (
               <div
@@ -1427,7 +1429,7 @@ const SuperadminDashboardView: React.FC<SuperadminDashboardViewProps> = ({
                   <p className="sa-mob-academy-row__name">{academyRow.name}</p>
                 </div>
                 <span className="sa-mob-academy-row__meta">
-                  {formatNumber(academyRow.activeStudents)} alunos
+                  {t('{count} alunos', { count: formatNumber(academyRow.activeStudents) })}
                 </span>
                 <span className="sa-mob-academy-row__chevron" aria-hidden="true">›</span>
               </div>
@@ -1437,7 +1439,7 @@ const SuperadminDashboardView: React.FC<SuperadminDashboardViewProps> = ({
 
         {/* Faixas da base ativa */}
         <div className="sa-mob-section">
-          <p className="sa-mob-section__label">Faixas da base ativa</p>
+          <p className="sa-mob-section__label">{t('Faixas da base ativa')}</p>
           <div className="sa-mob-belt-grid">
             {beltBreakdown.map((entry) => (
               <div key={entry.key} className="sa-mob-belt-item">
@@ -1455,9 +1457,9 @@ const SuperadminDashboardView: React.FC<SuperadminDashboardViewProps> = ({
       <div className="superadmin-desktop">
         <header className="sa-desk-header">
           <div className="sa-desk-header__copy">
-            <h1 className="sa-desk-header__title">Visão geral</h1>
+            <h1 className="sa-desk-header__title">{t('Visão geral')}</h1>
             <p className="sa-desk-header__subtitle">
-              Acompanhe o desempenho da sua rede em tempo real.
+              {t('Acompanhe o desempenho da sua rede em tempo real.')}
             </p>
           </div>
           <div className="sa-desk-header__actions">
@@ -1467,7 +1469,7 @@ const SuperadminDashboardView: React.FC<SuperadminDashboardViewProps> = ({
             </div>
             {focusAcademyRow ? (
               <button type="button" onClick={onClearFocus} className="sa-clear-focus">
-                Ver rede inteira
+                {t('Ver rede inteira')}
               </button>
             ) : null}
           </div>
@@ -1494,9 +1496,9 @@ const SuperadminDashboardView: React.FC<SuperadminDashboardViewProps> = ({
               <AlertTriangle size={20} />
             </span>
             <div className="sa-kpi-card__body">
-              <p className="sa-kpi-card__label">Atenção</p>
+              <p className="sa-kpi-card__label">{t('Atenção')}</p>
               <p className="sa-kpi-card__value">{formatNumber(academiesInAttention)}</p>
-              <p className="sa-kpi-card__note">Requerem atenção</p>
+              <p className="sa-kpi-card__note">{t('Requerem atenção')}</p>
             </div>
           </article>
         </div>
@@ -1504,13 +1506,13 @@ const SuperadminDashboardView: React.FC<SuperadminDashboardViewProps> = ({
         <div className="sa-row sa-row--triple">
           <article className="sa-card">
             <div className="sa-card__head">
-              <h3 className="sa-card__title">Saúde da rede</h3>
+              <h3 className="sa-card__title">{t('Saúde da rede')}</h3>
             </div>
             <div className="sa-health">
               <div className="sa-donut" style={{ background: healthRingGradient }}>
                 <div className="sa-donut__core">
                   <strong>{activeShare}%</strong>
-                  <span>{academiesInAttention > 0 ? 'Em atenção' : 'Saudável'}</span>
+                  <span>{academiesInAttention > 0 ? t('Em atenção') : t('Saudável')}</span>
                 </div>
               </div>
               <ul className="sa-legend">
@@ -1530,13 +1532,13 @@ const SuperadminDashboardView: React.FC<SuperadminDashboardViewProps> = ({
 
           <article className="sa-card">
             <div className="sa-card__head">
-              <h3 className="sa-card__title">Distribuição por faixa</h3>
+              <h3 className="sa-card__title">{t('Distribuição por faixa')}</h3>
             </div>
             <div className="sa-health">
               <div className="sa-donut" style={{ background: beltRingGradient }}>
                 <div className="sa-donut__core">
                   <strong>{formatNumber(activeStudentBase)}</strong>
-                  <span>Alunos</span>
+                  <span>{t('Alunos')}</span>
                 </div>
               </div>
               <ul className="sa-legend sa-legend--compact">
@@ -1555,21 +1557,21 @@ const SuperadminDashboardView: React.FC<SuperadminDashboardViewProps> = ({
 
           <article className="sa-card">
             <div className="sa-card__head">
-              <h3 className="sa-card__title">Desempenho das academias</h3>
+              <h3 className="sa-card__title">{t('Desempenho das academias')}</h3>
             </div>
             <p className="sa-participation-note">
-              Últimas 72 horas. Cada aluno ativo com presença conta uma vez.
+              {t('Últimas 72 horas. Cada aluno ativo com presença conta uma vez.')}
             </p>
             {participationError && <p role="alert" className="sa-participation-note">
-              Não foi possível carregar a participação. Tente recarregar a página.
+              {t('Não foi possível carregar a participação. Tente recarregar a página.')}
             </p>}
             {performanceRows.length > 0 ? (
               <table className="sa-table">
                 <thead>
                   <tr>
-                    <th>Academia</th>
-                    <th>Alunos ativos</th>
-                    <th>Participação nos últimos 3 dias</th>
+                    <th>{t('Academia')}</th>
+                    <th>{t('Alunos ativos')}</th>
+                    <th>{t('Participação nos últimos 3 dias')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1588,11 +1590,11 @@ const SuperadminDashboardView: React.FC<SuperadminDashboardViewProps> = ({
                       <td>{formatNumber(row.activeStudents)}</td>
                       <td>
                         <div className="sa-participation">
-                          <strong>{!ready ? (participationError ? 'Indisponível' : 'Carregando…')
+                          <strong>{!ready ? (participationError ? t('Indisponível') : t('Carregando…'))
                             : row.activeStudents === 0 ? '—' : `${participation.percentage}%`}</strong>
                           {ready && <span>
-                            {row.activeStudents === 0 ? 'Sem alunos ativos'
-                              : `${formatNumber(participation.participatingStudents)} de ${formatNumber(row.activeStudents)} alunos ativos treinaram`}
+                            {row.activeStudents === 0 ? t('Sem alunos ativos')
+                              : t('{count} de {total} alunos ativos treinaram', { count: formatNumber(participation.participatingStudents), total: formatNumber(row.activeStudents) })}
                           </span>}
                         </div>
                       </td>
@@ -1602,7 +1604,7 @@ const SuperadminDashboardView: React.FC<SuperadminDashboardViewProps> = ({
                 </tbody>
               </table>
             ) : (
-              <div className="app-empty">Nenhuma academia disponível neste recorte.</div>
+              <div className="app-empty">{t('Nenhuma academia disponível neste recorte.')}</div>
             )}
           </article>
         </div>
@@ -1611,7 +1613,7 @@ const SuperadminDashboardView: React.FC<SuperadminDashboardViewProps> = ({
           <DailyTrainingChart data={dailyTraining} />
           <article className="sa-card">
             <div className="sa-card__head">
-              <h3 className="sa-card__title">Ranking de academias</h3>
+              <h3 className="sa-card__title">{t('Ranking de academias')}</h3>
             </div>
             {podiumOrder.length > 0 ? (
               <div className="sa-podium">
@@ -1627,20 +1629,20 @@ const SuperadminDashboardView: React.FC<SuperadminDashboardViewProps> = ({
                     <span className="sa-podium__rank">{item.rank}</span>
                     <p className="sa-podium__name">{item.name}</p>
                     <p className="sa-podium__metric">{formatNumber(item.averageAttendance)}</p>
-                    <p className="sa-podium__metric-label">Presença média</p>
+                    <p className="sa-podium__metric-label">{t('Presença média')}</p>
                     <p className="sa-podium__students">{formatNumber(item.activeStudents)}</p>
-                    <p className="sa-podium__students-label">Alunos ativos</p>
+                    <p className="sa-podium__students-label">{t('Alunos ativos')}</p>
                   </div>
                 ))}
               </div>
             ) : (
-              <div className="app-empty">Sem academias suficientes para o ranking.</div>
+              <div className="app-empty">{t('Sem academias suficientes para o ranking.')}</div>
             )}
           </article>
 
           <article className="sa-card">
             <div className="sa-card__head">
-              <h3 className="sa-card__title">Atividades recentes</h3>
+              <h3 className="sa-card__title">{t('Atividades recentes')}</h3>
             </div>
             {recentActivities.length > 0 ? (
               <ul className="sa-activity-list">
@@ -1658,7 +1660,7 @@ const SuperadminDashboardView: React.FC<SuperadminDashboardViewProps> = ({
                 ))}
               </ul>
             ) : (
-              <div className="app-empty">Nenhuma atividade recente registrada.</div>
+              <div className="app-empty">{t('Nenhuma atividade recente registrada.')}</div>
             )}
           </article>
         </div>
@@ -1671,7 +1673,7 @@ const SuperadminDashboardView: React.FC<SuperadminDashboardViewProps> = ({
                   <Building2 size={18} />
                 </span>
                 <div>
-                  <p className="app-section-label">Academia em foco</p>
+                  <p className="app-section-label">{t('Academia em foco')}</p>
                   <h3 className="sa-card__title">{focusAcademyRow.name}</h3>
                 </div>
               </div>
@@ -1685,10 +1687,10 @@ const SuperadminDashboardView: React.FC<SuperadminDashboardViewProps> = ({
               <span className="app-badge app-badge--gold">{focusAcademyRow.lastActivityLabel}</span>
               {focusAcademyRow.attentionReasons.length > 0 ? (
                 <span className="app-badge app-badge--danger">
-                  {formatNumber(focusAcademyRow.attentionReasons.length)} sinais ativos
+                  {t('{count} sinais ativos', { count: formatNumber(focusAcademyRow.attentionReasons.length) })}
                 </span>
               ) : (
-                <span className="app-badge app-badge--success">Operação estável</span>
+                <span className="app-badge app-badge--success">{t('Operação estável')}</span>
               )}
             </div>
 
@@ -1706,7 +1708,7 @@ const SuperadminDashboardView: React.FC<SuperadminDashboardViewProps> = ({
                 <div className="superadmin-subsection__header">
                   <div className="flex items-center gap-2">
                     <Activity size={16} />
-                    <strong>Resumo operacional</strong>
+                    <strong>{t('Resumo operacional')}</strong>
                   </div>
                   <span>{focusAcademyRow.timezone}</span>
                 </div>
@@ -1724,7 +1726,7 @@ const SuperadminDashboardView: React.FC<SuperadminDashboardViewProps> = ({
                 <div className="superadmin-subsection__header">
                   <div className="flex items-center gap-2">
                     <ShieldCheck size={16} />
-                    <strong>Instrutores da unidade</strong>
+                    <strong>{t('Instrutores da unidade')}</strong>
                   </div>
                   <span>{focusInstructors.length}</span>
                 </div>
@@ -1743,12 +1745,12 @@ const SuperadminDashboardView: React.FC<SuperadminDashboardViewProps> = ({
                           <p className="text-sm font-bold">{instructor.displayName}</p>
                           <p className="text-xs text-[color:var(--text-soft)]">{instructor.email}</p>
                         </div>
-                        <span className="app-badge app-badge--gold">Instrutor</span>
+                        <span className="app-badge app-badge--gold">{t('Instrutor')}</span>
                       </div>
                     ))}
                   </div>
                 ) : (
-                  <div className="app-empty">Nenhum instrutor ativo nesta unidade.</div>
+                  <div className="app-empty">{t('Nenhum instrutor ativo nesta unidade.')}</div>
                 )}
               </div>
             </div>
@@ -1759,10 +1761,10 @@ const SuperadminDashboardView: React.FC<SuperadminDashboardViewProps> = ({
           <>
             <div className="sa-focus-period">
               <div>
-                <p className="app-section-label">Período das estatísticas</p>
+                <p className="app-section-label">{t('Período das estatísticas')}</p>
                 <p className="sa-focus-period__hint">
                   {focusStatistics.periodLabel}
-                  {focusStatistics.usesClassCounterFallback ? ' · via contador da aula' : ''}
+                  {focusStatistics.usesClassCounterFallback ? ` · ${t('via contador da aula')}` : ''}
                 </p>
                 {focusStatistics.timeZoneWarning ? (
                   <p className="sa-warning-note">{focusStatistics.timeZoneWarning}</p>
@@ -1774,11 +1776,11 @@ const SuperadminDashboardView: React.FC<SuperadminDashboardViewProps> = ({
             <div className="sa-row sa-row--triple">
               <article className="sa-card">
                 <div className="sa-card__head">
-                  <h3 className="sa-card__title">Dias mais frequentados</h3>
+                  <h3 className="sa-card__title">{t('Dias mais frequentados')}</h3>
                   <span className="app-badge app-badge--muted">
                     {focusStatistics.peakWeekday
-                      ? `Pico: ${focusStatistics.peakWeekday.label}`
-                      : `${formatNumber(focusStatistics.finishedClassCount)} aulas`}
+                      ? t('Pico: {label}', { label: focusStatistics.peakWeekday.label })
+                      : t('{count} aulas', { count: formatNumber(focusStatistics.finishedClassCount) })}
                   </span>
                 </div>
                 {focusHasNoAttendances ? <p className="sa-focus-period__hint">{focusEmptyLabel}</p> : null}
@@ -1788,18 +1790,18 @@ const SuperadminDashboardView: React.FC<SuperadminDashboardViewProps> = ({
                     key: bucket.key,
                     label: bucket.label,
                     value: bucket.attendances,
-                    caption: `${formatNumber(bucket.classCount)} aulas`,
+                    caption: t('{count} aulas', { count: formatNumber(bucket.classCount) }),
                   }))}
                 />
               </article>
 
               <article className="sa-card">
                 <div className="sa-card__head">
-                  <h3 className="sa-card__title">Horários de pico</h3>
+                  <h3 className="sa-card__title">{t('Horários de pico')}</h3>
                   <span className="app-badge app-badge--muted">
                     {focusStatistics.peakHour
-                      ? `Pico: ${focusStatistics.peakHour.label}`
-                      : `${formatNumber(focusStatistics.finishedClassCount)} aulas`}
+                      ? t('Pico: {label}', { label: focusStatistics.peakHour.label })
+                      : t('{count} aulas', { count: formatNumber(focusStatistics.finishedClassCount) })}
                   </span>
                 </div>
                 <FocusBarList
@@ -1808,14 +1810,14 @@ const SuperadminDashboardView: React.FC<SuperadminDashboardViewProps> = ({
                     key: bucket.key,
                     label: bucket.label,
                     value: bucket.attendances,
-                    caption: `${formatNumber(bucket.classCount)} aulas`,
+                    caption: t('{count} aulas', { count: formatNumber(bucket.classCount) }),
                   }))}
                 />
               </article>
 
               <article className="sa-card">
                 <div className="sa-card__head">
-                  <h3 className="sa-card__title">Tendência mensal</h3>
+                  <h3 className="sa-card__title">{t('Tendência mensal')}</h3>
                   <TrendingUp size={16} />
                 </div>
                 <FocusBarList
@@ -1832,17 +1834,17 @@ const SuperadminDashboardView: React.FC<SuperadminDashboardViewProps> = ({
             <div className="sa-row sa-row--duo">
               <article className="sa-card">
                 <div className="sa-card__head">
-                  <h3 className="sa-card__title">Professores mais ativos</h3>
+                  <h3 className="sa-card__title">{t('Professores mais ativos')}</h3>
                   <span className="app-badge app-badge--gold">{formatNumber(focusStatistics.professors.length)}</span>
                 </div>
                 {focusStatistics.professors.length > 0 ? (
                   <table className="sa-table">
                     <thead>
                       <tr>
-                        <th>Professor</th>
-                        <th>Aulas</th>
-                        <th>Presenças</th>
-                        <th>Média</th>
+                        <th>{t('Professor')}</th>
+                        <th>{t('Aulas')}</th>
+                        <th>{t('Presenças')}</th>
+                        <th>{t('Média')}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -1857,50 +1859,50 @@ const SuperadminDashboardView: React.FC<SuperadminDashboardViewProps> = ({
                     </tbody>
                   </table>
                 ) : (
-                  <div className="app-empty">Nenhuma aula realizada com professor registrado.</div>
+                  <div className="app-empty">{t('Nenhuma aula realizada com professor registrado.')}</div>
                 )}
               </article>
 
               <article className="sa-card">
                 <div className="sa-card__head">
-                  <h3 className="sa-card__title">Aulas e ocupação</h3>
+                  <h3 className="sa-card__title">{t('Aulas e ocupação')}</h3>
                   <BarChart3 size={16} />
                 </div>
                 <div className="superadmin-focus-stats">
                   <div className="superadmin-mini-stat">
-                    <span>Ocupação média</span>
+                    <span>{t('Ocupação média')}</span>
                     <strong>{focusStatistics.occupancyRate}%</strong>
                   </div>
                   <div className="superadmin-mini-stat">
-                    <span>Presença média/aula</span>
+                    <span>{t('Presença média/aula')}</span>
                     <strong>{formatNumber(focusStatistics.avgPerClass)}</strong>
                   </div>
                   <div className="superadmin-mini-stat">
-                    <span>Aulas realizadas</span>
+                    <span>{t('Aulas realizadas')}</span>
                     <strong>{formatNumber(focusStatistics.finishedClassCount)}</strong>
                   </div>
                   <div className="superadmin-mini-stat">
-                    <span>Cancelamento</span>
+                    <span>{t('Cancelamento')}</span>
                     <strong>{focusStatistics.cancellationRate}%</strong>
                   </div>
                 </div>
                 <div className="superadmin-detail-list">
                   <div className="superadmin-detail-row">
-                    <span>Presenças totais</span>
+                    <span>{t('Presenças totais')}</span>
                     <strong>{formatNumber(focusStatistics.totalAttendances)}</strong>
                   </div>
                   <div className="superadmin-detail-row">
-                    <span>Agendadas / Ao vivo</span>
+                    <span>{t('Agendadas / Ao vivo')}</span>
                     <strong>
                       {formatNumber(focusStatistics.classStatusCounts.scheduled)} / {formatNumber(focusStatistics.classStatusCounts.active)}
                     </strong>
                   </div>
                   <div className="superadmin-detail-row">
-                    <span>Canceladas</span>
+                    <span>{t('Canceladas')}</span>
                     <strong>{formatNumber(focusStatistics.classStatusCounts.cancelled)}</strong>
                   </div>
                   <div className="superadmin-detail-row">
-                    <span>Tatame mais usado</span>
+                    <span>{t('Tatame mais usado')}</span>
                     <strong>
                       {focusStatistics.topTatame
                         ? `${focusStatistics.topTatame.name} (${formatNumber(focusStatistics.topTatame.classCount)})`
@@ -1914,13 +1916,13 @@ const SuperadminDashboardView: React.FC<SuperadminDashboardViewProps> = ({
             <div className="sa-row sa-row--duo">
               <article className="sa-card">
                 <div className="sa-card__head">
-                  <h3 className="sa-card__title">Faixas da unidade</h3>
+                  <h3 className="sa-card__title">{t('Faixas da unidade')}</h3>
                 </div>
                 <div className="sa-health">
                   <div className="sa-donut" style={{ background: focusStatistics.beltRingGradient }}>
                     <div className="sa-donut__core">
                       <strong>{formatNumber(focusStatistics.activeStudents)}</strong>
-                      <span>Alunos</span>
+                      <span>{t('Alunos')}</span>
                     </div>
                   </div>
                   <ul className="sa-legend sa-legend--compact">
@@ -1939,29 +1941,29 @@ const SuperadminDashboardView: React.FC<SuperadminDashboardViewProps> = ({
 
               <article className="sa-card">
                 <div className="sa-card__head">
-                  <h3 className="sa-card__title">Alunos da unidade</h3>
+                  <h3 className="sa-card__title">{t('Alunos da unidade')}</h3>
                   <Users size={16} />
                 </div>
                 <div className="superadmin-focus-stats">
                   <div className="superadmin-mini-stat">
-                    <span>Ativos</span>
+                    <span>{t('Ativos')}</span>
                     <strong>{formatNumber(focusStatistics.activeStudents)}</strong>
                   </div>
                   <div className="superadmin-mini-stat">
-                    <span>Novos (30d)</span>
+                    <span>{t('Novos (30d)')}</span>
                     <strong>{formatNumber(focusStatistics.newStudents)}</strong>
                   </div>
                   <div className="superadmin-mini-stat">
-                    <span>Em risco</span>
+                    <span>{t('Em risco')}</span>
                     <strong>{formatNumber(focusStatistics.atRiskStudents)}</strong>
                   </div>
                   <div className="superadmin-mini-stat">
-                    <span>Convidados</span>
+                    <span>{t('Convidados')}</span>
                     <strong>{formatNumber(focusStatistics.invitedStudents)}</strong>
                   </div>
                 </div>
                 <div className="sa-card__subhead">
-                  <strong>Top frequentadores</strong>
+                  <strong>{t('Top frequentadores')}</strong>
                   <span className="app-badge app-badge--muted">{focusStatistics.periodLabel}</span>
                 </div>
                 {focusStatistics.topStudents.length > 0 ? (
@@ -1969,12 +1971,12 @@ const SuperadminDashboardView: React.FC<SuperadminDashboardViewProps> = ({
                     {focusStatistics.topStudents.map((student) => (
                       <div key={student.id} className="superadmin-detail-row">
                         <span>{student.name}</span>
-                        <strong>{formatNumber(student.attendanceCount)} presenças</strong>
+                        <strong>{t('{count} presenças', { count: formatNumber(student.attendanceCount) })}</strong>
                       </div>
                     ))}
                   </div>
                 ) : (
-                  <div className="app-empty">Sem presenças registradas neste período.</div>
+                  <div className="app-empty">{t('Sem presenças registradas neste período.')}</div>
                 )}
               </article>
             </div>
