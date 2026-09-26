@@ -13,6 +13,7 @@ import StudentRoster from '../components/StudentRoster';
 import { useConfirm } from '../components/ConfirmDialog';
 import { isValidTimeZone } from '../calendarUtils';
 import { UserRole, type UserVideo } from '../types';
+import { t } from '../i18n';
 
 interface ManagementViewProps {
   userRole?: UserRole;
@@ -130,10 +131,10 @@ function TimezoneSelect({ value, onChange }: { value: string; onChange: (next: s
   return (
     <>
       <select value={current} onChange={(event) => onChange(event.target.value)} className="app-select">
-        {current ? null : <option value="">Selecione um fuso</option>}
+        {current ? null : <option value="">{t('Selecione um fuso')}</option>}
         {showCurrentAsExtra ? (
           <option value={current}>
-            {current} {isValidTimeZone(current) ? '(atual)' : '(atual · inválido)'}
+            {current} {isValidTimeZone(current) ? t('(atual)') : t('(atual · inválido)')}
           </option>
         ) : null}
         {TIMEZONE_OPTIONS.map((option) => (
@@ -142,7 +143,7 @@ function TimezoneSelect({ value, onChange }: { value: string; onChange: (next: s
       </select>
       {showCurrentAsExtra && !isValidTimeZone(current) ? (
         <span className="app-field__hint app-field__hint--danger">
-          Fuso inválido: as estatísticas por dia e horário ficam zeradas até corrigir.
+          {t('Fuso inválido: as estatísticas por dia e horário ficam zeradas até corrigir.')}
         </span>
       ) : null}
     </>
@@ -161,25 +162,25 @@ function FeedbackBlock({ success, error }: { success?: string; error?: string })
 function roleLabel(role: UserRecord['role']) {
   switch (role) {
     case 'admin':
-      return 'Professor';
+      return t('Professor');
     case 'professor':
-      return 'Instrutor';
+      return t('Instrutor');
     case 'superadmin':
-      return 'Superadmin';
+      return t('Superadmin');
     default:
-      return 'Aluno';
+      return t('Aluno');
   }
 }
 
 function roleTagLabel(role: UserRecord['role']) {
   switch (role) {
     case 'superadmin':
-      return 'Superadmin';
+      return t('Superadmin');
     case 'admin':
     case 'professor':
-      return 'Professor';
+      return t('Professor');
     default:
-      return 'Aluno';
+      return t('Aluno');
   }
 }
 
@@ -189,7 +190,7 @@ function getInitial(name: string) {
 
 function staffRankLabel(user: FirestoreEntity<UserRecord>) {
   const gradeValue = Number(user.grade ?? user.stripes ?? 0);
-  return `Faixa ${beltLabel(user.belt)} · ${gradeValue}º Grau`;
+  return `${t('Faixa {belt}', { belt: beltLabel(user.belt) })} · ${t('{degree}º Grau', { degree: gradeValue })}`;
 }
 
 const ManagementView: React.FC<ManagementViewProps> = ({
@@ -373,25 +374,25 @@ const ManagementView: React.FC<ManagementViewProps> = ({
     event.preventDefault();
 
     if (!hasManagedAcademy) {
-      setAcademyError('Selecione uma unidade para editar as configurações.');
+      setAcademyError(t('Selecione uma unidade para editar as configurações.'));
       setAcademyFeedback('');
       return;
     }
 
     if (academyStatus === 'suspended' && managedAcademy.status !== 'suspended') {
       if (!(await confirm({
-        title: 'Suspender academia',
-        message: 'Tem certeza que deseja SUSPENDER esta academia? Os alunos serão impedidos de acessar o sistema.',
-        confirmLabel: 'Suspender',
+        title: t('Suspender academia'),
+        message: t('Tem certeza que deseja SUSPENDER esta academia? Os alunos serão impedidos de acessar o sistema.'),
+        confirmLabel: t('Suspender'),
         tone: 'danger',
       }))) {
         return;
       }
     } else if (academyStatus === 'inactive' && managedAcademy.status === 'active') {
       if (!(await confirm({
-        title: 'Inativar academia',
-        message: 'Tem certeza que deseja inativar esta academia?',
-        confirmLabel: 'Inativar',
+        title: t('Inativar academia'),
+        message: t('Tem certeza que deseja inativar esta academia?'),
+        confirmLabel: t('Inativar'),
         tone: 'danger',
       }))) {
         return;
@@ -411,9 +412,9 @@ const ManagementView: React.FC<ManagementViewProps> = ({
         classCheckinWindowMinutes: checkinWindow,
         masterBlackLimit,
       });
-      setAcademyFeedback('Academia atualizada com sucesso.');
+      setAcademyFeedback(t('Academia atualizada com sucesso.'));
     } catch (submitError) {
-      setAcademyError(submitError instanceof Error ? submitError.message : 'Não foi possível salvar a academia.');
+      setAcademyError(submitError instanceof Error ? submitError.message : t('Não foi possível salvar a academia.'));
     } finally {
       setAcademyBusy(false);
     }
@@ -437,9 +438,9 @@ const ManagementView: React.FC<ManagementViewProps> = ({
       setAcademyCreateSlug('');
       setAcademyCreateTimezone('America/Sao_Paulo');
       setAcademyCreateMasterBlackLimit(1);
-      setAcademyFeedback('Nova academia criada com sucesso.');
+      setAcademyFeedback(t('Nova academia criada com sucesso.'));
     } catch (submitError) {
-      setAcademyError(submitError instanceof Error ? submitError.message : 'Não foi possível criar a academia.');
+      setAcademyError(submitError instanceof Error ? submitError.message : t('Não foi possível criar a academia.'));
     } finally {
       setCreateAcademyBusy(false);
     }
@@ -452,7 +453,7 @@ const ManagementView: React.FC<ManagementViewProps> = ({
     const academyExists = academies.some((entry) => entry.id === userAcademyId);
 
     if (requiresExistingAcademy && !academyExists) {
-      setUserError('Selecione uma unidade existente para este acesso.');
+      setUserError(t('Selecione uma unidade existente para este acesso.'));
       setUserFeedback('');
       return;
     }
@@ -487,9 +488,9 @@ const ManagementView: React.FC<ManagementViewProps> = ({
       setPhone('');
       setBelt(staffBeltPresets[0]);
       setGrade(0);
-      setUserFeedback('Acesso criado com sucesso.');
+      setUserFeedback(t('Acesso criado com sucesso.'));
     } catch (submitError) {
-      setUserError(submitError instanceof Error ? submitError.message : 'Não foi possível criar o acesso.');
+      setUserError(submitError instanceof Error ? submitError.message : t('Não foi possível criar o acesso.'));
     } finally {
       setUserBusy(false);
     }
@@ -500,15 +501,15 @@ const ManagementView: React.FC<ManagementViewProps> = ({
   const networkLeaders = allUsers.filter((entry) => entry.role !== 'student').length;
   const networkStudents = allUsers.filter((entry) => entry.role === 'student').length;
   const focusLabel = isEmptyNetwork
-    ? 'Rede LEVEL'
+    ? t('Rede LEVEL')
     : isAwaitingAcademyFocus
-      ? 'Selecione uma unidade'
+      ? t('Selecione uma unidade')
       : managedAcademy.name;
   const focusDescription = isEmptyNetwork
-    ? 'Crie a primeira unidade da LEVEL para liberar a operação da rede.'
+    ? t('Crie a primeira unidade da LEVEL para liberar a operação da rede.')
     : isAwaitingAcademyFocus
-      ? 'Escolha uma unidade para editar configurações, acompanhar alunos e ajustar regras locais.'
-      : 'Ajuste operação, equipe e regras da unidade em foco.';
+      ? t('Escolha uma unidade para editar configurações, acompanhar alunos e ajustar regras locais.')
+      : t('Ajuste operação, equipe e regras da unidade em foco.');
   const filteredInstructors = useMemo(() => {
     const query = peopleSearch.trim().toLocaleLowerCase('pt-BR');
     if (!query) {
@@ -530,7 +531,7 @@ const ManagementView: React.FC<ManagementViewProps> = ({
   }, [peopleSearch, sortedInstructors]);
 
   const sectionTabs = (
-    <div className="app-segment app-segment--block" role="tablist" aria-label="Seções da academia">
+    <div className="app-segment app-segment--block" role="tablist" aria-label={t('Seções da academia')}>
       <button
         type="button"
         role="tab"
@@ -538,7 +539,7 @@ const ManagementView: React.FC<ManagementViewProps> = ({
         onClick={() => setManagementSection('overview')}
         className={`app-segment__button ${managementSection === 'overview' ? 'is-active' : ''}`}
       >
-        Visão geral
+        {t('Visão geral')}
       </button>
       <button
         type="button"
@@ -547,7 +548,7 @@ const ManagementView: React.FC<ManagementViewProps> = ({
         onClick={() => setManagementSection('students')}
         className={`app-segment__button ${managementSection === 'students' ? 'is-active' : ''}`}
       >
-        Alunos
+        {t('Alunos')}
       </button>
     </div>
   );
@@ -558,7 +559,7 @@ const ManagementView: React.FC<ManagementViewProps> = ({
         <section className="app-panel app-panel-pad">
           <div className="flex flex-col gap-4">
             <div>
-              <p className="app-section-label">Academia em foco</p>
+              <p className="app-section-label">{t('Academia em foco')}</p>
               <h2 className="mt-2 text-xl font-bold">{focusLabel}</h2>
               <p className="mt-2 text-sm text-[color:var(--text-muted)]">{focusDescription}</p>
             </div>
@@ -573,10 +574,10 @@ const ManagementView: React.FC<ManagementViewProps> = ({
             rankingAttendances={rankingAttendances}
             classes={classes}
             academyName={managedAcademy.name}
-            kicker="Alunos da academia"
-            title="Todos os alunos da sua unidade com filtros e leitura rápida."
-            description="Pesquise por nome, filtre por faixa e grau e abra o detalhe completo de cada aluno."
-            emptyResultsMessage={students.length === 0 ? 'Nenhum aluno cadastrado nesta academia.' : 'Nenhum aluno encontrado com os filtros atuais.'}
+            kicker={t('Alunos da academia')}
+            title={t('Todos os alunos da sua unidade com filtros e leitura rápida.')}
+            description={t('Pesquise por nome, filtre por faixa e grau e abra o detalhe completo de cada aluno.')}
+            emptyResultsMessage={students.length === 0 ? t('Nenhum aluno cadastrado nesta academia.') : t('Nenhum aluno encontrado com os filtros atuais.')}
             onUpdateStudentBeltGrade={onUpdateStudentBeltGrade}
             onSetStudentAttendanceBonus={onSetStudentAttendanceBonus}
             onAdminUpdateStudentProfile={onAdminUpdateStudentProfile}
@@ -591,35 +592,35 @@ const ManagementView: React.FC<ManagementViewProps> = ({
             <section className="academy-mobile__stats">
               <article className="academy-mobile__stat-card">
                 <p className="academy-mobile__stat-value">{sortedInstructors.length}</p>
-                <p className="academy-mobile__stat-label">Instrutores</p>
+                <p className="academy-mobile__stat-label">{t('Instrutores')}</p>
               </article>
 
               <article className="academy-mobile__stat-card">
                 <p className="academy-mobile__stat-value">{activeStudents.length}</p>
-                <p className="academy-mobile__stat-label">Alunos ativos</p>
+                <p className="academy-mobile__stat-label">{t('Alunos ativos')}</p>
               </article>
 
               <article className="academy-mobile__stat-card">
                 <p className="academy-mobile__stat-value">{inactiveStudents.length}</p>
-                <p className="academy-mobile__stat-label">Alunos inativos</p>
+                <p className="academy-mobile__stat-label">{t('Alunos inativos')}</p>
               </article>
 
               <article className="academy-mobile__stat-card">
                 <p className="academy-mobile__stat-value">{activeClasses}</p>
-                <p className="academy-mobile__stat-label">Aulas ativas</p>
+                <p className="academy-mobile__stat-label">{t('Aulas ativas')}</p>
               </article>
             </section>
 
             <section className="academy-mobile__section">
               <div className="academy-mobile__section-head">
-                <p className="academy-mobile__section-label">Equipe de instrutores</p>
+                <p className="academy-mobile__section-label">{t('Equipe de instrutores')}</p>
                 <input
                   type="search"
                   value={peopleSearch}
                   onChange={(event) => setPeopleSearch(event.target.value)}
                   className="app-input academy-mobile__search-input"
-                  placeholder="Buscar pessoas"
-                  aria-label="Buscar pessoas da academia"
+                  placeholder={t('Buscar pessoas')}
+                  aria-label={t('Buscar pessoas da academia')}
                 />
               </div>
 
@@ -638,9 +639,9 @@ const ManagementView: React.FC<ManagementViewProps> = ({
                     </article>
                   ))
                 ) : sortedInstructors.length > 0 ? (
-                  <div className="academy-mobile__empty">Nenhuma pessoa encontrada para essa busca.</div>
+                  <div className="academy-mobile__empty">{t('Nenhuma pessoa encontrada para essa busca.')}</div>
                 ) : (
-                  <div className="academy-mobile__empty">Nenhum instrutor vinculado a esta academia ainda.</div>
+                  <div className="academy-mobile__empty">{t('Nenhum instrutor vinculado a esta academia ainda.')}</div>
                 )}
               </div>
             </section>
@@ -658,7 +659,7 @@ const ManagementView: React.FC<ManagementViewProps> = ({
         ) : (
           <section className="academy-mobile__section">
             <div className="academy-mobile__empty">
-              Selecione uma unidade para visualizar equipe e operação local.
+              {t('Selecione uma unidade para visualizar equipe e operação local.')}
             </div>
           </section>
         )}
@@ -684,20 +685,20 @@ const ManagementView: React.FC<ManagementViewProps> = ({
       <section className="app-panel app-panel-pad">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
-            <p className="app-section-label">{isSuperAdmin ? 'Gestão da rede' : 'Academia em foco'}</p>
+            <p className="app-section-label">{isSuperAdmin ? t('Gestão da rede') : t('Academia em foco')}</p>
             <h2 className="mt-2 text-xl font-bold">{focusLabel}</h2>
             <p className="mt-2 text-sm text-[color:var(--text-muted)]">{focusDescription}</p>
           </div>
 
           {isSuperAdmin && onSelectAcademy ? (
             <label className="app-field min-w-[18rem]">
-              <span className="app-field__label">Unidade selecionada</span>
+              <span className="app-field__label">{t('Unidade selecionada')}</span>
               <select
                 value={selectedAcademyId ?? ''}
                 onChange={(event) => onSelectAcademy(event.target.value)}
                 className="app-select"
               >
-                <option value="">{hasAnyAcademy ? 'Nenhuma unidade selecionada' : 'Nenhuma unidade criada'}</option>
+                <option value="">{hasAnyAcademy ? t('Nenhuma unidade selecionada') : t('Nenhuma unidade criada')}</option>
                 {academies.map((entry) => (
                   <option key={entry.id} value={entry.id}>{entry.name}</option>
                 ))}
@@ -719,10 +720,10 @@ const ManagementView: React.FC<ManagementViewProps> = ({
             rankingAttendances={rankingAttendances}
             classes={classes}
             academyName={managedAcademy.name}
-            kicker="Alunos da academia"
-            title="Todos os alunos da unidade em uma leitura pronta para operação."
-            description="Use busca, faixa, grau e ordenação para encontrar rapidamente quem você precisa."
-            emptyResultsMessage={students.length === 0 ? 'Nenhum aluno cadastrado nesta academia.' : 'Nenhum aluno encontrado com os filtros atuais.'}
+            kicker={t('Alunos da academia')}
+            title={t('Todos os alunos da unidade em uma leitura pronta para operação.')}
+            description={t('Use busca, faixa, grau e ordenação para encontrar rapidamente quem você precisa.')}
+            emptyResultsMessage={students.length === 0 ? t('Nenhum aluno cadastrado nesta academia.') : t('Nenhum aluno encontrado com os filtros atuais.')}
             onUpdateStudentBeltGrade={onUpdateStudentBeltGrade}
             onSetStudentAttendanceBonus={onSetStudentAttendanceBonus}
             onAdminUpdateStudentProfile={onAdminUpdateStudentProfile}
@@ -736,8 +737,8 @@ const ManagementView: React.FC<ManagementViewProps> = ({
           <section className="app-panel app-panel-pad">
             <div className="app-empty">
               {isEmptyNetwork
-                ? 'A rede ainda não tem nenhuma unidade. Use o formulário abaixo para cadastrar a primeira unidade da LEVEL.'
-                : 'Selecione uma unidade para abrir os alunos daquela academia.'}
+                ? t('A rede ainda não tem nenhuma unidade. Use o formulário abaixo para cadastrar a primeira unidade da LEVEL.')
+                : t('Selecione uma unidade para abrir os alunos daquela academia.')}
             </div>
           </section>
         )
@@ -745,22 +746,22 @@ const ManagementView: React.FC<ManagementViewProps> = ({
         <>
       <section className="app-stat-grid management-kpi-grid">
         <article className="app-panel app-panel-pad">
-          <p className="app-stat-card__label">{hasManagedAcademy ? 'Instrutores' : 'Unidades'}</p>
+          <p className="app-stat-card__label">{hasManagedAcademy ? t('Instrutores') : t('Unidades')}</p>
           <p className="app-stat-card__value">{hasManagedAcademy ? instructors.length : academies.length}</p>
         </article>
         <article className="app-panel app-panel-pad">
-          <p className="app-stat-card__label">{hasManagedAcademy ? 'Alunos ativos' : 'Alunos na rede'}</p>
+          <p className="app-stat-card__label">{hasManagedAcademy ? t('Alunos ativos') : t('Alunos na rede')}</p>
           <p className="app-stat-card__value">{hasManagedAcademy ? activeStudents.length : networkStudents}</p>
         </article>
         <article className="app-panel app-panel-pad">
-          <p className="app-stat-card__label">{hasManagedAcademy ? 'Alunos inativos' : 'Lideranças'}</p>
+          <p className="app-stat-card__label">{hasManagedAcademy ? t('Alunos inativos') : t('Lideranças')}</p>
           <p className="app-stat-card__value">
             {hasManagedAcademy ? inactiveStudents.length : networkLeaders}
           </p>
         </article>
         <article className="app-panel app-panel-pad">
-          <p className="app-stat-card__label">{hasManagedAcademy ? 'Aulas ativas' : 'Status da rede'}</p>
-          <p className="app-stat-card__value">{hasManagedAcademy ? activeClasses : (hasAnyAcademy ? 'Pronta' : 'Inicial')}</p>
+          <p className="app-stat-card__label">{hasManagedAcademy ? t('Aulas ativas') : t('Status da rede')}</p>
+          <p className="app-stat-card__value">{hasManagedAcademy ? activeClasses : (hasAnyAcademy ? t('Pronta') : t('Inicial'))}</p>
         </article>
       </section>
 
@@ -773,8 +774,8 @@ const ManagementView: React.FC<ManagementViewProps> = ({
               <ShieldCheck size={18} />
             </div>
             <div>
-              <p className="app-section-label">Instrutores</p>
-              <h2 className="text-xl font-bold">Equipe da academia</h2>
+              <p className="app-section-label">{t('Instrutores')}</p>
+              <h2 className="text-xl font-bold">{t('Equipe da academia')}</h2>
             </div>
           </div>
 
@@ -807,7 +808,7 @@ const ManagementView: React.FC<ManagementViewProps> = ({
             })}
 
             {instructors.length === 0 ? (
-              <div className="app-empty">Nenhum instrutor vinculado a esta academia ainda.</div>
+              <div className="app-empty">{t('Nenhum instrutor vinculado a esta academia ainda.')}</div>
             ) : null}
           </div>
         </article>
@@ -818,8 +819,8 @@ const ManagementView: React.FC<ManagementViewProps> = ({
               <Users size={18} />
             </div>
             <div>
-              <p className="app-section-label">Alunos</p>
-              <h2 className="text-xl font-bold">Base de alunos</h2>
+              <p className="app-section-label">{t('Alunos')}</p>
+              <h2 className="text-xl font-bold">{t('Base de alunos')}</h2>
             </div>
           </div>
 
@@ -830,7 +831,7 @@ const ManagementView: React.FC<ManagementViewProps> = ({
                   <div>
                     <p className="text-sm font-bold">{entry.displayName}</p>
                     <p className="mt-1 text-xs text-[color:var(--text-soft)]">
-                      {entry.attendanceCount} presenças • faixa {beltLabel(entry.belt)}
+                      {t('{count} presenças • faixa {belt}', { count: entry.attendanceCount, belt: beltLabel(entry.belt) })}
                     </p>
                   </div>
                   <span className="app-badge app-badge--muted">{entry.status}</span>
@@ -839,7 +840,7 @@ const ManagementView: React.FC<ManagementViewProps> = ({
             ))}
 
             {students.length === 0 ? (
-              <div className="app-empty">Nenhum aluno cadastrado nesta academia.</div>
+              <div className="app-empty">{t('Nenhum aluno cadastrado nesta academia.')}</div>
             ) : null}
           </div>
         </article>
@@ -859,15 +860,15 @@ const ManagementView: React.FC<ManagementViewProps> = ({
         <section className="app-panel app-panel-pad">
           <div className="app-empty">
             {isEmptyNetwork
-              ? 'A rede ainda não tem nenhuma unidade. Use o formulário abaixo para cadastrar a primeira unidade da LEVEL.'
-              : 'Selecione uma unidade para abrir equipe, alunos e configurações locais.'}
+              ? t('A rede ainda não tem nenhuma unidade. Use o formulário abaixo para cadastrar a primeira unidade da LEVEL.')
+              : t('Selecione uma unidade para abrir equipe, alunos e configurações locais.')}
           </div>
         </section>
       )}
 
       {!canManage ? (
         <div className="app-empty">
-          Este perfil tem apenas visualização. As configurações da academia ficam disponíveis para professores e superadmins.
+          {t('Este perfil tem apenas visualização. As configurações da academia ficam disponíveis para professores e superadmins.')}
         </div>
       ) : (
         <>
@@ -878,8 +879,8 @@ const ManagementView: React.FC<ManagementViewProps> = ({
                   <Settings2 size={18} />
                 </div>
                 <div>
-                  <p className="app-section-label">Configurações</p>
-                  <h2 className="text-xl font-bold">Ajustes da academia</h2>
+                  <p className="app-section-label">{t('Configurações')}</p>
+                  <h2 className="text-xl font-bold">{t('Ajustes da academia')}</h2>
                 </div>
               </div>
 
@@ -889,39 +890,39 @@ const ManagementView: React.FC<ManagementViewProps> = ({
 
               <div className="mt-6 app-grid-2">
                 <label className="app-field">
-                  <span className="app-field__label">Nome</span>
+                  <span className="app-field__label">{t('Nome')}</span>
                   <input value={academyName} onChange={(event) => setAcademyName(event.target.value)} className="app-input" />
                 </label>
                 <label className="app-field">
-                  <span className="app-field__label">Timezone</span>
+                  <span className="app-field__label">{t('Timezone')}</span>
                   <TimezoneSelect value={academyTimezone} onChange={setAcademyTimezone} />
                 </label>
                 <label className="app-field">
-                  <span className="app-field__label">Status</span>
+                  <span className="app-field__label">{t('Status')}</span>
                   <select value={academyStatus} onChange={(event) => setAcademyStatus(event.target.value as 'active' | 'inactive' | 'suspended')} className="app-select">
-                    <option value="active">Ativa</option>
-                    <option value="inactive">Inativa</option>
-                    <option value="suspended">Suspensa</option>
+                    <option value="active">{t('Ativa')}</option>
+                    <option value="inactive">{t('Inativa')}</option>
+                    <option value="suspended">{t('Suspensa')}</option>
                   </select>
                 </label>
                 <label className="app-field">
-                  <span className="app-field__label">Janela de check-in (min)</span>
+                  <span className="app-field__label">{t('Janela de check-in (min)')}</span>
                   <input type="number" min={1} value={checkinWindow} onChange={(event) => setCheckinWindow(Number(event.target.value))} className="app-input" />
                 </label>
                 <label className="app-field">
-                  <span className="app-field__label">Limite de master black</span>
+                  <span className="app-field__label">{t('Limite de master black')}</span>
                   <input type="number" min={0} value={masterBlackLimit} onChange={(event) => setMasterBlackLimit(Number(event.target.value))} className="app-input" />
                 </label>
               </div>
 
               <button type="submit" disabled={academyBusy} className="app-button app-button--gold mt-6">
                 <Save size={16} />
-                {academyBusy ? 'Salvando...' : 'Salvar academia'}
+                {academyBusy ? t('Salvando...') : t('Salvar academia')}
               </button>
             </form>
           ) : (
             <section className="app-panel app-panel-pad">
-              <div className="app-empty">As configurações locais ficam disponíveis assim que você selecionar uma unidade.</div>
+              <div className="app-empty">{t('As configurações locais ficam disponíveis assim que você selecionar uma unidade.')}</div>
             </section>
           )}
 
@@ -932,33 +933,33 @@ const ManagementView: React.FC<ManagementViewProps> = ({
                   <Building2 size={18} />
                 </div>
                 <div>
-                  <p className="app-section-label">Nova academia</p>
-                  <h2 className="text-xl font-bold">Criar unidade</h2>
+                  <p className="app-section-label">{t('Nova academia')}</p>
+                  <h2 className="text-xl font-bold">{t('Criar unidade')}</h2>
                 </div>
               </div>
 
               <div className="mt-6 app-grid-2">
                 <label className="app-field">
-                  <span className="app-field__label">Nome</span>
+                  <span className="app-field__label">{t('Nome')}</span>
                   <input value={academyCreateName} onChange={(event) => setAcademyCreateName(event.target.value)} className="app-input" required />
                 </label>
                 <label className="app-field">
-                  <span className="app-field__label">Slug</span>
+                  <span className="app-field__label">{t('Slug')}</span>
                   <input value={academyCreateSlug} onChange={(event) => setAcademyCreateSlug(event.target.value)} className="app-input" placeholder="level-centro" />
                 </label>
                 <label className="app-field">
-                  <span className="app-field__label">Timezone</span>
+                  <span className="app-field__label">{t('Timezone')}</span>
                   <TimezoneSelect value={academyCreateTimezone} onChange={setAcademyCreateTimezone} />
                 </label>
                 <label className="app-field">
-                  <span className="app-field__label">Limite master black</span>
+                  <span className="app-field__label">{t('Limite master black')}</span>
                   <input type="number" min={0} value={academyCreateMasterBlackLimit} onChange={(event) => setAcademyCreateMasterBlackLimit(Number(event.target.value))} className="app-input" />
                 </label>
               </div>
 
               <button type="submit" disabled={createAcademyBusy} className="app-button app-button--dark mt-6">
                 <ShieldCheck size={16} />
-                {createAcademyBusy ? 'Criando...' : 'Criar academia'}
+                {createAcademyBusy ? t('Criando...') : t('Criar academia')}
               </button>
             </form>
           ) : null}
@@ -970,8 +971,8 @@ const ManagementView: React.FC<ManagementViewProps> = ({
                 <UserPlus size={18} />
               </div>
               <div>
-                <p className="app-section-label">Acessos</p>
-                <h2 className="text-xl font-bold">Criar usuário</h2>
+                <p className="app-section-label">{t('Acessos')}</p>
+                <h2 className="text-xl font-bold">{t('Criar usuário')}</h2>
               </div>
             </div>
 
@@ -981,31 +982,31 @@ const ManagementView: React.FC<ManagementViewProps> = ({
 
             <div className="mt-6 app-grid-2">
               <label className="app-field">
-                <span className="app-field__label">Nome</span>
+                <span className="app-field__label">{t('Nome')}</span>
                 <input value={firstName} onChange={(event) => setFirstName(event.target.value)} className="app-input" required />
               </label>
               <label className="app-field">
-                <span className="app-field__label">Sobrenome</span>
+                <span className="app-field__label">{t('Sobrenome')}</span>
                 <input value={lastName} onChange={(event) => setLastName(event.target.value)} className="app-input" required />
               </label>
               <label className="app-field">
-                <span className="app-field__label">E-mail</span>
+                <span className="app-field__label">{t('E-mail')}</span>
                 <input type="email" value={email} onChange={(event) => setEmail(event.target.value)} className="app-input" required />
               </label>
               <label className="app-field">
-                <span className="app-field__label">Senha temporária</span>
+                <span className="app-field__label">{t('Senha temporária')}</span>
                 <input type="password" value={password} onChange={(event) => setPassword(event.target.value)} className="app-input" required />
               </label>
               <label className="app-field">
-                <span className="app-field__label">Perfil</span>
+                <span className="app-field__label">{t('Perfil')}</span>
                 <select value={role} onChange={(event) => setRole(event.target.value as 'professor' | 'superadmin')} className="app-select">
-                  <option value="professor">Professor</option>
-                  {isSuperAdmin ? <option value="superadmin">Superadmin</option> : null}
+                  <option value="professor">{t('Professor')}</option>
+                  {isSuperAdmin ? <option value="superadmin">{t('Superadmin')}</option> : null}
                 </select>
               </label>
               {isSuperAdmin ? (
                 <label className="app-field">
-                  <span className="app-field__label">Unidade do acesso</span>
+                  <span className="app-field__label">{t('Unidade do acesso')}</span>
                   <select
                     value={role === 'superadmin' ? '' : userAcademyId}
                     onChange={(event) => setUserAcademyId(event.target.value)}
@@ -1013,39 +1014,39 @@ const ManagementView: React.FC<ManagementViewProps> = ({
                     disabled={role === 'superadmin'}
                     required={role !== 'superadmin'}
                   >
-                    <option value="">{role === 'superadmin' ? 'Acesso global do superadmin' : 'Selecione uma unidade'}</option>
+                    <option value="">{role === 'superadmin' ? t('Acesso global do superadmin') : t('Selecione uma unidade')}</option>
                     {academies.map((entry) => (
                       <option key={entry.id} value={entry.id}>{entry.name}</option>
                     ))}
                   </select>
                   <span className="app-field__hint">
-                    Professores e alunos ficam vinculados a uma única unidade existente. Para master black, use Professor com faixa preta. Apenas superadmin acessa toda a rede.
+                    {t('Professores e alunos ficam vinculados a uma única unidade existente. Para master black, use Professor com faixa preta. Apenas superadmin acessa toda a rede.')}
                   </span>
                 </label>
               ) : null}
               <label className="app-field">
-                <span className="app-field__label">Telefone</span>
+                <span className="app-field__label">{t('Telefone')}</span>
                 <input value={phone} onChange={(event) => setPhone(event.target.value)} className="app-input" />
               </label>
               <label className="app-field">
-                <span className="app-field__label">Faixa</span>
+                <span className="app-field__label">{t('Faixa')}</span>
 	                <select value={belt} onChange={(event) => setBelt(event.target.value)} className="app-select">
 	                  {staffBeltPresets.map((entry) => <option key={entry} value={entry}>{beltLabel(entry)}</option>)}
 	                </select>
               </label>
               <label className="app-field">
-                <span className="app-field__label">Grau</span>
+                <span className="app-field__label">{t('Grau')}</span>
                 <input type="number" min={0} value={grade} onChange={(event) => setGrade(Number(event.target.value))} className="app-input" />
               </label>
             </div>
 
             {!hasAnyAcademy && role !== 'superadmin' ? (
-              <div className="app-empty mt-6">Crie a primeira unidade antes de cadastrar acessos vinculados a unidades.</div>
+              <div className="app-empty mt-6">{t('Crie a primeira unidade antes de cadastrar acessos vinculados a unidades.')}</div>
             ) : null}
 
             <button type="submit" disabled={userBusy || (!hasAnyAcademy && role !== 'superadmin')} className="app-button app-button--gold mt-6">
               <UserPlus size={16} />
-              {userBusy ? 'Criando...' : 'Criar acesso'}
+              {userBusy ? t('Criando...') : t('Criar acesso')}
             </button>
             </form>
           ) : null}
