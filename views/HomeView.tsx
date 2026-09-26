@@ -10,6 +10,7 @@ import ProgressBar from '../components/ProgressBar';
 import { CommitmentBar } from '../components/CommitmentBar';
 import type { CommitmentResult } from '../commitmentScale';
 import type { User } from '../types';
+import { t, getLocale } from '../i18n';
 
 interface HomeViewProps {
   user: User;
@@ -49,15 +50,15 @@ const HomeView: React.FC<HomeViewProps> = ({
               <Trophy size={18} />
             </div>
             <div>
-              <p className="app-section-label">Minha jornada</p>
-              <h2 className="text-2xl font-bold">Progresso de faixa e grau</h2>
+              <p className="app-section-label">{t('Minha jornada')}</p>
+              <h2 className="text-2xl font-bold">{t('Progresso de faixa e grau')}</h2>
             </div>
           </div>
         </div>
         <p className="app-section-copy mt-4">
           {blackBeltProgress
-            ? `${blackBeltProgress.title} desde ${blackBeltProgress.startDate.getFullYear()} · ${blackBeltProgress.years} ${blackBeltProgress.years === 1 ? 'ano' : 'anos'} de faixa preta.`
-            : `Última graduação em ${new Date(user.lastGraduation).toLocaleDateString('pt-BR')}.`}
+            ? `${blackBeltProgress.title} ${t('desde')} ${blackBeltProgress.startDate.getFullYear()} · ${blackBeltProgress.years === 1 ? t('1 ano de faixa preta') : t('{years} anos de faixa preta', { years: blackBeltProgress.years })}.`
+            : t('Última graduação em {date}.', { date: new Date(user.lastGraduation).toLocaleDateString(getLocale()) })}
         </p>
 
         <div className="mt-6">
@@ -66,23 +67,25 @@ const HomeView: React.FC<HomeViewProps> = ({
 
         {blackBeltProgress ? (
           <div className="mt-6 space-y-2">
-            <p className="text-lg font-bold">{blackBeltProgress.degreeLabel || 'Faixa preta lisa'}</p>
+            <p className="text-lg font-bold">{blackBeltProgress.degreeLabel || t('Faixa preta lisa')}</p>
             <p className="app-section-copy">
               {blackBeltProgress.styleNote ? `${blackBeltProgress.styleNote}. ` : ''}
               {blackBeltProgress.nextDegree != null && blackBeltProgress.yearsToNextDegree != null
-                ? `Faltam ${blackBeltProgress.yearsToNextDegree} ${blackBeltProgress.yearsToNextDegree === 1 ? 'ano' : 'anos'} para o ${blackBeltProgress.nextDegree}º grau.`
-                : 'Grau máximo alcançado.'}
+                ? (blackBeltProgress.yearsToNextDegree === 1
+                  ? t('Falta 1 ano para o {degree}º grau.', { degree: blackBeltProgress.nextDegree })
+                  : t('Faltam {years} anos para o {degree}º grau.', { years: blackBeltProgress.yearsToNextDegree, degree: blackBeltProgress.nextDegree }))
+                : t('Grau máximo alcançado.')}
             </p>
           </div>
         ) : (
           <div className="mt-6 space-y-5">
             <ProgressBar
-              label="Próximo grau"
+              label={t('Próximo grau')}
               current={progression.stripeCycleProgress}
               total={progression.stripeCycleTotal}
             />
             <ProgressBar
-              label="Próxima faixa"
+              label={t('Próxima faixa')}
               current={progression.beltProgress}
               total={progression.beltTotal}
             />
@@ -96,14 +99,14 @@ const HomeView: React.FC<HomeViewProps> = ({
             <CalIcon size={18} />
           </div>
           <div>
-            <p className="app-section-label">Frequência mensal</p>
-            <h2 className="text-xl font-bold">Mapa de presenças do mês</h2>
+            <p className="app-section-label">{t('Frequência mensal')}</p>
+            <h2 className="text-xl font-bold">{t('Mapa de presenças do mês')}</h2>
           </div>
         </div>
 
         {commitment ? (
           <div className="mt-6">
-            <CommitmentBar commitment={commitment} title="Comprometimento" />
+            <CommitmentBar commitment={commitment} title={t('Comprometimento')} />
           </div>
         ) : null}
 
@@ -126,7 +129,7 @@ const HomeView: React.FC<HomeViewProps> = ({
         </div>
 
         <div className="mt-6 flex items-center justify-between rounded-[1.4rem] border border-white/10 bg-white/10 px-4 py-4">
-          <span className="text-sm text-[color:var(--text-muted)]">Total de treinos no mês</span>
+          <span className="text-sm text-[color:var(--text-muted)]">{t('Total de treinos no mês')}</span>
           <strong className="text-2xl font-bold text-[color:var(--gold-mid)]">{monthlyAttendanceCount}</strong>
         </div>
       </section>

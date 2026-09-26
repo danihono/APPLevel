@@ -8,6 +8,7 @@ import {
 import type { FirestoreEntity } from '../services/firebase/data';
 import type { GraduationRecord } from '../services/firebase/models';
 import BjjBelt from './BjjBelt';
+import { t, getLocale } from '../i18n';
 
 interface GraduationCelebrationModalProps {
   graduation: FirestoreEntity<GraduationRecord>;
@@ -27,13 +28,13 @@ const GraduationCelebrationModal: React.FC<GraduationCelebrationModalProps> = ({
   const previousBelt = normalizeBeltId(graduation.previousBelt);
   const newBelt = normalizeBeltId(graduation.newBelt);
   const targetMeta = getBeltMeta(newBelt);
-  const firstName = studentName.trim().split(/\s+/)[0] || 'atleta';
+  const firstName = studentName.trim().split(/\s+/)[0] || t('atleta');
   const imageBasePath = `/graduation-celebrations/${previousBelt}-to-${newBelt}`;
   const [imageFormat, setImageFormat] = useState<ImageFormat>('webp');
 
   const promotedAtLabel = useMemo(() => (
     graduation.promotedAt
-      ? graduation.promotedAt.toDate().toLocaleDateString('pt-BR')
+      ? graduation.promotedAt.toDate().toLocaleDateString(getLocale())
       : ''
   ), [graduation.promotedAt]);
 
@@ -85,8 +86,8 @@ const GraduationCelebrationModal: React.FC<GraduationCelebrationModalProps> = ({
           type="button"
           className="app-button app-button--ghost app-button--icon graduation-celebration__close"
           onClick={onClose}
-          aria-label="Fechar celebração"
-          title="Fechar"
+          aria-label={t('Fechar celebração')}
+          title={t('Fechar')}
         >
           <X size={18} />
         </button>
@@ -95,7 +96,7 @@ const GraduationCelebrationModal: React.FC<GraduationCelebrationModalProps> = ({
           {imageFormat !== 'none' ? (
             <img
               src={imageSrc}
-              alt={`Promoção de ${beltLabel(previousBelt)} para ${beltLabel(newBelt)}`}
+              alt={t('Promoção de {from} para {to}', { from: beltLabel(previousBelt), to: beltLabel(newBelt) })}
               className="graduation-celebration__image"
               onError={() => setImageFormat((current) => (current === 'webp' ? 'png' : 'none'))}
             />
@@ -119,17 +120,17 @@ const GraduationCelebrationModal: React.FC<GraduationCelebrationModalProps> = ({
         <div className="graduation-celebration__body">
           <div className="graduation-celebration__badge">
             <Award size={16} />
-            Nova faixa
+            {t('Nova faixa')}
           </div>
 
           <div>
-            <p className="app-section-label">Parabéns, {firstName}</p>
+            <p className="app-section-label">{t('Parabéns, {name}', { name: firstName })}</p>
             <h2 id="graduation-celebration-title" className="graduation-celebration__title">
-              Você foi promovido para a faixa {beltLabel(newBelt)}
+              {t('Você foi promovido para a faixa {belt}', { belt: beltLabel(newBelt) })}
             </h2>
             <p className="graduation-celebration__copy">
-              Seu professor registrou a evolução de {beltLabel(previousBelt)} para {beltLabel(newBelt)}.
-              {promotedAtLabel ? ` Graduação aprovada em ${promotedAtLabel}.` : ''}
+              {t('Seu professor registrou a evolução de {from} para {to}.', { from: beltLabel(previousBelt), to: beltLabel(newBelt) })}
+              {promotedAtLabel ? ` ${t('Graduação aprovada em {date}.', { date: promotedAtLabel })}` : ''}
             </p>
           </div>
 
@@ -141,7 +142,7 @@ const GraduationCelebrationModal: React.FC<GraduationCelebrationModalProps> = ({
 
           <div className="graduation-celebration__actions">
             <button type="button" className="app-button app-button--ghost" onClick={onClose}>
-              Continuar
+              {t('Continuar')}
             </button>
             <button
               type="button"
@@ -150,7 +151,7 @@ const GraduationCelebrationModal: React.FC<GraduationCelebrationModalProps> = ({
               autoFocus
             >
               <Award size={16} />
-              Ver graduação
+              {t('Ver graduação')}
             </button>
           </div>
         </div>

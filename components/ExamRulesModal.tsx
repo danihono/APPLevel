@@ -5,6 +5,7 @@ import { ArrowLeft, ExternalLink, ScrollText, X, ZoomIn, ZoomOut } from 'lucide-
 import { getBeltMeta } from '../beltCatalog';
 import { EXAM_RULE_DOCS, suggestedExamBelt } from '../examRules';
 import type { BeltColor } from '../types';
+import { t } from '../i18n';
 
 const ZOOM_STEPS = [1, 1.5, 2, 3];
 
@@ -74,7 +75,7 @@ const ExamRulesModal: React.FC<ExamRulesModalProps> = ({ currentBelt, onClose })
     }
 
     if (!firebaseProjectId) {
-      setPdfOpenError('Não foi possível localizar o PDF. Tente novamente mais tarde.');
+      setPdfOpenError(t('Não foi possível localizar o PDF. Tente novamente mais tarde.'));
       return;
     }
 
@@ -89,7 +90,7 @@ const ExamRulesModal: React.FC<ExamRulesModalProps> = ({ currentBelt, onClose })
       });
     } catch (error) {
       console.error('Não foi possível abrir o PDF das regras de exame.', error);
-      setPdfOpenError('Não foi possível abrir o PDF. Tente novamente.');
+      setPdfOpenError(t('Não foi possível abrir o PDF. Tente novamente.'));
     }
   }
 
@@ -99,26 +100,26 @@ const ExamRulesModal: React.FC<ExamRulesModalProps> = ({ currentBelt, onClose })
         className="exam-rules__pdf-viewer"
         role="dialog"
         aria-modal="true"
-        aria-label={`Visualização do PDF: ${activeDoc.title}`}
+        aria-label={t('Visualização do PDF: {title}', { title: t(activeDoc.title) })}
       >
         <header className="exam-rules__pdf-viewer-head">
           <button
             type="button"
             onClick={() => setPdfViewerOpen(false)}
             className="app-button app-button--ghost app-button--small"
-            aria-label="Voltar para as regras de exame"
+            aria-label={t('Voltar para as regras de exame')}
           >
             <ArrowLeft size={17} />
-            Voltar
+            {t('Voltar')}
           </button>
 
-          <h2 className="exam-rules__pdf-viewer-title">{activeDoc.title}</h2>
+          <h2 className="exam-rules__pdf-viewer-title">{t(activeDoc.title)}</h2>
 
           <button
             type="button"
             onClick={() => setPdfViewerOpen(false)}
             className="app-button app-button--ghost app-button--icon"
-            aria-label="Fechar PDF e voltar para as regras de exame"
+            aria-label={t('Fechar PDF e voltar para as regras de exame')}
           >
             <X size={18} />
           </button>
@@ -126,7 +127,7 @@ const ExamRulesModal: React.FC<ExamRulesModalProps> = ({ currentBelt, onClose })
 
         <iframe
           src={activeDoc.pdfUrl}
-          title={activeDoc.title}
+          title={t(activeDoc.title)}
           className="exam-rules__pdf-frame"
         />
       </div>
@@ -134,22 +135,22 @@ const ExamRulesModal: React.FC<ExamRulesModalProps> = ({ currentBelt, onClose })
   }
 
   return (
-    <div className="exam-rules" role="dialog" aria-modal="true" aria-label="Regras de exame" onClick={onClose}>
+    <div className="exam-rules" role="dialog" aria-modal="true" aria-label={t('Regras de exame')} onClick={onClose}>
       <div className="app-panel exam-rules__panel" onClick={(event) => event.stopPropagation()}>
         <div className="exam-rules__head">
           <div className="exam-rules__head-main">
             <div className="app-icon-shell"><ScrollText size={18} /></div>
             <div className="min-w-0">
-              <h2 className="exam-rules__title">Regras de exame</h2>
-              <p className="exam-rules__subtitle">Roteiro oficial de graduação da LEVEL Jiu-Jitsu.</p>
+              <h2 className="exam-rules__title">{t('Regras de exame')}</h2>
+              <p className="exam-rules__subtitle">{t('Roteiro oficial de graduação da LEVEL Jiu-Jitsu.')}</p>
             </div>
           </div>
-          <button type="button" onClick={onClose} className="app-button app-button--ghost app-button--icon" aria-label="Fechar">
+          <button type="button" onClick={onClose} className="app-button app-button--ghost app-button--icon" aria-label={t('Fechar')}>
             <X size={18} />
           </button>
         </div>
 
-        <div className="exam-rules__tabs" role="tablist" aria-label="Faixa do exame">
+        <div className="exam-rules__tabs" role="tablist" aria-label={t('Faixa do exame')}>
           {EXAM_RULE_DOCS.map((doc) => {
             const isActive = doc.belt === selectedBelt;
             const meta = getBeltMeta(doc.belt);
@@ -164,7 +165,7 @@ const ExamRulesModal: React.FC<ExamRulesModalProps> = ({ currentBelt, onClose })
                 style={isActive ? { borderColor: meta.breakdownColor } : undefined}
               >
                 <span className="exam-rules__tab-belt" style={{ background: meta.main }} aria-hidden="true" />
-                {doc.label}
+                {t(doc.label)}
               </button>
             );
           })}
@@ -173,12 +174,12 @@ const ExamRulesModal: React.FC<ExamRulesModalProps> = ({ currentBelt, onClose })
         <div className="exam-rules__body">
           {imageFailed ? (
             <div className="app-empty">
-              Não foi possível carregar o roteiro do exame. Abra o PDF pelo botão abaixo.
+              {t('Não foi possível carregar o roteiro do exame. Abra o PDF pelo botão abaixo.')}
             </div>
           ) : (
             <img
               src={activeDoc.imageUrl}
-              alt={activeDoc.title}
+              alt={t(activeDoc.title)}
               className="exam-rules__page"
               style={{ width: `${zoom * 100}%` }}
               onClick={cycleZoom}
@@ -200,7 +201,7 @@ const ExamRulesModal: React.FC<ExamRulesModalProps> = ({ currentBelt, onClose })
               onClick={() => setZoomIndex((index) => Math.max(0, index - 1))}
               disabled={zoomIndex === 0}
               className="app-button app-button--ghost app-button--icon"
-              aria-label="Diminuir zoom"
+              aria-label={t('Diminuir zoom')}
             >
               <ZoomOut size={16} />
             </button>
@@ -210,7 +211,7 @@ const ExamRulesModal: React.FC<ExamRulesModalProps> = ({ currentBelt, onClose })
               onClick={() => setZoomIndex((index) => Math.min(ZOOM_STEPS.length - 1, index + 1))}
               disabled={zoomIndex === ZOOM_STEPS.length - 1}
               className="app-button app-button--ghost app-button--icon"
-              aria-label="Aumentar zoom"
+              aria-label={t('Aumentar zoom')}
             >
               <ZoomIn size={16} />
             </button>
@@ -222,7 +223,7 @@ const ExamRulesModal: React.FC<ExamRulesModalProps> = ({ currentBelt, onClose })
             className="app-button app-button--gold app-button--small exam-rules__pdf-link"
           >
             <ExternalLink size={16} />
-            Abrir PDF
+            {t('Abrir PDF')}
           </button>
         </div>
       </div>

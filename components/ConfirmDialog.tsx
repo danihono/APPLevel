@@ -1,14 +1,15 @@
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { AlertTriangle, X } from 'lucide-react';
+import { t } from '../i18n';
 
 export interface ConfirmOptions {
   /** Título curto no topo do modal. */
   title?: string;
   /** Mensagem principal. Quebras de linha (\n) são respeitadas. */
   message: string;
-  /** Texto do botão de confirmação. Padrão: "Confirmar". */
+  /** Texto do botão de confirmação. Padrão: t('Confirmar'). */
   confirmLabel?: string;
-  /** Texto do botão de cancelamento. Padrão: "Cancelar". */
+  /** Texto do botão de cancelamento. Padrão: t('Cancelar'). */
   cancelLabel?: string;
   /** "danger" deixa o botão de confirmação vermelho (ações destrutivas). */
   tone?: 'default' | 'danger';
@@ -84,14 +85,14 @@ export const ConfirmProvider: React.FC<{ children: React.ReactNode }> = ({ child
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
               <span style={{ display: 'flex', alignItems: 'center', gap: 10, fontWeight: 700, fontSize: '1rem' }}>
                 <AlertTriangle size={18} style={{ color: isDanger ? '#ef4444' : 'var(--gold-mid)' }} />
-                {state.title ?? 'Confirmar ação'}
+                {state.title ?? t('Confirmar ação')}
               </span>
               <button
                 type="button"
                 className="app-button app-button--ghost app-button--icon"
                 style={{ width: 32, height: 32 }}
                 onClick={() => close(false)}
-                aria-label="Fechar"
+                aria-label={t('Fechar')}
               >
                 <X size={16} />
               </button>
@@ -108,7 +109,7 @@ export const ConfirmProvider: React.FC<{ children: React.ReactNode }> = ({ child
                 style={{ background: '#fff', color: '#6b7280', fontWeight: 700, border: '1.5px solid #d1d5db' }}
                 onClick={() => close(false)}
               >
-                {state.cancelLabel ?? 'Cancelar'}
+                {state.cancelLabel ?? t('Cancelar')}
               </button>
               <button
                 type="button"
@@ -116,7 +117,7 @@ export const ConfirmProvider: React.FC<{ children: React.ReactNode }> = ({ child
                 style={{ background: '#fff', color: confirmColor, fontWeight: 700, border: `1.5px solid ${confirmColor}` }}
                 onClick={() => close(true)}
               >
-                {state.confirmLabel ?? 'Confirmar'}
+                {state.confirmLabel ?? t('Confirmar')}
               </button>
             </div>
           </div>

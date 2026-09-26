@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { BellRing, X } from 'lucide-react';
 import { enablePushNotifications, getPushStatus, type PushStatus } from '../services/firebase/messaging';
+import { t } from '../i18n';
 
 const DISMISS_KEY = 'applevel:push-optin-dismissed';
 
@@ -51,7 +52,7 @@ const PushOptInBanner: React.FC = () => {
       setStatus(await enablePushNotifications());
     } catch (enableError) {
       console.error('[push:enable]', enableError);
-      setError('Não foi possível ativar agora. Tente de novo em instantes.');
+      setError(t('Não foi possível ativar agora. Tente de novo em instantes.'));
     } finally {
       setBusy(false);
     }
@@ -70,12 +71,12 @@ const PushOptInBanner: React.FC = () => {
         </div>
         <div className="min-w-0 flex-1">
           <p className="text-sm font-bold">
-            {status === 'denied' ? 'Notificações bloqueadas' : 'Receba os avisos na hora'}
+            {status === 'denied' ? t('Notificações bloqueadas') : t('Receba os avisos na hora')}
           </p>
           <p className="mt-1 text-sm text-[color:var(--text-muted)]">
             {status === 'denied'
-              ? 'Para receber os avisos da academia no celular, libere as notificações do LEVEL nas configurações do aparelho.'
-              : 'Ative as notificações para saber de avisos da academia, solicitações e graduações mesmo com o app fechado.'}
+              ? t('Para receber os avisos da academia no celular, libere as notificações do LEVEL nas configurações do aparelho.')
+              : t('Ative as notificações para saber de avisos da academia, solicitações e graduações mesmo com o app fechado.')}
           </p>
           {error ? <p className="mt-2 text-sm text-red-400">{error}</p> : null}
           {status === 'default' ? (
@@ -86,14 +87,14 @@ const PushOptInBanner: React.FC = () => {
               className="app-button app-button--gold app-button--small mt-3"
             >
               <BellRing size={14} />
-              {busy ? 'Ativando...' : 'Ativar notificações'}
+              {busy ? t('Ativando...') : t('Ativar notificações')}
             </button>
           ) : null}
         </div>
         <button
           type="button"
           onClick={handleDismiss}
-          aria-label="Dispensar"
+          aria-label={t('Dispensar')}
           className="app-button app-button--ghost app-button--icon shrink-0"
         >
           <X size={16} />

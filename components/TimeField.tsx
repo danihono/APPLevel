@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Clock } from 'lucide-react';
 import { coerceTimeDraft, maskTimeDigits, normalizeTime } from '../dateMaskUtils';
+import { t } from '../i18n';
 
 // Campo de hora digitavel: o usuario escreve hh:mm (teclado numerico no mobile)
 // ou toca no icone para abrir o seletor nativo. Entra e sai em 'HH:mm' (ou '').
@@ -40,7 +41,7 @@ const TimeField: React.FC<TimeFieldProps> = ({
   useEffect(() => {
     const field = textRef.current;
     if (!field) return;
-    field.setCustomValidity(draft && !coerceTimeDraft(draft) ? 'Horario invalido' : '');
+    field.setCustomValidity(draft && !coerceTimeDraft(draft) ? t('Horario invalido') : '');
   }, [draft]);
 
   const emit = (next: string) => {
@@ -107,7 +108,7 @@ const TimeField: React.FC<TimeFieldProps> = ({
           type="time"
           className="date-field__native"
           tabIndex={-1}
-          aria-label="Abrir seletor de horario"
+          aria-label={t('Abrir seletor de horario')}
           value={value}
           disabled={disabled}
           onClick={openNativePicker}

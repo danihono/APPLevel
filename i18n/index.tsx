@@ -1,4 +1,4 @@
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import React, { createContext, useCallback, useContext, useMemo, useState } from 'react';
 import { messages } from './messages';
 
 export type AppLanguage = 'pt-BR' | 'en' | 'es';
@@ -39,6 +39,15 @@ function storeLanguage(language: AppLanguage) {
 // Idioma ativo em nivel de modulo: permite traduzir em funcoes utilitarias
 // fora de componentes. O LanguageProvider mantem este valor sincronizado.
 let currentLanguage: AppLanguage = typeof window === 'undefined' ? DEFAULT_LANGUAGE : readStoredLanguage();
+
+function applyDocumentLanguage(language: AppLanguage) {
+  if (typeof document !== 'undefined') {
+    // Alem de acessibilidade, modulos sem acesso ao i18n (ex.: commitmentScale) leem daqui o locale.
+    document.documentElement.lang = language;
+  }
+}
+
+applyDocumentLanguage(currentLanguage);
 
 export function getLanguage(): AppLanguage {
   return currentLanguage;
@@ -94,13 +103,10 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   const setLanguage = useCallback((next: AppLanguage) => {
     currentLanguage = next;
+    applyDocumentLanguage(next);
     storeLanguage(next);
     setLanguageState(next);
   }, []);
-
-  useEffect(() => {
-    document.documentElement.lang = language;
-  }, [language]);
 
   const value = useMemo<I18nContextValue>(() => ({
     language,

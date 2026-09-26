@@ -1,4 +1,5 @@
 import React from 'react';
+import { t } from '../i18n';
 
 interface ProgressBarProps {
   label?: string;
@@ -38,7 +39,7 @@ const ProgressBar: React.FC<ProgressBarProps> = ({ label, current, total, color,
       {label ? (
         <div className="progress-shell__top">
           <span>{label}</span>
-          <strong>{unit === 'percent' ? `${Math.round(percentage)}%` : `${current} de ${total} aulas`}</strong>
+          <strong>{unit === 'percent' ? `${Math.round(percentage)}%` : t('{current} de {total} aulas', { current, total })}</strong>
         </div>
       ) : null}
       <div className="progress-track">

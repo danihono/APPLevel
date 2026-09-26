@@ -1,5 +1,6 @@
 import React from 'react';
 import type { CommitmentResult } from '../commitmentScale';
+import { t, getLocale } from '../i18n';
 
 // Barra de comprometimento do aluno. A cor vem pronta de `commitmentScale` — este componente
 // nunca recalcula nivel a partir do score (80 pontos e verde no adulto e amarelo no kids).
@@ -16,16 +17,16 @@ const LEVEL_CLASS: Record<CommitmentResult['level'], string> = {
 };
 
 function classesLabel(classes: number): string {
-  return classes === 1 ? '1 treino' : `${classes} treinos`;
+  return classes === 1 ? t('1 treino') : t('{count} treinos', { count: classes });
 }
 
 // O comprometimento conta participacao; presenca segue a regra da faixa. Quando os dois numeros
 // diferem (aula iniciante fora da faixa, 3a aula do dia) a linha explica a diferenca — senao o
 // aluno ve 6 aqui e 5 em "Total de treinos no mes" e acha que o app errou.
 function commitmentNote(commitment: CommitmentResult): string {
-  const base = `${classesLabel(commitment.classes)} em ${commitment.monthLabel}`;
+  const base = t('{classes} em {month}', { classes: classesLabel(commitment.classes), month: commitment.monthLabel });
   return commitment.countedClasses < commitment.classes
-    ? `${base} · ${commitment.countedClasses} contam para graduação`
+    ? `${base} · ${t('{count} contam para graduação', { count: commitment.countedClasses })}`
     : base;
 }
 
@@ -38,7 +39,7 @@ export interface CommitmentBarProps {
 
 export const CommitmentBar: React.FC<CommitmentBarProps> = ({
   commitment,
-  title = 'Comprometimento',
+  title,
   showNote = true,
 }) => {
   const toneClass = LEVEL_CLASS[commitment.level];
@@ -46,7 +47,7 @@ export const CommitmentBar: React.FC<CommitmentBarProps> = ({
   return (
     <div className={`commitment ${toneClass}`}>
       <div className="commitment__head">
-        <p className="commitment__title">{title}</p>
+        <p className="commitment__title">{title ?? t('Comprometimento')}</p>
         <p className="commitment__score">
           {commitment.score}
           <small>/100</small>
@@ -59,7 +60,7 @@ export const CommitmentBar: React.FC<CommitmentBarProps> = ({
         aria-valuenow={commitment.score}
         aria-valuemin={0}
         aria-valuemax={100}
-        aria-label={`Comprometimento: ${commitment.score} de 100, ${commitment.label.toLocaleLowerCase('pt-BR')}`}
+        aria-label={t('Comprometimento: {score} de 100, {level}', { score: commitment.score, level: t(commitment.label).toLocaleLowerCase(getLocale()) })}
       >
         {commitment.score > 0 ? (
           <div className="commitment__fill" style={{ width: `${commitment.score}%` }} />
@@ -67,7 +68,7 @@ export const CommitmentBar: React.FC<CommitmentBarProps> = ({
       </div>
 
       <div className="commitment__foot">
-        <span className="commitment__level">{commitment.label}</span>
+        <span className="commitment__level">{t(commitment.label)}</span>
         {showNote ? (
           <span className="commitment__note">{commitmentNote(commitment)}</span>
         ) : null}
@@ -87,12 +88,12 @@ export interface CommitmentBadgeProps {
 export const CommitmentBadge: React.FC<CommitmentBadgeProps> = ({ commitment, showLabel = false }) => (
   <span
     className={`commitment-badge ${LEVEL_CLASS[commitment.level]}`}
-    title={`${commitment.label} — ${commitmentNote(commitment)}`}
+    title={`${t(commitment.label)} — ${commitmentNote(commitment)}`}
   >
     <span className="commitment-badge__dot" aria-hidden="true" />
     {commitment.score}
     <span className="commitment-badge__unit">/100</span>
-    {showLabel ? <span className="commitment-badge__label">{commitment.label}</span> : null}
+    {showLabel ? <span className="commitment-badge__label">{t(commitment.label)}</span> : null}
   </span>
 );
 

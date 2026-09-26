@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { CalendarDays } from 'lucide-react';
 import { brToIso, clampIso, expandShortYear, isoToBr, maskDateDigits } from '../dateMaskUtils';
+import { t } from '../i18n';
 
 // Campo de data digitavel: o usuario escreve dd/mm/aaaa (teclado numerico no mobile)
 // ou toca no icone para abrir o seletor nativo do sistema.
@@ -55,7 +56,7 @@ const DateField: React.FC<DateFieldProps> = ({
   useEffect(() => {
     const field = textRef.current;
     if (!field) return;
-    field.setCustomValidity(draft && !brToIso(expandDraftYear(draft)) ? 'Data invalida' : '');
+    field.setCustomValidity(draft && !brToIso(expandDraftYear(draft)) ? t('Data invalida') : '');
   }, [draft]);
 
   const emit = (next: string) => {
@@ -127,7 +128,7 @@ const DateField: React.FC<DateFieldProps> = ({
           type="date"
           className="date-field__native"
           tabIndex={-1}
-          aria-label="Abrir calendario"
+          aria-label={t('Abrir calendario')}
           value={value}
           min={min}
           max={max}

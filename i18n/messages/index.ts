@@ -1,4 +1,7 @@
 import type { MessageCatalog } from './types';
+import { graduationMessages } from './graduation';
+import { dashboardMessages } from './dashboard';
+import { homeMessages } from './home';
 import { examRulesMessages } from './exam-rules';
 import { commitmentMessages } from './commitment';
 import { learningAudienceMessages } from './learning-audience';
@@ -23,4 +26,7 @@ export const messages: MessageCatalog = {
   ...learningAudienceMessages,
   ...commitmentMessages,
   ...examRulesMessages,
+  ...homeMessages,
+  ...dashboardMessages,
+  ...graduationMessages,
 };

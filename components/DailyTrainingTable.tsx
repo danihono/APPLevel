@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { calculateDailyTraining } from '../dailyTrainingUtils';
 import { subscribeToDailyTraining, type DailyTrainingSnapshot, type FirestoreEntity } from '../services/firebase/data';
 import type { AcademyRecord, UserRecord } from '../services/firebase/models';
+import { t } from '../i18n';
 
 type Academy = Pick<AcademyRecord, 'id' | 'name' | 'timezone'>;
 
@@ -37,17 +38,17 @@ export default function DailyTrainingChart({ data }: { data: ReturnType<typeof u
   const x = (offset: number) => 38 + (6 - offset) * 47;
   const y = (count: number) => 150 - count / maximum * 126;
   const shortDate = (date: string) => date.slice(5).split('-').reverse().join('/');
-  return <section className="sa-card sa-daily-chart" aria-label="Alunos que treinaram por dia">
+  return <section className="sa-card sa-daily-chart" aria-label={t('Alunos que treinaram por dia')}>
     <div className="sa-card__head">
-      <h3 className="sa-card__title">Alunos por dia</h3>
-      <span className="sa-daily-chart__period">7 dias</span>
+      <h3 className="sa-card__title">{t('Alunos por dia')}</h3>
+      <span className="sa-daily-chart__period">{t('7 dias')}</span>
     </div>
-    <p className="sa-daily-chart__hint">Presença em aulas finalizadas · hoje parcial</p>
-    {failed ? <p role="alert" className="sa-daily-chart__empty">Não foi possível carregar. Recarregue a página.</p>
-      : loading ? <p role="status" className="sa-daily-chart__empty">Carregando presenças…</p>
-      : rows.length === 0 ? <p className="sa-daily-chart__empty">Nenhuma academia neste recorte.</p>
+    <p className="sa-daily-chart__hint">{t('Presença em aulas finalizadas · hoje parcial')}</p>
+    {failed ? <p role="alert" className="sa-daily-chart__empty">{t('Não foi possível carregar. Recarregue a página.')}</p>
+      : loading ? <p role="status" className="sa-daily-chart__empty">{t('Carregando presenças…')}</p>
+      : rows.length === 0 ? <p className="sa-daily-chart__empty">{t('Nenhuma academia neste recorte.')}</p>
       : <>
-        <svg viewBox="0 0 348 180" className="sa-daily-chart__plot" role="group" aria-label="Alunos únicos por dia e academia. Selecione um dia para consultar os valores.">
+        <svg viewBox="0 0 348 180" className="sa-daily-chart__plot" role="group" aria-label={t('Alunos únicos por dia e academia. Selecione um dia para consultar os valores.')}>
           {Array.from({ length: 5 }, (_, index) => {
             const value = index * tickStep;
             return <g key={value} aria-hidden="true">
@@ -63,23 +64,23 @@ export default function DailyTrainingChart({ data }: { data: ReturnType<typeof u
               fill={SERIES_COLORS[index % SERIES_COLORS.length]} />)}
           </g>)}
           {[6, 5, 4, 3, 2, 1, 0].map((offset) => <g key={offset} role="button" tabIndex={0}
-            aria-label={rows.map((row) => `${row.name}, ${shortDate(row.days[offset].date)}: ${row.days[offset].count} alunos`).join('; ')}
+            aria-label={rows.map((row) => `${row.name}, ${shortDate(row.days[offset].date)}: ${t('{count} alunos', { count: row.days[offset].count })}`).join('; ')}
             aria-pressed={offset === selectedOffset} onClick={() => setSelectedOffset(offset)}
             onMouseEnter={() => setSelectedOffset(offset)}
             onFocus={() => setSelectedOffset(offset)}
             onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); setSelectedOffset(offset); } }}>
             <rect x={x(offset) - 20} y="12" width="40" height="164" fill="transparent" className="sa-daily-chart__hit" />
-            <text x={x(offset)} y="171" textAnchor="middle" aria-hidden="true">{offset === 0 ? 'Hoje' : shortDate(rows[0].days[offset].date)}</text>
+            <text x={x(offset)} y="171" textAnchor="middle" aria-hidden="true">{offset === 0 ? t('Hoje') : shortDate(rows[0].days[offset].date)}</text>
           </g>)}
         </svg>
-        <div className="sa-daily-chart__legend" aria-live="polite" aria-label={`Presenças de ${selectedDay ? shortDate(selectedDay.date) : ''}`}>
+        <div className="sa-daily-chart__legend" aria-live="polite" aria-label={t('Presenças de {date}', { date: selectedDay ? shortDate(selectedDay.date) : '' })}>
           {rows.map((row, index) => <div key={row.id} className="sa-daily-chart__series">
             <span className="sa-daily-chart__dot" style={{ background: SERIES_COLORS[index % SERIES_COLORS.length] }} />
             <span title={row.name}>{row.name}</span>
             <strong>{row.days[selectedOffset].count}</strong>
           </div>)}
         </div>
-        <p className="sa-daily-chart__hint sa-daily-chart__footnote">{selectedDay ? shortDate(selectedDay.date) : ''} · alunos únicos · fuso de cada academia</p>
+        <p className="sa-daily-chart__hint sa-daily-chart__footnote">{selectedDay ? shortDate(selectedDay.date) : ''} · {t('alunos únicos · fuso de cada academia')}</p>
       </>}
   </section>;
 }

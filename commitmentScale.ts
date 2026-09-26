@@ -61,11 +61,18 @@ export interface MonthlyAttendanceInput extends AttendanceDateFields {
 
 const DEFAULT_TIMEZONE = 'America/Sao_Paulo';
 
+// Idioma da interface (o LanguageProvider mantem <html lang>). Este modulo nao importa o i18n
+// para continuar carregavel pelos testes com --experimental-strip-types.
+function uiLocale(): string {
+  const lang = typeof document !== 'undefined' ? document.documentElement.lang : '';
+  return lang === 'en' ? 'en-US' : lang === 'es' ? 'es-ES' : 'pt-BR';
+}
+
 function monthFormatter(timeZone: string): Intl.DateTimeFormat {
   try {
-    return new Intl.DateTimeFormat('pt-BR', { timeZone: timeZone || DEFAULT_TIMEZONE, month: 'long', year: 'numeric' });
+    return new Intl.DateTimeFormat(uiLocale(), { timeZone: timeZone || DEFAULT_TIMEZONE, month: 'long', year: 'numeric' });
   } catch {
-    return new Intl.DateTimeFormat('pt-BR', { timeZone: DEFAULT_TIMEZONE, month: 'long', year: 'numeric' });
+    return new Intl.DateTimeFormat(uiLocale(), { timeZone: DEFAULT_TIMEZONE, month: 'long', year: 'numeric' });
   }
 }
 
