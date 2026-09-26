@@ -26,7 +26,7 @@ import ProgressBar from '../components/ProgressBar';
 import { subscribeToUserAttendances, subscribeToUserGraduations, type FirestoreEntity } from '../services/firebase/data';
 import type { AttendanceRecord, ClassRecord, GraduationApprovalRequestRecord, GraduationRecord } from '../services/firebase/models';
 import type { KidsCategory, User } from '../types';
-import { getLocale } from '../i18n';
+import { t, getLocale } from '../i18n';
 
 // ISO/qualquer data -> yyyy-mm-dd para <input type="date">; '' se vazio/invalido.
 function isoToInputDate(value?: string | null): string {
@@ -71,7 +71,7 @@ interface StudentDetailViewProps {
 
 function formatDate(value?: string) {
   if (!value) {
-    return 'Sem registro';
+    return t('Sem registro');
   }
 
   const parsed = new Date(value);
@@ -84,8 +84,8 @@ function formatDate(value?: string) {
 
 function graduationTargetLabel(request: FirestoreEntity<GraduationApprovalRequestRecord>) {
   return request.targetType === 'belt'
-    ? `Faixa ${beltLabel(request.targetBelt)}`
-    : `${request.targetStripes} grau(s) na faixa ${beltLabel(request.targetBelt)}`;
+    ? t('Faixa {belt}', { belt: beltLabel(request.targetBelt) })
+    : t('{count} grau(s) na faixa {belt}', { count: request.targetStripes, belt: beltLabel(request.targetBelt) });
 }
 
 type AttendancePeriodPreset = 'week' | 'month' | '3months' | 'all' | 'custom';
@@ -123,9 +123,9 @@ function resolveAttendanceRange(
 }
 
 function attendanceCheckInMethodLabel(method: AttendanceRecord['checkInMethod']) {
-  if (method === 'qr') return 'QR code';
-  if (method === 'manual') return 'Manual';
-  if (method === 'request') return 'Solicitada';
+  if (method === 'qr') return t('QR code');
+  if (method === 'manual') return t('Manual');
+  if (method === 'request') return t('Solicitada');
   return method;
 }
 
@@ -239,17 +239,17 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
       .filter((id) => !selectedMemberships.includes(id))
       .map((id) => academiesById.get(id) ?? id);
     const parts: string[] = [];
-    if (added.length > 0) parts.push(`adicionar: ${added.join(', ')}`);
-    if (removed.length > 0) parts.push(`remover: ${removed.join(', ')}`);
+    if (added.length > 0) parts.push(t('adicionar: {list}', { list: added.join(', ') }));
+    if (removed.length > 0) parts.push(t('remover: {list}', { list: removed.join(', ') }));
     const summary = parts.join(' | ');
     const willSwitchActive = removed.length > 0 && !selectedMemberships.includes(student.branchId);
     const warning = willSwitchActive
-      ? '\n\nATENCAO: a unidade ativa do aluno sera trocada automaticamente.'
+      ? `\n\n${t('ATENCAO: a unidade ativa do aluno sera trocada automaticamente.')}`
       : '';
     if (!(await confirm({
-      title: 'Alterar unidades',
-      message: `Confirmar alteracao de unidades para ${student.name}?\n\n${summary}${warning}`,
-      confirmLabel: 'Confirmar',
+      title: t('Alterar unidades'),
+      message: `${t('Confirmar alteracao de unidades para {name}?', { name: student.name })}\n\n${summary}${warning}`,
+      confirmLabel: t('Confirmar'),
       tone: willSwitchActive ? 'danger' : 'default',
     }))) {
       return;
@@ -259,7 +259,7 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
     try {
       await onAdminSetUserMemberships({ userId: student.id, memberships: selectedMemberships });
     } catch (err) {
-      setMembershipsError(err instanceof Error ? err.message : 'Nao foi possivel salvar as unidades.');
+      setMembershipsError(err instanceof Error ? err.message : t('Nao foi possivel salvar as unidades.'));
     } finally {
       setMembershipsBusy(false);
     }
@@ -466,9 +466,9 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
 
     try {
       await onApproveGraduationRequest(graduationRequest.id);
-      setFeedback('Graduação aprovada com sucesso.');
+      setFeedback(t('Graduação aprovada com sucesso.'));
     } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : 'Não foi possível aprovar a graduação.');
+      setError(submitError instanceof Error ? submitError.message : t('Não foi possível aprovar a graduação.'));
     } finally {
       setApproveBusy(false);
       setApproveConfirmOpen(false);
@@ -500,9 +500,9 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
         blackBeltDate: studentBeltIsBlack ? (studentBlackBeltDate || undefined) : undefined,
         blackBeltDegreeManual: studentBeltIsBlack ? studentBlackBeltManualDegree : undefined,
       });
-      setFeedback('Graduação do aluno atualizada com sucesso.');
+      setFeedback(t('Graduação do aluno atualizada com sucesso.'));
     } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : 'Não foi possível atualizar a graduação.');
+      setError(submitError instanceof Error ? submitError.message : t('Não foi possível atualizar a graduação.'));
     } finally {
       setSaveBusy(false);
     }
@@ -511,9 +511,9 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
   async function handleDeactivate() {
     if (!onDeactivateStudent) return;
     if (!(await confirm({
-      title: 'Desativar aluno',
-      message: `Desativar ${student.name}? O aluno não poderá mais acessar o aplicativo.`,
-      confirmLabel: 'Desativar',
+      title: t('Desativar aluno'),
+      message: t('Desativar {name}? O aluno não poderá mais acessar o aplicativo.', { name: student.name }),
+      confirmLabel: t('Desativar'),
       tone: 'danger',
     }))) return;
     setDeactivateBusy(true);
@@ -521,9 +521,9 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
     setError('');
     try {
       await onDeactivateStudent(student.id);
-      setFeedback('Aluno desativado. O acesso foi bloqueado.');
+      setFeedback(t('Aluno desativado. O acesso foi bloqueado.'));
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Não foi possível desativar o aluno.');
+      setError(err instanceof Error ? err.message : t('Não foi possível desativar o aluno.'));
     } finally {
       setDeactivateBusy(false);
     }
@@ -536,9 +536,9 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
     setError('');
     try {
       await onActivateStudent(student.id);
-      setFeedback('Aluno reativado com sucesso.');
+      setFeedback(t('Aluno reativado com sucesso.'));
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Não foi possível reativar o aluno.');
+      setError(err instanceof Error ? err.message : t('Não foi possível reativar o aluno.'));
     } finally {
       setDeactivateBusy(false);
     }
@@ -552,9 +552,9 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
     setPhotoError('');
     try {
       await onAdminUpdateStudentPhoto({ userId: student.id, photoFile: file });
-      setPhotoFeedback('Foto atualizada com sucesso.');
+      setPhotoFeedback(t('Foto atualizada com sucesso.'));
     } catch (err) {
-      setPhotoError(err instanceof Error ? err.message : 'Não foi possível salvar a foto.');
+      setPhotoError(err instanceof Error ? err.message : t('Não foi possível salvar a foto.'));
     } finally {
       setPhotoBusy(false);
       event.target.value = '';
@@ -571,10 +571,10 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
     if (
       emailChanged
       && !(await confirm({
-        title: 'Alterar e-mail',
-        message: `Alterar o e-mail de ${student.name} para "${emailTrimmed}"?\n\n`
-          + 'O aluno passará a entrar no app com este novo e-mail.',
-        confirmLabel: 'Alterar e-mail',
+        title: t('Alterar e-mail'),
+        message: `${t('Alterar o e-mail de {name} para "{email}"?', { name: student.name, email: emailTrimmed })}\n\n`
+          + t('O aluno passará a entrar no app com este novo e-mail.'),
+        confirmLabel: t('Alterar e-mail'),
       }))
     ) {
       return;
@@ -611,9 +611,9 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
         await onSetStudentAttendanceBonus({ userId: student.id, attendanceCountBonus: attendanceBonus });
       }
 
-      setFeedback('Dados do aluno atualizados com sucesso.');
+      setFeedback(t('Dados do aluno atualizados com sucesso.'));
     } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : 'Não foi possível salvar os dados.');
+      setError(submitError instanceof Error ? submitError.message : t('Não foi possível salvar os dados.'));
     } finally {
       setProfileBusy(false);
     }
@@ -630,7 +630,7 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
           <ArrowLeft size={18} />
         </button>
         <div>
-          <p className="app-section-label">Perfil do aluno</p>
+          <p className="app-section-label">{t('Perfil do aluno')}</p>
           <h1 className="text-2xl font-bold">{student.name}</h1>
         </div>
       </div>
@@ -659,7 +659,7 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
               ) : (
                 <Camera size={16} />
               )}
-              {photoBusy ? 'Enviando...' : 'Alterar foto'}
+              {photoBusy ? t('Enviando...') : t('Alterar foto')}
             </button>
             <input
               ref={photoInputRef}
@@ -673,7 +673,7 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
         {photoFeedback ? <p className="mt-2 text-xs text-green-500">{photoFeedback}</p> : null}
         {photoError ? <p className="mt-2 text-xs text-red-500">{photoError}</p> : null}
         <h2 className="mt-4 text-3xl font-bold">{student.name}</h2>
-        <p className="mt-2 text-sm text-[color:var(--text-muted)]">{student.type} - {age} anos</p>
+        <p className="mt-2 text-sm text-[color:var(--text-muted)]">{t(student.type)} - {t('{age} anos', { age })}</p>
 
         <div className="app-panel app-panel--soft mt-6 px-4 py-4">
           <div className="flex items-center justify-center gap-2 text-sm text-[color:var(--text-muted)]">
@@ -686,7 +686,7 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
           <div className="mt-4 space-y-3">
             <div className="app-alert app-alert--error flex items-center gap-2">
               <UserX size={16} />
-              Conta desativada — este aluno não pode acessar o aplicativo.
+              {t('Conta desativada — este aluno não pode acessar o aplicativo.')}
             </div>
             {onActivateStudent ? (
               <button
@@ -696,7 +696,7 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
                 className="app-button app-button--green w-full"
               >
                 {deactivateBusy ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" /> : <CheckCircle2 size={16} />}
-                {deactivateBusy ? 'Reativando...' : 'Reativar aluno'}
+                {deactivateBusy ? t('Reativando...') : t('Reativar aluno')}
               </button>
             ) : null}
           </div>
@@ -708,7 +708,7 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
             className="app-button app-button--danger mt-4 w-full"
           >
             {deactivateBusy ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" /> : <UserX size={16} />}
-            {deactivateBusy ? 'Desativando...' : 'Desativar aluno'}
+            {deactivateBusy ? t('Desativando...') : t('Desativar aluno')}
           </button>
         ) : null)}
       </section>
@@ -721,36 +721,36 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
                 <UserIcon size={18} />
               </div>
               <div>
-                <p className="app-section-label">Dados pessoais</p>
-                <h2 className="text-xl font-bold">Informações cadastrais</h2>
+                <p className="app-section-label">{t('Dados pessoais')}</p>
+                <h2 className="text-xl font-bold">{t('Informações cadastrais')}</h2>
               </div>
             </div>
 
             <div className="mt-6 app-grid-2">
               <label className="app-field">
-                <span className="app-field__label">Nome</span>
+                <span className="app-field__label">{t('Nome')}</span>
                 <input
                   type="text"
                   value={profileFirstName}
                   onChange={(e) => setProfileFirstName(e.target.value)}
                   className="app-input"
-                  placeholder="Nome"
+                  placeholder={t('Nome')}
                 />
               </label>
 
               <label className="app-field">
-                <span className="app-field__label">Sobrenome</span>
+                <span className="app-field__label">{t('Sobrenome')}</span>
                 <input
                   type="text"
                   value={profileLastName}
                   onChange={(e) => setProfileLastName(e.target.value)}
                   className="app-input"
-                  placeholder="Sobrenome"
+                  placeholder={t('Sobrenome')}
                 />
               </label>
 
               <label className="app-field">
-                <span className="app-field__label">Telefone</span>
+                <span className="app-field__label">{t('Telefone')}</span>
                 <input
                   type="tel"
                   value={profilePhone}
@@ -772,12 +772,12 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
               </label>
 
               <label className="app-field">
-                <span className="app-field__label">Data de nascimento</span>
+                <span className="app-field__label">{t('Data de nascimento')}</span>
                 <DateField value={profileBirthDate} onChange={setProfileBirthDate} />
               </label>
 
               <label className="app-field">
-                <span className="app-field__label">E-mail</span>
+                <span className="app-field__label">{t('E-mail')}</span>
                 <input
                   type="email"
                   value={profileEmail}
@@ -785,7 +785,7 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
                   className="app-input"
                   placeholder="aluno@email.com"
                 />
-                <span className="app-field__hint">Alterar o e-mail muda o login do aluno: ele passará a entrar com o novo e-mail.</span>
+                <span className="app-field__hint">{t('Alterar o e-mail muda o login do aluno: ele passará a entrar com o novo e-mail.')}</span>
               </label>
             </div>
 
@@ -796,7 +796,7 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
                 onChange={(e) => setProfileIsCompetitor(e.target.checked)}
                 className="h-4 w-4 rounded"
               />
-              <span className="text-sm font-medium">Aluno competidor</span>
+              <span className="text-sm font-medium">{t('Aluno competidor')}</span>
             </label>
           </section>
 
@@ -806,41 +806,41 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
                 <Calendar size={18} />
               </div>
               <div>
-                <p className="app-section-label">Histórico</p>
-                <h2 className="text-xl font-bold">Datas da linha do tempo</h2>
+                <p className="app-section-label">{t('Histórico')}</p>
+                <h2 className="text-xl font-bold">{t('Datas da linha do tempo')}</h2>
               </div>
             </div>
 
             <p className="mt-4 text-sm text-[color:var(--text-muted)]">
-              Corrija as datas que aparecem na linha do tempo do aluno. Util para alunos cadastrados depois de ja terem iniciado os treinos.
+              {t('Corrija as datas que aparecem na linha do tempo do aluno. Util para alunos cadastrados depois de ja terem iniciado os treinos.')}
             </p>
 
             <div className="mt-6 space-y-4">
               <label className="app-field">
-                <span className="app-field__label">Início dos treinos</span>
+                <span className="app-field__label">{t('Início dos treinos')}</span>
                 <DateField value={editTrainingStartDate} onChange={setEditTrainingStartDate} />
-                <span className="app-field__hint">Data real em que o aluno começou a treinar na academia</span>
+                <span className="app-field__hint">{t('Data real em que o aluno começou a treinar na academia')}</span>
               </label>
 
               <label className="app-field">
-                <span className="app-field__label">{isBlackBelt(student.belt) ? 'Data da faixa preta' : 'Última graduação'}</span>
+                <span className="app-field__label">{isBlackBelt(student.belt) ? t('Data da faixa preta') : t('Última graduação')}</span>
                 <DateField value={editLastGraduationDate} onChange={setEditLastGraduationDate} />
                 <span className="app-field__hint">
                   {isBlackBelt(student.belt)
-                    ? 'Data em que recebeu a preta — define o grau por tempo (IBJJF) e o número de graus.'
-                    : 'Substitui a data calculada automaticamente pelo sistema'}
+                    ? t('Data em que recebeu a preta — define o grau por tempo (IBJJF) e o número de graus.')
+                    : t('Substitui a data calculada automaticamente pelo sistema')}
                 </span>
               </label>
 
               <label className="app-field">
-                <span className="app-field__label">Último grau recebido</span>
+                <span className="app-field__label">{t('Último grau recebido')}</span>
                 <DateField value={editLastStripeDate} onChange={setEditLastStripeDate} />
-                <span className="app-field__hint">Substitui a data calculada automaticamente pelo sistema</span>
+                <span className="app-field__hint">{t('Substitui a data calculada automaticamente pelo sistema')}</span>
               </label>
 
               {onSetStudentAttendanceBonus ? (
                 <label className="app-field">
-                  <span className="app-field__label">Aulas anteriores</span>
+                  <span className="app-field__label">{t('Aulas anteriores')}</span>
                   <input
                     type="number"
                     min={0}
@@ -848,7 +848,7 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
                     onChange={(e) => setAttendanceBonus(Math.max(0, Math.floor(Number(e.target.value) || 0)))}
                     className="app-input"
                   />
-                  <span className="app-field__hint">Aulas realizadas antes do cadastro no sistema</span>
+                  <span className="app-field__hint">{t('Aulas realizadas antes do cadastro no sistema')}</span>
                 </label>
               ) : null}
             </div>
@@ -856,24 +856,24 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
 
           <button type="submit" disabled={profileBusy} className="app-button app-button--gold">
             <Save size={16} />
-            {profileBusy ? 'Salvando...' : 'Salvar dados do aluno'}
+            {profileBusy ? t('Salvando...') : t('Salvar dados do aluno')}
           </button>
         </form>
       ) : null}
 
       {viewerRole === 'superadmin' && academies && academies.length > 0 && onAdminSetUserMemberships ? (
         <section className="app-panel app-panel-pad">
-          <p className="app-section-label">Unidades autorizadas</p>
-          <h2 className="text-xl font-bold mt-1">Acesso às unidades</h2>
+          <p className="app-section-label">{t('Unidades autorizadas')}</p>
+          <h2 className="text-xl font-bold mt-1">{t('Acesso às unidades')}</h2>
           <p className="mt-2 text-sm text-[color:var(--text-muted)]">
-            Marque as unidades que este aluno pode acessar. Lembre-se de clicar em <strong>Salvar unidades</strong> ao final — as alterações só são aplicadas após confirmação.
+            {t('Marque as unidades que este aluno pode acessar. Lembre-se de clicar em')} <strong>{t('Salvar unidades')}</strong> {t('ao final — as alterações só são aplicadas após confirmação.')}
           </p>
           {membershipsError ? (
             <div className="app-alert app-alert--error mt-3">{membershipsError}</div>
           ) : null}
           {membershipsDirty && !membershipsBusy ? (
             <div className="app-alert app-alert--warning mt-3">
-              Você tem alterações não salvas.
+              {t('Você tem alterações não salvas.')}
             </div>
           ) : null}
           <div className="mt-4 flex flex-col gap-2">
@@ -888,7 +888,7 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
                 />
                 <span className="text-sm font-medium">{academy.name}</span>
                 {academy.id === student.branchId ? (
-                  <span className="app-badge app-badge--muted">Unidade ativa</span>
+                  <span className="app-badge app-badge--muted">{t('Unidade ativa')}</span>
                 ) : null}
               </label>
             ))}
@@ -900,7 +900,7 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
               onClick={() => void confirmAndSubmitMemberships()}
               className="app-button app-button--gold app-button--small"
             >
-              {membershipsBusy ? 'Salvando...' : 'Salvar unidades'}
+              {membershipsBusy ? t('Salvando...') : t('Salvar unidades')}
             </button>
             <button
               type="button"
@@ -911,7 +911,7 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
               }}
               className="app-button app-button--ghost app-button--small"
             >
-              Cancelar
+              {t('Cancelar')}
             </button>
           </div>
         </section>
@@ -921,22 +921,22 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
         <section className="app-panel app-panel-pad">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
-              <p className="app-section-label">Graduação pendente</p>
-              <h2 className="text-xl font-bold">Aprovação sugerida pela progressão</h2>
+              <p className="app-section-label">{t('Graduação pendente')}</p>
+              <h2 className="text-xl font-bold">{t('Aprovação sugerida pela progressão')}</h2>
               <p className="mt-2 text-sm text-[color:var(--text-muted)]">
                 {graduationRequest.remainingClasses <= 0
-                  ? 'A meta já foi atingida e o aluno aguarda sua aprovação.'
-                  : `Falta ${graduationRequest.remainingClasses} presença para liberar a avaliação formal.`}
+                  ? t('A meta já foi atingida e o aluno aguarda sua aprovação.')
+                  : t('Falta {count} presença para liberar a avaliação formal.', { count: graduationRequest.remainingClasses })}
               </p>
             </div>
-            <span className="app-badge app-badge--gold">{graduationRequest.targetType === 'belt' ? 'Faixa' : 'Grau'}</span>
+            <span className="app-badge app-badge--gold">{graduationRequest.targetType === 'belt' ? t('Faixa') : t('Grau')}</span>
           </div>
 
           <div className="mt-5 flex flex-wrap gap-2">
-            <span className="app-badge app-badge--muted">Atual: {beltLabel(graduationRequest.currentBelt)} • {graduationRequest.currentStripes} grau(s)</span>
-            <span className="app-badge app-badge--muted">Próximo passo: {graduationTargetLabel(graduationRequest)}</span>
+            <span className="app-badge app-badge--muted">{t('Atual: {belt} • {count} grau(s)', { belt: beltLabel(graduationRequest.currentBelt), count: graduationRequest.currentStripes })}</span>
+            <span className="app-badge app-badge--muted">{t('Próximo passo: {target}', { target: graduationTargetLabel(graduationRequest) })}</span>
             <span className="app-badge app-badge--muted">
-              {graduationRequest.remainingClasses <= 0 ? 'Meta atingida' : `Restam ${graduationRequest.remainingClasses} aula(s)`}
+              {graduationRequest.remainingClasses <= 0 ? t('Meta atingida') : t('Restam {count} aula(s)', { count: graduationRequest.remainingClasses })}
             </span>
           </div>
 
@@ -949,7 +949,7 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
                 className="app-button app-button--green"
               >
                 <CheckCircle2 size={16} />
-                {approveBusy ? 'Aprovando...' : 'Aprovar próxima graduação'}
+                {approveBusy ? t('Aprovando...') : t('Aprovar próxima graduação')}
               </button>
             </div>
           ) : null}
@@ -970,7 +970,7 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
                 <div className="app-icon-shell" style={{ color: '#f59e0b' }}>
                   <AlertTriangle size={18} />
                 </div>
-                <h2 className="text-xl font-bold">Confirmar graduação</h2>
+                <h2 className="text-xl font-bold">{t('Confirmar graduação')}</h2>
               </div>
               <button
                 type="button"
@@ -985,7 +985,7 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
             <div className="mt-6 app-list-card">
               <p className="text-sm font-semibold">{student.name}</p>
               <p className="mt-2 text-sm text-[color:var(--text-muted)]">
-                Promover para <strong>{graduationTargetLabel(graduationRequest)}</strong>? Esta ação não pode ser desfeita.
+                {t('Promover para')} <strong>{graduationTargetLabel(graduationRequest)}</strong>? {t('Esta ação não pode ser desfeita.')}
               </p>
             </div>
 
@@ -996,7 +996,7 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
                 disabled={approveBusy}
                 className="app-button app-button--ghost flex-1"
               >
-                Cancelar
+                {t('Cancelar')}
               </button>
               <button
                 type="button"
@@ -1005,7 +1005,7 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
                 className="app-button app-button--green flex-1"
               >
                 <CheckCircle2 size={14} />
-                {approveBusy ? 'Aprovando...' : 'Confirmar'}
+                {approveBusy ? t('Aprovando...') : t('Confirmar')}
               </button>
             </div>
           </div>
@@ -1026,38 +1026,38 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
               <Save size={18} />
             </div>
             <div>
-              <p className="app-section-label">Graduação manual</p>
-              <h2 className="text-xl font-bold">Adiantar ou ajustar faixa e grau</h2>
+              <p className="app-section-label">{t('Graduação manual')}</p>
+              <h2 className="text-xl font-bold">{t('Adiantar ou ajustar faixa e grau')}</h2>
             </div>
           </div>
 
           <div className="mt-6 app-grid-2">
             <label className="app-field">
-              <span className="app-field__label">Faixa</span>
+              <span className="app-field__label">{t('Faixa')}</span>
               <select value={studentBelt} onChange={(event) => handleStudentBeltChange(event.target.value)} className="app-select">
                 {studentBeltOptions.map((entry) => (
                   <option key={entry.value} value={entry.value}>{entry.label}</option>
                 ))}
               </select>
               {canUseAdultGraduation ? (
-                <span className="app-field__hint">Aluno liberado para faixas adultas pelo ano em que completa 16.</span>
+                <span className="app-field__hint">{t('Aluno liberado para faixas adultas pelo ano em que completa 16.')}</span>
               ) : null}
             </label>
 
             {studentBeltIsBlack ? (
               <>
                 <label className="app-field">
-                  <span className="app-field__label">Data da faixa preta</span>
+                  <span className="app-field__label">{t('Data da faixa preta')}</span>
                   <DateField value={studentBlackBeltDate} onChange={setStudentBlackBeltDate} />
                   <span className="app-field__hint">
                     {studentBlackBeltPreview
-                      ? `${studentBlackBeltPreview.label} · ${studentBlackBeltPreview.years} ${studentBlackBeltPreview.years === 1 ? 'ano' : 'anos'} de faixa preta${studentBlackBeltPreview.styleNote ? ` (${studentBlackBeltPreview.styleNote})` : ''}.`
-                      : 'Informe a data em que recebeu a preta para calcular o grau por tempo (IBJJF).'}
+                      ? `${studentBlackBeltPreview.label} · ${studentBlackBeltPreview.years === 1 ? t('1 ano de faixa preta') : t('{years} anos de faixa preta', { years: studentBlackBeltPreview.years })}${studentBlackBeltPreview.styleNote ? ` (${studentBlackBeltPreview.styleNote})` : ''}.`
+                      : t('Informe a data em que recebeu a preta para calcular o grau por tempo (IBJJF).')}
                   </span>
                 </label>
 
                 <label className="app-field">
-                  <span className="app-field__label">Grau manual (opcional)</span>
+                  <span className="app-field__label">{t('Grau manual (opcional)')}</span>
                   <input
                     type="number"
                     min={0}
@@ -1067,14 +1067,14 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
                       event.target.value === '' ? '' : String(Math.max(0, Math.min(9, Math.floor(Number(event.target.value) || 0)))),
                     )}
                     className="app-input"
-                    placeholder={`Automático (${studentAutoBlackDegree}º)`}
+                    placeholder={t('Automático ({degree}º)', { degree: studentAutoBlackDegree })}
                   />
-                  <span className="app-field__hint">Deixe vazio para usar o grau automático pela data. Preencha só para ajustar manualmente.</span>
+                  <span className="app-field__hint">{t('Deixe vazio para usar o grau automático pela data. Preencha só para ajustar manualmente.')}</span>
                 </label>
               </>
             ) : (
               <label className="app-field">
-                <span className="app-field__label">Grau</span>
+                <span className="app-field__label">{t('Grau')}</span>
                 <input
                   type="number"
                   min={0}
@@ -1090,7 +1090,7 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
 
             {!studentBeltIsBlack && progression.classesPerStripe > 0 ? (
               <label className="app-field">
-                <span className="app-field__label">Aulas no grau atual</span>
+                <span className="app-field__label">{t('Aulas no grau atual')}</span>
                 <input
                   type="number"
                   min={0}
@@ -1101,27 +1101,27 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
                   )}
                   className="app-input"
                 />
-                <span className="app-field__hint">Quantas aulas o aluno já tem no grau atual (0 reinicia o grau)</span>
+                <span className="app-field__hint">{t('Quantas aulas o aluno já tem no grau atual (0 reinicia o grau)')}</span>
               </label>
             ) : null}
 
             {studentTrack === 'Kids' ? (
               <label className="app-field md:col-span-2">
-                <span className="app-field__label">Categoria kids</span>
+                <span className="app-field__label">{t('Categoria kids')}</span>
                 <select
                   value={studentKidsCategory}
                   onChange={(event) => setStudentKidsCategory(event.target.value as KidsCategory | '')}
                   className="app-select"
                 >
-                  <option value="">Inferir pela idade</option>
+                  <option value="">{t('Inferir pela idade')}</option>
                   {KIDS_CATEGORIES.map((entry) => (
                     <option key={entry.value} value={entry.value}>{entry.label}</option>
                   ))}
                 </select>
                 <span className="app-field__hint">
                   {studentKidsCategory
-                    ? `Categoria atual: ${kidsCategoryLabel(studentKidsCategory)}`
-                    : `Categoria sugerida: ${kidsCategoryLabel(inferredKidsCategory)}`}
+                    ? t('Categoria atual: {category}', { category: kidsCategoryLabel(studentKidsCategory) })
+                    : t('Categoria sugerida: {category}', { category: kidsCategoryLabel(inferredKidsCategory) })}
                 </span>
               </label>
             ) : null}
@@ -1129,7 +1129,7 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
 
           <button type="submit" disabled={saveBusy} className="app-button app-button--gold mt-6">
             <Save size={16} />
-            {saveBusy ? 'Salvando...' : 'Salvar graduação do aluno'}
+            {saveBusy ? t('Salvando...') : t('Salvar graduação do aluno')}
           </button>
         </form>
       ) : null}
@@ -1137,7 +1137,7 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
 
       {commitment ? (
         <section className="app-panel app-panel-pad">
-          <CommitmentBar commitment={commitment} title="Comprometimento do aluno" />
+          <CommitmentBar commitment={commitment} title={t('Comprometimento do aluno')} />
         </section>
       ) : null}
 
@@ -1147,8 +1147,8 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
             <TrendingUp size={18} />
           </div>
           <div>
-            <p className="app-section-label">Progresso</p>
-            <h2 className="text-xl font-bold">Avanço atual</h2>
+            <p className="app-section-label">{t('Progresso')}</p>
+            <h2 className="text-xl font-bold">{t('Avanço atual')}</h2>
           </div>
         </div>
 
@@ -1157,22 +1157,24 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
             <ProgressBar current={gradeDisplayProgress} total={gradeDisplayTotal} />
             <p className="mt-3 text-sm text-[color:var(--text-muted)]">
               {gradeDisplayTotal > 0
-                ? `Progresso real para o próximo grau: ${gradeDisplayProgress}/${gradeDisplayTotal} aulas`
-                : 'Próximo grau: progressão manual'}
+                ? t('Progresso real para o próximo grau: {current}/{total} aulas', { current: gradeDisplayProgress, total: gradeDisplayTotal })
+                : t('Próximo grau: progressão manual')}
             </p>
           </div>
           <div>
             <ProgressBar current={beltProgress} total={beltTotal} color="bg-gold" />
             <p className="mt-3 text-sm text-[color:var(--text-muted)]">
               {beltTotal > 0
-                ? `Progresso real para a próxima faixa: ${beltProgress}/${beltTotal} aulas`
-                : 'Próxima faixa: progressão manual'}
+                ? t('Progresso real para a próxima faixa: {current}/{total} aulas', { current: beltProgress, total: beltTotal })
+                : t('Próxima faixa: progressão manual')}
             </p>
           </div>
           <p className="text-xs text-[color:var(--text-soft)]">
             {progression.classesPerStripe > 0
-              ? `Regra oficial da faixa ${beltLabel(progression.currentBelt)}: ${progression.classesPerStripe} aulas por grau${progression.beltTotal > 0 ? ` / ${progression.beltTotal} aulas para a próxima faixa` : ''}.`
-              : `Regra oficial da faixa ${beltLabel(progression.currentBelt)}: progressão manual.`}
+              ? (progression.beltTotal > 0
+                ? t('Regra oficial da faixa {belt}: {perStripe} aulas por grau / {beltTotal} aulas para a próxima faixa.', { belt: beltLabel(progression.currentBelt), perStripe: progression.classesPerStripe, beltTotal: progression.beltTotal })
+                : t('Regra oficial da faixa {belt}: {perStripe} aulas por grau.', { belt: beltLabel(progression.currentBelt), perStripe: progression.classesPerStripe }))
+              : t('Regra oficial da faixa {belt}: progressão manual.', { belt: beltLabel(progression.currentBelt) })}
           </p>
         </div>
       </section>
@@ -1183,22 +1185,22 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
             <Calendar size={18} />
           </div>
           <div className="min-w-0 flex-1">
-            <p className="app-section-label">Histórico</p>
-            <h2 className="text-xl font-bold">Aulas frequentadas</h2>
+            <p className="app-section-label">{t('Histórico')}</p>
+            <h2 className="text-xl font-bold">{t('Aulas frequentadas')}</h2>
             <p className="mt-1 text-xs text-[color:var(--text-soft)]">
-              {filteredAttendances.length} aula{filteredAttendances.length === 1 ? '' : 's'} no período selecionado
+              {filteredAttendances.length === 1 ? t('1 aula no período selecionado') : t('{count} aulas no período selecionado', { count: filteredAttendances.length })}
             </p>
           </div>
         </div>
 
         <div className="mt-5">
-          <div className="app-segment flex flex-wrap gap-2" role="tablist" aria-label="Período do histórico de aulas">
+          <div className="app-segment flex flex-wrap gap-2" role="tablist" aria-label={t('Período do histórico de aulas')}>
             {([
-              { value: 'week', label: '7 dias' },
-              { value: 'month', label: 'Mês' },
-              { value: '3months', label: '3 meses' },
-              { value: 'all', label: 'Todos' },
-              { value: 'custom', label: 'Personalizado' },
+              { value: 'week', label: t('7 dias') },
+              { value: 'month', label: t('Mês') },
+              { value: '3months', label: t('3 meses') },
+              { value: 'all', label: t('Todos') },
+              { value: 'custom', label: t('Personalizado') },
             ] as Array<{ value: AttendancePeriodPreset; label: string }>).map((option) => (
               <button
                 key={option.value}
@@ -1222,7 +1224,7 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
             aria-expanded={historyAdvancedOpen}
           >
             <Filter size={14} />
-            Mais filtros
+            {t('Mais filtros')}
             {historyAdvancedOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
           </button>
         </div>
@@ -1230,31 +1232,31 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
         {historyAdvancedOpen ? (
           <div className="mt-4 space-y-4">
             <label className="app-field">
-              <span className="app-field__label">Nome da aula</span>
+              <span className="app-field__label">{t('Nome da aula')}</span>
               <select
                 value={historyClassTitle}
                 onChange={(event) => setHistoryClassTitle(event.target.value)}
                 className="app-select"
                 disabled={availableClassTitles.length === 0}
               >
-                <option value="">Todas as aulas</option>
+                <option value="">{t('Todas as aulas')}</option>
                 {availableClassTitles.map((title) => (
                   <option key={title} value={title}>{title}</option>
                 ))}
               </select>
               {availableClassTitles.length === 0 ? (
-                <span className="app-field__hint">Nenhum nome de aula disponível para este aluno ainda.</span>
+                <span className="app-field__hint">{t('Nenhum nome de aula disponível para este aluno ainda.')}</span>
               ) : null}
             </label>
 
             {historyPeriod === 'custom' ? (
               <div className="app-grid-2">
                 <label className="app-field">
-                  <span className="app-field__label">De</span>
+                  <span className="app-field__label">{t('De')}</span>
                   <DateField value={historyCustomFrom} onChange={setHistoryCustomFrom} />
                 </label>
                 <label className="app-field">
-                  <span className="app-field__label">Até</span>
+                  <span className="app-field__label">{t('Até')}</span>
                   <DateField value={historyCustomTo} onChange={setHistoryCustomTo} />
                 </label>
               </div>
@@ -1266,19 +1268,19 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
               className="app-button app-button--ghost app-button--small"
             >
               {historySortDir === 'desc' ? <ArrowDown size={14} /> : <ArrowUp size={14} />}
-              {historySortDir === 'desc' ? 'Mais recentes primeiro' : 'Mais antigas primeiro'}
+              {historySortDir === 'desc' ? t('Mais recentes primeiro') : t('Mais antigas primeiro')}
             </button>
           </div>
         ) : null}
 
         <div className="mt-5 app-list">
           {visibleAttendances.length === 0 ? (
-            <div className="app-empty">Nenhuma aula encontrada no período selecionado.</div>
+            <div className="app-empty">{t('Nenhuma aula encontrada no período selecionado.')}</div>
           ) : (
             visibleAttendances.map((attendance) => {
               const classInfo = classesById.get(attendance.classId);
               const refDate = resolveAttendanceDate(attendance, classInfo?.scheduledStart);
-              const dateLabel = refDate ? refDate.toLocaleString(getLocale(), { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Sem data';
+              const dateLabel = refDate ? refDate.toLocaleString(getLocale(), { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : t('Sem data');
               const counts = attendance.countsAsAttendance ?? true;
               const notCountedLabel = nonCountingReasonLabel(attendance.nonCountingReason);
               return (
@@ -1287,16 +1289,16 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
                     {attendance.checkInMethod === 'qr' ? <QrCode size={16} /> : <UserCheck size={16} />}
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-bold truncate">{classInfo?.title ?? 'Aula da academia'}</p>
+                    <p className="text-sm font-bold truncate">{classInfo?.title ?? t('Aula da academia')}</p>
                     <p className="mt-1 text-xs text-[color:var(--text-soft)]">{dateLabel}</p>
                     <div className="mt-2 flex flex-wrap gap-2">
                       <span className="app-badge app-badge--muted">{attendanceCheckInMethodLabel(attendance.checkInMethod)}</span>
                       {classInfo?.professorName ? (
-                        <span className="app-badge app-badge--muted">Prof. {classInfo.professorName}</span>
+                        <span className="app-badge app-badge--muted">{t('Prof. {name}', { name: classInfo.professorName })}</span>
                       ) : null}
                       {!counts ? (
                         <span className="app-badge app-badge--muted">
-                          {notCountedLabel ? `Não computada · ${notCountedLabel}` : 'Não computada'}
+                          {notCountedLabel ? `${t('Não computada')} · ${notCountedLabel}` : t('Não computada')}
                         </span>
                       ) : null}
                     </div>
@@ -1314,7 +1316,7 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
               onClick={() => setHistoryVisibleCount((value) => value + ATTENDANCE_PAGE_SIZE)}
               className="app-button app-button--ghost app-button--block"
             >
-              Carregar mais ({filteredAttendances.length - historyVisibleCount} restantes)
+              {t('Carregar mais ({count} restantes)', { count: filteredAttendances.length - historyVisibleCount })}
             </button>
           </div>
         ) : null}
@@ -1327,8 +1329,8 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
               <Video size={18} />
             </div>
             <div>
-              <p className="app-section-label">Vídeos</p>
-              <h2 className="text-xl font-bold">Arquivo de vídeos</h2>
+              <p className="app-section-label">{t('Vídeos')}</p>
+              <h2 className="text-xl font-bold">{t('Arquivo de vídeos')}</h2>
             </div>
           </div>
 
@@ -1344,7 +1346,7 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
                   <div className="flex flex-wrap items-center gap-2">
                     <p className="text-sm font-bold">{video.title}</p>
                     <span className="app-badge app-badge--muted">
-                      {video.origin === 'submission' ? 'Enviado pelo aluno' : 'Luta oficial'}
+                      {video.origin === 'submission' ? t('Enviado pelo aluno') : t('Luta oficial')}
                     </span>
                   </div>
                   <p className="mt-1 text-xs text-[color:var(--text-soft)]">{video.date}</p>
@@ -1361,8 +1363,8 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
             <Clock size={18} />
           </div>
           <div>
-            <p className="app-section-label">Histórico</p>
-            <h2 className="text-xl font-bold">Linha do tempo</h2>
+            <p className="app-section-label">{t('Histórico')}</p>
+            <h2 className="text-xl font-bold">{t('Linha do tempo')}</h2>
           </div>
         </div>
 
@@ -1372,7 +1374,7 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
               <Calendar size={16} />
             </div>
             <div>
-              <p className="text-sm font-bold">Início dos treinos</p>
+              <p className="text-sm font-bold">{t('Início dos treinos')}</p>
               <p className="mt-1 text-xs text-[color:var(--text-soft)]">{formatDate(student.startDate)}</p>
             </div>
           </div>
@@ -1382,7 +1384,7 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
               <Award size={16} />
             </div>
             <div>
-              <p className="text-sm font-bold">Última graduação</p>
+              <p className="text-sm font-bold">{t('Última graduação')}</p>
               <p className="mt-1 text-xs text-[color:var(--text-soft)]">{formatDate(timelineLastGraduation)}</p>
             </div>
           </div>
@@ -1392,7 +1394,7 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
               <TrendingUp size={16} />
             </div>
             <div>
-              <p className="text-sm font-bold">Último grau recebido</p>
+              <p className="text-sm font-bold">{t('Último grau recebido')}</p>
               <p className="mt-1 text-xs text-[color:var(--text-soft)]">{formatDate(timelineLastStripeDate)}</p>
             </div>
           </div>
