@@ -29,6 +29,7 @@ import {
 } from './learningShared';
 import type { LearningPlayerHandlers } from './learningHandlers';
 import type { LearningLessonBlockType } from '../../services/firebase/models';
+import { t } from '../../i18n';
 
 interface LearningPlayerViewProps extends LearningPlayerHandlers {
   academyName: string;
@@ -86,7 +87,7 @@ const UploadedVideoPlayer: React.FC<{
   };
 
   if (!sourceUrl) {
-    return <div className="app-empty">Este bloco ainda não tem um vídeo válido.</div>;
+    return <div className="app-empty">{t('Este bloco ainda não tem um vídeo válido.')}</div>;
   }
 
   return (
@@ -275,7 +276,7 @@ const LearningPlayerView: React.FC<LearningPlayerViewProps> = ({
       playbackSentSecondsRef.current[progressKey] = roundedCurrentSeconds;
       setActionError('');
     } catch (error) {
-      setActionError(error instanceof Error ? error.message : 'Não foi possível registrar o progresso deste bloco.');
+      setActionError(error instanceof Error ? error.message : t('Não foi possível registrar o progresso deste bloco.'));
     } finally {
       playbackPendingRef.current[progressKey] = false;
     }
@@ -292,7 +293,7 @@ const LearningPlayerView: React.FC<LearningPlayerViewProps> = ({
     try {
       await onMarkBlockComplete({ lessonId: activeLesson.lesson.id, blockId });
     } catch (error) {
-      setActionError(error instanceof Error ? error.message : 'Não foi possível concluir este bloco.');
+      setActionError(error instanceof Error ? error.message : t('Não foi possível concluir este bloco.'));
     } finally {
       setManualBlockBusyId('');
     }
@@ -314,7 +315,7 @@ const LearningPlayerView: React.FC<LearningPlayerViewProps> = ({
       setQuizSessionAnswers(Array.from({ length: response.questions.length }, () => -1));
       setQuizPassingScore(response.passingScore);
     } catch (error) {
-      setQuizError(error instanceof Error ? error.message : 'Não foi possível abrir o quiz.');
+      setQuizError(error instanceof Error ? error.message : t('Não foi possível abrir o quiz.'));
     } finally {
       setQuizBusy(false);
     }
@@ -324,7 +325,7 @@ const LearningPlayerView: React.FC<LearningPlayerViewProps> = ({
     event.preventDefault();
 
     if (quizSessionAnswers.some((answer) => answer < 0)) {
-      setQuizError('Responda todas as perguntas antes de enviar.');
+      setQuizError(t('Responda todas as perguntas antes de enviar.'));
       return;
     }
 
@@ -335,14 +336,14 @@ const LearningPlayerView: React.FC<LearningPlayerViewProps> = ({
     try {
       const response = await onSubmitQuiz({ lessonId: quizSessionLessonId, answers: quizSessionAnswers });
       setQuizFeedback(response.passed
-        ? `Aprovado com ${response.scorePercent}% de acerto.`
-        : `Você fez ${response.scorePercent}%. Revise o módulo e tente de novo.`);
+        ? t('Aprovado com {score}% de acerto.', { score: response.scorePercent })
+        : t('Você fez {score}%. Revise o módulo e tente de novo.', { score: response.scorePercent }));
       if (response.passed) {
         setQuizSessionQuestions([]);
         setQuizSessionLessonId('');
       }
     } catch (error) {
-      setQuizError(error instanceof Error ? error.message : 'Não foi possível enviar o quiz.');
+      setQuizError(error instanceof Error ? error.message : t('Não foi possível enviar o quiz.'));
     } finally {
       setQuizBusy(false);
     }
@@ -352,11 +353,12 @@ const LearningPlayerView: React.FC<LearningPlayerViewProps> = ({
     return (
       <div className="learning-player">
         <section className="app-panel app-panel-pad">
-          <p className="app-section-label">Learning Hub</p>
-          <h1 className="text-3xl font-bold">Nada liberado por enquanto</h1>
+          <p className="app-section-label">{t('Learning Hub')}</p>
+          <h1 className="text-3xl font-bold">{t('Nada liberado por enquanto')}</h1>
           <p className="mt-2 text-sm text-[color:var(--text-muted)]">
-            {firstName}, ainda não há videoaulas publicadas para o seu perfil
-            {isStudent ? ' e a sua faixa' : ''}. Assim que a {academyName} liberar um módulo, ele aparece aqui.
+            {isStudent
+              ? t('{name}, ainda não há videoaulas publicadas para o seu perfil e a sua faixa. Assim que a {academy} liberar um módulo, ele aparece aqui.', { name: firstName, academy: academyName })
+              : t('{name}, ainda não há videoaulas publicadas para o seu perfil. Assim que a {academy} liberar um módulo, ele aparece aqui.', { name: firstName, academy: academyName })}
           </p>
         </section>
       </div>
@@ -368,13 +370,13 @@ const LearningPlayerView: React.FC<LearningPlayerViewProps> = ({
       <section className="app-panel app-panel-pad">
         <div className="learning-player__hero">
           <div>
-            <p className="app-section-label">Learning Hub</p>
-            <h1 className="text-3xl font-bold">Sua trilha na {academyName}</h1>
+            <p className="app-section-label">{t('Learning Hub')}</p>
+            <h1 className="text-3xl font-bold">{t('Sua trilha na {academy}', { academy: academyName })}</h1>
             <p className="mt-2 text-sm text-[color:var(--text-muted)]">
-              {firstName}, conclua os blocos de cada módulo para liberar o próximo passo.
+              {t('{name}, conclua os blocos de cada módulo para liberar o próximo passo.', { name: firstName })}
             </p>
           </div>
-          <div className="app-orb"><BookOpen size={16} />{isStudent ? 'Aluno' : 'Professor'}</div>
+          <div className="app-orb"><BookOpen size={16} />{isStudent ? t('Aluno') : t('Professor')}</div>
         </div>
 
         <div className="learning-player__tracks">
@@ -396,8 +398,8 @@ const LearningPlayerView: React.FC<LearningPlayerViewProps> = ({
           <div className="flex items-center gap-3">
             <div className="app-icon-shell"><BookOpen size={18} /></div>
             <div>
-              <p className="app-section-label">Mapa da trilha</p>
-              <h2 className="text-xl font-bold">{activeTrack?.title ?? 'Trilha'}</h2>
+              <p className="app-section-label">{t('Mapa da trilha')}</p>
+              <h2 className="text-xl font-bold">{activeTrack?.title ?? t('Trilha')}</h2>
             </div>
           </div>
 
@@ -420,7 +422,7 @@ const LearningPlayerView: React.FC<LearningPlayerViewProps> = ({
                         {entry.lesson.title}
                       </p>
                       <p className="mt-1 text-xs text-[color:var(--text-soft)]">
-                        {entry.course?.title ?? 'Curso'} · {entry.blocks.length} {entry.blocks.length === 1 ? 'bloco' : 'blocos'}
+                        {entry.course?.title ?? t('Curso')} · {entry.blocks.length === 1 ? t('1 bloco') : t('{count} blocos', { count: entry.blocks.length })}
                       </p>
                     </div>
                     <span className={statusBadge(runtime)}>{statusLabel(runtime)}</span>
@@ -435,8 +437,8 @@ const LearningPlayerView: React.FC<LearningPlayerViewProps> = ({
           <section className="app-panel app-panel-pad">
             <div className="learning-player__stage-head">
               <div>
-                <p className="app-section-label">Módulo ativo</p>
-                <h2 className="text-2xl font-bold">{activeLesson?.lesson.title ?? 'Selecione um módulo'}</h2>
+                <p className="app-section-label">{t('Módulo ativo')}</p>
+                <h2 className="text-2xl font-bold">{activeLesson?.lesson.title ?? t('Selecione um módulo')}</h2>
                 {activeLesson?.lesson.description ? (
                   <p className="mt-2 text-sm text-[color:var(--text-muted)]">{activeLesson.lesson.description}</p>
                 ) : null}
@@ -448,7 +450,7 @@ const LearningPlayerView: React.FC<LearningPlayerViewProps> = ({
               <>
                 <div className="mt-6">
                   <ProgressBar
-                    label="Progresso do módulo"
+                    label={t('Progresso do módulo')}
                     current={Math.min(activeLessonProgress?.contentCompletionPercent ?? 0, 100)}
                     total={100}
                     unit="percent"
@@ -458,7 +460,7 @@ const LearningPlayerView: React.FC<LearningPlayerViewProps> = ({
                 {activeLessonStatus === 'locked' ? (
                   <div className="app-empty mt-6">
                     <Lock size={14} className="inline mr-1" />
-                    Conclua o módulo anterior para liberar este.
+                    {t('Conclua o módulo anterior para liberar este.')}
                   </div>
                 ) : null}
 
@@ -477,11 +479,11 @@ const LearningPlayerView: React.FC<LearningPlayerViewProps> = ({
                               <p className="text-sm font-bold">{block.title}</p>
                             </div>
                             <p className="mt-1 text-xs text-[color:var(--text-soft)]">
-                              {blockTypeLabel(block.type)} · bloco {block.order}
+                              {blockTypeLabel(block.type)} · {t('bloco {n}', { n: block.order })}
                             </p>
                           </div>
                           <span className={blockCompleted ? 'app-badge app-badge--success' : 'app-badge app-badge--muted'}>
-                            {blockCompleted ? 'Concluído' : `${blockProgress}%`}
+                            {blockCompleted ? t('Concluído') : `${blockProgress}%`}
                           </span>
                         </div>
 
@@ -512,7 +514,7 @@ const LearningPlayerView: React.FC<LearningPlayerViewProps> = ({
                               <div className="flex flex-wrap gap-3">
                                 <a href={block.sourceUrl} target="_blank" rel="noreferrer" className="app-button app-button--dark app-button--small">
                                   <ExternalLink size={14} />
-                                  Abrir PDF
+                                  {t('Abrir PDF')}
                                 </a>
                                 <button
                                   type="button"
@@ -521,7 +523,7 @@ const LearningPlayerView: React.FC<LearningPlayerViewProps> = ({
                                   className="app-button app-button--gold app-button--small"
                                 >
                                   <CheckCircle2 size={14} />
-                                  {manualBlockBusyId === block.id ? 'Salvando...' : (blockCompleted ? 'Concluído' : 'Marcar como concluído')}
+                                  {manualBlockBusyId === block.id ? t('Salvando...') : (blockCompleted ? t('Concluído') : t('Marcar como concluído'))}
                                 </button>
                               </div>
                             </div>
@@ -535,7 +537,7 @@ const LearningPlayerView: React.FC<LearningPlayerViewProps> = ({
                               <div className="flex flex-wrap gap-3">
                                 <a href={block.sourceUrl} target="_blank" rel="noreferrer" className="app-button app-button--dark app-button--small">
                                   <ExternalLink size={14} />
-                                  Abrir imagem
+                                  {t('Abrir imagem')}
                                 </a>
                                 <button
                                   type="button"
@@ -544,7 +546,7 @@ const LearningPlayerView: React.FC<LearningPlayerViewProps> = ({
                                   className="app-button app-button--gold app-button--small"
                                 >
                                   <CheckCircle2 size={14} />
-                                  {manualBlockBusyId === block.id ? 'Salvando...' : (blockCompleted ? 'Concluído' : 'Marcar como concluído')}
+                                  {manualBlockBusyId === block.id ? t('Salvando...') : (blockCompleted ? t('Concluído') : t('Marcar como concluído'))}
                                 </button>
                               </div>
                             </div>
@@ -562,11 +564,11 @@ const LearningPlayerView: React.FC<LearningPlayerViewProps> = ({
                 <div className="mt-6 app-panel app-panel--soft p-4">
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div>
-                      <p className="text-sm font-bold">Quiz do módulo</p>
+                      <p className="text-sm font-bold">{t('Quiz do módulo')}</p>
                       <p className="mt-1 text-xs text-[color:var(--text-soft)]">
                         {activeLesson.lesson.quizQuestionCount > 0
-                          ? 'Libera quando todos os blocos estiverem concluídos.'
-                          : 'Este módulo não tem quiz: ele fecha sozinho quando você concluir os blocos.'}
+                          ? t('Libera quando todos os blocos estiverem concluídos.')
+                          : t('Este módulo não tem quiz: ele fecha sozinho quando você concluir os blocos.')}
                       </p>
                     </div>
                     {activeLesson.lesson.quizQuestionCount > 0 ? (
@@ -577,21 +579,21 @@ const LearningPlayerView: React.FC<LearningPlayerViewProps> = ({
                         className="app-button app-button--gold"
                       >
                         <ClipboardCheck size={16} />
-                        {quizBusy ? 'Processando...' : (activeLessonProgress?.quizPassed ? 'Refazer quiz' : 'Abrir quiz')}
+                        {quizBusy ? t('Processando...') : (activeLessonProgress?.quizPassed ? t('Refazer quiz') : t('Abrir quiz'))}
                       </button>
                     ) : (
                       <span className={activeLessonProgress?.lessonCompleted ? 'app-badge app-badge--success' : 'app-badge app-badge--muted'}>
-                        {activeLessonProgress?.lessonCompleted ? 'Módulo concluído' : 'Sem quiz'}
+                        {activeLessonProgress?.lessonCompleted ? t('Módulo concluído') : t('Sem quiz')}
                       </span>
                     )}
                   </div>
 
                   {activeLesson.lesson.quizQuestionCount > 0 ? (
                     <div className="mt-4 flex flex-wrap gap-2">
-                      <span className="app-badge app-badge--muted">Tentativas: {activeLessonProgress?.attemptCount ?? 0}</span>
-                      <span className="app-badge app-badge--muted">Nota mínima: {activeLessonProgress ? activeLesson.lesson.passingScore : quizPassingScore}%</span>
+                      <span className="app-badge app-badge--muted">{t('Tentativas: {count}', { count: activeLessonProgress?.attemptCount ?? 0 })}</span>
+                      <span className="app-badge app-badge--muted">{t('Nota mínima: {score}%', { score: activeLessonProgress ? activeLesson.lesson.passingScore : quizPassingScore })}</span>
                       {activeLessonProgress?.bestScore ? (
-                        <span className="app-badge app-badge--muted">Melhor nota: {activeLessonProgress.bestScore}%</span>
+                        <span className="app-badge app-badge--muted">{t('Melhor nota: {score}%', { score: activeLessonProgress.bestScore })}</span>
                       ) : null}
                     </div>
                   ) : null}
@@ -630,7 +632,7 @@ const LearningPlayerView: React.FC<LearningPlayerViewProps> = ({
 
                       <button type="submit" disabled={quizBusy} className="app-button app-button--gold">
                         <Send size={16} />
-                        {quizBusy ? 'Enviando...' : 'Enviar quiz'}
+                        {quizBusy ? t('Enviando...') : t('Enviar quiz')}
                       </button>
                     </form>
                   ) : null}
@@ -641,7 +643,7 @@ const LearningPlayerView: React.FC<LearningPlayerViewProps> = ({
                 </div>
               </>
             ) : (
-              <div className="app-empty mt-6">Selecione um módulo para ver os blocos e o quiz.</div>
+              <div className="app-empty mt-6">{t('Selecione um módulo para ver os blocos e o quiz.')}</div>
             )}
           </section>
         </div>

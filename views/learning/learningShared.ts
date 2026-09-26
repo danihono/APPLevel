@@ -9,6 +9,7 @@ import type {
   LearningQuizRecord,
   LearningTrackRecord,
 } from '../../services/firebase/models';
+import { t } from '../../i18n';
 
 export type TrackEntity = FirestoreEntity<LearningTrackRecord>;
 export type CourseEntity = FirestoreEntity<LearningCourseRecord>;
@@ -80,7 +81,7 @@ export function contentBadge(status: ContentStatus): string {
 }
 
 export function contentLabel(status: ContentStatus): string {
-  return status === 'published' ? 'Publicado' : 'Rascunho';
+  return status === 'published' ? t('Publicado') : t('Rascunho');
 }
 
 export function statusBadge(status: LessonRuntimeStatus): string {
@@ -90,25 +91,25 @@ export function statusBadge(status: LessonRuntimeStatus): string {
 }
 
 export function statusLabel(status: LessonRuntimeStatus): string {
-  if (status === 'completed') return 'Concluído';
-  if (status === 'ready') return 'Quiz liberado';
-  if (status === 'watching') return 'Em andamento';
-  if (status === 'available') return 'Disponível';
-  return 'Bloqueado';
+  if (status === 'completed') return t('Concluído');
+  if (status === 'ready') return t('Quiz liberado');
+  if (status === 'watching') return t('Em andamento');
+  if (status === 'available') return t('Disponível');
+  return t('Bloqueado');
 }
 
 export function blockTypeLabel(type: LearningLessonBlockType): string {
   switch (type) {
     case 'youtube':
-      return 'YouTube';
+      return t('YouTube');
     case 'uploaded_video':
-      return 'Vídeo';
+      return t('Vídeo');
     case 'pdf':
-      return 'PDF';
+      return t('PDF');
     case 'image':
-      return 'Imagem';
+      return t('Imagem');
     default:
-      return 'Conteúdo';
+      return t('Conteúdo');
   }
 }
 

@@ -41,6 +41,7 @@ import {
 import type { FirestoreEntity } from '../../services/firebase/data';
 import type { AcademyRecord, UserRecord } from '../../services/firebase/models';
 import type { LearningHubHandlers } from './learningHandlers';
+import { t } from '../../i18n';
 
 interface LearningAdminViewProps extends LearningHubHandlers {
   selectedAcademyId?: string;
@@ -153,7 +154,7 @@ const LearningAdminView: React.FC<LearningAdminViewProps> = ({
       await action();
       setFeedback(successMessage);
     } catch (error) {
-      setActionError(error instanceof Error ? error.message : 'Não foi possível concluir a ação.');
+      setActionError(error instanceof Error ? error.message : t('Não foi possível concluir a ação.'));
     } finally {
       setBusyNodeId('');
     }
@@ -166,10 +167,10 @@ const LearningAdminView: React.FC<LearningAdminViewProps> = ({
     try {
       const response = await onUpsertTrack(payload);
       setSelected({ kind: 'track', id: response.trackId });
-      setFeedback('Trilha salva.');
+      setFeedback(t('Trilha salva.'));
       closeEditor();
     } catch (error) {
-      setEditorError(error instanceof Error ? error.message : 'Não foi possível salvar a trilha.');
+      setEditorError(error instanceof Error ? error.message : t('Não foi possível salvar a trilha.'));
       setEditorBusy(false);
     }
   }
@@ -181,10 +182,10 @@ const LearningAdminView: React.FC<LearningAdminViewProps> = ({
     try {
       const response = await onUpsertCourse(payload);
       setSelected({ kind: 'course', id: response.courseId });
-      setFeedback('Curso salvo.');
+      setFeedback(t('Curso salvo.'));
       closeEditor();
     } catch (error) {
-      setEditorError(error instanceof Error ? error.message : 'Não foi possível salvar o curso.');
+      setEditorError(error instanceof Error ? error.message : t('Não foi possível salvar o curso.'));
       setEditorBusy(false);
     }
   }
@@ -196,7 +197,7 @@ const LearningAdminView: React.FC<LearningAdminViewProps> = ({
   async function handleSaveLesson(payload: LessonEditorSubmit) {
     setEditorBusy(true);
     setEditorError('');
-    setEditorBusyLabel('Salvando módulo...');
+    setEditorBusyLabel(t('Salvando módulo...'));
 
     try {
       const onlyYouTubeBlock = payload.blocks.length === 1 && payload.blocks[0].type === 'youtube'
@@ -218,7 +219,7 @@ const LearningAdminView: React.FC<LearningAdminViewProps> = ({
       });
 
       if (payload.blocks.some((block) => block.file)) {
-        setEditorBusyLabel('Enviando arquivos...');
+        setEditorBusyLabel(t('Enviando arquivos...'));
       }
 
       const uploadedBlocks = await Promise.all(payload.blocks.map(async (block) => {
@@ -241,7 +242,7 @@ const LearningAdminView: React.FC<LearningAdminViewProps> = ({
         };
       }));
 
-      setEditorBusyLabel('Gravando blocos...');
+      setEditorBusyLabel(t('Gravando blocos...'));
       await onReplaceLessonBlocks({
         lessonId: lessonResponse.lessonId,
         blocks: uploadedBlocks.map((block, index) => ({
@@ -257,17 +258,17 @@ const LearningAdminView: React.FC<LearningAdminViewProps> = ({
         })),
       });
 
-      setEditorBusyLabel('Gravando quiz...');
+      setEditorBusyLabel(t('Gravando quiz...'));
       await onUpsertQuiz({
         lessonId: lessonResponse.lessonId,
         questions: payload.quizEnabled ? payload.quizQuestions : [],
       });
 
       setSelected({ kind: 'lesson', id: lessonResponse.lessonId });
-      setFeedback('Módulo salvo.');
+      setFeedback(t('Módulo salvo.'));
       closeEditor();
     } catch (error) {
-      setEditorError(error instanceof Error ? error.message : 'Não foi possível salvar o módulo.');
+      setEditorError(error instanceof Error ? error.message : t('Não foi possível salvar o módulo.'));
       setEditorBusy(false);
       setEditorBusyLabel('');
     }
@@ -289,7 +290,7 @@ const LearningAdminView: React.FC<LearningAdminViewProps> = ({
           // que publicar não altere quem enxerga o conteúdo.
           audience: resolveTrackAudience(track),
         });
-      }, nextStatus === 'published' ? 'Trilha publicada.' : 'Trilha voltou para rascunho.');
+      }, nextStatus === 'published' ? t('Trilha publicada.') : t('Trilha voltou para rascunho.'));
       return;
     }
 
@@ -305,7 +306,7 @@ const LearningAdminView: React.FC<LearningAdminViewProps> = ({
           status: nextStatus,
           audience: course.audience,
         });
-      }, nextStatus === 'published' ? 'Curso publicado.' : 'Curso voltou para rascunho.');
+      }, nextStatus === 'published' ? t('Curso publicado.') : t('Curso voltou para rascunho.'));
       return;
     }
 
@@ -323,7 +324,7 @@ const LearningAdminView: React.FC<LearningAdminViewProps> = ({
           passingScore: lesson.passingScore,
           audience: lesson.audience,
         });
-      }, nextStatus === 'published' ? 'Módulo publicado.' : 'Módulo voltou para rascunho.');
+      }, nextStatus === 'published' ? t('Módulo publicado.') : t('Módulo voltou para rascunho.'));
     }
   }
 
@@ -359,7 +360,7 @@ const LearningAdminView: React.FC<LearningAdminViewProps> = ({
           status: neighbour.status,
           audience: resolveTrackAudience(neighbour),
         });
-      }, 'Ordem atualizada.');
+      }, t('Ordem atualizada.'));
       return;
     }
 
@@ -390,7 +391,7 @@ const LearningAdminView: React.FC<LearningAdminViewProps> = ({
           status: neighbour.status,
           audience: neighbour.audience,
         });
-      }, 'Ordem atualizada.');
+      }, t('Ordem atualizada.'));
       return;
     }
 
@@ -425,7 +426,7 @@ const LearningAdminView: React.FC<LearningAdminViewProps> = ({
           passingScore: neighbour.passingScore,
           audience: neighbour.audience,
         });
-      }, 'Ordem atualizada.');
+      }, t('Ordem atualizada.'));
     }
   }
 
@@ -488,7 +489,7 @@ const LearningAdminView: React.FC<LearningAdminViewProps> = ({
       }
 
       setSelected({ kind: 'lesson', id: response.lessonId });
-    }, 'Módulo duplicado como rascunho.');
+    }, t('Módulo duplicado como rascunho.'));
   }
 
   async function handleDelete(node: LearningNodeRef) {
@@ -496,9 +497,9 @@ const LearningAdminView: React.FC<LearningAdminViewProps> = ({
 
     if (node.kind === 'track' && track) {
       const confirmed = await confirm({
-        title: 'Excluir trilha',
-        message: `Excluir "${track.title}"?\n\nA trilha precisa estar sem cursos.`,
-        confirmLabel: 'Excluir',
+        title: t('Excluir trilha'),
+        message: t('Excluir "{title}"?\n\nA trilha precisa estar sem cursos.', { title: track.title }),
+        confirmLabel: t('Excluir'),
         tone: 'danger',
       });
       if (!confirmed) {
@@ -508,15 +509,15 @@ const LearningAdminView: React.FC<LearningAdminViewProps> = ({
       await runNodeAction(node.id, async () => {
         await onDeleteTrack(track.id);
         setSelected(null);
-      }, 'Trilha excluída.');
+      }, t('Trilha excluída.'));
       return;
     }
 
     if (node.kind === 'course' && course) {
       const confirmed = await confirm({
-        title: 'Excluir curso',
-        message: `Excluir "${course.title}"?\n\nO curso precisa estar sem módulos.`,
-        confirmLabel: 'Excluir',
+        title: t('Excluir curso'),
+        message: t('Excluir "{title}"?\n\nO curso precisa estar sem módulos.', { title: course.title }),
+        confirmLabel: t('Excluir'),
         tone: 'danger',
       });
       if (!confirmed) {
@@ -526,15 +527,15 @@ const LearningAdminView: React.FC<LearningAdminViewProps> = ({
       await runNodeAction(node.id, async () => {
         await onDeleteCourse(course.id);
         setSelected(null);
-      }, 'Curso excluído.');
+      }, t('Curso excluído.'));
       return;
     }
 
     if (node.kind === 'lesson' && lesson) {
       const confirmed = await confirm({
-        title: 'Excluir módulo',
-        message: `Excluir "${lesson.title}"?\n\nOs blocos, o quiz e todo o progresso já registrado neste módulo serão apagados. Não dá para desfazer.`,
-        confirmLabel: 'Excluir',
+        title: t('Excluir módulo'),
+        message: t('Excluir "{title}"?\n\nOs blocos, o quiz e todo o progresso já registrado neste módulo serão apagados. Não dá para desfazer.', { title: lesson.title }),
+        confirmLabel: t('Excluir'),
         tone: 'danger',
       });
       if (!confirmed) {
@@ -544,7 +545,7 @@ const LearningAdminView: React.FC<LearningAdminViewProps> = ({
       await runNodeAction(node.id, async () => {
         await onDeleteLesson(lesson.id);
         setSelected(null);
-      }, 'Módulo excluído.');
+      }, t('Módulo excluído.'));
     }
   }
 
@@ -554,9 +555,9 @@ const LearningAdminView: React.FC<LearningAdminViewProps> = ({
 
     try {
       const response = await onBackfillAudience();
-      setFeedback(`Público-alvo sincronizado em ${response.trackCount} ${response.trackCount === 1 ? 'trilha' : 'trilhas'}.`);
+      setFeedback(response.trackCount === 1 ? t('Público-alvo sincronizado em 1 trilha.') : t('Público-alvo sincronizado em {count} trilhas.', { count: response.trackCount }));
     } catch (error) {
-      setActionError(error instanceof Error ? error.message : 'Não foi possível sincronizar o público-alvo.');
+      setActionError(error instanceof Error ? error.message : t('Não foi possível sincronizar o público-alvo.'));
     } finally {
       setBusyNodeId('');
     }
@@ -588,15 +589,15 @@ const LearningAdminView: React.FC<LearningAdminViewProps> = ({
       const trackLessons = lessons.filter((lesson) => lesson.trackId === selectedTrack.id);
 
       return {
-        kind: 'Trilha',
+        kind: t('Trilha'),
         title: selectedTrack.title,
         description: selectedTrack.description,
         status: selectedTrack.status,
         audience,
         stats: [
-          { label: 'Cursos', value: trackCourses.length },
-          { label: 'Módulos', value: trackLessons.length },
-          { label: 'Publicados', value: trackLessons.filter((lesson) => lesson.status === 'published').length },
+          { label: t('Cursos'), value: trackCourses.length },
+          { label: t('Módulos'), value: trackLessons.length },
+          { label: t('Publicados'), value: trackLessons.filter((lesson) => lesson.status === 'published').length },
         ],
       };
     }
@@ -609,14 +610,14 @@ const LearningAdminView: React.FC<LearningAdminViewProps> = ({
       const courseLessons = lessons.filter((lesson) => lesson.courseId === selectedCourse.id);
 
       return {
-        kind: 'Curso',
+        kind: t('Curso'),
         title: selectedCourse.title,
         description: selectedCourse.description,
         status: selectedCourse.status,
         audience,
         stats: [
-          { label: 'Módulos', value: courseLessons.length },
-          { label: 'Publicados', value: courseLessons.filter((lesson) => lesson.status === 'published').length },
+          { label: t('Módulos'), value: courseLessons.length },
+          { label: t('Publicados'), value: courseLessons.filter((lesson) => lesson.status === 'published').length },
         ],
       };
     }
@@ -630,15 +631,15 @@ const LearningAdminView: React.FC<LearningAdminViewProps> = ({
       const blocks = getEffectiveLessonBlocks(selectedLesson, lessonBlocks);
 
       return {
-        kind: 'Módulo',
+        kind: t('Módulo'),
         title: selectedLesson.title,
         description: selectedLesson.description,
         status: selectedLesson.status,
         audience,
         stats: [
-          { label: 'Blocos', value: blocks.length },
-          { label: 'Perguntas', value: quizByLessonId.get(selectedLesson.id)?.questions?.length ?? selectedLesson.quizQuestionCount },
-          { label: 'Nota mínima', value: `${selectedLesson.passingScore}%` },
+          { label: t('Blocos'), value: blocks.length },
+          { label: t('Perguntas'), value: quizByLessonId.get(selectedLesson.id)?.questions?.length ?? selectedLesson.quizQuestionCount },
+          { label: t('Nota mínima'), value: `${selectedLesson.passingScore}%` },
         ],
       };
     }
@@ -691,7 +692,7 @@ const LearningAdminView: React.FC<LearningAdminViewProps> = ({
           user,
           completed,
           total: trackLessons.length,
-          current: currentEntry ? currentEntry.lesson.title : 'Sem módulo ativo',
+          current: currentEntry ? currentEntry.lesson.title : t('Sem módulo ativo'),
         };
       })
       .filter((row) => row.total > 0)
@@ -711,25 +712,25 @@ const LearningAdminView: React.FC<LearningAdminViewProps> = ({
       <section className="app-panel app-panel-pad learning-admin__header">
         <div className="learning-admin__header-main">
           <div>
-            <p className="app-section-label">Learning Hub</p>
-            <h1 className="text-3xl font-bold">Catálogo da rede</h1>
+            <p className="app-section-label">{t('Learning Hub')}</p>
+            <h1 className="text-3xl font-bold">{t('Catálogo da rede')}</h1>
             <p className="mt-2 text-sm text-[color:var(--text-muted)]">
-              Monte trilhas, cursos e módulos, defina para quem cada conteúdo aparece e acompanhe o progresso.
+              {t('Monte trilhas, cursos e módulos, defina para quem cada conteúdo aparece e acompanhe o progresso.')}
             </p>
           </div>
-          <div className="app-orb"><ShieldCheck size={16} />Superadmin</div>
+          <div className="app-orb"><ShieldCheck size={16} />{t('Superadmin')}</div>
         </div>
 
         <div className="learning-admin__header-tools">
           {onSelectAcademy ? (
             <label className="app-field learning-admin__academy">
-              <span className="app-field__label"><Network size={13} /> Recorte de acompanhamento</span>
+              <span className="app-field__label"><Network size={13} /> {t('Recorte de acompanhamento')}</span>
               <select
                 value={selectedAcademyId ?? ''}
                 onChange={(event) => onSelectAcademy(event.target.value)}
                 className="app-select"
               >
-                <option value="">Toda a rede</option>
+                <option value="">{t('Toda a rede')}</option>
                 {academies.map((academy) => (
                   <option key={academy.id} value={academy.id}>{academy.name}</option>
                 ))}
@@ -742,28 +743,28 @@ const LearningAdminView: React.FC<LearningAdminViewProps> = ({
             onClick={() => void handleBackfill()}
             disabled={busyNodeId === 'backfill'}
             className="app-button app-button--dark app-button--small"
-            title="Recalcula o público-alvo do conteúdo criado antes da segmentação"
+            title={t('Recalcula o público-alvo do conteúdo criado antes da segmentação')}
           >
             <RefreshCw size={14} />
-            {busyNodeId === 'backfill' ? 'Sincronizando...' : 'Sincronizar conteúdo legado'}
+            {busyNodeId === 'backfill' ? t('Sincronizando...') : t('Sincronizar conteúdo legado')}
           </button>
         </div>
 
         <div className="app-stat-grid learning-admin__kpis">
           <article className="app-stat-card">
-            <p className="app-stat-card__label">Academias</p>
+            <p className="app-stat-card__label">{t('Academias')}</p>
             <p className="app-stat-card__value">{selectedAcademy ? 1 : academies.length}</p>
           </article>
           <article className="app-stat-card">
-            <p className="app-stat-card__label">Trilhas publicadas</p>
+            <p className="app-stat-card__label">{t('Trilhas publicadas')}</p>
             <p className="app-stat-card__value">{publishedTracks.length}</p>
           </article>
           <article className="app-stat-card">
-            <p className="app-stat-card__label">Cursos publicados</p>
+            <p className="app-stat-card__label">{t('Cursos publicados')}</p>
             <p className="app-stat-card__value">{publishedCourses.length}</p>
           </article>
           <article className="app-stat-card">
-            <p className="app-stat-card__label">Módulos publicados</p>
+            <p className="app-stat-card__label">{t('Módulos publicados')}</p>
             <p className="app-stat-card__value">{publishedLessons.length}</p>
           </article>
         </div>
@@ -777,8 +778,8 @@ const LearningAdminView: React.FC<LearningAdminViewProps> = ({
           <div className="flex items-center gap-3">
             <div className="app-icon-shell"><Route size={18} /></div>
             <div>
-              <p className="app-section-label">Estrutura</p>
-              <h2 className="text-xl font-bold">Trilhas, cursos e módulos</h2>
+              <p className="app-section-label">{t('Estrutura')}</p>
+              <h2 className="text-xl font-bold">{t('Trilhas, cursos e módulos')}</h2>
             </div>
           </div>
 
@@ -828,16 +829,16 @@ const LearningAdminView: React.FC<LearningAdminViewProps> = ({
                 </div>
 
                 <div className={`learning-audience__preview ${isEmptyAudience(detailPanel.audience) ? 'is-empty' : ''}`}>
-                  <p className="learning-audience__preview-label"><Users size={13} /> Quem vê este conteúdo</p>
+                  <p className="learning-audience__preview-label"><Users size={13} /> {t('Quem vê este conteúdo')}</p>
                   <p className="learning-audience__preview-value">{describeAudience(detailPanel.audience)}</p>
                   {isEmptyAudience(detailPanel.audience) ? (
                     <p className="learning-audience__preview-warning">
                       <AlertTriangle size={14} />
-                      Nenhum perfil atende à combinação atual. Ajuste o público-alvo.
+                      {t('Nenhum perfil atende à combinação atual. Ajuste o público-alvo.')}
                     </p>
                   ) : (
                     <p className="learning-audience__preview-count">
-                      {reachCount} de {audienceUsers.length} pessoas {selectedAcademyId ? 'na academia em foco' : 'na rede'}
+                      {selectedAcademyId ? t('{reach} de {total} pessoas na academia em foco', { reach: reachCount, total: audienceUsers.length }) : t('{reach} de {total} pessoas na rede', { reach: reachCount, total: audienceUsers.length })}
                     </p>
                   )}
                 </div>
@@ -848,12 +849,12 @@ const LearningAdminView: React.FC<LearningAdminViewProps> = ({
                   className="app-button app-button--gold mt-4"
                 >
                   <Layers size={16} />
-                  Editar {detailPanel.kind.toLowerCase()}
+                  {t('Editar')} {detailPanel.kind.toLowerCase()}
                 </button>
               </>
             ) : (
               <div className="app-empty">
-                Selecione uma trilha, curso ou módulo na estrutura ao lado para ver os detalhes e o público-alvo.
+                {t('Selecione uma trilha, curso ou módulo na estrutura ao lado para ver os detalhes e o público-alvo.')}
               </div>
             )}
           </div>
@@ -862,9 +863,9 @@ const LearningAdminView: React.FC<LearningAdminViewProps> = ({
             <div className="flex items-center gap-3">
               <div className="app-icon-shell"><BookOpen size={18} /></div>
               <div>
-                <p className="app-section-label">Progresso</p>
+                <p className="app-section-label">{t('Progresso')}</p>
                 <h2 className="text-lg font-bold">
-                  {progressReport.track ? progressReport.track.title : 'Nenhuma trilha publicada'}
+                  {progressReport.track ? progressReport.track.title : t('Nenhuma trilha publicada')}
                 </h2>
               </div>
             </div>
@@ -872,8 +873,8 @@ const LearningAdminView: React.FC<LearningAdminViewProps> = ({
             {progressReport.rows.length === 0 ? (
               <div className="app-empty mt-4">
                 {progressReport.track
-                  ? 'Ninguém do público-alvo iniciou esta trilha ainda.'
-                  : 'Publique uma trilha para acompanhar o progresso.'}
+                  ? t('Ninguém do público-alvo iniciou esta trilha ainda.')
+                  : t('Publique uma trilha para acompanhar o progresso.')}
               </div>
             ) : (
               <div className="app-list mt-4 learning-admin__progress-list">
@@ -883,7 +884,7 @@ const LearningAdminView: React.FC<LearningAdminViewProps> = ({
                       <div>
                         <p className="text-sm font-bold">{row.user.displayName}</p>
                         <p className="mt-1 text-xs text-[color:var(--text-soft)]">
-                          {row.completed}/{row.total} módulos · {row.current}
+                          {t('{completed}/{total} módulos', { completed: row.completed, total: row.total })} · {row.current}
                         </p>
                       </div>
                       <span className={statusBadge(row.completed === row.total ? 'completed' : 'watching')}>
