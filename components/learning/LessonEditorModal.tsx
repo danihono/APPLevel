@@ -22,6 +22,7 @@ import {
 import { resolveCourseAudience, resolveTrackAudience } from '../../learningAudience';
 import type { FirestoreEntity } from '../../services/firebase/data';
 import type { LearningAudienceConfig, UserRecord } from '../../services/firebase/models';
+import { t } from '../../i18n';
 
 type LessonEditorTab = 'data' | 'blocks' | 'quiz' | 'audience';
 
@@ -141,7 +142,7 @@ const LessonEditorModal: React.FC<LessonEditorModalProps> = ({
     let firstInvalidTab: LessonEditorTab | null = null;
 
     if (!trimmedTitle) {
-      setTitleError('Informe o título do módulo.');
+      setTitleError(t('Informe o título do módulo.'));
       firstInvalidTab = 'data';
     } else {
       setTitleError('');
@@ -149,21 +150,21 @@ const LessonEditorModal: React.FC<LessonEditorModalProps> = ({
 
     blocks.forEach((block) => {
       if (!block.title.trim()) {
-        nextBlockErrors[block.tempId] = 'Informe o título deste bloco.';
+        nextBlockErrors[block.tempId] = t('Informe o título deste bloco.');
         return;
       }
 
       if (block.type === 'youtube') {
         if (!block.sourceUrl.trim()) {
-          nextBlockErrors[block.tempId] = 'Informe a URL do YouTube.';
+          nextBlockErrors[block.tempId] = t('Informe a URL do YouTube.');
         } else if (!isYouTubeUrl(block.sourceUrl.trim())) {
-          nextBlockErrors[block.tempId] = 'Informe uma URL válida do YouTube.';
+          nextBlockErrors[block.tempId] = t('Informe uma URL válida do YouTube.');
         }
         return;
       }
 
       if (!block.file && !block.sourceUrl) {
-        nextBlockErrors[block.tempId] = 'Envie um arquivo para este bloco.';
+        nextBlockErrors[block.tempId] = t('Envie um arquivo para este bloco.');
       }
     });
 
@@ -173,7 +174,7 @@ const LessonEditorModal: React.FC<LessonEditorModalProps> = ({
 
     // O backend recusa publicar um módulo sem nenhum bloco.
     if (status === 'published' && blocks.length === 0) {
-      setValidationSummary('Adicione ao menos um bloco de conteúdo antes de publicar o módulo.');
+      setValidationSummary(t('Adicione ao menos um bloco de conteúdo antes de publicar o módulo.'));
       setBlockErrors(nextBlockErrors);
       setQuizErrors({});
       setTab('blocks');
@@ -184,16 +185,16 @@ const LessonEditorModal: React.FC<LessonEditorModalProps> = ({
       quizQuestions.forEach((question, index) => {
         const filledOptions = question.options.map((option) => option.trim()).filter(Boolean);
         if (!question.prompt.trim()) {
-          nextQuizErrors[index] = 'Informe o enunciado da pergunta.';
+          nextQuizErrors[index] = t('Informe o enunciado da pergunta.');
         } else if (filledOptions.length < 2) {
-          nextQuizErrors[index] = 'Preencha ao menos duas alternativas.';
+          nextQuizErrors[index] = t('Preencha ao menos duas alternativas.');
         } else if (!question.options[question.correctOptionIndex]?.trim()) {
-          nextQuizErrors[index] = 'A alternativa marcada como correta está vazia.';
+          nextQuizErrors[index] = t('A alternativa marcada como correta está vazia.');
         }
       });
 
       if (quizQuestions.length === 0) {
-        nextQuizErrors[0] = 'Cadastre uma pergunta ou desative o quiz.';
+        nextQuizErrors[0] = t('Cadastre uma pergunta ou desative o quiz.');
       }
 
       if (Object.keys(nextQuizErrors).length > 0 && !firstInvalidTab) {
@@ -205,7 +206,7 @@ const LessonEditorModal: React.FC<LessonEditorModalProps> = ({
     setQuizErrors(nextQuizErrors);
 
     if (firstInvalidTab) {
-      setValidationSummary('Revise os campos destacados antes de salvar.');
+      setValidationSummary(t('Revise os campos destacados antes de salvar.'));
       setTab(firstInvalidTab);
       return false;
     }
@@ -253,12 +254,12 @@ const LessonEditorModal: React.FC<LessonEditorModalProps> = ({
   return (
     <LearningEditorModal
       open={open}
-      title={lesson ? 'Editar módulo' : 'Novo módulo'}
-      subtitle={course && track ? `${track.title} › ${course.title}` : 'Selecione um curso antes de criar o módulo.'}
+      title={lesson ? t('Editar módulo') : t('Novo módulo')}
+      subtitle={course && track ? `${track.title} › ${course.title}` : t('Selecione um curso antes de criar o módulo.')}
       icon={<Layers size={20} />}
       busy={busy}
       error={error || validationSummary}
-      submitLabel={busyLabel || (lesson ? 'Salvar módulo' : 'Criar módulo')}
+      submitLabel={busyLabel || (lesson ? t('Salvar módulo') : t('Criar módulo'))}
       onClose={onClose}
       onSubmit={handleSubmit}
       tabs={TABS.map((entry) => (
@@ -269,7 +270,7 @@ const LessonEditorModal: React.FC<LessonEditorModalProps> = ({
           className={`learning-modal__tab ${tab === entry.id ? 'is-active' : ''}`}
         >
           {entry.icon}
-          {entry.label}
+          {t(entry.label)}
           {tabCounts[entry.id] ? <span className="learning-modal__tab-count">{tabCounts[entry.id]}</span> : null}
         </button>
       ))}
@@ -277,7 +278,7 @@ const LessonEditorModal: React.FC<LessonEditorModalProps> = ({
       {tab === 'data' ? (
         <div className="learning-form-grid">
           <label className="app-field learning-form-grid__full">
-            <span className="app-field__label">Título</span>
+            <span className="app-field__label">{t('Título')}</span>
             <input
               value={title}
               onChange={(event) => {
@@ -287,14 +288,14 @@ const LessonEditorModal: React.FC<LessonEditorModalProps> = ({
                 }
               }}
               className="app-input"
-              placeholder="Ex.: Raspagem da meia-guarda"
+              placeholder={t('Ex.: Raspagem da meia-guarda')}
               autoFocus
             />
             {titleError ? <span className="app-field__error">{titleError}</span> : null}
           </label>
 
           <label className="app-field learning-form-grid__full">
-            <span className="app-field__label">Descrição</span>
+            <span className="app-field__label">{t('Descrição')}</span>
             <textarea
               value={description}
               onChange={(event) => setDescription(event.target.value)}
@@ -303,7 +304,7 @@ const LessonEditorModal: React.FC<LessonEditorModalProps> = ({
           </label>
 
           <label className="app-field">
-            <span className="app-field__label">Ordem</span>
+            <span className="app-field__label">{t('Ordem')}</span>
             <input
               type="number"
               min={1}
@@ -314,14 +315,14 @@ const LessonEditorModal: React.FC<LessonEditorModalProps> = ({
           </label>
 
           <label className="app-field">
-            <span className="app-field__label">Status</span>
+            <span className="app-field__label">{t('Status')}</span>
             <select
               value={status}
               onChange={(event) => setStatus(event.target.value as ContentStatus)}
               className="app-select"
             >
-              <option value="draft">Rascunho</option>
-              <option value="published">Publicado</option>
+              <option value="draft">{t('Rascunho')}</option>
+              <option value="published">{t('Publicado')}</option>
             </select>
           </label>
         </div>

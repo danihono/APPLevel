@@ -1,4 +1,5 @@
 import type { MessageCatalog } from './types';
+import { learningEditorMessages } from './learning-editor';
 import { attendanceMessages } from './attendance';
 import { managementMessages } from './management';
 import { classesMessages } from './classes';
@@ -37,4 +38,5 @@ export const messages: MessageCatalog = {
   ...classesMessages,
   ...managementMessages,
   ...attendanceMessages,
+  ...learningEditorMessages,
 };

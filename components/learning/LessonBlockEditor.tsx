@@ -15,6 +15,7 @@ import {
   type EditorBlockDraft,
 } from '../../views/learning/learningShared';
 import type { LearningLessonBlockType } from '../../services/firebase/models';
+import { t } from '../../i18n';
 
 const BLOCK_TYPE_OPTIONS: Array<{
   type: LearningLessonBlockType;
@@ -76,7 +77,7 @@ const LessonBlockEditor: React.FC<LessonBlockEditorProps> = ({ blocks, onChange,
   return (
     <div className="learning-blocks">
       <div className="learning-blocks__toolbar">
-        <p className="app-field__label">Blocos de conteúdo</p>
+        <p className="app-field__label">{t('Blocos de conteúdo')}</p>
         <div className="learning-blocks__add">
           {BLOCK_TYPE_OPTIONS.map((option) => (
             <button
@@ -94,8 +95,7 @@ const LessonBlockEditor: React.FC<LessonBlockEditorProps> = ({ blocks, onChange,
 
       {blocks.length === 0 ? (
         <div className="app-empty">
-          Nenhum bloco ainda. Adicione um vídeo do YouTube, um upload, um PDF ou uma imagem —
-          um módulo publicado precisa de pelo menos um bloco.
+          {t('Nenhum bloco ainda. Adicione um vídeo do YouTube, um upload, um PDF ou uma imagem — um módulo publicado precisa de pelo menos um bloco.')}
         </div>
       ) : (
         <ol className="learning-blocks__list">
@@ -119,18 +119,18 @@ const LessonBlockEditor: React.FC<LessonBlockEditorProps> = ({ blocks, onChange,
                         file: null,
                       })}
                       className="app-select learning-block-card__type"
-                      aria-label={`Tipo do bloco ${index + 1}`}
+                      aria-label={t('Tipo do bloco {n}', { n: index + 1 })}
                     >
                       {BLOCK_TYPE_OPTIONS.map((option) => (
-                        <option key={option.type} value={option.type}>{option.label}</option>
+                        <option key={option.type} value={option.type}>{t(option.label)}</option>
                       ))}
                     </select>
                     <input
                       value={block.title}
                       onChange={(event) => updateBlock(block.tempId, { title: event.target.value })}
                       className="app-input"
-                      placeholder={`Título do bloco (${blockTypeLabel(block.type)})`}
-                      aria-label={`Título do bloco ${index + 1}`}
+                      placeholder={t('Título do bloco ({type})', { type: blockTypeLabel(block.type) })}
+                      aria-label={t('Título do bloco {n}', { n: index + 1 })}
                     />
                   </div>
                   <div className="learning-block-card__actions">
@@ -139,7 +139,7 @@ const LessonBlockEditor: React.FC<LessonBlockEditorProps> = ({ blocks, onChange,
                       onClick={() => moveBlock(block.tempId, -1)}
                       disabled={index === 0}
                       className="learning-icon-button"
-                      aria-label="Mover bloco para cima"
+                      aria-label={t('Mover bloco para cima')}
                     >
                       <ArrowUp size={14} />
                     </button>
@@ -148,7 +148,7 @@ const LessonBlockEditor: React.FC<LessonBlockEditorProps> = ({ blocks, onChange,
                       onClick={() => moveBlock(block.tempId, 1)}
                       disabled={index === blocks.length - 1}
                       className="learning-icon-button"
-                      aria-label="Mover bloco para baixo"
+                      aria-label={t('Mover bloco para baixo')}
                     >
                       <ArrowDown size={14} />
                     </button>
@@ -156,7 +156,7 @@ const LessonBlockEditor: React.FC<LessonBlockEditorProps> = ({ blocks, onChange,
                       type="button"
                       onClick={() => removeBlock(block.tempId)}
                       className="learning-icon-button learning-icon-button--danger"
-                      aria-label="Remover bloco"
+                      aria-label={t('Remover bloco')}
                     >
                       <Trash2 size={14} />
                     </button>
@@ -166,7 +166,7 @@ const LessonBlockEditor: React.FC<LessonBlockEditorProps> = ({ blocks, onChange,
                 <div className="learning-block-card__body">
                   {block.type === 'youtube' ? (
                     <label className="app-field">
-                      <span className="app-field__label">URL do YouTube</span>
+                      <span className="app-field__label">{t('URL do YouTube')}</span>
                       <input
                         value={block.sourceUrl}
                         onChange={(event) => updateBlock(block.tempId, { sourceUrl: event.target.value })}
@@ -178,7 +178,7 @@ const LessonBlockEditor: React.FC<LessonBlockEditorProps> = ({ blocks, onChange,
 
                   {isUpload ? (
                     <label className="app-field">
-                      <span className="app-field__label">Arquivo</span>
+                      <span className="app-field__label">{t('Arquivo')}</span>
                       <input
                         type="file"
                         accept={ACCEPT_BY_TYPE[block.type]}
@@ -194,10 +194,10 @@ const LessonBlockEditor: React.FC<LessonBlockEditorProps> = ({ blocks, onChange,
                       />
                       <span className="app-field__hint">
                         {block.file
-                          ? `Novo arquivo: ${block.file.name}`
+                          ? t('Novo arquivo: {name}', { name: block.file.name })
                           : (block.fileName
-                            ? `Arquivo atual: ${block.fileName}`
-                            : 'Nenhum arquivo enviado ainda.')}
+                            ? t('Arquivo atual: {name}', { name: block.fileName })
+                            : t('Nenhum arquivo enviado ainda.'))}
                       </span>
                     </label>
                   ) : null}
@@ -210,7 +210,7 @@ const LessonBlockEditor: React.FC<LessonBlockEditorProps> = ({ blocks, onChange,
                       className="app-button app-button--dark app-button--small"
                     >
                       <Upload size={14} />
-                      Ver arquivo atual
+                      {t('Ver arquivo atual')}
                     </a>
                   ) : null}
 

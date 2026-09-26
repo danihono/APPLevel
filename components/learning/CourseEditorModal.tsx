@@ -11,6 +11,7 @@ import {
 import { resolveTrackAudience } from '../../learningAudience';
 import type { FirestoreEntity } from '../../services/firebase/data';
 import type { LearningAudienceConfig, UserRecord } from '../../services/firebase/models';
+import { t } from '../../i18n';
 
 export interface CourseEditorSubmit {
   courseId?: string;
@@ -69,7 +70,7 @@ const CourseEditorModal: React.FC<CourseEditorModalProps> = ({
   function handleSubmit() {
     const trimmedTitle = title.trim();
     if (!trimmedTitle) {
-      setTitleError('Informe o título do curso.');
+      setTitleError(t('Informe o título do curso.'));
       return;
     }
 
@@ -92,18 +93,18 @@ const CourseEditorModal: React.FC<CourseEditorModalProps> = ({
   return (
     <LearningEditorModal
       open={open}
-      title={course ? 'Editar curso' : 'Novo curso'}
-      subtitle={track ? `Trilha: ${track.title}` : 'Selecione uma trilha antes de criar o curso.'}
+      title={course ? t('Editar curso') : t('Novo curso')}
+      subtitle={track ? t('Trilha: {title}', { title: track.title }) : t('Selecione uma trilha antes de criar o curso.')}
       icon={<BookOpen size={20} />}
       busy={busy}
       error={error}
-      submitLabel={course ? 'Salvar curso' : 'Criar curso'}
+      submitLabel={course ? t('Salvar curso') : t('Criar curso')}
       onClose={onClose}
       onSubmit={handleSubmit}
     >
       <div className="learning-form-grid">
         <label className="app-field learning-form-grid__full">
-          <span className="app-field__label">Título</span>
+          <span className="app-field__label">{t('Título')}</span>
           <input
             value={title}
             onChange={(event) => {
@@ -113,14 +114,14 @@ const CourseEditorModal: React.FC<CourseEditorModalProps> = ({
               }
             }}
             className="app-input"
-            placeholder="Ex.: Passagem de guarda"
+            placeholder={t('Ex.: Passagem de guarda')}
             autoFocus
           />
           {titleError ? <span className="app-field__error">{titleError}</span> : null}
         </label>
 
         <label className="app-field learning-form-grid__full">
-          <span className="app-field__label">Descrição</span>
+          <span className="app-field__label">{t('Descrição')}</span>
           <textarea
             value={description}
             onChange={(event) => setDescription(event.target.value)}
@@ -129,7 +130,7 @@ const CourseEditorModal: React.FC<CourseEditorModalProps> = ({
         </label>
 
         <label className="app-field">
-          <span className="app-field__label">Ordem</span>
+          <span className="app-field__label">{t('Ordem')}</span>
           <input
             type="number"
             min={1}
@@ -140,14 +141,14 @@ const CourseEditorModal: React.FC<CourseEditorModalProps> = ({
         </label>
 
         <label className="app-field">
-          <span className="app-field__label">Status</span>
+          <span className="app-field__label">{t('Status')}</span>
           <select
             value={status}
             onChange={(event) => setStatus(event.target.value as ContentStatus)}
             className="app-select"
           >
-            <option value="draft">Rascunho</option>
-            <option value="published">Publicado</option>
+            <option value="draft">{t('Rascunho')}</option>
+            <option value="published">{t('Publicado')}</option>
           </select>
         </label>
       </div>

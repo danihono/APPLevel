@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { X } from 'lucide-react';
+import { t } from '../../i18n';
 
 interface LearningEditorModalProps {
   open: boolean;
@@ -33,7 +34,7 @@ const LearningEditorModal: React.FC<LearningEditorModalProps> = ({
   tabs,
   error,
   busy = false,
-  submitLabel = 'Salvar',
+  submitLabel = t('Salvar'),
   onClose,
   onSubmit,
   footerStart,
@@ -112,7 +113,7 @@ const LearningEditorModal: React.FC<LearningEditorModalProps> = ({
             onClick={onClose}
             disabled={busy}
             className="learning-icon-button"
-            aria-label="Fechar"
+            aria-label={t('Fechar')}
           >
             <X size={16} />
           </button>
@@ -133,10 +134,10 @@ const LearningEditorModal: React.FC<LearningEditorModalProps> = ({
           <div className="learning-modal__footer-start">{footerStart}</div>
           <div className="learning-modal__footer-actions">
             <button type="button" onClick={onClose} disabled={busy} className="app-button app-button--dark">
-              Cancelar
+              {t('Cancelar')}
             </button>
             <button type="submit" disabled={busy} className="app-button app-button--gold">
-              {busy ? 'Salvando...' : submitLabel}
+              {busy ? t('Salvando...') : submitLabel}
             </button>
           </div>
         </footer>

@@ -14,6 +14,7 @@ import type {
   LearningAudienceRole,
   UserRecord,
 } from '../../services/firebase/models';
+import { t } from '../../i18n';
 
 const KIDS_BELTS = KIDS_BELTS_BY_CATEGORY.level_infantil;
 
@@ -60,9 +61,6 @@ const LearningAudienceField: React.FC<LearningAudienceFieldProps> = ({
   const canInherit = parentAudiences.length > 0;
   const isCustom = value.mode === 'custom';
   // "a trilha" / "o curso" — evita concordância errada nos avisos.
-  const parentArticle = parent === 'trilha' ? 'a' : 'o';
-  const parentContraction = parent === 'trilha' ? 'da' : 'do';
-  const parentRestrictive = parent === 'trilha' ? 'restrita' : 'restrito';
 
   const effective = useMemo(
     () => intersectAudiences(...parentAudiences, value),
@@ -106,7 +104,7 @@ const LearningAudienceField: React.FC<LearningAudienceFieldProps> = ({
   function renderBeltGroup(title: string, belts: readonly string[]) {
     return (
       <div className="learning-audience__group">
-        <p className="learning-audience__group-label">{title}</p>
+        <p className="learning-audience__group-label">{t(title)}</p>
         <div className="learning-audience__chips">
           {belts.map((belt) => {
             const selected = value.belts.includes(belt);
@@ -132,17 +130,17 @@ const LearningAudienceField: React.FC<LearningAudienceFieldProps> = ({
       <div className="learning-audience__head">
         <div className="flex items-center gap-2">
           <Users size={16} />
-          <p className="app-field__label">Público-alvo</p>
+          <p className="app-field__label">{t('Público-alvo')}</p>
         </div>
         {canInherit ? (
-          <div className="learning-audience__mode" role="group" aria-label="Modo do público-alvo">
+          <div className="learning-audience__mode" role="group" aria-label={t('Modo do público-alvo')}>
             <button
               type="button"
               onClick={() => onChange({ mode: 'inherit', roles: [], belts: [] })}
               className={`learning-chip ${!isCustom ? 'is-selected' : ''}`}
             >
               <Layers size={13} />
-              Herdar {parentContraction} {parent}
+              {parent === 'trilha' ? t('Herdar da trilha') : t('Herdar do curso')}
             </button>
             <button
               type="button"
@@ -150,7 +148,7 @@ const LearningAudienceField: React.FC<LearningAudienceFieldProps> = ({
               className={`learning-chip ${isCustom ? 'is-selected' : ''}`}
             >
               <GraduationCap size={13} />
-              Definir aqui
+              {t('Definir aqui')}
             </button>
           </div>
         ) : null}
@@ -160,7 +158,7 @@ const LearningAudienceField: React.FC<LearningAudienceFieldProps> = ({
         <div className="learning-audience__body">
           <div className="learning-audience__group">
             <p className="learning-audience__group-label">
-              Perfis <span className="learning-audience__hint">nenhum marcado = alunos e professores</span>
+              {t('Perfis')} <span className="learning-audience__hint">{t('nenhum marcado = alunos e professores')}</span>
             </p>
             <div className="learning-audience__chips">
               {AUDIENCE_ROLE_OPTIONS.map((option) => {
@@ -171,10 +169,10 @@ const LearningAudienceField: React.FC<LearningAudienceFieldProps> = ({
                     key={option.value}
                     onClick={() => toggleRole(option.value)}
                     aria-pressed={selected}
-                    title={option.hint}
+                    title={t(option.hint)}
                     className={`learning-chip ${selected ? 'is-selected' : ''}`}
                   >
-                    {option.label}
+                    {t(option.label)}
                   </button>
                 );
               })}
@@ -183,7 +181,7 @@ const LearningAudienceField: React.FC<LearningAudienceFieldProps> = ({
 
           <div className="learning-audience__group">
             <p className="learning-audience__group-label">
-              Atalhos de faixa <span className="learning-audience__hint">nenhuma marcada = todas</span>
+              {t('Atalhos de faixa')} <span className="learning-audience__hint">{t('nenhuma marcada = todas')}</span>
             </p>
             <div className="learning-audience__chips">
               {BELT_PRESETS.map((preset) => (
@@ -193,7 +191,7 @@ const LearningAudienceField: React.FC<LearningAudienceFieldProps> = ({
                   onClick={() => applyPreset(preset)}
                   className="learning-chip learning-chip--preset"
                 >
-                  {preset.label}
+                  {t(preset.label)}
                 </button>
               ))}
             </div>
@@ -204,28 +202,28 @@ const LearningAudienceField: React.FC<LearningAudienceFieldProps> = ({
         </div>
       ) : (
         <p className="learning-audience__inherit-note">
-          Este conteúdo usa exatamente o público-alvo definido n{parentArticle} {parent}.
+          {parent === 'trilha' ? t('Este conteúdo usa exatamente o público-alvo definido na trilha.') : t('Este conteúdo usa exatamente o público-alvo definido no curso.')}
         </p>
       )}
 
       <div className={`learning-audience__preview ${isEmptyAudience(effective) ? 'is-empty' : ''}`}>
-        <p className="learning-audience__preview-label">Quem vai ver</p>
+        <p className="learning-audience__preview-label">{t('Quem vai ver')}</p>
         <p className="learning-audience__preview-value">{describeAudience(effective)}</p>
         {!isEmptyAudience(effective) && audienceUsers.length > 0 ? (
           <p className="learning-audience__preview-count">
-            {matchingUsers} de {audienceUsers.length} pessoas no recorte atual
+            {t('{matching} de {total} pessoas no recorte atual', { matching: matchingUsers, total: audienceUsers.length })}
           </p>
         ) : null}
         {isEmptyAudience(effective) ? (
           <p className="learning-audience__preview-warning">
             <AlertTriangle size={14} />
-            A combinação com os níveis acima não deixa ninguém. Ajuste os perfis ou as faixas.
+            {t('A combinação com os níveis acima não deixa ninguém. Ajuste os perfis ou as faixas.')}
           </p>
         ) : null}
         {narrowedByParent ? (
           <p className="learning-audience__preview-warning">
             <AlertTriangle size={14} />
-            {parentArticle === 'a' ? 'A' : 'O'} {parent} é mais {parentRestrictive}: vale a interseção mostrada acima, não a seleção completa.
+            {parent === 'trilha' ? t('A trilha é mais restrita: vale a interseção mostrada acima, não a seleção completa.') : t('O curso é mais restrito: vale a interseção mostrada acima, não a seleção completa.')}
           </p>
         ) : null}
       </div>

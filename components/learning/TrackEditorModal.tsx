@@ -6,6 +6,7 @@ import { DEFAULT_TRACK_AUDIENCE, type ContentStatus, type TrackEntity } from '..
 import { resolveTrackAudience } from '../../learningAudience';
 import type { FirestoreEntity } from '../../services/firebase/data';
 import type { LearningAudienceConfig, UserRecord } from '../../services/firebase/models';
+import { t } from '../../i18n';
 
 export interface TrackEditorSubmit {
   trackId?: string;
@@ -62,7 +63,7 @@ const TrackEditorModal: React.FC<TrackEditorModalProps> = ({
   function handleSubmit() {
     const trimmedTitle = title.trim();
     if (!trimmedTitle) {
-      setTitleError('Informe o título da trilha.');
+      setTitleError(t('Informe o título da trilha.'));
       return;
     }
 
@@ -80,18 +81,18 @@ const TrackEditorModal: React.FC<TrackEditorModalProps> = ({
   return (
     <LearningEditorModal
       open={open}
-      title={track ? 'Editar trilha' : 'Nova trilha'}
-      subtitle="A trilha é a raiz da jornada e define o público-alvo herdado por cursos e módulos."
+      title={track ? t('Editar trilha') : t('Nova trilha')}
+      subtitle={t('A trilha é a raiz da jornada e define o público-alvo herdado por cursos e módulos.')}
       icon={<Route size={20} />}
       busy={busy}
       error={error}
-      submitLabel={track ? 'Salvar trilha' : 'Criar trilha'}
+      submitLabel={track ? t('Salvar trilha') : t('Criar trilha')}
       onClose={onClose}
       onSubmit={handleSubmit}
     >
       <div className="learning-form-grid">
         <label className="app-field learning-form-grid__full">
-          <span className="app-field__label">Título</span>
+          <span className="app-field__label">{t('Título')}</span>
           <input
             value={title}
             onChange={(event) => {
@@ -101,24 +102,24 @@ const TrackEditorModal: React.FC<TrackEditorModalProps> = ({
               }
             }}
             className="app-input"
-            placeholder="Ex.: Fundamentos da guarda"
+            placeholder={t('Ex.: Fundamentos da guarda')}
             autoFocus
           />
           {titleError ? <span className="app-field__error">{titleError}</span> : null}
         </label>
 
         <label className="app-field learning-form-grid__full">
-          <span className="app-field__label">Descrição</span>
+          <span className="app-field__label">{t('Descrição')}</span>
           <textarea
             value={description}
             onChange={(event) => setDescription(event.target.value)}
             className="app-input min-h-[6rem]"
-            placeholder="O que o aluno aprende nesta trilha?"
+            placeholder={t('O que o aluno aprende nesta trilha?')}
           />
         </label>
 
         <label className="app-field">
-          <span className="app-field__label">Ordem</span>
+          <span className="app-field__label">{t('Ordem')}</span>
           <input
             type="number"
             min={1}
@@ -129,14 +130,14 @@ const TrackEditorModal: React.FC<TrackEditorModalProps> = ({
         </label>
 
         <label className="app-field">
-          <span className="app-field__label">Status</span>
+          <span className="app-field__label">{t('Status')}</span>
           <select
             value={status}
             onChange={(event) => setStatus(event.target.value as ContentStatus)}
             className="app-select"
           >
-            <option value="draft">Rascunho</option>
-            <option value="published">Publicado</option>
+            <option value="draft">{t('Rascunho')}</option>
+            <option value="published">{t('Publicado')}</option>
           </select>
         </label>
       </div>

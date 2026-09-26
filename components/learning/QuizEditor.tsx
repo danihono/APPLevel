@@ -1,6 +1,7 @@
 import React from 'react';
 import { Plus, Trash2 } from 'lucide-react';
 import { emptyQuestion, type QuizQuestionDraft } from '../../views/learning/learningShared';
+import { t } from '../../i18n';
 
 interface QuizEditorProps {
   enabled: boolean;
@@ -41,26 +42,26 @@ const QuizEditor: React.FC<QuizEditorProps> = ({
   return (
     <div className="learning-quiz-editor">
       <div className="learning-quiz-editor__toolbar">
-        <div className="learning-audience__mode" role="group" aria-label="Modo do quiz">
+        <div className="learning-audience__mode" role="group" aria-label={t('Modo do quiz')}>
           <button
             type="button"
             onClick={() => onToggle(true)}
             className={`learning-chip ${enabled ? 'is-selected' : ''}`}
           >
-            Com quiz
+            {t('Com quiz')}
           </button>
           <button
             type="button"
             onClick={() => onToggle(false)}
             className={`learning-chip ${!enabled ? 'is-selected' : ''}`}
           >
-            Sem quiz
+            {t('Sem quiz')}
           </button>
         </div>
 
         {enabled ? (
           <label className="app-field learning-quiz-editor__score">
-            <span className="app-field__label">Nota mínima (%)</span>
+            <span className="app-field__label">{t('Nota mínima (%)')}</span>
             <input
               type="number"
               min={1}
@@ -75,8 +76,7 @@ const QuizEditor: React.FC<QuizEditorProps> = ({
 
       {!enabled ? (
         <div className="app-empty">
-          Sem quiz: o módulo é concluído automaticamente assim que todos os blocos forem
-          assistidos ou marcados como concluídos.
+          {t('Sem quiz: o módulo é concluído automaticamente assim que todos os blocos forem assistidos ou marcados como concluídos.')}
         </div>
       ) : (
         <>
@@ -89,15 +89,15 @@ const QuizEditor: React.FC<QuizEditorProps> = ({
                     value={question.prompt}
                     onChange={(event) => updateQuestion(questionIndex, { prompt: event.target.value })}
                     className="app-input"
-                    placeholder="Enunciado da pergunta"
-                    aria-label={`Enunciado da pergunta ${questionIndex + 1}`}
+                    placeholder={t('Enunciado da pergunta')}
+                    aria-label={t('Enunciado da pergunta {n}', { n: questionIndex + 1 })}
                   />
                   <button
                     type="button"
                     onClick={() => onChange(questions.filter((_, position) => position !== questionIndex))}
                     disabled={questions.length <= 1}
                     className="learning-icon-button learning-icon-button--danger"
-                    aria-label="Remover pergunta"
+                    aria-label={t('Remover pergunta')}
                   >
                     <Trash2 size={14} />
                   </button>
@@ -111,19 +111,19 @@ const QuizEditor: React.FC<QuizEditorProps> = ({
                         name={`correct-option-${questionIndex}`}
                         checked={question.correctOptionIndex === optionIndex}
                         onChange={() => updateQuestion(questionIndex, { correctOptionIndex: optionIndex })}
-                        aria-label={`Marcar alternativa ${optionIndex + 1} como correta`}
+                        aria-label={t('Marcar alternativa {n} como correta', { n: optionIndex + 1 })}
                       />
                       <input
                         value={option}
                         onChange={(event) => updateOption(questionIndex, optionIndex, event.target.value)}
                         className="app-input"
-                        placeholder={`Alternativa ${optionIndex + 1}`}
+                        placeholder={t('Alternativa {n}', { n: optionIndex + 1 })}
                       />
                     </label>
                   ))}
                 </div>
 
-                <p className="app-field__hint">Marque o círculo da alternativa correta.</p>
+                <p className="app-field__hint">{t('Marque o círculo da alternativa correta.')}</p>
                 {errors[questionIndex] ? <p className="app-field__error">{errors[questionIndex]}</p> : null}
               </li>
             ))}
@@ -135,7 +135,7 @@ const QuizEditor: React.FC<QuizEditorProps> = ({
             className="app-button app-button--dark app-button--small"
           >
             <Plus size={14} />
-            Adicionar pergunta
+            {t('Adicionar pergunta')}
           </button>
         </>
       )}

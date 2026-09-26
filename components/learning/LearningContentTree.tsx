@@ -29,6 +29,7 @@ import {
   type QuizEntity,
   type TrackEntity,
 } from '../../views/learning/learningShared';
+import { t } from '../../i18n';
 
 export type LearningNodeKind = 'track' | 'course' | 'lesson';
 
@@ -146,8 +147,8 @@ const LearningContentTree: React.FC<LearningContentTreeProps> = ({
           onClick={(event) => { event.stopPropagation(); onMove(node, -1); }}
           disabled={busy}
           className="learning-icon-button"
-          aria-label="Mover para cima"
-          title="Mover para cima"
+          aria-label={t('Mover para cima')}
+          title={t('Mover para cima')}
         >
           <ArrowUp size={13} />
         </button>
@@ -156,8 +157,8 @@ const LearningContentTree: React.FC<LearningContentTreeProps> = ({
           onClick={(event) => { event.stopPropagation(); onMove(node, 1); }}
           disabled={busy}
           className="learning-icon-button"
-          aria-label="Mover para baixo"
-          title="Mover para baixo"
+          aria-label={t('Mover para baixo')}
+          title={t('Mover para baixo')}
         >
           <ArrowDown size={13} />
         </button>
@@ -166,8 +167,8 @@ const LearningContentTree: React.FC<LearningContentTreeProps> = ({
           onClick={(event) => { event.stopPropagation(); onToggleStatus(node); }}
           disabled={busy}
           className="learning-icon-button"
-          aria-label={status === 'published' ? 'Despublicar' : 'Publicar'}
-          title={status === 'published' ? 'Despublicar' : 'Publicar'}
+          aria-label={status === 'published' ? t('Despublicar') : t('Publicar')}
+          title={status === 'published' ? t('Despublicar') : t('Publicar')}
         >
           {status === 'published' ? <EyeOff size={13} /> : <Eye size={13} />}
         </button>
@@ -177,8 +178,8 @@ const LearningContentTree: React.FC<LearningContentTreeProps> = ({
             onClick={(event) => { event.stopPropagation(); onDuplicate(node); }}
             disabled={busy}
             className="learning-icon-button"
-            aria-label="Duplicar"
-            title="Duplicar"
+            aria-label={t('Duplicar')}
+            title={t('Duplicar')}
           >
             <Copy size={13} />
           </button>
@@ -188,8 +189,8 @@ const LearningContentTree: React.FC<LearningContentTreeProps> = ({
           onClick={(event) => { event.stopPropagation(); onEdit(node); }}
           disabled={busy}
           className="learning-icon-button"
-          aria-label="Editar"
-          title="Editar"
+          aria-label={t('Editar')}
+          title={t('Editar')}
         >
           <Pencil size={13} />
         </button>
@@ -198,8 +199,8 @@ const LearningContentTree: React.FC<LearningContentTreeProps> = ({
           onClick={(event) => { event.stopPropagation(); onDelete(node); }}
           disabled={busy}
           className="learning-icon-button learning-icon-button--danger"
-          aria-label="Excluir"
-          title="Excluir"
+          aria-label={t('Excluir')}
+          title={t('Excluir')}
         >
           <Trash2 size={13} />
         </button>
@@ -215,15 +216,15 @@ const LearningContentTree: React.FC<LearningContentTreeProps> = ({
           <input
             value={search}
             onChange={(event) => setSearch(event.target.value)}
-            placeholder="Buscar trilha, curso ou módulo"
-            aria-label="Buscar conteúdo"
+            placeholder={t('Buscar trilha, curso ou módulo')}
+            aria-label={t('Buscar conteúdo')}
           />
         </label>
         <div className="learning-tree__filters">
           {([
-            { id: 'all', label: 'Todos' },
-            { id: 'published', label: 'Publicados' },
-            { id: 'draft', label: 'Rascunhos' },
+            { id: 'all', label: t('Todos') },
+            { id: 'published', label: t('Publicados') },
+            { id: 'draft', label: t('Rascunhos') },
           ] as Array<{ id: StatusFilter; label: string }>).map((option) => (
             <button
               type="button"
@@ -237,15 +238,15 @@ const LearningContentTree: React.FC<LearningContentTreeProps> = ({
         </div>
         <button type="button" onClick={onCreateTrack} className="app-button app-button--gold app-button--small">
           <Plus size={14} />
-          Nova trilha
+          {t('Nova trilha')}
         </button>
       </div>
 
       {visibleTree.length === 0 ? (
         <div className="app-empty">
           {tracks.length === 0
-            ? 'Nenhuma trilha ainda. Crie a primeira para começar o catálogo.'
-            : 'Nenhum conteúdo bate com a busca ou o filtro atual.'}
+            ? t('Nenhuma trilha ainda. Crie a primeira para começar o catálogo.')
+            : t('Nenhum conteúdo bate com a busca ou o filtro atual.')}
         </div>
       ) : (
         <ul className="learning-tree__list">
@@ -278,7 +279,7 @@ const LearningContentTree: React.FC<LearningContentTreeProps> = ({
                       ));
                     }}
                     className={`learning-tree__caret ${trackCollapsed ? '' : 'is-open'}`}
-                    aria-label={trackCollapsed ? 'Expandir trilha' : 'Recolher trilha'}
+                    aria-label={trackCollapsed ? t('Expandir trilha') : t('Recolher trilha')}
                   >
                     <ChevronRight size={14} />
                   </button>
@@ -325,7 +326,7 @@ const LearningContentTree: React.FC<LearningContentTreeProps> = ({
                                 ));
                               }}
                               className={`learning-tree__caret ${courseCollapsed ? '' : 'is-open'}`}
-                              aria-label={courseCollapsed ? 'Expandir curso' : 'Recolher curso'}
+                              aria-label={courseCollapsed ? t('Expandir curso') : t('Recolher curso')}
                             >
                               <ChevronRight size={14} />
                             </button>
