@@ -3,6 +3,7 @@
  * Confere o catalogo de traducoes (i18n/messages):
  *  - toda chamada t('...') / tKey('...') com texto literal precisa ter traducao en + es;
  *  - chaves duplicadas entre arquivos do catalogo;
+ *  - t() chamado fora de funcao (constante de modulo congela o idioma do carregamento);
  *  - chaves do catalogo que nao sao mais usadas (apenas aviso).
  *
  * Uso: npm run i18n:check
@@ -73,6 +74,13 @@ for (const file of fs.readdirSync(messagesDir)) {
 }
 
 const missing = new Map();
+
+function insideFunction(node) {
+  for (let p = node.parent; p; p = p.parent) {
+    if (ts.isFunctionLike(p)) return true;
+  }
+  return false;
+}
 const dynamic = [];
 
 for (const file of walk(root)) {
@@ -80,6 +88,10 @@ for (const file of walk(root)) {
   const visit = (node) => {
     if (ts.isCallExpression(node)) {
       const callee = node.expression;
+      if (ts.isIdentifier(callee) && callee.text === 't' && !insideFunction(node)) {
+        const { line } = source.getLineAndCharacterOfPosition(node.getStart());
+        problems.push(`t() fora de funcao (use tKey e traduza no render) em ${path.relative(root, file)}:${line + 1}`);
+      }
       const isT = (ts.isIdentifier(callee) && (callee.text === 't' || callee.text === 'tKey'))
         || (ts.isPropertyAccessExpression(callee) && callee.name.text === 't' && ts.isIdentifier(callee.expression) && callee.expression.text === 'i18n');
       if (isT && node.arguments.length > 0) {

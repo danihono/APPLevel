@@ -9,7 +9,7 @@ import StudentDetailView from '../views/StudentDetailView';
 import type { FirestoreEntity } from '../services/firebase/data';
 import type { AttendanceRecord, ClassRecord, GraduationApprovalRequestRecord } from '../services/firebase/models';
 import type { BeltColor, User } from '../types';
-import { getLocale, createDateFormatter } from '../i18n';
+import { t, getLocale, createDateFormatter } from '../i18n';
 
 type SortMode = 'name-asc' | 'name-desc' | 'belt-desc' | 'grade-desc' | 'commitment-desc' | 'commitment-asc';
 type RosterSection = 'list' | 'ranking' | 'deactivated';
@@ -108,10 +108,10 @@ function getProgressionHint(student: User, rules?: ProgressionRules | null): str
   const parts: string[] = [];
   const gradeProgress = getGradeProgressLabel(student, rules);
   if (gradeProgress) {
-    parts.push(`${gradeProgress} grau`);
+    parts.push(t('{progress} grau', { progress: gradeProgress }));
   }
   if (prog.beltTotal > 0) {
-    parts.push(`${prog.beltProgress}/${prog.beltTotal} faixa`);
+    parts.push(t('{current}/{total} faixa', { current: prog.beltProgress, total: prog.beltTotal }));
   }
   return parts.length > 0 ? parts.join(' / ') : null;
 }
@@ -255,11 +255,11 @@ function resolveRankingPeriod(
       endInput: todayInput,
       startDate: dateInputToSaoPauloDate(todayInput, 'start'),
       endDate: dateInputToSaoPauloDate(todayInput, 'end'),
-      label: `Hoje (${formatDateInput(todayInput)})`,
+      label: t('Hoje ({date})', { date: formatDateInput(todayInput) }),
     };
   }
 
-  // "3 meses" nao passa por clampRankingStart de proposito: o padrao do ranking precisa
+  // t('3 meses') nao passa por clampRankingStart de proposito: o padrao do ranking precisa
   // cobrir 3 meses de verdade, mesmo quando a janela comeca antes da epoca oficial.
   if (preset === '3m') {
     const startInput = addMonthsToInput(todayInput, -3);
@@ -268,7 +268,7 @@ function resolveRankingPeriod(
       endInput: todayInput,
       startDate: dateInputToSaoPauloDate(startInput, 'start'),
       endDate: dateInputToSaoPauloDate(todayInput, 'end'),
-      label: `Ultimos 3 meses (${formatDateInput(startInput)} ate ${formatDateInput(todayInput)})`,
+      label: t('Ultimos 3 meses ({start} ate {end})', { start: formatDateInput(startInput), end: formatDateInput(todayInput) }),
     };
   }
 
@@ -280,7 +280,7 @@ function resolveRankingPeriod(
       endInput: todayInput,
       startDate: dateInputToSaoPauloDate(startInput, 'start'),
       endDate: dateInputToSaoPauloDate(todayInput, 'end'),
-      label: `${formatDateInput(startInput)} ate ${formatDateInput(todayInput)}`,
+      label: t('{start} ate {end}', { start: formatDateInput(startInput), end: formatDateInput(todayInput) }),
     };
   }
 
@@ -293,7 +293,7 @@ function resolveRankingPeriod(
       endInput,
       startDate: dateInputToSaoPauloDate(startInput, 'start'),
       endDate: dateInputToSaoPauloDate(endInput, 'end'),
-      label: `${formatDateInput(startInput)} ate ${formatDateInput(endInput)}`,
+      label: t('{start} ate {end}', { start: formatDateInput(startInput), end: formatDateInput(endInput) }),
     };
   }
 
@@ -302,7 +302,7 @@ function resolveRankingPeriod(
     endInput: '',
     startDate: dateInputToSaoPauloDate(RANKING_START_DATE_INPUT, 'start'),
     endDate: null,
-    label: 'Total oficial',
+    label: t('Total oficial'),
   };
 }
 
@@ -345,11 +345,11 @@ const StudentRoster: React.FC<StudentRosterProps> = ({
   onFocusSectionHandled,
   viewerRole,
   onAdminSetUserMemberships,
-  kicker = 'Roster',
-  title = 'Alunos com leitura mais limpa e mais forte.',
+  kicker = t('Roster'),
+  title = t('Alunos com leitura mais limpa e mais forte.'),
   description,
-  emptySelectionMessage = 'Escolha uma unidade da LEVEL para visualizar os alunos daquele local.',
-  emptyResultsMessage = 'Nenhum aluno encontrado com os filtros atuais.',
+  emptySelectionMessage = t('Escolha uma unidade da LEVEL para visualizar os alunos daquele local.'),
+  emptyResultsMessage = t('Nenhum aluno encontrado com os filtros atuais.'),
 }) => {
   const [activeSection, setActiveSection] = useState<RosterSection>('list');
   const [searchTerm, setSearchTerm] = useState('');
@@ -363,7 +363,7 @@ const StudentRoster: React.FC<StudentRosterProps> = ({
   const [customEndDate, setCustomEndDate] = useState(toSaoPauloDateInput());
   const [internalSelectedStudentId, setInternalSelectedStudentId] = useState(selectedStudentId);
   const canManageDeactivated = Boolean(onDeactivateStudent || onActivateStudent);
-  // Quando existe a aba dedicada "Desativados", os suspensos ja vem fora da lista
+  // Quando existe a aba dedicada t('Desativados'), os suspensos ja vem fora da lista
   // e o filtro de situacao seria redundante.
   const showStatusFilter = !canManageDeactivated;
   const shouldChooseAcademyFirst = requireAcademySelection && !selectedAcademyId;
@@ -645,12 +645,12 @@ const StudentRoster: React.FC<StudentRosterProps> = ({
             <p className="app-section-label">{kicker}</p>
             <h1 className="app-section-title">{title}</h1>
             <p className="app-section-copy">
-              {description ?? academyName ?? 'Selecione uma unidade da LEVEL para abrir a base de alunos.'}
+              {description ?? academyName ?? t('Selecione uma unidade da LEVEL para abrir a base de alunos.')}
             </p>
           </div>
         </div>
 
-        <div className="app-segment app-segment--block mt-6 student-roster__section-tabs" role="tablist" aria-label="Secoes de alunos">
+        <div className="app-segment app-segment--block mt-6 student-roster__section-tabs" role="tablist" aria-label={t('Secoes de alunos')}>
           <button
             type="button"
             role="tab"
@@ -659,7 +659,7 @@ const StudentRoster: React.FC<StudentRosterProps> = ({
             className={`app-segment__button ${activeSection === 'list' ? 'is-active' : ''}`}
           >
             <List size={16} />
-            Lista
+            {t('Lista')}
           </button>
           <button
             type="button"
@@ -669,7 +669,7 @@ const StudentRoster: React.FC<StudentRosterProps> = ({
             className={`app-segment__button ${activeSection === 'ranking' ? 'is-active' : ''}`}
           >
             <BarChart3 size={16} />
-            Ranking
+            {t('Ranking')}
           </button>
           {canManageDeactivated ? (
             <button
@@ -680,7 +680,7 @@ const StudentRoster: React.FC<StudentRosterProps> = ({
               className={`app-segment__button ${activeSection === 'deactivated' ? 'is-active' : ''}`}
             >
               <UserX size={16} />
-              Desativados
+              {t('Desativados')}
               {deactivatedStudents.length > 0 ? (
                 <span className="app-badge app-badge--muted" style={{ marginLeft: 4 }}>{deactivatedStudents.length}</span>
               ) : null}
@@ -690,9 +690,9 @@ const StudentRoster: React.FC<StudentRosterProps> = ({
 
         {showAcademyFilter ? (
           <label className="app-field mt-6 max-w-sm">
-            <span className="app-field__label">Unidade em foco</span>
+            <span className="app-field__label">{t('Unidade em foco')}</span>
             <select value={selectedAcademyId} onChange={(event) => onSelectAcademy?.(event.target.value)} className="app-select">
-              <option value="">{enableAcademyFilter ? 'Todas as unidades' : 'Selecione uma unidade'}</option>
+              <option value="">{enableAcademyFilter ? t('Todas as unidades') : t('Selecione uma unidade')}</option>
               {academies.map((academyOption) => (
                 <option key={academyOption.id} value={academyOption.id}>{academyOption.name}</option>
               ))}
@@ -704,12 +704,12 @@ const StudentRoster: React.FC<StudentRosterProps> = ({
           <>
             <div className="mt-6 student-roster__filter-grid">
               <label className="app-field student-roster__search">
-                <span className="app-field__label">Buscar aluno</span>
+                <span className="app-field__label">{t('Buscar aluno')}</span>
                 <div className="app-search">
                   <Search size={18} />
                   <input
                     type="text"
-                    placeholder="Nome ou sobrenome"
+                    placeholder={t('Nome ou sobrenome')}
                     value={searchTerm}
                     onChange={(event) => setSearchTerm(event.target.value)}
                     className="app-input pl-11"
@@ -718,9 +718,9 @@ const StudentRoster: React.FC<StudentRosterProps> = ({
               </label>
 
               <label className="app-field">
-                <span className="app-field__label">Faixa</span>
+                <span className="app-field__label">{t('Faixa')}</span>
                 <select value={filterBelt} onChange={(event) => setFilterBelt(event.target.value as BeltColor | 'ALL')} className="app-select app-select--compact">
-                  <option value="ALL">Todas as faixas</option>
+                  <option value="ALL">{t('Todas as faixas')}</option>
                   {ALL_BELTS.map((belt) => (
                     <option key={belt} value={belt}>{beltLabel(belt)}</option>
                   ))}
@@ -728,9 +728,9 @@ const StudentRoster: React.FC<StudentRosterProps> = ({
               </label>
 
               <label className="app-field">
-                <span className="app-field__label">Grau</span>
+                <span className="app-field__label">{t('Grau')}</span>
                 <select value={filterGrade} onChange={(event) => setFilterGrade(event.target.value)} className="app-select app-select--compact">
-                  <option value="ALL">Todos os graus</option>
+                  <option value="ALL">{t('Todos os graus')}</option>
                   {gradeOptions.map((grade) => (
                     <option key={grade} value={grade}>{grade}</option>
                   ))}
@@ -738,14 +738,14 @@ const StudentRoster: React.FC<StudentRosterProps> = ({
               </label>
 
               <label className="app-field">
-                <span className="app-field__label">Ordenar por</span>
+                <span className="app-field__label">{t('Ordenar por')}</span>
                 <select value={sortMode} onChange={(event) => setSortMode(event.target.value as SortMode)} className="app-select app-select--compact">
-                  <option value="name-asc">Nome A-Z</option>
-                  <option value="name-desc">Nome Z-A</option>
-                  <option value="belt-desc">Faixa mais alta primeiro</option>
-                  <option value="grade-desc">Grau mais alto primeiro</option>
-                  <option value="commitment-desc">Frequência +</option>
-                  <option value="commitment-asc">Frequência -</option>
+                  <option value="name-asc">{t('Nome A-Z')}</option>
+                  <option value="name-desc">{t('Nome Z-A')}</option>
+                  <option value="belt-desc">{t('Faixa mais alta primeiro')}</option>
+                  <option value="grade-desc">{t('Grau mais alto primeiro')}</option>
+                  <option value="commitment-desc">{t('Frequência +')}</option>
+                  <option value="commitment-asc">{t('Frequência -')}</option>
                 </select>
               </label>
 
@@ -758,7 +758,7 @@ const StudentRoster: React.FC<StudentRosterProps> = ({
                       onClick={() => setFilterStatus(option.value)}
                       className={`app-chip ${filterStatus === option.value ? 'is-active' : ''}`}
                     >
-                      {option.label}
+                      {t(option.label)}
                     </button>
                   ))}
                 </div>
@@ -772,7 +772,7 @@ const StudentRoster: React.FC<StudentRosterProps> = ({
                     onClick={() => setFilterType(item as 'ALL' | 'Adulto' | 'Kids')}
                     className={`app-chip ${filterType === item ? 'is-active' : ''}`}
                   >
-                    {item === 'ALL' ? 'Todos' : item}
+                    {item === 'ALL' ? t('Todos') : t(item)}
                   </button>
                 ))}
               </div>
@@ -788,7 +788,7 @@ const StudentRoster: React.FC<StudentRosterProps> = ({
                       onClick={() => setRankingPeriod(option.value)}
                       className={`app-chip ${rankingPeriod === option.value ? 'is-active' : ''}`}
                     >
-                      {option.label}
+                      {t(option.label)}
                     </button>
                   ))}
                 </div>
@@ -796,7 +796,7 @@ const StudentRoster: React.FC<StudentRosterProps> = ({
                 {rankingPeriod === 'custom' ? (
                   <div className="student-roster__date-grid">
                     <label className="app-field">
-                      <span className="app-field__label">Inicio</span>
+                      <span className="app-field__label">{t('Inicio')}</span>
                       <DateField
                         min={RANKING_START_DATE_INPUT}
                         max={currentDateInput}
@@ -805,7 +805,7 @@ const StudentRoster: React.FC<StudentRosterProps> = ({
                       />
                     </label>
                     <label className="app-field">
-                      <span className="app-field__label">Fim</span>
+                      <span className="app-field__label">{t('Fim')}</span>
                       <DateField
                         min={clampRankingStart(customStartDate)}
                         max={currentDateInput}
@@ -818,8 +818,8 @@ const StudentRoster: React.FC<StudentRosterProps> = ({
 
                 <p className="student-roster__period-note">
                   {isOfficialTotalRanking
-                    ? 'Ranking oficial: usa a contagem registrada no perfil do aluno.'
-                    : `Ranking analitico: ${periodRange.label}. Conta presencas de aulas ja realizadas. Nao altera faixa, grau ou contagem oficial.`}
+                    ? t('Ranking oficial: usa a contagem registrada no perfil do aluno.')
+                    : t('Ranking analitico: {period}. Conta presencas de aulas ja realizadas. Nao altera faixa, grau ou contagem oficial.', { period: periodRange.label })}
                 </p>
               </div>
             ) : null}
@@ -834,7 +834,7 @@ const StudentRoster: React.FC<StudentRosterProps> = ({
       ) : activeSection === 'deactivated' ? (
         <section className="student-roster__cards">
           {deactivatedStudents.length === 0 ? (
-            <div className="app-empty">Nenhum aluno desativado.</div>
+            <div className="app-empty">{t('Nenhum aluno desativado.')}</div>
           ) : (
             deactivatedStudents
               .slice()
@@ -855,14 +855,14 @@ const StudentRoster: React.FC<StudentRosterProps> = ({
                       size="md"
                       blackBelt={getBlackBeltProgressForUser(student)}
                     />
-                    <p className="student-roster__rank">Faixa {beltLabel(student.belt)}</p>
-                    <p className="student-roster__grade">Grau {getStudentGrade(student)}</p>
+                    <p className="student-roster__rank">{t('Faixa {belt}', { belt: beltLabel(student.belt) })}</p>
+                    <p className="student-roster__grade">{t('Grau {grade}', { grade: getStudentGrade(student) })}</p>
                   </div>
                   <div className="student-roster__copy">
                     <h3 className="student-roster__name">{student.name}</h3>
                     <div className="student-roster__badge-row">
-                      <span className="app-badge app-badge--muted">{student.type}</span>
-                      <span className="app-badge" style={{ color: '#ef4444', background: '#fee2e2' }}>Desativado</span>
+                      <span className="app-badge app-badge--muted">{t(student.type)}</span>
+                      <span className="app-badge" style={{ color: '#ef4444', background: '#fee2e2' }}>{t('Desativado')}</span>
                     </div>
                   </div>
                   <ChevronRight size={18} className="student-roster__arrow" />
@@ -874,34 +874,34 @@ const StudentRoster: React.FC<StudentRosterProps> = ({
         <section className="student-roster__ranking-shell">
           <div className="app-stat-grid student-roster__ranking-kpis">
             <article className="app-stat-card">
-              <p className="app-stat-card__label">Alunos no filtro</p>
+              <p className="app-stat-card__label">{t('Alunos no filtro')}</p>
               <p className="app-stat-card__value">{formatNumber(rankingRows.length)}</p>
-              <p className="app-stat-card__note">{selectedAcademyId ? academyNameById.get(selectedAcademyId) ?? 'Unidade selecionada' : 'Base atual'}</p>
+              <p className="app-stat-card__note">{selectedAcademyId ? academyNameById.get(selectedAcademyId) ?? t('Unidade selecionada') : t('Base atual')}</p>
             </article>
             <article className="app-stat-card">
-              <p className="app-stat-card__label">Presencas</p>
+              <p className="app-stat-card__label">{t('Presencas')}</p>
               <p className="app-stat-card__value">{formatNumber(rankingTotalAttendances)}</p>
               <p className="app-stat-card__note">{periodRange.label}</p>
             </article>
             <article className="app-stat-card">
-              <p className="app-stat-card__label">Media</p>
+              <p className="app-stat-card__label">{t('Media')}</p>
               <p className="app-stat-card__value">{formatAverage(rankingAverage)}</p>
-              <p className="app-stat-card__note">Presencas por aluno</p>
+              <p className="app-stat-card__note">{t('Presencas por aluno')}</p>
             </article>
             <article className="app-stat-card">
-              <p className="app-stat-card__label">Lider</p>
+              <p className="app-stat-card__label">{t('Lider')}</p>
               <p className="app-stat-card__value student-roster__leader-value">
                 {rankingLeader ? formatNumber(rankingLeader.attendanceCount) : '0'}
               </p>
-              <p className="app-stat-card__note">{rankingLeader?.student.name ?? 'Sem presencas no periodo'}</p>
+              <p className="app-stat-card__note">{rankingLeader?.student.name ?? t('Sem presencas no periodo')}</p>
             </article>
           </div>
 
           <div className="student-roster__ranking-grid">
             <article className="app-panel app-panel-pad student-roster__chart-panel">
               <div className="student-roster__panel-heading">
-                <p className="app-section-label">Top 10</p>
-                <h2>Mais frequentes</h2>
+                <p className="app-section-label">{t('Top 10')}</p>
+                <h2>{t('Mais frequentes')}</h2>
               </div>
               {topChartRows.length > 0 ? (
                 <div className="student-roster__chart-list">
@@ -918,14 +918,14 @@ const StudentRoster: React.FC<StudentRosterProps> = ({
                   ))}
                 </div>
               ) : (
-                <div className="app-empty">Nenhuma presenca encontrada neste periodo.</div>
+                <div className="app-empty">{t('Nenhuma presenca encontrada neste periodo.')}</div>
               )}
             </article>
 
             <article className="app-panel app-panel-pad student-roster__chart-panel">
               <div className="student-roster__panel-heading">
-                <p className="app-section-label">Faixas</p>
-                <h2>Presencas por faixa</h2>
+                <p className="app-section-label">{t('Faixas')}</p>
+                <h2>{t('Presencas por faixa')}</h2>
               </div>
               {beltBreakdown.length > 0 ? (
                 <div className="student-roster__chart-list">
@@ -933,17 +933,17 @@ const StudentRoster: React.FC<StudentRosterProps> = ({
                     <div key={row.belt} className="student-roster__chart-row">
                       <div className="student-roster__chart-row-head">
                         <strong>{beltLabel(row.belt)}</strong>
-                        <span>{formatNumber(row.attendanceCount)} presencas</span>
+                        <span>{t('{count} presencas', { count: formatNumber(row.attendanceCount) })}</span>
                       </div>
                       <div className="student-roster__chart-track">
                         <span style={{ width: `${row.attendanceCount > 0 ? Math.max(8, (row.attendanceCount / maxBeltAttendance) * 100) : 0}%` }} />
                       </div>
-                      <p className="student-roster__chart-note">{formatNumber(row.studentCount)} aluno{row.studentCount === 1 ? '' : 's'}</p>
+                      <p className="student-roster__chart-note">{row.studentCount === 1 ? t('1 aluno') : t('{count} alunos', { count: formatNumber(row.studentCount) })}</p>
                     </div>
                   ))}
                 </div>
               ) : (
-                <div className="app-empty">Nenhuma faixa para os filtros atuais.</div>
+                <div className="app-empty">{t('Nenhuma faixa para os filtros atuais.')}</div>
               )}
             </article>
           </div>
@@ -968,7 +968,7 @@ const StudentRoster: React.FC<StudentRosterProps> = ({
                 <div className="student-roster__ranking-copy">
                   <h3>{row.student.name}</h3>
                   <p>
-                    {academyNameById.get(row.student.branchId) ?? academyName ?? 'Academia'} / Faixa {beltLabel(row.student.belt)} / Grau {getStudentGrade(row.student)}
+                    {academyNameById.get(row.student.branchId) ?? academyName ?? t('Academia')} / {t('Faixa {belt}', { belt: beltLabel(row.student.belt) })} / {t('Grau {grade}', { grade: getStudentGrade(row.student) })}
                   </p>
                   {(() => {
                     const commitment = commitmentByUserId.get(row.student.id);
@@ -976,7 +976,7 @@ const StudentRoster: React.FC<StudentRosterProps> = ({
                   })()}
                 </div>
                 <span className="app-badge app-badge--gold">
-                  {formatNumber(row.attendanceCount)} presenca{row.attendanceCount === 1 ? '' : 's'}
+                  {row.attendanceCount === 1 ? t('1 presenca') : t('{count} presencas', { count: formatNumber(row.attendanceCount) })}
                 </span>
               </button>
             ))}
@@ -1006,8 +1006,8 @@ const StudentRoster: React.FC<StudentRosterProps> = ({
                     size="md"
                     blackBelt={getBlackBeltProgressForUser(student)}
                   />
-                  <p className="student-roster__rank">Faixa {beltLabel(student.belt)}</p>
-                  <p className="student-roster__grade">Grau {getStudentGrade(student)}</p>
+                  <p className="student-roster__rank">{t('Faixa {belt}', { belt: beltLabel(student.belt) })}</p>
+                  <p className="student-roster__grade">{t('Grau {grade}', { grade: getStudentGrade(student) })}</p>
                 </div>
 
                 <div className="student-roster__copy">
@@ -1020,18 +1020,18 @@ const StudentRoster: React.FC<StudentRosterProps> = ({
                       const commitment = commitmentByUserId.get(student.id);
                       return commitment ? <CommitmentBadge commitment={commitment} showLabel /> : null;
                     })()}
-                    <span className="app-badge app-badge--muted">{student.type}</span>
+                    <span className="app-badge app-badge--muted">{t(student.type)}</span>
                     {enableAcademyFilter ? (
-                      <span className="app-badge app-badge--muted">{academyNameById.get(student.branchId) ?? 'Academia'}</span>
+                      <span className="app-badge app-badge--muted">{academyNameById.get(student.branchId) ?? t('Academia')}</span>
                     ) : null}
                     {student.status === 'suspended' ? (
-                      <span className="app-badge app-badge--danger">Desativado</span>
+                      <span className="app-badge app-badge--danger">{t('Desativado')}</span>
                     ) : null}
                     {student.status === 'invited' ? (
-                      <span className="app-badge app-badge--muted">Convite pendente</span>
+                      <span className="app-badge app-badge--muted">{t('Convite pendente')}</span>
                     ) : null}
                     {graduationRequestByUserId.has(student.id) ? (
-                      <span className="app-badge app-badge--gold">Graduacao pendente</span>
+                      <span className="app-badge app-badge--gold">{t('Graduacao pendente')}</span>
                     ) : null}
                     {(() => {
                       const remaining = student.totalClassesToNextBelt - student.currentBeltProgress;
@@ -1042,14 +1042,14 @@ const StudentRoster: React.FC<StudentRosterProps> = ({
                       if (remaining <= 0) {
                         return (
                           <span className="app-badge app-badge--belt-alert">
-                            Apto para proxima faixa
+                            {t('Apto para proxima faixa')}
                           </span>
                         );
                       }
 
                       return remaining <= 3 ? (
                         <span className="app-badge app-badge--belt-alert">
-                          {remaining === 1 ? 'Falta 1 aula para nova faixa' : `Faltam ${remaining} aulas para nova faixa`}
+                          {remaining === 1 ? t('Falta 1 aula para nova faixa') : t('Faltam {count} aulas para nova faixa', { count: remaining })}
                         </span>
                       ) : null;
                     })()}
