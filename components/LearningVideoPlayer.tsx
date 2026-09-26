@@ -1,5 +1,6 @@
 import React, { useEffect, useId, useRef } from 'react';
 import { getYouTubeVideoId } from '../utils';
+import { t } from '../i18n';
 
 type YouTubePlayerStateEvent = {
   data: number;
@@ -181,7 +182,7 @@ const LearningVideoPlayer: React.FC<LearningVideoPlayerProps> = ({
   if (!videoId) {
     return (
       <div className="app-empty">
-        Informe uma URL valida do YouTube para reproduzir esta aula.
+        {t('Informe uma URL valida do YouTube para reproduzir esta aula.')}
       </div>
     );
   }

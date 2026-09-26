@@ -5,10 +5,10 @@ export type AppLanguage = 'pt-BR' | 'en' | 'es';
 
 export const DEFAULT_LANGUAGE: AppLanguage = 'pt-BR';
 
-export const SUPPORTED_LANGUAGES: Array<{ code: AppLanguage; label: string; flag: string; locale: string }> = [
-  { code: 'pt-BR', label: 'Português (Brasil)', flag: '🇧🇷', locale: 'pt-BR' },
-  { code: 'en', label: 'English', flag: '🇺🇸', locale: 'en-US' },
-  { code: 'es', label: 'Español', flag: '🇪🇸', locale: 'es-ES' },
+export const SUPPORTED_LANGUAGES: Array<{ code: AppLanguage; label: string; short: string; flag: string; locale: string }> = [
+  { code: 'pt-BR', label: 'Português (Brasil)', short: 'PT', flag: '🇧🇷', locale: 'pt-BR' },
+  { code: 'en', label: 'English', short: 'EN', flag: '🇺🇸', locale: 'en-US' },
+  { code: 'es', label: 'Español', short: 'ES', flag: '🇪🇸', locale: 'es-ES' },
 ];
 
 const LANGUAGE_STORAGE_KEY = 'applevel:language';

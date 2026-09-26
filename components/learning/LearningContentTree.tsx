@@ -398,7 +398,7 @@ const LearningContentTree: React.FC<LearningContentTreeProps> = ({
                                   className="learning-tree__add"
                                 >
                                   <Plus size={13} />
-                                  Novo módulo em {course.title}
+                                  {t('Novo módulo em {title}', { title: course.title })}
                                 </button>
                               </li>
                             </ul>
@@ -414,7 +414,7 @@ const LearningContentTree: React.FC<LearningContentTreeProps> = ({
                         className="learning-tree__add learning-tree__add--course"
                       >
                         <Plus size={13} />
-                        Novo curso em {track.title}
+                        {t('Novo curso em {title}', { title: track.title })}
                       </button>
                     </li>
                   </ul>

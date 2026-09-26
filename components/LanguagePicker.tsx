@@ -46,11 +46,13 @@ const LanguagePicker: React.FC<LanguagePickerProps> = ({ userId, compact = false
               type="button"
               role="radio"
               aria-checked={selected}
+              aria-label={entry.label}
+              title={entry.label}
               onClick={() => void handleSelect(entry.code)}
               className={`app-button app-button--small ${compact ? '' : 'app-button--block'} ${selected ? 'app-button--gold' : 'app-button--ghost'}`}
             >
               <span aria-hidden="true">{entry.flag}</span>
-              {entry.label}
+              {compact ? entry.short : entry.label}
               {selected && !compact ? <Check size={14} /> : null}
             </button>
           );

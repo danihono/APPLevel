@@ -23,6 +23,7 @@ Cobre: agendamento de aulas, registro de presença, progressão de faixa, gamifi
 | `npm run build` | Build de produção → `dist/` |
 | `npm run preview` | Pré-visualiza o build de produção |
 | `npm run typecheck` | Type-check do frontend (`tsc --noEmit`) |
+| `npm run i18n:check` | Confere se todo `t('...')` tem tradução en/es no catálogo |
 | `npm run firebase:emulators` | Sobe todos os emuladores Firebase locais |
 | `npm run functions:build` | Compila as Cloud Functions (delega para `functions/`) |
 | `npm run firebase:deploy` | Deploy completo + corrige invokers |
@@ -156,12 +157,31 @@ Todas segmentadas por `academyId`:
 - Cloud Functions tipam entrada/saída como `PayloadType` / `ResultType`.
 - TypeScript em **strict mode** (frontend e backend).
 - Path alias do frontend: `@/*` → raiz do projeto.
-- Strings de UI e logs ficam em **português**.
+- Strings de UI e logs ficam em **português** — e toda string de UI passa por `t()`
+  (ver *Idiomas* abaixo).
 - **Layouts desktop e mobile:** várias telas têm duas renderizações separadas
   (ex.: em `NotificationsView.tsx` os cards de graduação aparecem na versão
   desktop e na versão `notice-mobile__*`). Ao alterar UI/comportamento de um
   card/lista/ação, aplique a mudança nas **duas** versões — a menos que o
   usuário peça explicitamente para mexer só em uma.
+
+## Idiomas (i18n)
+
+A interface suporta **pt-BR (padrão)**, **inglês** e **espanhol**; cada usuário escolhe no
+Perfil (salvo em `users/{uid}.language` e no `localStorage`). Sem biblioteca externa:
+
+- `i18n/index.tsx` — `t('Texto em português', { vars })`, `getLocale()`, `createDateFormatter()`,
+  `tKey()`, `LanguageProvider`/`useI18n()`. A **chave é o próprio texto pt-BR**; sem tradução,
+  cai no português.
+- `i18n/messages/<area>.ts` — catálogo `{ 'texto pt': { en, es } }`.
+- Ao criar/alterar texto de UI: envolva em `t()` (plural = duas frases, variáveis com `{nome}`),
+  adicione `en`/`es` no catálogo e rode `npm run i18n:check`.
+- **Nunca** chame `t()` em escopo de módulo (constantes): guarde o texto pt (ou `tKey`) e traduza
+  no render com `t(valor)`. Valores gravados no banco (categorias, status, `'Adulto'`/`'Kids'`)
+  não são traduzidos — só o rótulo exibido.
+- Datas/números: `getLocale()` em vez de `'pt-BR'` fixo.
+- Push/notificações e mensagens geradas pelas Cloud Functions continuam em pt-BR; erros do
+  backend só saem traduzidos se o texto estiver no catálogo.
 
 ## Ambiente
 

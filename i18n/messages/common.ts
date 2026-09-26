@@ -25,4 +25,5 @@ export const commonMessages: MessageCatalog = {
   "Envie apenas video, PDF ou imagem para o modulo.": { en: "Upload only video, PDF or image for the module.", es: "Sube solo video, PDF o imagen para el módulo." },
   "Envie apenas arquivos de video.": { en: "Upload only video files.", es: "Sube solo archivos de video." },
   "Sua sessao expirou. Entre novamente.": { en: "Your session has expired. Please sign in again.", es: "Tu sesión expiró. Inicia sesión de nuevo." },
+  "Informe uma URL valida do YouTube para reproduzir esta aula.": { en: "Enter a valid YouTube URL to play this lesson.", es: "Ingresa una URL válida de YouTube para reproducir esta clase." },
 };

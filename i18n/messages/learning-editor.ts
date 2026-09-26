@@ -113,4 +113,6 @@ export const learningEditorMessages: MessageCatalog = {
   "Criar trilha": { en: "Create track", es: "Crear ruta" },
   "Ex.: Fundamentos da guarda": { en: "E.g.: Guard fundamentals", es: "Ej.: Fundamentos de la guardia" },
   "O que o aluno aprende nesta trilha?": { en: "What does the student learn in this track?", es: "¿Qué aprende el alumno en esta ruta?" },
+  "Novo módulo em {title}": { en: "New module in {title}", es: "Nuevo módulo en {title}" },
+  "Novo curso em {title}": { en: "New course in {title}", es: "Nuevo curso en {title}" },
 };

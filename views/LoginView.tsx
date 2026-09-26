@@ -10,7 +10,7 @@ import DateField from '../components/DateField';
 import LanguagePicker from '../components/LanguagePicker';
 import { requestPasswordReset } from '../services/firebase/auth';
 import { backendFunctions, isRetryableSignupAcademyFetchError } from '../services/firebase/functions';
-import { t, tKey } from '../i18n';
+import { t, tKey, useI18n } from '../i18n';
 
 interface LoginViewProps {
   onLogin: (email: string, password: string) => Promise<void>;
@@ -96,9 +96,12 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onRequestReactivation, i
 
   const trainingType = useMemo(() => inferTrainingTypeFromBirthDate(birthDate), [birthDate]);
   const inferredKidsCategory = useMemo(() => inferKidsCategoryFromBirthDate(birthDate), [birthDate]);
+  // language: os rotulos das faixas acompanham o idioma escolhido na propria tela de login.
+  const { language } = useI18n();
   const signupBeltOptions = useMemo(
     () => getBeltOptions(trainingType, inferredKidsCategory),
-    [inferredKidsCategory, trainingType],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [inferredKidsCategory, trainingType, language],
   );
 
   useEffect(() => {
