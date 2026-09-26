@@ -38,7 +38,7 @@ import {
   REPORT_BLOCK_LABELS,
   type ReportBlock,
 } from '../services/reports/reportData';
-import { getLocale } from '../i18n';
+import { t, getLocale } from '../i18n';
 
 type ControleTab = 'dashboard' | 'catalog' | 'list' | 'stock' | 'vales' | 'reports';
 type CatalogMode = 'product' | 'service';
@@ -193,21 +193,21 @@ function asNumber(value: string): number {
 }
 
 function academyName(academies: Array<FirestoreEntity<AcademyRecord>>, academyId: string): string {
-  if (academyId === LEVEL_CATALOG_ID) return 'Diretoria';
-  return academies.find((academy) => academy.id === academyId)?.name ?? 'Filial';
+  if (academyId === LEVEL_CATALOG_ID) return t('Diretoria');
+  return academies.find((academy) => academy.id === academyId)?.name ?? t('Filial');
 }
 
 function statusLabel(status: string): string {
   switch (status) {
-    case 'active': return 'Ativo';
-    case 'inactive': return 'Inativo';
-    case 'paid': return 'Pago';
-    case 'partial': return 'Parcial';
-    case 'pending': return 'Pendente';
-    case 'cancelled': return 'Cancelado';
-    case 'overdue': return 'Atrasado';
-    case 'received': return 'Recebido';
-    case 'reversed': return 'Revertido';
+    case 'active': return t('Ativo');
+    case 'inactive': return t('Inativo');
+    case 'paid': return t('Pago');
+    case 'partial': return t('Parcial');
+    case 'pending': return t('Pendente');
+    case 'cancelled': return t('Cancelado');
+    case 'overdue': return t('Atrasado');
+    case 'received': return t('Recebido');
+    case 'reversed': return t('Revertido');
     default: return status || '-';
   }
 }
@@ -522,14 +522,14 @@ const ControleTotalView: React.FC<ControleTotalViewProps> = ({
 
     sales.forEach((sale) => {
       const buyerLabel = sale.buyerType === 'diretoria'
-        ? 'Diretoria'
+        ? t('Diretoria')
         : sale.buyerType === 'individuo'
-          ? `Cliente: ${sale.customerName}`
-          : `Comprador: ${academyName(academies, sale.buyerAcademyId ?? sale.academyId)}`;
+          ? t('Cliente: {name}', { name: sale.customerName })
+          : t('Comprador: {name}', { name: academyName(academies, sale.buyerAcademyId ?? sale.academyId) });
       entries.push({
         id: `sale:${sale.id}`,
         type: 'sale',
-        title: `Venda - ${sale.customerName}`,
+        title: t('Venda - {name}', { name: sale.customerName }),
         subtitle: `${buyerLabel} | ${statusLabel(sale.paymentStatus)}`,
         academyId: sale.academyId,
         date: toDate(sale.saleDate ?? sale.createdAt) ?? new Date(0),
@@ -543,8 +543,8 @@ const ControleTotalView: React.FC<ControleTotalViewProps> = ({
       entries.push({
         id: `payment:${payment.id}`,
         type: 'payment',
-        title: `Pagamento - ${sale?.customerName ?? payment.saleId}`,
-        subtitle: `${academyName(academies, payment.academyId)} | ${payment.paymentMethod}`,
+        title: t('Pagamento - {name}', { name: sale?.customerName ?? payment.saleId }),
+        subtitle: `${academyName(academies, payment.academyId)} | ${t(payment.paymentMethod)}`,
         academyId: payment.academyId,
         date: toDate(payment.paymentDate ?? payment.createdAt) ?? new Date(0),
         value: payment.amount,
@@ -556,7 +556,7 @@ const ControleTotalView: React.FC<ControleTotalViewProps> = ({
       entries.push({
         id: `revenue:${revenue.id}`,
         type: 'revenue',
-        title: `Receita - ${revenue.category}`,
+        title: t('Receita - {name}', { name: t(revenue.category) }),
         subtitle: `${academyName(academies, revenue.academyId)} | ${revenue.description}`,
         academyId: revenue.academyId,
         date: toDate(revenue.receivedAt ?? revenue.createdAt) ?? new Date(0),
@@ -569,7 +569,7 @@ const ControleTotalView: React.FC<ControleTotalViewProps> = ({
       entries.push({
         id: `expense:${expense.id}`,
         type: 'expense',
-        title: `Despesa - ${expense.category}`,
+        title: t('Despesa - {name}', { name: t(expense.category) }),
         subtitle: `${academyName(academies, expense.academyId)} | ${expense.description}`,
         academyId: expense.academyId,
         date: toDate(expense.paidAt ?? expense.dueDate ?? expense.createdAt) ?? new Date(0),
@@ -582,7 +582,7 @@ const ControleTotalView: React.FC<ControleTotalViewProps> = ({
       entries.push({
         id: `stock:${movement.id}`,
         type: 'stock',
-        title: `Estoque - ${movement.productName}`,
+        title: t('Estoque - {name}', { name: movement.productName }),
         subtitle: `${academyName(academies, movement.academyId)} | ${movement.quantityDelta > 0 ? '+' : ''}${movement.quantityDelta}`,
         academyId: movement.academyId,
         date: toDate(movement.createdAt) ?? new Date(0),
@@ -596,7 +596,7 @@ const ControleTotalView: React.FC<ControleTotalViewProps> = ({
       entries.push({
         id: `withdrawal:${withdrawal.id}`,
         type: 'withdrawal',
-        title: `Vale - ${withdrawal.debtorName}`,
+        title: t('Vale - {name}', { name: withdrawal.debtorName }),
         subtitle: `${itemsLabel} | ${statusLabel(withdrawal.status)}`,
         academyId: withdrawal.academyId,
         date: toDate(withdrawal.withdrawnAt ?? withdrawal.createdAt) ?? new Date(0),
@@ -668,9 +668,9 @@ const ControleTotalView: React.FC<ControleTotalViewProps> = ({
     setFeedback('');
     try {
       await action();
-      setFeedback('Operacao concluida.');
+      setFeedback(t('Operacao concluida.'));
     } catch (error) {
-      setFeedback(error instanceof Error ? error.message : 'Nao foi possivel concluir.');
+      setFeedback(error instanceof Error ? error.message : t('Nao foi possivel concluir.'));
     } finally {
       setBusy('');
     }
@@ -840,7 +840,7 @@ const ControleTotalView: React.FC<ControleTotalViewProps> = ({
     event.preventDefault();
     const quantity = asNumber(purchaseForm.quantity);
     if (!purchaseForm.productId || quantity <= 0) {
-      setFeedback('Selecione um produto e informe uma quantidade maior que zero.');
+      setFeedback(t('Selecione um produto e informe uma quantidade maior que zero.'));
       return;
     }
     await runAction('purchase', async () => {
@@ -861,7 +861,7 @@ const ControleTotalView: React.FC<ControleTotalViewProps> = ({
     if (raw === undefined || raw.trim() === '') return;
     const target = Number(raw.replace(',', '.'));
     if (!Number.isFinite(target) || target < 0) {
-      setFeedback('Quantidade invalida.');
+      setFeedback(t('Quantidade invalida.'));
       return;
     }
     const delta = target - product.stockCurrent;
@@ -885,11 +885,11 @@ const ControleTotalView: React.FC<ControleTotalViewProps> = ({
   async function handleGenerateReport() {
     if (reportBusy) return;
     if (selectedReportBlocks.length === 0) {
-      setFeedback('Selecione ao menos um bloco para o relatorio.');
+      setFeedback(t('Selecione ao menos um bloco para o relatorio.'));
       return;
     }
     setReportBusy(true);
-    setFeedback('Gerando relatorio...');
+    setFeedback(t('Gerando relatorio...'));
     try {
       const report = buildFinanceReport({
         academies,
@@ -911,10 +911,10 @@ const ControleTotalView: React.FC<ControleTotalViewProps> = ({
         const { exportFinanceReportPdf } = await import('../services/reports/exportPdf');
         await exportFinanceReportPdf(report);
       }
-      setFeedback('Relatorio gerado com sucesso.');
+      setFeedback(t('Relatorio gerado com sucesso.'));
     } catch (error) {
       console.error('Falha ao gerar relatorio', error);
-      setFeedback('Nao foi possivel gerar o relatorio.');
+      setFeedback(t('Nao foi possivel gerar o relatorio.'));
     } finally {
       setReportBusy(false);
     }
@@ -923,7 +923,7 @@ const ControleTotalView: React.FC<ControleTotalViewProps> = ({
   function submitWithdrawal(event: React.FormEvent) {
     event.preventDefault();
     if (!withdrawalDebtorId) {
-      setFeedback('Selecione quem esta retirando.');
+      setFeedback(t('Selecione quem esta retirando.'));
       return;
     }
     const items = withdrawalItems
@@ -934,7 +934,7 @@ const ControleTotalView: React.FC<ControleTotalViewProps> = ({
         ...(item.unitValue.trim() ? { unitValue: asNumber(item.unitValue) } : {}),
       }));
     if (items.length === 0) {
-      setFeedback('Adicione ao menos um produto com quantidade valida.');
+      setFeedback(t('Adicione ao menos um produto com quantidade valida.'));
       return;
     }
     void runAction('withdrawal', async () => {
@@ -959,7 +959,7 @@ const ControleTotalView: React.FC<ControleTotalViewProps> = ({
   function submitSettle(withdrawalId: string) {
     const amount = asNumber(settleAmount);
     if (amount <= 0) {
-      setFeedback('Informe um valor maior que zero.');
+      setFeedback(t('Informe um valor maior que zero.'));
       return;
     }
     void runAction('settle', async () => {
@@ -991,8 +991,8 @@ const ControleTotalView: React.FC<ControleTotalViewProps> = ({
       value={value}
       onChange={(event) => onChange(event.target.value)}
     >
-      {includeAll ? <option value="">Todas as filiais</option> : null}
-      {includeCentral ? <option value={LEVEL_CATALOG_ID}>Diretoria (Catalogo Central)</option> : null}
+      {includeAll ? <option value="">{t('Todas as filiais')}</option> : null}
+      {includeCentral ? <option value={LEVEL_CATALOG_ID}>{t('Diretoria (Catalogo Central)')}</option> : null}
       {academies.map((academy) => (
         <option key={academy.id} value={academy.id}>{academy.name}</option>
       ))}
@@ -1003,30 +1003,30 @@ const ControleTotalView: React.FC<ControleTotalViewProps> = ({
     <div className="controle-total">
       <header className="controle-total__hero">
         <div>
-          <span className="app-badge app-badge--gold">SUPERADMIN</span>
-          <h2>Controle Total</h2>
-          <p>{dashboardAcademyId ? academyName(academies, dashboardAcademyId) : 'Rede LEVEL JJ'}</p>
+          <span className="app-badge app-badge--gold">{t('SUPERADMIN')}</span>
+          <h2>{t('Controle Total')}</h2>
+          <p>{dashboardAcademyId ? academyName(academies, dashboardAcademyId) : t('Rede LEVEL JJ')}</p>
         </div>
       </header>
 
-      <div className="app-segment app-segment--block controle-total__tabs" role="tablist" aria-label="Controle Total">
+      <div className="app-segment app-segment--block controle-total__tabs" role="tablist" aria-label={t('Controle Total')}>
         <button type="button" role="tab" className={`app-segment__button ${activeTab === 'dashboard' ? 'is-active' : ''}`} onClick={() => setActiveTab('dashboard')}>
-          <BarChart3 size={18} /> Dashboard Geral
+          <BarChart3 size={18} /> {t('Dashboard Geral')}
         </button>
         <button type="button" role="tab" className={`app-segment__button ${activeTab === 'catalog' ? 'is-active' : ''}`} onClick={() => setActiveTab('catalog')}>
-          <Package size={18} /> Produtos e Servicos
+          <Package size={18} /> {t('Produtos e Servicos')}
         </button>
         <button type="button" role="tab" className={`app-segment__button ${activeTab === 'list' ? 'is-active' : ''}`} onClick={() => setActiveTab('list')}>
-          <Filter size={18} /> Lista
+          <Filter size={18} /> {t('Lista')}
         </button>
         <button type="button" role="tab" className={`app-segment__button ${activeTab === 'stock' ? 'is-active' : ''}`} onClick={() => setActiveTab('stock')}>
-          <Package size={18} /> Estoque
+          <Package size={18} /> {t('Estoque')}
         </button>
         <button type="button" role="tab" className={`app-segment__button ${activeTab === 'vales' ? 'is-active' : ''}`} onClick={() => setActiveTab('vales')}>
-          <ReceiptText size={18} /> Vales
+          <ReceiptText size={18} /> {t('Vales')}
         </button>
         <button type="button" role="tab" className={`app-segment__button ${activeTab === 'reports' ? 'is-active' : ''}`} onClick={() => setActiveTab('reports')}>
-          <FileDown size={18} /> Relatorios
+          <FileDown size={18} /> {t('Relatorios')}
         </button>
       </div>
 
@@ -1036,38 +1036,38 @@ const ControleTotalView: React.FC<ControleTotalViewProps> = ({
         <div className="controle-total__stack">
           <section className="app-panel app-panel-pad controle-total__filters">
             <label className="app-field">
-              <span className="app-field__label">Filial</span>
+              <span className="app-field__label">{t('Filial')}</span>
               {renderAcademySelect(dashboardAcademyId, setDashboardAcademyId, true)}
             </label>
             <label className="app-field">
-              <span className="app-field__label">Inicio</span>
+              <span className="app-field__label">{t('Inicio')}</span>
               <DateField value={dashboardStart} onChange={setDashboardStart} />
             </label>
             <label className="app-field">
-              <span className="app-field__label">Fim</span>
+              <span className="app-field__label">{t('Fim')}</span>
               <DateField value={dashboardEnd} onChange={setDashboardEnd} />
             </label>
           </section>
 
           <section className="controle-total__kpi-grid">
             {([
-              ['Total vendido', dashboardMetrics.soldTotal, <ShoppingCart key="icon" size={18} />, 'sold'],
-              ['Vendas para Filiais', dashboardMetrics.filialSalesTotal, <ShoppingCart key="icon" size={18} />, 'filial'],
-              ['Total recebido', dashboardMetrics.revenueTotal, <DollarSign key="icon" size={18} />, 'received'],
-              ['Total pendente', dashboardMetrics.pendingTotal, <CreditCard key="icon" size={18} />, 'pending'],
-              ['Despesas', dashboardMetrics.expenseTotal, <ReceiptText key="icon" size={18} />, 'expense'],
-              ['Lucro bruto', dashboardMetrics.grossProfit, <BarChart3 key="icon" size={18} />, 'gross'],
-              ['Lucro liquido', dashboardMetrics.netProfit, <CheckCircle2 key="icon" size={18} />, 'net'],
-              ['Ticket medio', dashboardMetrics.averageTicket, <ReceiptText key="icon" size={18} />, 'ticket'],
-              ['Vales em aberto', dashboardMetrics.valesAbertos, <CreditCard key="icon" size={18} />, 'vale'],
-              ['Estoque baixo', dashboardMetrics.lowStock.length, <AlertTriangle key="icon" size={18} />, 'stock'],
+              [t('Total vendido'), dashboardMetrics.soldTotal, <ShoppingCart key="icon" size={18} />, 'sold'],
+              [t('Vendas para Filiais'), dashboardMetrics.filialSalesTotal, <ShoppingCart key="icon" size={18} />, 'filial'],
+              [t('Total recebido'), dashboardMetrics.revenueTotal, <DollarSign key="icon" size={18} />, 'received'],
+              [t('Total pendente'), dashboardMetrics.pendingTotal, <CreditCard key="icon" size={18} />, 'pending'],
+              [t('Despesas'), dashboardMetrics.expenseTotal, <ReceiptText key="icon" size={18} />, 'expense'],
+              [t('Lucro bruto'), dashboardMetrics.grossProfit, <BarChart3 key="icon" size={18} />, 'gross'],
+              [t('Lucro liquido'), dashboardMetrics.netProfit, <CheckCircle2 key="icon" size={18} />, 'net'],
+              [t('Ticket medio'), dashboardMetrics.averageTicket, <ReceiptText key="icon" size={18} />, 'ticket'],
+              [t('Vales em aberto'), dashboardMetrics.valesAbertos, <CreditCard key="icon" size={18} />, 'vale'],
+              [t('Estoque baixo'), dashboardMetrics.lowStock.length, <AlertTriangle key="icon" size={18} />, 'stock'],
             ] as Array<[string, number, React.ReactNode, string]>).map(([label, value, icon, tone]) => (
               <article key={label} className={`controle-total__kpi-tile controle-total__kpi-tile--${tone}`}>
                 <span className="controle-total__kpi-tile__icon" aria-hidden>{icon}</span>
                 <div className="controle-total__kpi-tile__body">
                   <span className="controle-total__kpi-tile__label">{label}</span>
                   <strong className="controle-total__kpi-tile__value">
-                    {label === 'Estoque baixo' ? String(value) : formatCurrency(value)}
+                    {label === t('Estoque baixo') ? String(value) : formatCurrency(value)}
                   </strong>
                 </div>
               </article>
@@ -1076,20 +1076,20 @@ const ControleTotalView: React.FC<ControleTotalViewProps> = ({
 
           <section className="controle-total__dashboard-grid">
             <article className="app-panel app-panel-pad">
-              <h3>Produtos mais vendidos</h3>
+              <h3>{t('Produtos mais vendidos')}</h3>
               <div className="app-list">
                 {dashboardMetrics.topProducts.map((entry) => (
                   <div key={entry.name} className="controle-total__rank-row">
                     <span>{entry.name}</span>
-                    <strong>{entry.quantity} un. | {formatCurrency(entry.total)}</strong>
+                    <strong>{t('{count} un.', { count: entry.quantity })} | {formatCurrency(entry.total)}</strong>
                   </div>
                 ))}
-                {dashboardMetrics.topProducts.length === 0 ? <div className="app-empty">Sem vendas no periodo.</div> : null}
+                {dashboardMetrics.topProducts.length === 0 ? <div className="app-empty">{t('Sem vendas no periodo.')}</div> : null}
               </div>
             </article>
 
             <article className="app-panel app-panel-pad">
-              <h3>Servicos mais vendidos</h3>
+              <h3>{t('Servicos mais vendidos')}</h3>
               <div className="app-list">
                 {dashboardMetrics.topServices.map((entry) => (
                   <div key={entry.name} className="controle-total__rank-row">
@@ -1097,12 +1097,12 @@ const ControleTotalView: React.FC<ControleTotalViewProps> = ({
                     <strong>{entry.quantity} | {formatCurrency(entry.total)}</strong>
                   </div>
                 ))}
-                {dashboardMetrics.topServices.length === 0 ? <div className="app-empty">Sem servicos vendidos.</div> : null}
+                {dashboardMetrics.topServices.length === 0 ? <div className="app-empty">{t('Sem servicos vendidos.')}</div> : null}
               </div>
             </article>
 
             <article className="app-panel app-panel-pad">
-              <h3>Filiais com maior faturamento</h3>
+              <h3>{t('Filiais com maior faturamento')}</h3>
               <div className="app-list">
                 {dashboardMetrics.topAcademies.map(([academyId, total]) => (
                   <div key={academyId} className="controle-total__rank-row">
@@ -1110,12 +1110,12 @@ const ControleTotalView: React.FC<ControleTotalViewProps> = ({
                     <strong>{formatCurrency(total)}</strong>
                   </div>
                 ))}
-                {dashboardMetrics.topAcademies.length === 0 ? <div className="app-empty">Sem faturamento no periodo.</div> : null}
+                {dashboardMetrics.topAcademies.length === 0 ? <div className="app-empty">{t('Sem faturamento no periodo.')}</div> : null}
               </div>
             </article>
 
             <article className="app-panel app-panel-pad">
-              <h3>Estoque baixo</h3>
+              <h3>{t('Estoque baixo')}</h3>
               <div className="app-list">
                 {dashboardMetrics.lowStock.slice(0, 6).map((product) => (
                   <div key={product.id} className="controle-total__rank-row">
@@ -1123,7 +1123,7 @@ const ControleTotalView: React.FC<ControleTotalViewProps> = ({
                     <strong>{product.stockCurrent}/{product.stockMinimum}</strong>
                   </div>
                 ))}
-                {dashboardMetrics.lowStock.length === 0 ? <div className="app-empty">Nenhum alerta de estoque.</div> : null}
+                {dashboardMetrics.lowStock.length === 0 ? <div className="app-empty">{t('Nenhum alerta de estoque.')}</div> : null}
               </div>
             </article>
           </section>
@@ -1135,7 +1135,7 @@ const ControleTotalView: React.FC<ControleTotalViewProps> = ({
           <section className="app-panel app-panel-pad controle-total__filters">
             {catalogMode === 'service' ? (
               <label className="app-field">
-                <span className="app-field__label">Filial ativa</span>
+                <span className="app-field__label">{t('Filial ativa')}</span>
                 {renderAcademySelect(selectedAcademyId || defaultAcademyId, (value) => {
                   onSelectAcademy(value);
                   setServiceForm((current) => ({ ...current, academyId: value }));
@@ -1143,18 +1143,18 @@ const ControleTotalView: React.FC<ControleTotalViewProps> = ({
               </label>
             ) : null}
             <label className="app-field">
-              <span className="app-field__label">Busca</span>
+              <span className="app-field__label">{t('Busca')}</span>
               <div className="app-search">
                 <Search size={18} />
-                <input className="app-input pl-11" value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} placeholder="Nome ou categoria" />
+                <input className="app-input pl-11" value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} placeholder={t('Nome ou categoria')} />
               </div>
             </label>
             <div className="app-segment">
               <button type="button" className={`app-segment__button ${catalogMode === 'product' ? 'is-active' : ''}`} onClick={() => setCatalogMode('product')}>
-                Produtos
+                {t('Produtos')}
               </button>
               <button type="button" className={`app-segment__button ${catalogMode === 'service' ? 'is-active' : ''}`} onClick={() => setCatalogMode('service')}>
-                Servicos
+                {t('Servicos')}
               </button>
             </div>
           </section>
@@ -1163,29 +1163,29 @@ const ControleTotalView: React.FC<ControleTotalViewProps> = ({
             <section className="controle-total__catalog-grid">
               <form onSubmit={submitProduct} className="app-panel app-panel-pad controle-total__form">
                 <div className="controle-total__section-heading">
-                  <h3>{productForm.productId ? 'Editar produto' : 'Cadastrar produto'}</h3>
+                  <h3>{productForm.productId ? t('Editar produto') : t('Cadastrar produto')}</h3>
                   {productForm.productId ? (
                     <button type="button" className="app-button app-button--ghost app-button--small" onClick={() => setProductForm(initialProductForm())}>
-                      <X size={16} /> Limpar
+                      <X size={16} /> {t('Limpar')}
                     </button>
                   ) : null}
                 </div>
-                <label className="app-field"><span className="app-field__label">Nome</span><input required className="app-input" value={productForm.name} onChange={(event) => setProductForm((current) => ({ ...current, name: event.target.value }))} /></label>
-                <label className="app-field"><span className="app-field__label">Categoria</span><select className="app-select" value={productForm.category} onChange={(event) => setProductForm((current) => ({ ...current, category: event.target.value }))}>{productCategories.map((entry) => <option key={entry}>{entry}</option>)}</select></label>
-                <label className="app-field"><span className="app-field__label">Descricao</span><textarea className="app-textarea" value={productForm.description} onChange={(event) => setProductForm((current) => ({ ...current, description: event.target.value }))} /></label>
+                <label className="app-field"><span className="app-field__label">{t('Nome')}</span><input required className="app-input" value={productForm.name} onChange={(event) => setProductForm((current) => ({ ...current, name: event.target.value }))} /></label>
+                <label className="app-field"><span className="app-field__label">{t('Categoria')}</span><select className="app-select" value={productForm.category} onChange={(event) => setProductForm((current) => ({ ...current, category: event.target.value }))}>{productCategories.map((entry) => <option key={entry} value={entry}>{t(entry)}</option>)}</select></label>
+                <label className="app-field"><span className="app-field__label">{t('Descricao')}</span><textarea className="app-textarea" value={productForm.description} onChange={(event) => setProductForm((current) => ({ ...current, description: event.target.value }))} /></label>
                 <div className="controle-total__mini-grid">
-                  <label className="app-field"><span className="app-field__label">Preco de compra</span><input required className="app-input" inputMode="decimal" value={productForm.purchasePrice} onChange={(event) => setProductForm((current) => ({ ...current, purchasePrice: event.target.value }))} /></label>
-                  <label className="app-field"><span className="app-field__label">Preco de venda (Filial)</span><input required className="app-input" inputMode="decimal" value={productForm.salePriceFilial} onChange={(event) => setProductForm((current) => ({ ...current, salePriceFilial: event.target.value }))} /></label>
-                  <label className="app-field"><span className="app-field__label">Preco de venda (Diretoria)</span><input required className="app-input" inputMode="decimal" value={productForm.salePriceDiretoria} onChange={(event) => setProductForm((current) => ({ ...current, salePriceDiretoria: event.target.value }))} /></label>
-                  <label className="app-field"><span className="app-field__label">Estoque atual</span><input className="app-input" inputMode="decimal" value={productForm.stockCurrent} onChange={(event) => setProductForm((current) => ({ ...current, stockCurrent: event.target.value }))} /></label>
-                  <label className="app-field"><span className="app-field__label">Estoque minimo</span><input className="app-input" inputMode="decimal" value={productForm.stockMinimum} onChange={(event) => setProductForm((current) => ({ ...current, stockMinimum: event.target.value }))} /></label>
+                  <label className="app-field"><span className="app-field__label">{t('Preco de compra')}</span><input required className="app-input" inputMode="decimal" value={productForm.purchasePrice} onChange={(event) => setProductForm((current) => ({ ...current, purchasePrice: event.target.value }))} /></label>
+                  <label className="app-field"><span className="app-field__label">{t('Preco de venda (Filial)')}</span><input required className="app-input" inputMode="decimal" value={productForm.salePriceFilial} onChange={(event) => setProductForm((current) => ({ ...current, salePriceFilial: event.target.value }))} /></label>
+                  <label className="app-field"><span className="app-field__label">{t('Preco de venda (Diretoria)')}</span><input required className="app-input" inputMode="decimal" value={productForm.salePriceDiretoria} onChange={(event) => setProductForm((current) => ({ ...current, salePriceDiretoria: event.target.value }))} /></label>
+                  <label className="app-field"><span className="app-field__label">{t('Estoque atual')}</span><input className="app-input" inputMode="decimal" value={productForm.stockCurrent} onChange={(event) => setProductForm((current) => ({ ...current, stockCurrent: event.target.value }))} /></label>
+                  <label className="app-field"><span className="app-field__label">{t('Estoque minimo')}</span><input className="app-input" inputMode="decimal" value={productForm.stockMinimum} onChange={(event) => setProductForm((current) => ({ ...current, stockMinimum: event.target.value }))} /></label>
                 </div>
-                <label className="app-field"><span className="app-field__label">Status</span><select className="app-select" value={productForm.status} onChange={(event) => setProductForm((current) => ({ ...current, status: event.target.value as ProductFormState['status'] }))}><option value="active">Ativo</option><option value="inactive">Inativo</option></select></label>
-                <button type="submit" disabled={busy === 'product'} className="app-button app-button--gold"><Package size={18} /> Salvar produto</button>
+                <label className="app-field"><span className="app-field__label">{t('Status')}</span><select className="app-select" value={productForm.status} onChange={(event) => setProductForm((current) => ({ ...current, status: event.target.value as ProductFormState['status'] }))}><option value="active">{t('Ativo')}</option><option value="inactive">{t('Inativo')}</option></select></label>
+                <button type="submit" disabled={busy === 'product'} className="app-button app-button--gold"><Package size={18} /> {t('Salvar produto')}</button>
               </form>
 
               <section className="app-panel app-panel-pad">
-                <h3>Produtos</h3>
+                <h3>{t('Produtos')}</h3>
                 <div className="app-list">
                   {filteredProducts.map((product) => {
                     const lowStock = product.stockCurrent <= product.stockMinimum;
@@ -1196,20 +1196,20 @@ const ControleTotalView: React.FC<ControleTotalViewProps> = ({
                           <p>{product.category}</p>
                           <div className="superadmin-chip-row">
                             <span className={statusClass(product.status)}>{statusLabel(product.status)}</span>
-                            <span className={lowStock ? 'app-badge app-badge--danger' : 'app-badge app-badge--muted'}>Estoque {product.stockCurrent}/{product.stockMinimum}</span>
-                            <span className="app-badge app-badge--muted">Compra {formatCurrency(product.purchasePrice)}</span>
-                            <span className="app-badge app-badge--gold">Venda Filial {formatCurrency(readProductSalePriceFilial(product))}</span>
-                            <span className="app-badge app-badge--gold">Venda Diretoria {formatCurrency(readProductSalePriceDiretoria(product))}</span>
+                            <span className={lowStock ? 'app-badge app-badge--danger' : 'app-badge app-badge--muted'}>{t('Estoque')} {product.stockCurrent}/{product.stockMinimum}</span>
+                            <span className="app-badge app-badge--muted">{t('Compra')} {formatCurrency(product.purchasePrice)}</span>
+                            <span className="app-badge app-badge--gold">{t('Venda Filial')} {formatCurrency(readProductSalePriceFilial(product))}</span>
+                            <span className="app-badge app-badge--gold">{t('Venda Diretoria')} {formatCurrency(readProductSalePriceDiretoria(product))}</span>
                           </div>
                           {product.priceHistory && product.priceHistory.length > 0 ? (
                             <details className="controle-total__price-history">
-                              <summary>Historico de precos ({product.priceHistory.length})</summary>
+                              <summary>{t('Historico de precos ({count})', { count: product.priceHistory.length })}</summary>
                               <ul>
                                 {[...product.priceHistory].reverse().map((entry, entryIndex) => (
                                   <li key={entryIndex}>
                                     <span>{formatDate(toDate(entry.changedAt))}</span>
-                                    <span>Compra {formatCurrency(entry.purchasePrice)} | Filial {formatCurrency(readProductSalePriceFilial(entry))} | Diretoria {formatCurrency(readProductSalePriceDiretoria(entry))}</span>
-                                    {entry.changedBy ? <span>{userById.get(entry.changedBy)?.displayName ?? 'Usuario'}</span> : null}
+                                    <span>{t('Compra')} {formatCurrency(entry.purchasePrice)} | {t('Filial')} {formatCurrency(readProductSalePriceFilial(entry))} | {t('Diretoria')} {formatCurrency(readProductSalePriceDiretoria(entry))}</span>
+                                    {entry.changedBy ? <span>{userById.get(entry.changedBy)?.displayName ?? t('Usuario')}</span> : null}
                                   </li>
                                 ))}
                               </ul>
@@ -1217,7 +1217,7 @@ const ControleTotalView: React.FC<ControleTotalViewProps> = ({
                           ) : null}
                         </div>
                         <div className="controle-total__row-actions">
-                          <button type="button" className="app-button app-button--ghost app-button--icon" title="Editar" onClick={() => setProductForm({
+                          <button type="button" className="app-button app-button--ghost app-button--icon" title={t('Editar')} onClick={() => setProductForm({
                             productId: product.id,
                             name: product.name,
                             category: product.category,
@@ -1229,12 +1229,12 @@ const ControleTotalView: React.FC<ControleTotalViewProps> = ({
                             stockMinimum: String(product.stockMinimum),
                             status: product.status,
                           })}><Edit3 size={17} /></button>
-                          <button type="button" className="app-button app-button--danger app-button--icon" title="Excluir ou inativar" onClick={() => void runAction('delete-product', () => backendFunctions.deleteOrArchiveFinanceProduct({ productId: product.id }).then(() => undefined))}><Trash2 size={17} /></button>
+                          <button type="button" className="app-button app-button--danger app-button--icon" title={t('Excluir ou inativar')} onClick={() => void runAction('delete-product', () => backendFunctions.deleteOrArchiveFinanceProduct({ productId: product.id }).then(() => undefined))}><Trash2 size={17} /></button>
                         </div>
                       </article>
                     );
                   })}
-                  {filteredProducts.length === 0 ? <div className="app-empty">Nenhum produto encontrado.</div> : null}
+                  {filteredProducts.length === 0 ? <div className="app-empty">{t('Nenhum produto encontrado.')}</div> : null}
                 </div>
               </section>
             </section>
@@ -1242,28 +1242,28 @@ const ControleTotalView: React.FC<ControleTotalViewProps> = ({
             <section className="controle-total__catalog-grid">
               <form onSubmit={submitService} className="app-panel app-panel-pad controle-total__form">
                 <div className="controle-total__section-heading">
-                  <h3>{serviceForm.serviceId ? 'Editar servico' : 'Cadastrar servico'}</h3>
+                  <h3>{serviceForm.serviceId ? t('Editar servico') : t('Cadastrar servico')}</h3>
                   {serviceForm.serviceId ? (
                     <button type="button" className="app-button app-button--ghost app-button--small" onClick={() => setServiceForm(initialServiceForm(serviceForm.academyId))}>
-                      <X size={16} /> Limpar
+                      <X size={16} /> {t('Limpar')}
                     </button>
                   ) : null}
                 </div>
-                <label className="app-field"><span className="app-field__label">Filial</span>{renderAcademySelect(serviceForm.academyId, (value) => setServiceForm((current) => ({ ...current, academyId: value })), false, true)}</label>
-                <label className="app-field"><span className="app-field__label">Nome</span><input required className="app-input" value={serviceForm.name} onChange={(event) => setServiceForm((current) => ({ ...current, name: event.target.value }))} /></label>
-                <label className="app-field"><span className="app-field__label">Categoria</span><select className="app-select" value={serviceForm.category} onChange={(event) => setServiceForm((current) => ({ ...current, category: event.target.value }))}>{serviceCategories.map((entry) => <option key={entry}>{entry}</option>)}</select></label>
-                <label className="app-field"><span className="app-field__label">Descricao</span><textarea className="app-textarea" value={serviceForm.description} onChange={(event) => setServiceForm((current) => ({ ...current, description: event.target.value }))} /></label>
+                <label className="app-field"><span className="app-field__label">{t('Filial')}</span>{renderAcademySelect(serviceForm.academyId, (value) => setServiceForm((current) => ({ ...current, academyId: value })), false, true)}</label>
+                <label className="app-field"><span className="app-field__label">{t('Nome')}</span><input required className="app-input" value={serviceForm.name} onChange={(event) => setServiceForm((current) => ({ ...current, name: event.target.value }))} /></label>
+                <label className="app-field"><span className="app-field__label">{t('Categoria')}</span><select className="app-select" value={serviceForm.category} onChange={(event) => setServiceForm((current) => ({ ...current, category: event.target.value }))}>{serviceCategories.map((entry) => <option key={entry} value={entry}>{t(entry)}</option>)}</select></label>
+                <label className="app-field"><span className="app-field__label">{t('Descricao')}</span><textarea className="app-textarea" value={serviceForm.description} onChange={(event) => setServiceForm((current) => ({ ...current, description: event.target.value }))} /></label>
                 <div className="controle-total__mini-grid">
-                  <label className="app-field"><span className="app-field__label">Custo</span><input required className="app-input" inputMode="decimal" value={serviceForm.cost} onChange={(event) => setServiceForm((current) => ({ ...current, cost: event.target.value }))} /></label>
-                  <label className="app-field"><span className="app-field__label">Preco de venda (Filial)</span><input required className="app-input" inputMode="decimal" value={serviceForm.salePriceFilial} onChange={(event) => setServiceForm((current) => ({ ...current, salePriceFilial: event.target.value }))} /></label>
-                  <label className="app-field"><span className="app-field__label">Preco de venda (Diretoria)</span><input required className="app-input" inputMode="decimal" value={serviceForm.salePriceDiretoria} onChange={(event) => setServiceForm((current) => ({ ...current, salePriceDiretoria: event.target.value }))} /></label>
+                  <label className="app-field"><span className="app-field__label">{t('Custo')}</span><input required className="app-input" inputMode="decimal" value={serviceForm.cost} onChange={(event) => setServiceForm((current) => ({ ...current, cost: event.target.value }))} /></label>
+                  <label className="app-field"><span className="app-field__label">{t('Preco de venda (Filial)')}</span><input required className="app-input" inputMode="decimal" value={serviceForm.salePriceFilial} onChange={(event) => setServiceForm((current) => ({ ...current, salePriceFilial: event.target.value }))} /></label>
+                  <label className="app-field"><span className="app-field__label">{t('Preco de venda (Diretoria)')}</span><input required className="app-input" inputMode="decimal" value={serviceForm.salePriceDiretoria} onChange={(event) => setServiceForm((current) => ({ ...current, salePriceDiretoria: event.target.value }))} /></label>
                 </div>
-                <label className="app-field"><span className="app-field__label">Status</span><select className="app-select" value={serviceForm.status} onChange={(event) => setServiceForm((current) => ({ ...current, status: event.target.value as ServiceFormState['status'] }))}><option value="active">Ativo</option><option value="inactive">Inativo</option></select></label>
-                <button type="submit" disabled={busy === 'service'} className="app-button app-button--gold"><ReceiptText size={18} /> Salvar servico</button>
+                <label className="app-field"><span className="app-field__label">{t('Status')}</span><select className="app-select" value={serviceForm.status} onChange={(event) => setServiceForm((current) => ({ ...current, status: event.target.value as ServiceFormState['status'] }))}><option value="active">{t('Ativo')}</option><option value="inactive">{t('Inativo')}</option></select></label>
+                <button type="submit" disabled={busy === 'service'} className="app-button app-button--gold"><ReceiptText size={18} /> {t('Salvar servico')}</button>
               </form>
 
               <section className="app-panel app-panel-pad">
-                <h3>Servicos</h3>
+                <h3>{t('Servicos')}</h3>
                 <div className="app-list">
                   {filteredServices.map((service) => (
                     <article key={service.id} className="app-list-card controle-total__catalog-card">
@@ -1272,11 +1272,11 @@ const ControleTotalView: React.FC<ControleTotalViewProps> = ({
                         <p>{academyName(academies, service.academyId)}</p>
                         <div className="superadmin-chip-row">
                           <span className={statusClass(service.status)}>{statusLabel(service.status)}</span>
-                          <span className="app-badge app-badge--gold">Margem {formatCurrency(service.salePrice - service.cost)}</span>
+                          <span className="app-badge app-badge--gold">{t('Margem')} {formatCurrency(service.salePrice - service.cost)}</span>
                         </div>
                       </div>
                       <div className="controle-total__row-actions">
-                        <button type="button" className="app-button app-button--ghost app-button--icon" title="Editar" onClick={() => setServiceForm({
+                        <button type="button" className="app-button app-button--ghost app-button--icon" title={t('Editar')} onClick={() => setServiceForm({
                           serviceId: service.id,
                           academyId: service.academyId,
                           name: service.name,
@@ -1287,11 +1287,11 @@ const ControleTotalView: React.FC<ControleTotalViewProps> = ({
                           salePriceDiretoria: String(readServiceSalePriceDiretoria(service)),
                           status: service.status,
                         })}><Edit3 size={17} /></button>
-                        <button type="button" className="app-button app-button--danger app-button--icon" title="Excluir ou inativar" onClick={() => void runAction('delete-service', () => backendFunctions.deleteOrArchiveFinanceService({ serviceId: service.id }).then(() => undefined))}><Trash2 size={17} /></button>
+                        <button type="button" className="app-button app-button--danger app-button--icon" title={t('Excluir ou inativar')} onClick={() => void runAction('delete-service', () => backendFunctions.deleteOrArchiveFinanceService({ serviceId: service.id }).then(() => undefined))}><Trash2 size={17} /></button>
                       </div>
                     </article>
                   ))}
-                  {filteredServices.length === 0 ? <div className="app-empty">Nenhum servico encontrado.</div> : null}
+                  {filteredServices.length === 0 ? <div className="app-empty">{t('Nenhum servico encontrado.')}</div> : null}
                 </div>
               </section>
             </section>
@@ -1302,26 +1302,26 @@ const ControleTotalView: React.FC<ControleTotalViewProps> = ({
       {activeTab === 'list' ? (
         <div className="controle-total__stack">
           <section className="app-panel app-panel-pad controle-total__filters">
-            <label className="app-field"><span className="app-field__label">Filial</span>{renderAcademySelect(listAcademyId, setListAcademyId, true)}</label>
+            <label className="app-field"><span className="app-field__label">{t('Filial')}</span>{renderAcademySelect(listAcademyId, setListAcademyId, true)}</label>
             <label className="app-field">
-              <span className="app-field__label">Inicio</span>
+              <span className="app-field__label">{t('Inicio')}</span>
               <DateField value={listStart} onChange={setListStart} />
             </label>
             <label className="app-field">
-              <span className="app-field__label">Fim</span>
+              <span className="app-field__label">{t('Fim')}</span>
               <DateField value={listEnd} onChange={setListEnd} />
             </label>
-            <label className="app-field"><span className="app-field__label">Tipo</span><select className="app-select" value={listType} onChange={(event) => setListType(event.target.value as ListType)}><option value="all">Todos</option><option value="sale">Vendas</option><option value="payment">Pagamentos</option><option value="withdrawal">Vales</option><option value="stock">Estoque</option></select></label>
-            <label className="app-field"><span className="app-field__label">Ordenar</span><select className="app-select" value={sortMode} onChange={(event) => setSortMode(event.target.value as SortMode)}><option value="newest">Mais recentes</option><option value="oldest">Mais antigas</option><option value="value_desc">Maior valor</option><option value="value_asc">Menor valor</option></select></label>
+            <label className="app-field"><span className="app-field__label">{t('Tipo')}</span><select className="app-select" value={listType} onChange={(event) => setListType(event.target.value as ListType)}><option value="all">{t('Todos')}</option><option value="sale">{t('Vendas')}</option><option value="payment">{t('Pagamentos')}</option><option value="withdrawal">{t('Vales')}</option><option value="stock">{t('Estoque')}</option></select></label>
+            <label className="app-field"><span className="app-field__label">{t('Ordenar')}</span><select className="app-select" value={sortMode} onChange={(event) => setSortMode(event.target.value as SortMode)}><option value="newest">{t('Mais recentes')}</option><option value="oldest">{t('Mais antigas')}</option><option value="value_desc">{t('Maior valor')}</option><option value="value_asc">{t('Menor valor')}</option></select></label>
           </section>
 
           <section className="app-panel app-panel-pad controle-total__actions-panel">
             <div className="controle-total__section-heading">
-              <h3>Acoes do dia</h3>
+              <h3>{t('Acoes do dia')}</h3>
               <div className="controle-total__action-buttons">
                 {([
-                  ['sale', 'Venda', <ShoppingCart key="icon" size={16} />],
-                  ['purchase', 'Compra', <Package key="icon" size={16} />],
+                  ['sale', t('Venda'), <ShoppingCart key="icon" size={16} />],
+                  ['purchase', t('Compra'), <Package key="icon" size={16} />],
                 ] as Array<[ActionMode, string, React.ReactNode]>).map(([mode, label, icon]) => (
                   <button
                     key={String(mode)}
@@ -1337,43 +1337,43 @@ const ControleTotalView: React.FC<ControleTotalViewProps> = ({
 
             {actionMode === 'sale' ? (
               <form onSubmit={submitSale} className="controle-total__form-grid">
-                <label className="app-field"><span className="app-field__label">Tipo de venda</span><select className="app-select" value={saleForm.saleType} onChange={(event) => selectSaleType(event.target.value as SaleFormState['saleType'])}><option value="product">Produto</option><option value="service">Servico</option></select></label>
-                <label className="app-field"><span className="app-field__label">Tipo de comprador</span><select className="app-select" value={saleForm.buyerType} onChange={(event) => selectSaleBuyerType(event.target.value as SaleFormState['buyerType'])}>
-                  <option value="filial">Filial</option>
-                  <option value="diretoria">Diretoria</option>
-                  {saleForm.saleType === 'service' ? <option value="individuo">Individuo</option> : null}
+                <label className="app-field"><span className="app-field__label">{t('Tipo de venda')}</span><select className="app-select" value={saleForm.saleType} onChange={(event) => selectSaleType(event.target.value as SaleFormState['saleType'])}><option value="product">{t('Produto')}</option><option value="service">{t('Servico')}</option></select></label>
+                <label className="app-field"><span className="app-field__label">{t('Tipo de comprador')}</span><select className="app-select" value={saleForm.buyerType} onChange={(event) => selectSaleBuyerType(event.target.value as SaleFormState['buyerType'])}>
+                  <option value="filial">{t('Filial')}</option>
+                  <option value="diretoria">{t('Diretoria')}</option>
+                  {saleForm.saleType === 'service' ? <option value="individuo">{t('Individuo')}</option> : null}
                 </select></label>
                 {saleForm.buyerType === 'filial' ? (
-                  <label className="app-field"><span className="app-field__label">Filial compradora</span>{renderAcademySelect(saleForm.buyerAcademyId, selectBuyerAcademy)}</label>
+                  <label className="app-field"><span className="app-field__label">{t('Filial compradora')}</span>{renderAcademySelect(saleForm.buyerAcademyId, selectBuyerAcademy)}</label>
                 ) : saleForm.buyerType === 'diretoria' ? (
-                  <label className="app-field"><span className="app-field__label">Comprador</span><input className="app-input" value="Diretoria (Central)" disabled /></label>
+                  <label className="app-field"><span className="app-field__label">{t('Comprador')}</span><input className="app-input" value="Diretoria (Central)" disabled /></label>
                 ) : null}
                 {saleForm.buyerType === 'individuo' ? (
                   <>
-                    <label className="app-field"><span className="app-field__label">Cliente / Aluno</span><select className="app-select" value={saleForm.customerId} onChange={(event) => selectCustomer(event.target.value)}>
-                      <option value="">- Digitar nome livre -</option>
+                    <label className="app-field"><span className="app-field__label">{t('Cliente / Aluno')}</span><select className="app-select" value={saleForm.customerId} onChange={(event) => selectCustomer(event.target.value)}>
+                      <option value="">{t('- Digitar nome livre -')}</option>
                       {students.map((student) => <option key={student.id} value={student.id}>{student.displayName}</option>)}
                     </select></label>
-                    <label className="app-field"><span className="app-field__label">Nome do cliente</span><input required className="app-input" value={saleForm.customerName} placeholder="Nome completo" onChange={(event) => setSaleForm((current) => ({ ...current, customerName: event.target.value, customerId: '' }))} /></label>
+                    <label className="app-field"><span className="app-field__label">{t('Nome do cliente')}</span><input required className="app-input" value={saleForm.customerName} placeholder={t('Nome completo')} onChange={(event) => setSaleForm((current) => ({ ...current, customerName: event.target.value, customerId: '' }))} /></label>
                   </>
                 ) : (
-                  <label className="app-field"><span className="app-field__label">Rotulo do comprador</span><input required className="app-input" value={saleForm.customerName} placeholder="Nome do comprador" onChange={(event) => setSaleForm((current) => ({ ...current, customerName: event.target.value }))} /></label>
+                  <label className="app-field"><span className="app-field__label">{t('Rotulo do comprador')}</span><input required className="app-input" value={saleForm.customerName} placeholder={t('Nome do comprador')} onChange={(event) => setSaleForm((current) => ({ ...current, customerName: event.target.value }))} /></label>
                 )}
                 <label className="app-field">
-                  <span className="app-field__label">Data</span>
+                  <span className="app-field__label">{t('Data')}</span>
                   <DateField value={saleForm.saleDate} onChange={(value) => setSaleForm((current) => ({ ...current, saleDate: value }))} />
                 </label>
-                <label className="app-field"><span className="app-field__label">Responsavel pela compra</span><select className="app-select" value={saleForm.sellerId} onChange={(event) => selectSeller(event.target.value)}><option value="">- Selecionar -</option>{staff.map((entry) => <option key={entry.id} value={entry.id}>{entry.displayName}</option>)}</select></label>
+                <label className="app-field"><span className="app-field__label">{t('Responsavel pela compra')}</span><select className="app-select" value={saleForm.sellerId} onChange={(event) => selectSeller(event.target.value)}><option value="">{t('- Selecionar -')}</option>{staff.map((entry) => <option key={entry.id} value={entry.id}>{entry.displayName}</option>)}</select></label>
                 <label className="app-field">
-                  <span className="app-field__label">Vencimento</span>
+                  <span className="app-field__label">{t('Vencimento')}</span>
                   <DateField value={saleForm.dueDate} onChange={(value) => setSaleForm((current) => ({ ...current, dueDate: value }))} />
                 </label>
 
                 <div className="controle-total__items-editor controle-total__span-2">
                   <div className="controle-total__section-heading">
-                    <strong>Itens da venda</strong>
+                    <strong>{t('Itens da venda')}</strong>
                     <button type="button" className="app-button app-button--ghost app-button--small" onClick={() => setSaleForm((current) => ({ ...current, items: [...current.items, { ...initialSaleItem(), type: current.saleType }] }))}>
-                      <Plus size={16} /> Adicionar
+                      <Plus size={16} /> {t('Adicionar')}
                     </button>
                   </div>
                   {saleForm.items.map((item, index) => {
@@ -1384,30 +1384,30 @@ const ControleTotalView: React.FC<ControleTotalViewProps> = ({
                       <div key={index} className="controle-total__sale-item-row">
                         <div className="controle-total__sale-item">
                           <select required className="app-select" value={item.itemId} onChange={(event) => updateSaleItem(index, { itemId: event.target.value, beneficiaryName: '', beneficiaryUserId: '' })}>
-                            <option value="">{itemType === 'product' ? 'Selecionar produto' : 'Selecionar servico'}</option>
+                            <option value="">{itemType === 'product' ? t('Selecionar produto') : t('Selecionar servico')}</option>
                             {(itemType === 'product' ? availableProducts : availableServices).map((entry) => (
                               <option key={entry.id} value={entry.id}>
                                 {entry.name}{itemType === 'product' && 'stockCurrent' in entry ? ` (${entry.stockCurrent} em estoque)` : ''}
                               </option>
                             ))}
                           </select>
-                          <input className="app-input" inputMode="decimal" placeholder="Qtd" value={item.quantity} onChange={(event) => updateSaleItem(index, { quantity: event.target.value })} />
-                          <input className="app-input" inputMode="decimal" placeholder={item.itemId ? formatCurrency(selectedItemPrice({ ...item, type: itemType, unitPrice: '' })) : 'Preco unit.'} value={item.unitPrice} onChange={(event) => updateSaleItem(index, { unitPrice: event.target.value })} />
-                          <input className="app-input" inputMode="decimal" placeholder="Desconto" value={item.discount} onChange={(event) => updateSaleItem(index, { discount: event.target.value })} />
-                          <button type="button" className="app-button app-button--ghost app-button--icon" title="Remover" onClick={() => setSaleForm((current) => ({ ...current, items: current.items.filter((_, i) => i !== index) }))}>
+                          <input className="app-input" inputMode="decimal" placeholder={t('Qtd')} value={item.quantity} onChange={(event) => updateSaleItem(index, { quantity: event.target.value })} />
+                          <input className="app-input" inputMode="decimal" placeholder={item.itemId ? formatCurrency(selectedItemPrice({ ...item, type: itemType, unitPrice: '' })) : t('Preco unit.')} value={item.unitPrice} onChange={(event) => updateSaleItem(index, { unitPrice: event.target.value })} />
+                          <input className="app-input" inputMode="decimal" placeholder={t('Desconto')} value={item.discount} onChange={(event) => updateSaleItem(index, { discount: event.target.value })} />
+                          <button type="button" className="app-button app-button--ghost app-button--icon" title={t('Remover')} onClick={() => setSaleForm((current) => ({ ...current, items: current.items.filter((_, i) => i !== index) }))}>
                             <Trash2 size={16} />
                           </button>
                         </div>
                         {isCertificate ? (
                           <div className="controle-total__sale-item-beneficiary">
                             <label className="app-field">
-                              <span className="app-field__label">Beneficiario (nome no certificado)</span>
-                              <input required className="app-input" value={item.beneficiaryName} onChange={(event) => updateSaleItem(index, { beneficiaryName: event.target.value, beneficiaryUserId: '' })} placeholder="Nome completo" />
+                              <span className="app-field__label">{t('Beneficiario (nome no certificado)')}</span>
+                              <input required className="app-input" value={item.beneficiaryName} onChange={(event) => updateSaleItem(index, { beneficiaryName: event.target.value, beneficiaryUserId: '' })} placeholder={t('Nome completo')} />
                             </label>
                             <label className="app-field">
-                              <span className="app-field__label">Aluno cadastrado (opcional)</span>
+                              <span className="app-field__label">{t('Aluno cadastrado (opcional)')}</span>
                               <select className="app-select" value={item.beneficiaryUserId} onChange={(event) => selectBeneficiaryStudent(index, event.target.value)}>
-                                <option value="">- Digitar nome livre -</option>
+                                <option value="">{t('- Digitar nome livre -')}</option>
                                 {students.map((student) => <option key={student.id} value={student.id}>{student.displayName}</option>)}
                               </select>
                             </label>
@@ -1418,36 +1418,36 @@ const ControleTotalView: React.FC<ControleTotalViewProps> = ({
                   })}
                 </div>
 
-                <label className="app-field"><span className="app-field__label">Forma de pagamento</span><select className="app-select" value={saleForm.paymentMethod} onChange={(event) => setSaleForm((current) => ({ ...current, paymentMethod: event.target.value }))}>{paymentMethods.map((entry) => <option key={entry}>{entry}</option>)}</select></label>
-                <label className="app-field"><span className="app-field__label">Valor recebido</span><input className="app-input" inputMode="decimal" placeholder={formatCurrency(salePreview.total)} value={saleForm.receivedAmount} onChange={(event) => setSaleForm((current) => ({ ...current, receivedAmount: event.target.value }))} /></label>
+                <label className="app-field"><span className="app-field__label">{t('Forma de pagamento')}</span><select className="app-select" value={saleForm.paymentMethod} onChange={(event) => setSaleForm((current) => ({ ...current, paymentMethod: event.target.value }))}>{paymentMethods.map((entry) => <option key={entry} value={entry}>{t(entry)}</option>)}</select></label>
+                <label className="app-field"><span className="app-field__label">{t('Valor recebido')}</span><input className="app-input" inputMode="decimal" placeholder={formatCurrency(salePreview.total)} value={saleForm.receivedAmount} onChange={(event) => setSaleForm((current) => ({ ...current, receivedAmount: event.target.value }))} /></label>
                 <label className="app-field">
-                  <span className="app-field__label">Data pagamento</span>
+                  <span className="app-field__label">{t('Data pagamento')}</span>
                   <DateField value={saleForm.paymentDate} onChange={(value) => setSaleForm((current) => ({ ...current, paymentDate: value }))} />
                 </label>
-                <label className="app-field controle-total__span-2"><span className="app-field__label">Observacoes</span><input className="app-input" value={saleForm.notes} onChange={(event) => setSaleForm((current) => ({ ...current, notes: event.target.value }))} /></label>
+                <label className="app-field controle-total__span-2"><span className="app-field__label">{t('Observacoes')}</span><input className="app-input" value={saleForm.notes} onChange={(event) => setSaleForm((current) => ({ ...current, notes: event.target.value }))} /></label>
 
                 <div className="controle-total__sale-total">
-                  <span>Subtotal: <strong>{formatCurrency(salePreview.subtotal)}</strong></span>
-                  <span>Descontos: <strong>{formatCurrency(salePreview.discount)}</strong></span>
-                  <span>Total: <strong>{formatCurrency(salePreview.total)}</strong></span>
+                  <span>{t('Subtotal:')} <strong>{formatCurrency(salePreview.subtotal)}</strong></span>
+                  <span>{t('Descontos:')} <strong>{formatCurrency(salePreview.discount)}</strong></span>
+                  <span>{t('Total:')} <strong>{formatCurrency(salePreview.total)}</strong></span>
                 </div>
 
-                <button type="submit" disabled={busy === 'sale'} className="app-button app-button--gold"><ShoppingCart size={18} /> Registrar venda</button>
+                <button type="submit" disabled={busy === 'sale'} className="app-button app-button--gold"><ShoppingCart size={18} /> {t('Registrar venda')}</button>
               </form>
             ) : null}
 
             {actionMode === 'purchase' ? (
               <form onSubmit={submitPurchase} className="controle-total__form-grid">
-                <label className="app-field controle-total__span-2"><span className="app-field__label">Produto</span><select required className="app-select" value={purchaseForm.productId} onChange={(event) => setPurchaseForm((current) => ({ ...current, productId: event.target.value }))}>
-                  <option value="">Selecionar produto</option>
+                <label className="app-field controle-total__span-2"><span className="app-field__label">{t('Produto')}</span><select required className="app-select" value={purchaseForm.productId} onChange={(event) => setPurchaseForm((current) => ({ ...current, productId: event.target.value }))}>
+                  <option value="">{t('Selecionar produto')}</option>
                   {availablePurchaseProducts.map((product) => (
-                    <option key={product.id} value={product.id}>{product.name} (estoque atual: {product.stockCurrent})</option>
+                    <option key={product.id} value={product.id}>{product.name} ({t('estoque atual: {count}', { count: product.stockCurrent })})</option>
                   ))}
                 </select></label>
-                <label className="app-field"><span className="app-field__label">Quantidade</span><input required className="app-input" inputMode="decimal" placeholder="Ex: 10" value={purchaseForm.quantity} onChange={(event) => setPurchaseForm((current) => ({ ...current, quantity: event.target.value }))} /></label>
-                <label className="app-field"><span className="app-field__label">Fornecedor</span><input className="app-input" value={purchaseForm.supplier} onChange={(event) => setPurchaseForm((current) => ({ ...current, supplier: event.target.value }))} /></label>
-                <label className="app-field controle-total__span-2"><span className="app-field__label">Observacoes</span><input className="app-input" value={purchaseForm.notes} onChange={(event) => setPurchaseForm((current) => ({ ...current, notes: event.target.value }))} /></label>
-                <button type="submit" disabled={busy === 'purchase'} className="app-button app-button--gold"><Package size={18} /> Registrar compra</button>
+                <label className="app-field"><span className="app-field__label">{t('Quantidade')}</span><input required className="app-input" inputMode="decimal" placeholder={t('Ex: 10')} value={purchaseForm.quantity} onChange={(event) => setPurchaseForm((current) => ({ ...current, quantity: event.target.value }))} /></label>
+                <label className="app-field"><span className="app-field__label">{t('Fornecedor')}</span><input className="app-input" value={purchaseForm.supplier} onChange={(event) => setPurchaseForm((current) => ({ ...current, supplier: event.target.value }))} /></label>
+                <label className="app-field controle-total__span-2"><span className="app-field__label">{t('Observacoes')}</span><input className="app-input" value={purchaseForm.notes} onChange={(event) => setPurchaseForm((current) => ({ ...current, notes: event.target.value }))} /></label>
+                <button type="submit" disabled={busy === 'purchase'} className="app-button app-button--gold"><Package size={18} /> {t('Registrar compra')}</button>
               </form>
             ) : null}
 
@@ -1455,10 +1455,10 @@ const ControleTotalView: React.FC<ControleTotalViewProps> = ({
 
           <section className="app-panel app-panel-pad">
             <div className="controle-total__section-heading">
-              <h3>Lista</h3>
+              <h3>{t('Lista')}</h3>
               <div className="app-search controle-total__search">
                 <Search size={18} />
-                <input className="app-input pl-11" value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} placeholder="Buscar na lista" />
+                <input className="app-input pl-11" value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} placeholder={t('Buscar na lista')} />
               </div>
             </div>
             <div className="app-list">
@@ -1474,7 +1474,7 @@ const ControleTotalView: React.FC<ControleTotalViewProps> = ({
                   </strong>
                 </article>
               ))}
-              {timeline.length === 0 ? <div className="app-empty">Nenhum registro no periodo selecionado.</div> : null}
+              {timeline.length === 0 ? <div className="app-empty">{t('Nenhum registro no periodo selecionado.')}</div> : null}
             </div>
           </section>
         </div>
@@ -1484,14 +1484,14 @@ const ControleTotalView: React.FC<ControleTotalViewProps> = ({
         <div className="controle-total__stack">
           <section className="app-panel app-panel-pad controle-total__filters">
             <label className="app-field">
-              <span className="app-field__label">Filial (movimentacoes)</span>
+              <span className="app-field__label">{t('Filial (movimentacoes)')}</span>
               {renderAcademySelect(stockAcademyId, setStockAcademyId, true)}
             </label>
           </section>
 
           <section className="app-panel app-panel-pad">
             <div className="controle-total__section-heading">
-              <h3>Estoque</h3>
+              <h3>{t('Estoque')}</h3>
               <span className="controle-total__stock-count">{stockListProducts.length} {stockListProducts.length === 1 ? 'produto' : 'produtos'}</span>
             </div>
             <div className="app-list">
@@ -1510,12 +1510,12 @@ const ControleTotalView: React.FC<ControleTotalViewProps> = ({
                       <p>{product.category}</p>
                       <div className="superadmin-chip-row">
                         <span className={statusClass(product.status)}>{statusLabel(product.status)}</span>
-                        <span className={lowStock ? 'app-badge app-badge--danger' : 'app-badge app-badge--muted'}>Estoque {product.stockCurrent}/{product.stockMinimum}</span>
+                        <span className={lowStock ? 'app-badge app-badge--danger' : 'app-badge app-badge--muted'}>{t('Estoque')} {product.stockCurrent}/{product.stockMinimum}</span>
                       </div>
                     </div>
                     <div className="controle-total__stock-card__edit">
                       <label className="app-field controle-total__stock-card__field">
-                        <span className="app-field__label">Quantidade</span>
+                        <span className="app-field__label">{t('Quantidade')}</span>
                         <input
                           className="app-input"
                           type="number"
@@ -1531,13 +1531,13 @@ const ControleTotalView: React.FC<ControleTotalViewProps> = ({
                         disabled={!dirty || busy === busyKey}
                         onClick={() => void submitStockEdit(product)}
                       >
-                        Salvar
+                        {t('Salvar')}
                       </button>
                       {editing ? (
                         <button
                           type="button"
                           className="app-button app-button--ghost app-button--small"
-                          title="Cancelar"
+                          title={t('Cancelar')}
                           onClick={() => setStockEdits((current) => {
                             const next = { ...current };
                             delete next[product.id];
@@ -1550,7 +1550,7 @@ const ControleTotalView: React.FC<ControleTotalViewProps> = ({
                       <button
                         type="button"
                         className="app-button app-button--danger app-button--icon"
-                        title="Excluir ou inativar"
+                        title={t('Excluir ou inativar')}
                         onClick={() => void runAction(`delete-product:${product.id}`, () => backendFunctions.deleteOrArchiveFinanceProduct({ productId: product.id }).then(() => undefined))}
                       >
                         <Trash2 size={16} />
@@ -1559,13 +1559,13 @@ const ControleTotalView: React.FC<ControleTotalViewProps> = ({
                   </article>
                 );
               })}
-              {stockListProducts.length === 0 ? <div className="app-empty">Nenhum produto cadastrado.</div> : null}
+              {stockListProducts.length === 0 ? <div className="app-empty">{t('Nenhum produto cadastrado.')}</div> : null}
             </div>
           </section>
 
           <section className="app-panel app-panel-pad">
             <div className="controle-total__section-heading">
-              <h3>Movimentacoes de Estoque</h3>
+              <h3>{t('Movimentacoes de Estoque')}</h3>
             </div>
             <div className="app-list">
               {timeline.filter((entry) => entry.type === 'stock' && (!stockAcademyId || entry.academyId === stockAcademyId)).map((entry) => (
@@ -1580,7 +1580,7 @@ const ControleTotalView: React.FC<ControleTotalViewProps> = ({
                   </strong>
                 </article>
               ))}
-              {timeline.filter((entry) => entry.type === 'stock' && (!stockAcademyId || entry.academyId === stockAcademyId)).length === 0 ? <div className="app-empty">Nenhuma movimentacao de estoque no periodo selecionado.</div> : null}
+              {timeline.filter((entry) => entry.type === 'stock' && (!stockAcademyId || entry.academyId === stockAcademyId)).length === 0 ? <div className="app-empty">{t('Nenhuma movimentacao de estoque no periodo selecionado.')}</div> : null}
             </div>
           </section>
         </div>
@@ -1590,22 +1590,22 @@ const ControleTotalView: React.FC<ControleTotalViewProps> = ({
         <div className="controle-total__stack">
           <section className="app-panel app-panel-pad controle-total__filters">
             <label className="app-field">
-              <span className="app-field__label">Filial</span>
+              <span className="app-field__label">{t('Filial')}</span>
               {renderAcademySelect(reportAcademyId, setReportAcademyId, true, true)}
             </label>
             <label className="app-field">
-              <span className="app-field__label">Inicio</span>
+              <span className="app-field__label">{t('Inicio')}</span>
               <DateField value={reportStart} onChange={setReportStart} />
             </label>
             <label className="app-field">
-              <span className="app-field__label">Fim</span>
+              <span className="app-field__label">{t('Fim')}</span>
               <DateField value={reportEnd} onChange={setReportEnd} />
             </label>
           </section>
 
           <section className="app-panel app-panel-pad controle-total__stack">
             <div className="controle-total__section-heading">
-              <strong>Blocos do relatorio</strong>
+              <strong>{t('Blocos do relatorio')}</strong>
             </div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '16px' }}>
               {(['resumo', 'vendas', 'pagamentos', 'receitas', 'despesas', 'maisVendidos', 'vales'] as ReportBlock[]).map((block) => (
@@ -1615,25 +1615,25 @@ const ControleTotalView: React.FC<ControleTotalViewProps> = ({
                     checked={reportBlocks[block]}
                     onChange={(event) => setReportBlocks((current) => ({ ...current, [block]: event.target.checked }))}
                   />
-                  <span>{REPORT_BLOCK_LABELS[block]}</span>
+                  <span>{t(REPORT_BLOCK_LABELS[block])}</span>
                 </label>
               ))}
             </div>
 
             <div className="controle-total__section-heading">
-              <strong>Formato</strong>
+              <strong>{t('Formato')}</strong>
             </div>
-            <div className="app-segment" role="tablist" aria-label="Formato do relatorio">
+            <div className="app-segment" role="tablist" aria-label={t('Formato do relatorio')}>
               <button type="button" role="tab" className={`app-segment__button ${reportFormat === 'excel' ? 'is-active' : ''}`} onClick={() => setReportFormat('excel')}>
-                Excel (.xlsx)
+                {t('Excel (.xlsx)')}
               </button>
               <button type="button" role="tab" className={`app-segment__button ${reportFormat === 'pdf' ? 'is-active' : ''}`} onClick={() => setReportFormat('pdf')}>
-                PDF
+                {t('PDF')}
               </button>
             </div>
 
             <button type="button" className="app-button app-button--gold" disabled={reportBusy} onClick={handleGenerateReport}>
-              <FileDown size={18} /> {reportBusy ? 'Gerando...' : 'Gerar relatorio'}
+              <FileDown size={18} /> {reportBusy ? t('Gerando...') : t('Gerar relatorio')}
             </button>
           </section>
         </div>
@@ -1643,21 +1643,21 @@ const ControleTotalView: React.FC<ControleTotalViewProps> = ({
         <div className="controle-total__stack">
           <form onSubmit={submitWithdrawal} className="app-panel app-panel-pad controle-total__stack">
             <div className="controle-total__section-heading">
-              <strong>Registrar retirada (vale)</strong>
+              <strong>{t('Registrar retirada (vale)')}</strong>
             </div>
             <label className="app-field">
-              <span className="app-field__label">Quem retirou (equipe)</span>
+              <span className="app-field__label">{t('Quem retirou (equipe)')}</span>
               <select required className="app-select" value={withdrawalDebtorId} onChange={(event) => setWithdrawalDebtorId(event.target.value)}>
-                <option value="">- Selecionar -</option>
+                <option value="">{t('- Selecionar -')}</option>
                 {withdrawalDebtors.map((member) => <option key={member.id} value={member.id}>{member.displayName}</option>)}
               </select>
             </label>
 
             <div className="controle-total__items-editor">
               <div className="controle-total__section-heading">
-                <strong>Itens retirados</strong>
+                <strong>{t('Itens retirados')}</strong>
                 <button type="button" className="app-button app-button--ghost app-button--small" onClick={() => setWithdrawalItems((current) => [...current, { productId: '', quantity: '1', unitValue: '' }])}>
-                  <Plus size={16} /> Adicionar
+                  <Plus size={16} /> {t('Adicionar')}
                 </button>
               </div>
               {withdrawalItems.map((item, index) => (
@@ -1668,13 +1668,13 @@ const ControleTotalView: React.FC<ControleTotalViewProps> = ({
                       const price = product ? readProductSalePriceForBuyer(product, 'diretoria') : 0;
                       setWithdrawalItems((current) => current.map((entry, entryIndex) => entryIndex === index ? { ...entry, productId: event.target.value, unitValue: product ? String(price) : '' } : entry));
                     }}>
-                      <option value="">Selecionar produto</option>
-                      {availableProducts.map((product) => <option key={product.id} value={product.id}>{product.name} ({product.stockCurrent} em estoque)</option>)}
+                      <option value="">{t('Selecionar produto')}</option>
+                      {availableProducts.map((product) => <option key={product.id} value={product.id}>{product.name} ({t('{count} em estoque', { count: product.stockCurrent })})</option>)}
                     </select>
-                    <input className="app-input" inputMode="decimal" placeholder="Qtd" value={item.quantity} onChange={(event) => setWithdrawalItems((current) => current.map((entry, entryIndex) => entryIndex === index ? { ...entry, quantity: event.target.value } : entry))} />
-                    <input className="app-input" inputMode="decimal" placeholder="Valor unit." value={item.unitValue} onChange={(event) => setWithdrawalItems((current) => current.map((entry, entryIndex) => entryIndex === index ? { ...entry, unitValue: event.target.value } : entry))} />
+                    <input className="app-input" inputMode="decimal" placeholder={t('Qtd')} value={item.quantity} onChange={(event) => setWithdrawalItems((current) => current.map((entry, entryIndex) => entryIndex === index ? { ...entry, quantity: event.target.value } : entry))} />
+                    <input className="app-input" inputMode="decimal" placeholder={t('Valor unit.')} value={item.unitValue} onChange={(event) => setWithdrawalItems((current) => current.map((entry, entryIndex) => entryIndex === index ? { ...entry, unitValue: event.target.value } : entry))} />
                     {withdrawalItems.length > 1 ? (
-                      <button type="button" className="app-button app-button--ghost app-button--small" aria-label="Remover item" onClick={() => setWithdrawalItems((current) => current.filter((_, entryIndex) => entryIndex !== index))}><Trash2 size={16} /></button>
+                      <button type="button" className="app-button app-button--ghost app-button--small" aria-label={t('Remover item')} onClick={() => setWithdrawalItems((current) => current.filter((_, entryIndex) => entryIndex !== index))}><Trash2 size={16} /></button>
                     ) : null}
                   </div>
                 </div>
@@ -1682,21 +1682,21 @@ const ControleTotalView: React.FC<ControleTotalViewProps> = ({
             </div>
 
             <label className="app-field">
-              <span className="app-field__label">Observacao</span>
-              <input className="app-input" value={withdrawalNotes} onChange={(event) => setWithdrawalNotes(event.target.value)} placeholder="Opcional" />
+              <span className="app-field__label">{t('Observacao')}</span>
+              <input className="app-input" value={withdrawalNotes} onChange={(event) => setWithdrawalNotes(event.target.value)} placeholder={t('Opcional')} />
             </label>
 
             <button type="submit" className="app-button app-button--gold" disabled={!!busy}>
-              <Package size={18} /> Registrar retirada
+              <Package size={18} /> {t('Registrar retirada')}
             </button>
           </form>
 
           <section className="app-panel app-panel-pad controle-total__stack">
             <div className="controle-total__section-heading">
-              <strong>Vales</strong>
-              <span className="app-badge app-badge--gold">Em aberto: {formatCurrency(valesEmAberto)}</span>
+              <strong>{t('Vales')}</strong>
+              <span className="app-badge app-badge--gold">{t('Em aberto:')} {formatCurrency(valesEmAberto)}</span>
             </div>
-            {withdrawals.length === 0 ? <div className="app-empty">Nenhum vale registrado.</div> : null}
+            {withdrawals.length === 0 ? <div className="app-empty">{t('Nenhum vale registrado.')}</div> : null}
             {withdrawals.map((withdrawal) => {
               const itemsLabel = withdrawal.items.map((item) => `${item.quantity}x ${item.productName}`).join(', ');
               const canSettle = withdrawal.status !== 'cancelled' && withdrawal.balanceDue > 0;
@@ -1712,24 +1712,24 @@ const ControleTotalView: React.FC<ControleTotalViewProps> = ({
                     <span className={statusClass(withdrawal.status)}>{statusLabel(withdrawal.status)}</span>
                   </div>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: '16px' }}>
-                    <span>Total {formatCurrency(withdrawal.total)}</span>
-                    <span>Recebido {formatCurrency(withdrawal.amountReceived)}</span>
-                    <strong>Saldo {formatCurrency(withdrawal.balanceDue)}</strong>
+                    <span>{t('Total')} {formatCurrency(withdrawal.total)}</span>
+                    <span>{t('Recebido')} {formatCurrency(withdrawal.amountReceived)}</span>
+                    <strong>{t('Saldo')} {formatCurrency(withdrawal.balanceDue)}</strong>
                   </div>
                   {settleTarget === withdrawal.id ? (
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', alignItems: 'center' }}>
-                      <input className="app-input" inputMode="decimal" placeholder="Valor" value={settleAmount} onChange={(event) => setSettleAmount(event.target.value)} style={{ maxWidth: '140px' }} />
+                      <input className="app-input" inputMode="decimal" placeholder={t('Valor')} value={settleAmount} onChange={(event) => setSettleAmount(event.target.value)} style={{ maxWidth: '140px' }} />
                       <select className="app-select" value={settleMethod} onChange={(event) => setSettleMethod(event.target.value)} style={{ maxWidth: '180px' }}>
-                        {paymentMethods.map((method) => <option key={method} value={method}>{method}</option>)}
+                        {paymentMethods.map((method) => <option key={method} value={method}>{t(method)}</option>)}
                       </select>
                       <DateField value={settleDate} onChange={setSettleDate} style={{ maxWidth: '210px' }} />
-                      <button type="button" className="app-button app-button--gold app-button--small" disabled={!!busy} onClick={() => submitSettle(withdrawal.id)}>Confirmar</button>
-                      <button type="button" className="app-button app-button--ghost app-button--small" onClick={() => setSettleTarget('')}>Fechar</button>
+                      <button type="button" className="app-button app-button--gold app-button--small" disabled={!!busy} onClick={() => submitSettle(withdrawal.id)}>{t('Confirmar')}</button>
+                      <button type="button" className="app-button app-button--ghost app-button--small" onClick={() => setSettleTarget('')}>{t('Fechar')}</button>
                     </div>
                   ) : (
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                      {canSettle ? <button type="button" className="app-button app-button--small" onClick={() => startSettle(withdrawal)}>Receber</button> : null}
-                      {canReturn ? <button type="button" className="app-button app-button--ghost app-button--small" disabled={!!busy} onClick={() => cancelWithdrawal(withdrawal.id)}>Devolver ao estoque</button> : null}
+                      {canSettle ? <button type="button" className="app-button app-button--small" onClick={() => startSettle(withdrawal)}>{t('Receber')}</button> : null}
+                      {canReturn ? <button type="button" className="app-button app-button--ghost app-button--small" disabled={!!busy} onClick={() => cancelWithdrawal(withdrawal.id)}>{t('Devolver ao estoque')}</button> : null}
                     </div>
                   )}
                 </article>
