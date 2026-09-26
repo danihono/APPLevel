@@ -16,6 +16,7 @@ import type {
   UserRecord,
 } from './models';
 import type { FirestoreEntity } from './data';
+import { getLocale } from '../../i18n';
 
 function normalizeTimestamp(value?: Timestamp | Date | null): Date | null {
   if (!value) {
@@ -62,7 +63,7 @@ export function formatDateLabel(value?: Timestamp | Date | null): string {
     return 'Sem registro';
   }
 
-  return normalized.toLocaleDateString('pt-BR');
+  return normalized.toLocaleDateString(getLocale());
 }
 
 export function formatTimeLabel(value?: Timestamp | Date | null): string {
@@ -71,7 +72,7 @@ export function formatTimeLabel(value?: Timestamp | Date | null): string {
     return '--:--';
   }
 
-  return normalized.toLocaleTimeString('pt-BR', {
+  return normalized.toLocaleTimeString(getLocale(), {
     hour: '2-digit',
     minute: '2-digit',
   });

@@ -9,6 +9,7 @@ import StudentDetailView from '../views/StudentDetailView';
 import type { FirestoreEntity } from '../services/firebase/data';
 import type { AttendanceRecord, ClassRecord, GraduationApprovalRequestRecord } from '../services/firebase/models';
 import type { BeltColor, User } from '../types';
+import { getLocale, createDateFormatter } from '../i18n';
 
 type SortMode = 'name-asc' | 'name-desc' | 'belt-desc' | 'grade-desc' | 'commitment-desc' | 'commitment-asc';
 type RosterSection = 'list' | 'ranking' | 'deactivated';
@@ -78,7 +79,7 @@ const saoPauloDateFormatter = new Intl.DateTimeFormat('en-CA', {
   month: '2-digit',
   day: '2-digit',
 });
-const saoPauloMonthFormatter = new Intl.DateTimeFormat('pt-BR', {
+const saoPauloMonthFormatter = createDateFormatter({
   timeZone: 'America/Sao_Paulo',
   month: 'long',
   year: 'numeric',
@@ -310,11 +311,11 @@ function getAttendanceMillis(attendance: FirestoreEntity<AttendanceRecord>): num
 }
 
 function formatNumber(value: number): string {
-  return value.toLocaleString('pt-BR');
+  return value.toLocaleString(getLocale());
 }
 
 function formatAverage(value: number): string {
-  return value.toLocaleString('pt-BR', { maximumFractionDigits: 1 });
+  return value.toLocaleString(getLocale(), { maximumFractionDigits: 1 });
 }
 
 const StudentRoster: React.FC<StudentRosterProps> = ({

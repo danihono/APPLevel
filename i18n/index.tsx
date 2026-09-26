@@ -58,6 +58,28 @@ export function getLocale(language: AppLanguage = currentLanguage): string {
   return SUPPORTED_LANGUAGES.find((entry) => entry.code === language)?.locale ?? 'pt-BR';
 }
 
+/**
+ * Intl.DateTimeFormat que acompanha o idioma ativo. Use no lugar de
+ * `new Intl.DateTimeFormat('pt-BR', ...)` em constantes de modulo.
+ */
+export function createDateFormatter(options: Intl.DateTimeFormatOptions) {
+  const cache = new Map<string, Intl.DateTimeFormat>();
+  const current = () => {
+    const locale = getLocale();
+    let formatter = cache.get(locale);
+    if (!formatter) {
+      formatter = new Intl.DateTimeFormat(locale, options);
+      cache.set(locale, formatter);
+    }
+    return formatter;
+  };
+
+  return {
+    format: (date?: Date | number) => current().format(date),
+    formatToParts: (date?: Date | number) => current().formatToParts(date),
+  };
+}
+
 function interpolate(text: string, vars?: TranslationVars) {
   if (!vars) {
     return text;

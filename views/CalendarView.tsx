@@ -30,6 +30,7 @@ import type { AttendanceRecord, AttendanceRequestRecord, ClassRecord, ClassRsvpR
 import { formatDateLabel, formatTimeLabel } from '../services/firebase/adapters';
 import { UserRole, type BeltColor, type KidsCategory } from '../types';
 import { normalizePersonName } from '../utils';
+import { getLocale, createDateFormatter } from '../i18n';
 
 // photoPath so e uma URL exibivel quando comeca com http (ver adapters.ts).
 const photoToAvatar = (p?: string) => (p && p.startsWith('http') ? p : undefined);
@@ -83,9 +84,9 @@ type FeedbackToast = {
   note?: string;
 };
 
-const monthFormatter = new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric' });
-const longDayFormatter = new Intl.DateTimeFormat('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' });
-const shortWeekdayFormatter = new Intl.DateTimeFormat('pt-BR', { weekday: 'short' });
+const monthFormatter = createDateFormatter({ month: 'long', year: 'numeric' });
+const longDayFormatter = createDateFormatter({ weekday: 'long', day: 'numeric', month: 'long' });
+const shortWeekdayFormatter = createDateFormatter({ weekday: 'short' });
 
 // "ter." -> "TER", "sáb." -> "SÁB". Sai do proprio Intl em vez de uma lista fixa para nao perder o
 // acento de sabado (MONTH_WEEK_HEADER, do grid do mes, escreve "Sab").
@@ -275,8 +276,8 @@ function classDateParts(lesson: FirestoreEntity<ClassRecord>) {
   const date = lesson.scheduledStart?.toDate();
   if (!date) return { day: '--/--', weekday: '' };
   return {
-    day: date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }),
-    weekday: date.toLocaleDateString('pt-BR', { weekday: 'long' }).toUpperCase(),
+    day: date.toLocaleDateString(getLocale(), { day: '2-digit', month: '2-digit' }),
+    weekday: date.toLocaleDateString(getLocale(), { weekday: 'long' }).toUpperCase(),
   };
 }
 

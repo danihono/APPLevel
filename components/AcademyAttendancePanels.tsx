@@ -6,6 +6,7 @@ import { resolveCommitment, summarizeMonthlyAttendanceByUser, type CommitmentRes
 import { stripDate } from '../calendarUtils';
 import type { FirestoreEntity } from '../services/firebase/data';
 import type { AttendanceRecord, ClassRecord, UserRecord } from '../services/firebase/models';
+import { createDateFormatter } from '../i18n';
 
 export type AttendanceRankingPeriod = '30d' | '3m' | 'total';
 
@@ -40,7 +41,7 @@ const ABSENCE_MINIMUM_DAYS = 7;
 const RANKING_PREVIEW_SIZE = 10;
 const ABSENCE_PREVIEW_SIZE = 12;
 
-const dateFormatter = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+const dateFormatter = createDateFormatter({ day: '2-digit', month: '2-digit', year: 'numeric' });
 
 function getInitial(name: string) {
   return name.trim().charAt(0).toUpperCase() || 'A';

@@ -30,6 +30,7 @@ import type {
 } from '../services/firebase/models';
 import DailyTrainingChart, { useDailyTraining } from '../components/DailyTrainingTable';
 import InstructorEditModal from '../components/InstructorEditModal';
+import { getLocale } from '../i18n';
 
 interface SuperadminDashboardViewProps {
   academies: Array<FirestoreEntity<AcademyRecord>>;
@@ -107,7 +108,7 @@ function isMasterBlack(user: FirestoreEntity<UserRecord>) {
 }
 
 function formatNumber(value: number) {
-  return value.toLocaleString('pt-BR');
+  return value.toLocaleString(getLocale());
 }
 
 function getStatusLabel(status: AcademyRecord['status']) {
@@ -1077,7 +1078,7 @@ const SuperadminDashboardView: React.FC<SuperadminDashboardViewProps> = ({
   const referenceDate = new Date();
   const monthStart = new Date(referenceDate.getFullYear(), referenceDate.getMonth(), 1);
   const monthEnd = new Date(referenceDate.getFullYear(), referenceDate.getMonth() + 1, 0);
-  const formatDay = (date: Date) => date.toLocaleDateString('pt-BR');
+  const formatDay = (date: Date) => date.toLocaleDateString(getLocale());
   const monthRangeLabel = `${formatDay(monthStart)} - ${formatDay(monthEnd)}`;
 
   const desktopKpis = [

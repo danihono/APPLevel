@@ -4,6 +4,7 @@ import { buildMonthGrid, MONTH_WEEK_HEADER, stripDate, toDateKey } from '../cale
 import DateField from './DateField';
 import TimeField from './TimeField';
 import type { CreateClassScheduleBatchResult } from '../services/firebase/functions';
+import { createDateFormatter } from '../i18n';
 
 const TATAME_OPTIONS = [
   { label: 'Tatame 1', value: 'Tatame 1' },
@@ -49,9 +50,9 @@ function tipoDescription(value: string): string {
   return value;
 }
 
-const monthFormatter = new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric' });
-const summaryDateFormatter = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
-const summaryDateTimeFormatter = new Intl.DateTimeFormat('pt-BR', {
+const monthFormatter = createDateFormatter({ month: 'long', year: 'numeric' });
+const summaryDateFormatter = createDateFormatter({ day: '2-digit', month: '2-digit', year: 'numeric' });
+const summaryDateTimeFormatter = createDateFormatter({
   day: '2-digit',
   month: '2-digit',
   year: 'numeric',

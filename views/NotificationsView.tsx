@@ -29,6 +29,7 @@ import type {
 } from '../services/firebase/models';
 import { isUnreadNotificationForViewer } from '../services/firebase/notifications';
 import { UserRole, type KidsCategory } from '../types';
+import { getLocale } from '../i18n';
 
 interface NotificationsViewProps {
   academy: FirestoreEntity<AcademyRecord>;
@@ -140,7 +141,7 @@ function formatStamp(value?: { toDate(): Date } | null) {
     return 'Agora';
   }
 
-  return value.toDate().toLocaleString('pt-BR', {
+  return value.toDate().toLocaleString(getLocale(), {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
@@ -164,7 +165,7 @@ function formatDateOnly(value?: string | null) {
     return value;
   }
 
-  return parsed.toLocaleDateString('pt-BR');
+  return parsed.toLocaleDateString(getLocale());
 }
 
 function roleLabel(value: UserRecord['role']) {
@@ -1944,7 +1945,7 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
                           <span className="app-badge app-badge--muted">vs {item.request.opponentName}</span>
                         ) : null}
                         <span className="app-badge app-badge--muted">
-                          {item.request.occurredAt ? item.request.occurredAt.toDate().toLocaleDateString('pt-BR') : 'Data não informada'}
+                          {item.request.occurredAt ? item.request.occurredAt.toDate().toLocaleDateString(getLocale()) : 'Data não informada'}
                         </span>
                       </div>
                     </div>

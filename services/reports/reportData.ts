@@ -14,6 +14,7 @@ import type {
   FinanceWithdrawalRecord,
 } from '../firebase/models';
 import { LEVEL_CATALOG_ID } from '../firebase/models';
+import { getLocale } from '../../i18n';
 
 export type ReportBlock =
   | 'resumo'
@@ -167,7 +168,7 @@ function round2(value: number): number {
 function formatPeriodLabel(startValue: string, endValue: string): string {
   const start = parseInputDate(startValue);
   const end = parseInputDate(endValue);
-  return `${start.toLocaleDateString('pt-BR')} a ${end.toLocaleDateString('pt-BR')}`;
+  return `${start.toLocaleDateString(getLocale())} a ${end.toLocaleDateString(getLocale())}`;
 }
 
 export function buildFinanceReport(params: BuildReportParams): FinanceReport {
@@ -260,7 +261,7 @@ export function buildFinanceReport(params: BuildReportParams): FinanceReport {
       ],
       totalKey: 'total',
       rows: scopedSales.map((sale) => ({
-        data: (toDate(sale.saleDate ?? sale.createdAt) ?? new Date()).toLocaleDateString('pt-BR'),
+        data: (toDate(sale.saleDate ?? sale.createdAt) ?? new Date()).toLocaleDateString(getLocale()),
         filial: academyName(academies, sale.academyId),
         cliente: sale.customerName ?? '-',
         tipo: sale.saleType === 'service' ? 'Servico' : sale.saleType === 'product' ? 'Produto' : '-',
@@ -287,7 +288,7 @@ export function buildFinanceReport(params: BuildReportParams): FinanceReport {
       ],
       totalKey: 'valor',
       rows: scopedPayments.map((payment) => ({
-        data: (toDate(payment.paymentDate ?? payment.createdAt) ?? new Date()).toLocaleDateString('pt-BR'),
+        data: (toDate(payment.paymentDate ?? payment.createdAt) ?? new Date()).toLocaleDateString(getLocale()),
         filial: academyName(academies, payment.academyId),
         metodo: payment.paymentMethod ?? '-',
         status: statusLabel(payment.status),
@@ -311,7 +312,7 @@ export function buildFinanceReport(params: BuildReportParams): FinanceReport {
       ],
       totalKey: 'valor',
       rows: scopedRevenues.map((revenue) => ({
-        data: (toDate(revenue.receivedAt ?? revenue.createdAt) ?? new Date()).toLocaleDateString('pt-BR'),
+        data: (toDate(revenue.receivedAt ?? revenue.createdAt) ?? new Date()).toLocaleDateString(getLocale()),
         filial: academyName(academies, revenue.academyId),
         categoria: revenue.category ?? '-',
         descricao: revenue.description ?? '-',
@@ -337,7 +338,7 @@ export function buildFinanceReport(params: BuildReportParams): FinanceReport {
       ],
       totalKey: 'valor',
       rows: scopedExpenses.map((expense) => ({
-        data: (toDate(expense.paidAt ?? expense.dueDate ?? expense.createdAt) ?? new Date()).toLocaleDateString('pt-BR'),
+        data: (toDate(expense.paidAt ?? expense.dueDate ?? expense.createdAt) ?? new Date()).toLocaleDateString(getLocale()),
         filial: academyName(academies, expense.academyId),
         categoria: expense.category ?? '-',
         descricao: expense.description ?? '-',
@@ -404,7 +405,7 @@ export function buildFinanceReport(params: BuildReportParams): FinanceReport {
       ],
       totalKey: 'saldo',
       rows: scopedWithdrawals.map((withdrawal) => ({
-        data: (toDate(withdrawal.withdrawnAt ?? withdrawal.createdAt) ?? new Date()).toLocaleDateString('pt-BR'),
+        data: (toDate(withdrawal.withdrawnAt ?? withdrawal.createdAt) ?? new Date()).toLocaleDateString(getLocale()),
         quemRetirou: withdrawal.debtorName,
         itens: withdrawal.items.map((item) => `${item.quantity}x ${item.productName}`).join(', '),
         total: round2(withdrawal.total),

@@ -38,6 +38,7 @@ import {
   REPORT_BLOCK_LABELS,
   type ReportBlock,
 } from '../services/reports/reportData';
+import { getLocale } from '../i18n';
 
 type ControleTab = 'dashboard' | 'catalog' | 'list' | 'stock' | 'vales' | 'reports';
 type CatalogMode = 'product' | 'service';
@@ -178,11 +179,11 @@ function isWithin(date: Date | null, startValue: string, endValue: string): bool
 
 function formatCurrency(value: number | undefined | null): string {
   const safeValue = typeof value === 'number' && Number.isFinite(value) ? value : 0;
-  return safeValue.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  return safeValue.toLocaleString(getLocale(), { style: 'currency', currency: 'BRL' });
 }
 
 function formatDate(date: Date | null): string {
-  return date ? date.toLocaleDateString('pt-BR') : '-';
+  return date ? date.toLocaleDateString(getLocale()) : '-';
 }
 
 function asNumber(value: string): number {

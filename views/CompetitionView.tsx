@@ -21,6 +21,7 @@ import type {
 } from '../services/firebase/models';
 import { UserRole, type UserVideo } from '../types';
 import { getVideoSourceKindFromUrl, isHttpUrl } from '../utils';
+import { t } from '../i18n';
 
 interface CompetitionViewProps {
   userRole?: UserRole;
@@ -57,11 +58,11 @@ const checklistItems = [
 function submissionStatusLabel(status: FightVideoSubmissionRecord['status']) {
   switch (status) {
     case 'approved':
-      return 'Aprovado';
+      return t('Aprovado');
     case 'rejected':
-      return 'Rejeitado';
+      return t('Rejeitado');
     default:
-      return 'Pendente';
+      return t('Pendente');
   }
 }
 
@@ -114,7 +115,7 @@ const CompetitionView: React.FC<CompetitionViewProps> = ({
       if (sourceMode === 'link') {
         const trimmedUrl = sourceUrl.trim();
         if (!trimmedUrl || !isHttpUrl(trimmedUrl)) {
-          throw new Error('Informe um link valido para o video.');
+          throw new Error(t('Informe um link valido para o video.'));
         }
 
         await onSubmitVideoSubmission({
@@ -126,7 +127,7 @@ const CompetitionView: React.FC<CompetitionViewProps> = ({
         });
       } else {
         if (!file || !onUploadVideoAsset) {
-          throw new Error('Selecione um arquivo de video antes de enviar.');
+          throw new Error(t('Selecione um arquivo de video antes de enviar.'));
         }
 
         const uploadResult = await onUploadVideoAsset(file);
@@ -147,9 +148,9 @@ const CompetitionView: React.FC<CompetitionViewProps> = ({
       setOccurredAt('');
       setSourceUrl('');
       setFile(null);
-      setFeedback('Video enviado com sucesso. Ele ficara pendente ate a aprovacao da equipe.');
+      setFeedback(t('Video enviado com sucesso. Ele ficara pendente ate a aprovacao da equipe.'));
     } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : 'Nao foi possivel enviar o video.');
+      setError(submitError instanceof Error ? submitError.message : t('Nao foi possivel enviar o video.'));
     } finally {
       setBusy(false);
     }
@@ -160,12 +161,12 @@ const CompetitionView: React.FC<CompetitionViewProps> = ({
       <section className="app-panel app-panel-pad">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
-            <p className="text-sm font-bold">{competitions.length} eventos cadastrados</p>
+            <p className="text-sm font-bold">{t('{count} eventos cadastrados', { count: competitions.length })}</p>
             <p className="mt-2 text-sm text-[color:var(--text-muted)]">
-              {medalCount} medalhas confirmadas • {totalRankingPoints} pontos somados
+              {t('{medals} medalhas confirmadas • {points} pontos somados', { medals: medalCount, points: totalRankingPoints })}
             </p>
           </div>
-          <span className="app-badge app-badge--muted">{videoLibrary.length} videos</span>
+          <span className="app-badge app-badge--muted">{t('{count} videos', { count: videoLibrary.length })}</span>
         </div>
 
         <div className="mt-5 app-segment app-segment--block">
@@ -175,7 +176,7 @@ const CompetitionView: React.FC<CompetitionViewProps> = ({
             className={`app-segment__button ${activeSection === 'calendar' ? 'is-active' : ''}`}
           >
             <Calendar size={16} />
-            Calendario
+            {t('Calendario')}
           </button>
           <button
             type="button"
@@ -183,7 +184,7 @@ const CompetitionView: React.FC<CompetitionViewProps> = ({
             className={`app-segment__button ${activeSection === 'profile' ? 'is-active' : ''}`}
           >
             <Trophy size={16} />
-            Perfil atleta
+            {t('Perfil atleta')}
           </button>
         </div>
       </section>
@@ -196,8 +197,8 @@ const CompetitionView: React.FC<CompetitionViewProps> = ({
                 <Calendar size={18} />
               </div>
               <div>
-                <p className="app-section-label">Eventos oficiais</p>
-                <h2 className="text-xl font-bold">Calendario competitivo</h2>
+                <p className="app-section-label">{t('Eventos oficiais')}</p>
+                <h2 className="text-xl font-bold">{t('Calendario competitivo')}</h2>
               </div>
             </div>
 
@@ -208,7 +209,7 @@ const CompetitionView: React.FC<CompetitionViewProps> = ({
                     <div>
                       <h3 className="text-xl font-bold">{event.name}</h3>
                       <p className="app-section-copy mt-3">
-                        {formatDateLabel(event.startDate)} - {event.location || 'Local a definir'}
+                        {formatDateLabel(event.startDate)} - {event.location || t('Local a definir')}
                       </p>
                       <div className="mt-4">
                         <span className={`${
@@ -228,7 +229,7 @@ const CompetitionView: React.FC<CompetitionViewProps> = ({
                       target="_blank"
                       rel="noopener noreferrer"
                       className="app-button app-button--ghost app-button--icon"
-                      aria-label="Abrir site oficial"
+                      aria-label={t('Abrir site oficial')}
                     >
                       <ExternalLink size={18} />
                     </a>
@@ -236,7 +237,7 @@ const CompetitionView: React.FC<CompetitionViewProps> = ({
                 </article>
               ))
             ) : (
-              <div className="app-empty">Nenhuma competicao cadastrada nesta academia ainda.</div>
+              <div className="app-empty">{t('Nenhuma competicao cadastrada nesta academia ainda.')}</div>
             )}
           </section>
 
@@ -246,8 +247,8 @@ const CompetitionView: React.FC<CompetitionViewProps> = ({
                 <CheckSquare size={18} />
               </div>
               <div>
-                <p className="app-section-label">Checklist</p>
-                <h2 className="text-xl font-bold">Pre-competicao</h2>
+                <p className="app-section-label">{t('Checklist')}</p>
+                <h2 className="text-xl font-bold">{t('Pre-competicao')}</h2>
               </div>
             </div>
 
@@ -258,7 +259,7 @@ const CompetitionView: React.FC<CompetitionViewProps> = ({
                     <CheckSquare size={14} />
                   </div>
                   <span className={`text-sm ${item.checked ? 'line-through text-[color:var(--text-soft)]' : 'text-[color:var(--text-strong)]'}`}>
-                    {item.label}
+                    {t(item.label)}
                   </span>
                 </div>
               ))}
@@ -271,10 +272,10 @@ const CompetitionView: React.FC<CompetitionViewProps> = ({
                 <Bell size={18} />
               </div>
               <div>
-                <p className="app-section-label">Notificacoes</p>
-                <h2 className="text-xl font-bold">Alerta ativo</h2>
+                <p className="app-section-label">{t('Notificacoes')}</p>
+                <h2 className="text-xl font-bold">{t('Alerta ativo')}</h2>
                 <p className="app-section-copy mt-3">
-                  As proximas competicoes e atualizacoes de desempenho aparecem aqui conforme forem cadastradas.
+                  {t('As proximas competicoes e atualizacoes de desempenho aparecem aqui conforme forem cadastradas.')}
                 </p>
               </div>
             </div>
@@ -287,17 +288,17 @@ const CompetitionView: React.FC<CompetitionViewProps> = ({
               <div className="app-icon-shell">
                 <Weight size={18} />
               </div>
-              <p className="app-stat-card__label mt-4">Lutas registradas</p>
+              <p className="app-stat-card__label mt-4">{t('Lutas registradas')}</p>
               <p className="app-stat-card__value">{fights.length}</p>
-              <p className="app-stat-card__note">Historico total da academia</p>
+              <p className="app-stat-card__note">{t('Historico total da academia')}</p>
             </article>
             <article className="app-panel app-panel-pad">
               <div className="app-icon-shell">
                 <Medal size={18} />
               </div>
-              <p className="app-stat-card__label mt-4">Pontuacao</p>
+              <p className="app-stat-card__label mt-4">{t('Pontuacao')}</p>
               <p className="app-stat-card__value">{totalRankingPoints}</p>
-              <p className="app-stat-card__note">{medalCount} vitorias registradas</p>
+              <p className="app-stat-card__note">{t('{count} vitorias registradas', { count: medalCount })}</p>
             </article>
           </section>
 
@@ -307,8 +308,8 @@ const CompetitionView: React.FC<CompetitionViewProps> = ({
                 <Trophy size={18} />
               </div>
               <div>
-                <p className="app-section-label">Historico</p>
-                <h2 className="text-xl font-bold">Resumo de lutas</h2>
+                <p className="app-section-label">{t('Historico')}</p>
+                <h2 className="text-xl font-bold">{t('Resumo de lutas')}</h2>
               </div>
             </div>
 
@@ -317,7 +318,7 @@ const CompetitionView: React.FC<CompetitionViewProps> = ({
                 <article key={fight.id} className="app-panel app-panel-pad">
                   <div className="flex flex-wrap items-center justify-between gap-4">
                     <div>
-                      <h3 className="text-lg font-bold">{fight.opponentName ? `vs ${fight.opponentName}` : 'Luta registrada'}</h3>
+                      <h3 className="text-lg font-bold">{fight.opponentName ? `vs ${fight.opponentName}` : t('Luta registrada')}</h3>
                       <p className="app-section-copy mt-2">{formatDateLabel(fight.occurredAt)}</p>
                     </div>
                     <span className="app-badge app-badge--gold">{fight.result}</span>
@@ -325,7 +326,7 @@ const CompetitionView: React.FC<CompetitionViewProps> = ({
                 </article>
               ))
             ) : (
-              <div className="app-empty">Ainda nao existem lutas registradas para este atleta.</div>
+              <div className="app-empty">{t('Ainda nao existem lutas registradas para este atleta.')}</div>
             )}
           </section>
 
@@ -336,8 +337,8 @@ const CompetitionView: React.FC<CompetitionViewProps> = ({
                   <Send size={18} />
                 </div>
                 <div>
-                  <p className="app-section-label">Enviar video</p>
-                  <h2 className="text-xl font-bold">Novo video para revisao</h2>
+                  <p className="app-section-label">{t('Enviar video')}</p>
+                  <h2 className="text-xl font-bold">{t('Novo video para revisao')}</h2>
                 </div>
               </div>
 
@@ -346,33 +347,33 @@ const CompetitionView: React.FC<CompetitionViewProps> = ({
 
               <div className="mt-6 app-grid-2">
                 <label className="app-field md:col-span-2">
-                  <span className="app-field__label">Titulo</span>
+                  <span className="app-field__label">{t('Titulo')}</span>
                   <input
                     value={title}
                     onChange={(event) => setTitle(event.target.value)}
                     className="app-input"
-                    placeholder="Ex.: Final da categoria adulto"
+                    placeholder={t('Ex.: Final da categoria adulto')}
                     required
                   />
                 </label>
 
                 <label className="app-field">
-                  <span className="app-field__label">Adversario</span>
+                  <span className="app-field__label">{t('Adversario')}</span>
                   <input
                     value={opponentName}
                     onChange={(event) => setOpponentName(event.target.value)}
                     className="app-input"
-                    placeholder="Opcional"
+                    placeholder={t('Opcional')}
                   />
                 </label>
 
                 <label className="app-field">
-                  <span className="app-field__label">Data da luta</span>
+                  <span className="app-field__label">{t('Data da luta')}</span>
                   <DateField value={occurredAt} onChange={setOccurredAt} />
                 </label>
 
                 <label className="app-field">
-                  <span className="app-field__label">Origem</span>
+                  <span className="app-field__label">{t('Origem')}</span>
                   <select
                     value={sourceMode}
                     onChange={(event) => {
@@ -384,26 +385,26 @@ const CompetitionView: React.FC<CompetitionViewProps> = ({
                     }}
                     className="app-select"
                   >
-                    <option value="link">Link</option>
-                    <option value="upload">Arquivo</option>
+                    <option value="link">{t('Link')}</option>
+                    <option value="upload">{t('Arquivo')}</option>
                   </select>
                 </label>
 
                 {sourceMode === 'link' ? (
                   <label className="app-field md:col-span-2">
-                    <span className="app-field__label">URL do video</span>
+                    <span className="app-field__label">{t('URL do video')}</span>
                     <input
                       value={sourceUrl}
                       onChange={(event) => setSourceUrl(event.target.value)}
                       className="app-input"
-                      placeholder="https://youtube.com/... ou outro link publico"
+                      placeholder={t('https://youtube.com/... ou outro link publico')}
                       required
                     />
-                    <span className="app-field__hint">Links do YouTube serao exibidos no player interno. Outros links serao abertos externamente.</span>
+                    <span className="app-field__hint">{t('Links do YouTube serao exibidos no player interno. Outros links serao abertos externamente.')}</span>
                   </label>
                 ) : (
                   <label className="app-field md:col-span-2">
-                    <span className="app-field__label">Arquivo de video</span>
+                    <span className="app-field__label">{t('Arquivo de video')}</span>
                     <input
                       type="file"
                       accept="video/*"
@@ -412,7 +413,7 @@ const CompetitionView: React.FC<CompetitionViewProps> = ({
                       required
                     />
                     <span className="app-field__hint">
-                      {file ? `Arquivo pronto para envio: ${file.name}` : 'Selecione um arquivo de video para enviar.'}
+                      {file ? t('Arquivo pronto para envio: {name}', { name: file.name }) : t('Selecione um arquivo de video para enviar.')}
                     </span>
                   </label>
                 )}
@@ -420,7 +421,7 @@ const CompetitionView: React.FC<CompetitionViewProps> = ({
 
               <button type="submit" disabled={busy} className="app-button app-button--gold mt-6">
                 <Send size={16} />
-                {busy ? 'Enviando...' : 'Enviar video'}
+                {busy ? t('Enviando...') : t('Enviar video')}
               </button>
             </form>
           ) : null}
@@ -432,8 +433,8 @@ const CompetitionView: React.FC<CompetitionViewProps> = ({
                   <Video size={18} />
                 </div>
                 <div>
-                  <p className="app-section-label">Meus envios</p>
-                  <h2 className="text-xl font-bold">Solicitacoes recentes</h2>
+                  <p className="app-section-label">{t('Meus envios')}</p>
+                  <h2 className="text-xl font-bold">{t('Solicitacoes recentes')}</h2>
                 </div>
               </div>
 
@@ -455,7 +456,7 @@ const CompetitionView: React.FC<CompetitionViewProps> = ({
                   ))}
                 </div>
               ) : (
-                <div className="app-empty mt-6">Quando voce enviar videos, eles aparecerao aqui com o status da revisao.</div>
+                <div className="app-empty mt-6">{t('Quando voce enviar videos, eles aparecerao aqui com o status da revisao.')}</div>
               )}
             </section>
           ) : null}
@@ -466,8 +467,8 @@ const CompetitionView: React.FC<CompetitionViewProps> = ({
                 <Video size={18} />
               </div>
               <div>
-                <p className="app-section-label">Videos</p>
-                <h2 className="text-xl font-bold">Arquivo de videos</h2>
+                <p className="app-section-label">{t('Videos')}</p>
+                <h2 className="text-xl font-bold">{t('Arquivo de videos')}</h2>
               </div>
             </div>
 
@@ -484,7 +485,7 @@ const CompetitionView: React.FC<CompetitionViewProps> = ({
                       <div className="flex flex-wrap items-center gap-2">
                         <p className="text-sm font-bold">{video.title}</p>
                         <span className="app-badge app-badge--muted">
-                          {video.origin === 'submission' ? 'Enviado pelo aluno' : 'Luta oficial'}
+                          {video.origin === 'submission' ? t('Enviado pelo aluno') : t('Luta oficial')}
                         </span>
                       </div>
                       <p className="mt-1 text-xs text-[color:var(--text-soft)]">{video.date}</p>
@@ -493,7 +494,7 @@ const CompetitionView: React.FC<CompetitionViewProps> = ({
                 ))}
               </div>
             ) : (
-              <div className="app-empty mt-6">Quando uma luta tiver video ou um envio do aluno for aprovado, ele aparecera aqui.</div>
+              <div className="app-empty mt-6">{t('Quando uma luta tiver video ou um envio do aluno for aprovado, ele aparecera aqui.')}</div>
             )}
           </section>
         </>

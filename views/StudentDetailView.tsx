@@ -26,6 +26,7 @@ import ProgressBar from '../components/ProgressBar';
 import { subscribeToUserAttendances, subscribeToUserGraduations, type FirestoreEntity } from '../services/firebase/data';
 import type { AttendanceRecord, ClassRecord, GraduationApprovalRequestRecord, GraduationRecord } from '../services/firebase/models';
 import type { KidsCategory, User } from '../types';
+import { getLocale } from '../i18n';
 
 // ISO/qualquer data -> yyyy-mm-dd para <input type="date">; '' se vazio/invalido.
 function isoToInputDate(value?: string | null): string {
@@ -78,7 +79,7 @@ function formatDate(value?: string) {
     return value;
   }
 
-  return parsed.toLocaleDateString('pt-BR');
+  return parsed.toLocaleDateString(getLocale());
 }
 
 function graduationTargetLabel(request: FirestoreEntity<GraduationApprovalRequestRecord>) {
@@ -1277,7 +1278,7 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
             visibleAttendances.map((attendance) => {
               const classInfo = classesById.get(attendance.classId);
               const refDate = resolveAttendanceDate(attendance, classInfo?.scheduledStart);
-              const dateLabel = refDate ? refDate.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Sem data';
+              const dateLabel = refDate ? refDate.toLocaleString(getLocale(), { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Sem data';
               const counts = attendance.countsAsAttendance ?? true;
               const notCountedLabel = nonCountingReasonLabel(attendance.nonCountingReason);
               return (
