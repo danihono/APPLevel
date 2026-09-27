@@ -4,7 +4,11 @@ import { deleteToken, getToken, onMessage } from 'firebase/messaging';
 import { backendFunctions } from './functions';
 import { firebaseConfig, getFirebaseMessaging } from './client';
 
-const VAPID_KEY = import.meta.env.VITE_FIREBASE_VAPID_KEY ?? '';
+// Chave VAPID PUBLICA (Firebase -> Cloud Messaging -> Certificados de push da
+// Web). Fica como padrao no codigo porque o deploy sai do computador de quem
+// publica: um .env local sem ela desligava as notificacoes em silencio.
+const DEFAULT_VAPID_KEY = 'BEchkAULghM3DK7fii1TgQAN5yqCI9s8t6ac0cNSviYuZi36cCrV_1yucPydfx_ryZjJCbS1C2LnTd_OZqWqt2s';
+const VAPID_KEY = import.meta.env.VITE_FIREBASE_VAPID_KEY || DEFAULT_VAPID_KEY;
 
 // Escopo proprio para o service worker do FCM. O app ja registra o /sw.js no
 // escopo "/"; registrar outro script no mesmo escopo faria um substituir o
