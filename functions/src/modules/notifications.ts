@@ -26,6 +26,7 @@ import {
   parseBroadcastFilters,
   updateBroadcastCopies,
 } from '../services/broadcasts';
+import { sendPushToUsers } from '../services/push';
 import { syncAllUsersInAcademy } from '../services/userState';
 
 const callableOptions = { region: 'southamerica-east1', invoker: 'public' as const };
@@ -190,6 +191,22 @@ export const unregisterDeviceToken = onCall(callableOptions, async (request) => 
   return {
     unregistered: true,
   };
+});
+
+// Push de teste so para os aparelhos da propria conta (botao do Perfil).
+// Nao cria nada na lista de avisos.
+export const sendTestNotification = onCall(callableOptions, async (request) => {
+  const actor = await getRequestContext(request, 'student');
+  const tokens = actor.user.fcmTokens ?? [];
+
+  const result = await sendPushToUsers({
+    tokensByUser: new Map([[actor.uid, tokens]]),
+    title: 'Teste de notificação do LEVEL',
+    body: 'Se você está vendo esta mensagem, as notificações estão funcionando neste aparelho.',
+    data: { kind: 'test' },
+  });
+
+  return result;
 });
 
 // Unidade alvo de um comunicado: professor so na propria; superadmin em qualquer.

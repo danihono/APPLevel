@@ -56,6 +56,7 @@ const ALLOWED_CALLABLES = new Set([
   'sendSegmentedNotification',
   'updateNotificationBroadcast',
   'deleteNotificationBroadcast',
+  'sendTestNotification',
   'markNotificationRead',
   'clearNotifications',
   'clearGraduationRequests',

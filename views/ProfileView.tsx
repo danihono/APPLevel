@@ -37,6 +37,7 @@ import {
 import AvatarWithBelt from '../components/AvatarWithBelt';
 import DateField from '../components/DateField';
 import ExamRulesModal from '../components/ExamRulesModal';
+import PushSettingsPanel from '../components/PushSettingsPanel';
 import LanguagePicker from '../components/LanguagePicker';
 import ProgressBar from '../components/ProgressBar';
 import type { FirestoreEntity } from '../services/firebase/data';
@@ -240,7 +241,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({
     ? (blackBeltProgress.degreeLabel || t('Faixa lisa'))
     : user.stripes > 0 ? t('{stripe}o Grau', { stripe: user.stripes }) : t('0 Grau');
   const [activeSection, setActiveSection] = useState<'settings' | 'history' | 'achievements' | null>(null);
-  const [activeStudentSection, setActiveStudentSection] = useState<'dados-pessoais' | 'acesso-email' | 'aparencia' | 'idioma' | 'historicos' | 'excluir-conta' | null>(null);
+  const [activeStudentSection, setActiveStudentSection] = useState<'dados-pessoais' | 'acesso-email' | 'aparencia' | 'idioma' | 'notificacoes' | 'historicos' | 'excluir-conta' | null>(null);
   const [examRulesOpen, setExamRulesOpen] = useState(false);
   const [deletePassword, setDeletePassword] = useState('');
   const [deleteConfirmChecked, setDeleteConfirmChecked] = useState(false);
@@ -647,6 +648,11 @@ const ProfileView: React.FC<ProfileViewProps> = ({
                       <p className="text-[10px] font-bold uppercase tracking-widest text-[color:var(--text-soft)] pb-3">{t('Idioma')}</p>
                       <LanguagePicker userId={profile.id} />
                     </div>
+
+                    <div className="pt-3 border-t border-white/10">
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-[color:var(--text-soft)] pb-3">{t('Notificações neste aparelho')}</p>
+                      <PushSettingsPanel />
+                    </div>
                   </div>
                 ) : null}
 
@@ -1036,6 +1042,28 @@ const ProfileView: React.FC<ProfileViewProps> = ({
             <div className="px-4 pb-5 border-t border-white/10">
               <p className="mt-4 mb-3 text-sm text-[color:var(--text-muted)]">{t('Escolha o idioma do aplicativo. A preferência fica salva no seu perfil.')}</p>
               <LanguagePicker userId={profile.id} />
+            </div>
+          ) : null}
+        </div>
+
+        {/* Notificacoes deste aparelho */}
+        <div>
+          <button
+            type="button"
+            className="profile-mobile__menu-row w-full text-left"
+            onClick={() => setActiveStudentSection(activeStudentSection === 'notificacoes' ? null : 'notificacoes')}
+          >
+            <div className="profile-mobile__menu-icon"><Bell size={18} /></div>
+            <span className="profile-mobile__menu-label">{t('Notificações neste aparelho')}</span>
+            <ChevronRight
+              size={18}
+              className={`profile-mobile__menu-arrow transition-transform duration-200 ${activeStudentSection === 'notificacoes' ? 'rotate-90' : ''}`}
+            />
+          </button>
+
+          {activeStudentSection === 'notificacoes' ? (
+            <div className="px-4 pb-5 pt-4 border-t border-white/10">
+              <PushSettingsPanel />
             </div>
           ) : null}
         </div>

@@ -75,29 +75,50 @@ function waitForActiveServiceWorker(registration: ServiceWorkerRegistration): Pr
   });
 }
 
-export async function getPushStatus(): Promise<PushStatus> {
+export type PushUnsupportedReason =
+  | 'native-plugin'
+  | 'no-notification-api'
+  | 'no-service-worker'
+  | 'messaging-unsupported';
+
+export interface PushDiagnostics {
+  status: PushStatus;
+  reason?: PushUnsupportedReason;
+  // Este aparelho ja foi cadastrado para push neste login.
+  registered: boolean;
+}
+
+// Estado das notificacoes neste aparelho e, quando nao ha suporte, o motivo.
+export async function getPushDiagnostics(): Promise<PushDiagnostics> {
+  const registered = Boolean(registeredToken);
+
   if (isNativeApp()) {
     try {
       const { receive } = await FirebaseMessaging.checkPermissions();
-      if (receive === 'granted' || receive === 'denied') {
-        return receive;
-      }
-      return 'default';
+      const status: PushStatus = receive === 'granted' || receive === 'denied' ? receive : 'default';
+      return { status, registered };
     } catch {
-      return 'unsupported';
+      return { status: 'unsupported', reason: 'native-plugin', registered };
     }
   }
 
-  if (!VAPID_KEY || typeof window === 'undefined' || !('Notification' in window)) {
-    return 'unsupported';
+  if (typeof window === 'undefined' || !('Notification' in window)) {
+    return { status: 'unsupported', reason: 'no-notification-api', registered };
+  }
+  if (typeof navigator === 'undefined' || !('serviceWorker' in navigator)) {
+    return { status: 'unsupported', reason: 'no-service-worker', registered };
   }
 
   const messaging = await getFirebaseMessaging();
   if (!messaging) {
-    return 'unsupported';
+    return { status: 'unsupported', reason: 'messaging-unsupported', registered };
   }
 
-  return window.Notification.permission as PushStatus;
+  return { status: window.Notification.permission as PushStatus, registered };
+}
+
+export async function getPushStatus(): Promise<PushStatus> {
+  return (await getPushDiagnostics()).status;
 }
 
 async function fetchDeviceToken(): Promise<string | null> {
@@ -166,7 +187,20 @@ export async function refreshPushRegistration(): Promise<void> {
 // Igual ao refresh, mas avisa quem chamou se o cadastro falhar: usado pelo
 // banner para mostrar "ativadas" ou "tentar novamente".
 export async function ensurePushRegistration(): Promise<void> {
-  const token = await registerCurrentDevice();
+  // Limite de tempo: um cadastro travado nao pode deixar a tela "verificando" para sempre.
+  const token = await new Promise<string | null>((resolve, reject) => {
+    const timer = window.setTimeout(() => reject(new Error('Tempo esgotado ao cadastrar o aparelho.')), 20000);
+    registerCurrentDevice().then(
+      (value) => {
+        window.clearTimeout(timer);
+        resolve(value);
+      },
+      (error) => {
+        window.clearTimeout(timer);
+        reject(error);
+      },
+    );
+  });
   if (!token) {
     throw new Error('O aparelho nao devolveu um token de notificacao.');
   }

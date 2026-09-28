@@ -13,6 +13,16 @@ const ENABLED_ACK_KEY = 'applevel:push-enabled-ack';
 
 type RegistrationState = 'idle' | 'checking' | 'ok' | 'failed';
 
+// Volta a mostrar o convite/confirmacao na tela de Avisos (usado no Perfil).
+export function resetPushBannerDismissals() {
+  try {
+    window.localStorage.removeItem(DISMISS_KEY);
+    window.localStorage.removeItem(ENABLED_ACK_KEY);
+  } catch {
+    // Sem armazenamento: nada a limpar.
+  }
+}
+
 function readFlag(key: string): boolean {
   try {
     return window.localStorage.getItem(key) === '1';
@@ -149,7 +159,9 @@ const PushOptInBanner: React.FC = () => {
     return null;
   }
 
-  if (dismissed) {
+  // Bloqueado aparece mesmo se o convite foi dispensado: e algo que a pessoa
+  // precisa resolver nas configuracoes do aparelho.
+  if (dismissed && status !== 'denied') {
     return null;
   }
 

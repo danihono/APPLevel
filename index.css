@@ -11135,3 +11135,61 @@ html.dark .exam-rules__body {
   justify-content: flex-end;
   gap: 0.6rem;
 }
+
+/* ===== Notificacoes do aparelho (PushSettingsPanel, no Perfil) ===== */
+.push-settings {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+}
+
+.push-settings__status {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+}
+
+.push-settings__dot {
+  flex-shrink: 0;
+  width: 0.7rem;
+  height: 0.7rem;
+  margin-top: 0.35rem;
+  border-radius: 999px;
+  background: #d74b4b;
+}
+
+.push-settings__dot.is-on {
+  background: #29a675;
+}
+
+.push-settings__title {
+  margin: 0;
+  color: var(--text-strong);
+  font-size: 0.92rem;
+  font-weight: 800;
+}
+
+.push-settings__copy {
+  margin: 0.2rem 0 0;
+  color: var(--text-muted);
+  font-size: 0.84rem;
+  line-height: 1.45;
+}
+
+.push-settings__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.push-settings__link {
+  align-self: flex-start;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text-soft);
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
+}

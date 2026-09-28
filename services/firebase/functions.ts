@@ -493,6 +493,9 @@ export const backendFunctions = {
     scheduledAt?: number;
   }) => callFunction<{ broadcastId: string; updatedCopies: number }>('updateNotificationBroadcast', payload),
 
+  sendTestNotification: () =>
+    callFunction<{ tokens: number; sent: number; failed: number }>('sendTestNotification', {}),
+
   deleteNotificationBroadcast: (payload: { broadcastId: string }) =>
     callFunction<{ broadcastId: string; deletedCopies: number }>('deleteNotificationBroadcast', payload),
 

@@ -27,6 +27,7 @@ const functionIds = [
   'requestPasswordReset',
   'updateNotificationBroadcast',
   'deleteNotificationBroadcast',
+  'sendTestNotification',
   'rejectAttendanceRequest',
   'rejectJoinRequest',
   'rebuildUserDerivedState',

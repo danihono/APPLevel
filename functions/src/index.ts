@@ -111,6 +111,7 @@ import {
   deleteNotificationBroadcast,
   dispatchScheduledBroadcasts,
   sendSegmentedNotification,
+  sendTestNotification,
   unregisterDeviceToken,
   updateNotificationBroadcast,
 } from './modules/notifications';
@@ -204,7 +205,7 @@ export {
   updateNotificationBroadcast,
   deleteNotificationBroadcast,
   dispatchScheduledBroadcasts,
-  transferJoinRequest,
+  sendTestNotification,
   updateFinanceSale,
   updateJoinRequest,
   updateRecurringClassSeries,
