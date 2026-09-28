@@ -39,8 +39,39 @@ async function registerMessagingServiceWorker(): Promise<ServiceWorkerRegistrati
     appId: firebaseConfig.appId ?? '',
   });
 
-  return navigator.serviceWorker.register(`/firebase-messaging-sw.js?${params.toString()}`, {
+  const registration = await navigator.serviceWorker.register(`/firebase-messaging-sw.js?${params.toString()}`, {
     scope: MESSAGING_SW_SCOPE,
+  });
+  return waitForActiveServiceWorker(registration);
+}
+
+// O register() devolve o registro ainda "instalando" na primeira vez. O
+// subscribe do PushManager (chamado pelo getToken) exige um service worker
+// ATIVO — sem essa espera dava "Subscription failed - no active Service Worker".
+function waitForActiveServiceWorker(registration: ServiceWorkerRegistration): Promise<ServiceWorkerRegistration> {
+  if (registration.active) {
+    return Promise.resolve(registration);
+  }
+
+  const worker = registration.installing ?? registration.waiting;
+  if (!worker) {
+    return Promise.resolve(registration);
+  }
+
+  return new Promise((resolve, reject) => {
+    const timer = window.setTimeout(() => {
+      reject(new Error('O service worker de notificacoes demorou demais para ativar.'));
+    }, 15000);
+
+    worker.addEventListener('statechange', () => {
+      if (worker.state === 'activated') {
+        window.clearTimeout(timer);
+        resolve(registration);
+      } else if (worker.state === 'redundant') {
+        window.clearTimeout(timer);
+        reject(new Error('O service worker de notificacoes falhou ao instalar.'));
+      }
+    });
   });
 }
 
