@@ -1,31 +1,42 @@
 import React, { useEffect, useState } from 'react';
-import { BellRing, X } from 'lucide-react';
-import { enablePushNotifications, getPushStatus, type PushStatus } from '../services/firebase/messaging';
+import { BellRing, CheckCircle2, RefreshCw, X } from 'lucide-react';
+import {
+  enablePushNotifications,
+  ensurePushRegistration,
+  getPushStatus,
+  type PushStatus,
+} from '../services/firebase/messaging';
 import { t } from '../i18n';
 
 const DISMISS_KEY = 'applevel:push-optin-dismissed';
+const ENABLED_ACK_KEY = 'applevel:push-enabled-ack';
 
-function readDismissed(): boolean {
+type RegistrationState = 'idle' | 'checking' | 'ok' | 'failed';
+
+function readFlag(key: string): boolean {
   try {
-    return window.localStorage.getItem(DISMISS_KEY) === '1';
+    return window.localStorage.getItem(key) === '1';
   } catch {
     return false;
   }
 }
 
-function writeDismissed() {
+function writeFlag(key: string) {
   try {
-    window.localStorage.setItem(DISMISS_KEY, '1');
+    window.localStorage.setItem(key, '1');
   } catch {
     // Sem armazenamento: o aviso so volta a aparecer na proxima abertura.
   }
 }
 
-// Convite para ativar as notificacoes do celular. Some sozinho quando o
-// aparelho nao suporta (ex.: app do iPhone) ou quando ja esta ativado.
+// Mostra o estado real das notificacoes deste aparelho: convite para ativar,
+// bloqueadas, ativadas (confirmacao) ou falha no cadastro (tentar de novo).
+// Some quando o aparelho nao suporta notificacoes.
 const PushOptInBanner: React.FC = () => {
   const [status, setStatus] = useState<PushStatus | null>(null);
-  const [dismissed, setDismissed] = useState(readDismissed);
+  const [registration, setRegistration] = useState<RegistrationState>('idle');
+  const [dismissed, setDismissed] = useState(() => readFlag(DISMISS_KEY));
+  const [acknowledged, setAcknowledged] = useState(() => readFlag(ENABLED_ACK_KEY));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
@@ -41,7 +52,26 @@ const PushOptInBanner: React.FC = () => {
     };
   }, []);
 
-  if (status === null || status === 'unsupported' || status === 'granted' || dismissed) {
+  const checkRegistration = async () => {
+    setRegistration('checking');
+    try {
+      await ensurePushRegistration();
+      setRegistration('ok');
+    } catch (registrationError) {
+      console.error('[push:register]', registrationError);
+      setRegistration('failed');
+    }
+  };
+
+  // Permissao ja concedida (inclusive de uma tentativa anterior que falhou):
+  // confere se este aparelho esta mesmo cadastrado.
+  useEffect(() => {
+    if (status === 'granted' && registration === 'idle') {
+      void checkRegistration();
+    }
+  }, [status, registration]);
+
+  if (status === null || status === 'unsupported') {
     return null;
   }
 
@@ -49,7 +79,11 @@ const PushOptInBanner: React.FC = () => {
     setBusy(true);
     setError('');
     try {
-      setStatus(await enablePushNotifications());
+      const nextStatus = await enablePushNotifications();
+      if (nextStatus === 'granted') {
+        setRegistration('ok');
+      }
+      setStatus(nextStatus);
     } catch (enableError) {
       console.error('[push:enable]', enableError);
       setError(t('Não foi possível ativar agora. Tente de novo em instantes.'));
@@ -58,10 +92,66 @@ const PushOptInBanner: React.FC = () => {
     }
   };
 
-  const handleDismiss = () => {
-    writeDismissed();
-    setDismissed(true);
-  };
+  if (status === 'granted') {
+    if (registration === 'ok' && !acknowledged) {
+      return (
+        <div className="app-list-card">
+          <div className="flex items-start gap-3">
+            <div className="app-icon-shell" style={{ flexShrink: 0 }}>
+              <CheckCircle2 size={18} />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-bold text-[color:var(--text-strong)]">{t('Notificações ativadas neste aparelho')}</p>
+              <p className="mt-1 text-sm text-[color:var(--text-muted)]">
+                {t('Você vai receber os avisos da academia mesmo com o app fechado.')}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                writeFlag(ENABLED_ACK_KEY);
+                setAcknowledged(true);
+              }}
+              aria-label={t('Dispensar')}
+              className="app-button app-button--ghost app-button--icon"
+              style={{ flexShrink: 0 }}
+            >
+              <X size={16} />
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    if (registration === 'failed') {
+      return (
+        <div className="app-list-card">
+          <div className="flex items-start gap-3">
+            <div className="app-icon-shell" style={{ flexShrink: 0 }}>
+              <BellRing size={18} />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-bold text-[color:var(--text-strong)]">{t('Não conseguimos ativar as notificações neste aparelho.')}</p>
+              <button
+                type="button"
+                onClick={() => void checkRegistration()}
+                className="app-button app-button--gold app-button--small mt-3"
+              >
+                <RefreshCw size={14} />
+                {t('Tentar novamente')}
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    return null;
+  }
+
+  if (dismissed) {
+    return null;
+  }
 
   return (
     <div className="app-list-card">
@@ -70,7 +160,7 @@ const PushOptInBanner: React.FC = () => {
           <BellRing size={18} />
         </div>
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-bold">
+          <p className="text-sm font-bold text-[color:var(--text-strong)]">
             {status === 'denied' ? t('Notificações bloqueadas') : t('Receba os avisos na hora')}
           </p>
           <p className="mt-1 text-sm text-[color:var(--text-muted)]">
@@ -93,9 +183,13 @@ const PushOptInBanner: React.FC = () => {
         </div>
         <button
           type="button"
-          onClick={handleDismiss}
+          onClick={() => {
+            writeFlag(DISMISS_KEY);
+            setDismissed(true);
+          }}
           aria-label={t('Dispensar')}
-          className="app-button app-button--ghost app-button--icon shrink-0"
+          className="app-button app-button--ghost app-button--icon"
+          style={{ flexShrink: 0 }}
         >
           <X size={16} />
         </button>

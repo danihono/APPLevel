@@ -163,6 +163,15 @@ export async function refreshPushRegistration(): Promise<void> {
   }
 }
 
+// Igual ao refresh, mas avisa quem chamou se o cadastro falhar: usado pelo
+// banner para mostrar "ativadas" ou "tentar novamente".
+export async function ensurePushRegistration(): Promise<void> {
+  const token = await registerCurrentDevice();
+  if (!token) {
+    throw new Error('O aparelho nao devolveu um token de notificacao.');
+  }
+}
+
 // No logout: este aparelho deixa de receber as notificacoes desta conta.
 export async function releasePushRegistration(): Promise<void> {
   const token = registeredToken;
