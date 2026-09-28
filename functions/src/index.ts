@@ -108,8 +108,11 @@ import {
   markNotificationRead,
   repairPendingGraduationNotifications,
   registerDeviceToken,
+  deleteNotificationBroadcast,
+  dispatchScheduledBroadcasts,
   sendSegmentedNotification,
   unregisterDeviceToken,
+  updateNotificationBroadcast,
 } from './modules/notifications';
 import { requestPasswordReset } from './modules/passwordReset';
 import { toggleClassRsvp } from './modules/rsvp';
@@ -198,6 +201,9 @@ export {
   toggleClassRsvp,
   requestPasswordReset,
   unregisterDeviceToken,
+  updateNotificationBroadcast,
+  deleteNotificationBroadcast,
+  dispatchScheduledBroadcasts,
   transferJoinRequest,
   updateFinanceSale,
   updateJoinRequest,

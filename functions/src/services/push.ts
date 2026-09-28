@@ -39,6 +39,7 @@ export async function sendPushToUsers(params: {
   }
 
   const staleByUser = new Map<string, string[]>();
+  const failureCodes = new Map<string, number>();
 
   for (let index = 0; index < entries.length; index += MULTICAST_LIMIT) {
     const slice = entries.slice(index, index + MULTICAST_LIMIT);
@@ -66,6 +67,9 @@ export async function sendPushToUsers(params: {
 
       response.responses.forEach((item, position) => {
         const code = item.error?.code;
+        if (code) {
+          failureCodes.set(code, (failureCodes.get(code) ?? 0) + 1);
+        }
         if (!code || !STALE_TOKEN_ERRORS.has(code)) {
           return;
         }
@@ -79,6 +83,15 @@ export async function sendPushToUsers(params: {
         message: error instanceof Error ? error.message : String(error),
       });
     }
+  }
+
+  if (failureCodes.size > 0) {
+    // Mostra no log do Firebase por que cada aparelho nao recebeu.
+    logger.warn('sendPushToUsers: falhas no envio', {
+      tokens: result.tokens,
+      failed: result.failed,
+      codes: Object.fromEntries(failureCodes),
+    });
   }
 
   if (staleByUser.size > 0) {

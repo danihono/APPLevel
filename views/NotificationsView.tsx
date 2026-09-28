@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ALL_BELTS,
   beltLabel,
   getBeltOptions,
   getUserProgressionSummary,
@@ -13,6 +12,10 @@ import { Bell, BellRing, CheckCircle2, ChevronDown, ChevronUp, ClipboardCheck, G
 import { useConfirm } from '../components/ConfirmDialog';
 import AppVideoContent from '../components/AppVideoContent';
 import PushOptInBanner from '../components/PushOptInBanner';
+import BroadcastComposer, { type BroadcastComposerSubmit } from '../components/BroadcastComposer';
+import BroadcastList from '../components/BroadcastList';
+import type { EditBroadcastSubmit } from '../components/EditBroadcastModal';
+import type { SendBroadcastResult } from '../services/firebase/functions';
 import DateField from '../components/DateField';
 import type { FirestoreEntity } from '../services/firebase/data';
 import type {
@@ -22,7 +25,7 @@ import type {
   FightVideoSubmissionRecord,
   GraduationApprovalRequestRecord,
   JoinRequestRecord,
-  NotificationChannel,
+  NotificationBroadcastRecord,
   NotificationRecord,
   ReactivationRequestRecord,
   UserRecord,
@@ -47,14 +50,10 @@ interface NotificationsViewProps {
   selectedAcademyId?: string;
   canActionRequests: boolean;
   onSelectAcademy?: (academyId: string) => void;
-  onSendNotification: (payload: {
-    title: string;
-    body: string;
-    academyId?: string;
-    channel?: NotificationChannel;
-    targetRole?: 'student' | 'professor' | 'superadmin';
-    targetBelt?: string;
-  }) => Promise<void>;
+  broadcasts?: Array<FirestoreEntity<NotificationBroadcastRecord>>;
+  onSendNotification: (payload: BroadcastComposerSubmit & { academyId?: string }) => Promise<SendBroadcastResult>;
+  onUpdateBroadcast?: (payload: EditBroadcastSubmit & { broadcastId: string }) => Promise<void>;
+  onDeleteBroadcast?: (broadcastId: string) => Promise<void>;
   onMarkRead: (notificationId: string) => Promise<void>;
   onClearNotifications: (academyId?: string, skipUnread?: boolean, notificationIds?: string[]) => Promise<{ deleted: number }>;
   onApproveJoinRequest: (payload: { requestId: string; belt?: string; grade?: number }) => Promise<void>;
@@ -130,13 +129,6 @@ type ReactivationRequestItem = {
 
 type RequestItem = JoinRequestItem | AttendanceRequestItem | FightVideoRequestItem | ReactivationRequestItem;
 type StaffTab = 'notifications' | 'requests' | 'communication' | 'graduations';
-
-function getNotificationBeltOptions() {
-  return [
-    { value: '', label: t('Todas as faixas') },
-    ...ALL_BELTS.map((belt) => ({ value: belt, label: beltLabel(belt) })),
-  ];
-}
 
 function formatStamp(value?: { toDate(): Date } | null) {
   if (!value) {
@@ -279,7 +271,10 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
   selectedAcademyId = '',
   canActionRequests,
   onSelectAcademy,
+  broadcasts = [],
   onSendNotification,
+  onUpdateBroadcast,
+  onDeleteBroadcast,
   onMarkRead,
   onClearNotifications,
   onApproveJoinRequest,
@@ -301,12 +296,6 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
   const confirm = useConfirm();
   const [activeTab, setActiveTab] = useState<StaffTab>('notifications');
   const [studentChannelTab, setStudentChannelTab] = useState<'academy' | 'team'>('academy');
-  const [title, setTitle] = useState('');
-  const [body, setBody] = useState('');
-  const [targetRole, setTargetRole] = useState('');
-  const [targetBelt, setTargetBelt] = useState('');
-  const [channel, setChannel] = useState<NotificationChannel>('academy');
-  const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [feedback, setFeedback] = useState('');
   const [processingRequestId, setProcessingRequestId] = useState<string | null>(null);
@@ -550,55 +539,41 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
     }));
   }
 
-  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setBusy(true);
-    setError('');
-    setFeedback('');
+  const sendBroadcast = (payload: BroadcastComposerSubmit) => onSendNotification({
+    ...payload,
+    academyId: isSuperAdmin ? (selectedAcademyId || undefined) : academy.id,
+  });
 
-    try {
-      await onSendNotification({
-        title,
-        body,
-        academyId: isSuperAdmin ? (selectedAcademyId || undefined) : academy.id,
-        channel,
-        targetRole: targetRole ? (targetRole as 'student' | 'professor' | 'superadmin') : undefined,
-        targetBelt: targetBelt || undefined,
-      });
-      setTitle('');
-      setBody('');
-      setTargetRole('');
-      setTargetBelt('');
-      setChannel('academy');
-      setFeedback(t('Aviso enviado com sucesso.'));
-    } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : t('Não foi possível enviar o aviso.'));
-    } finally {
-      setBusy(false);
+  function renderBroadcastManager(variant: 'desktop' | 'mobile') {
+    if (!canBroadcast) {
+      return variant === 'mobile'
+        ? <div className="notice-mobile__empty">{t('Seu perfil não pode criar comunicados.')}</div>
+        : null;
     }
-  }
 
-  async function handleProfessorCommunicationSubmit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setBusy(true);
-    setError('');
-    setFeedback('');
-
-    try {
-      await onSendNotification({
-        title,
-        body,
-        academyId: academy.id,
-        channel: 'academy',
-      });
-      setTitle('');
-      setBody('');
-      setFeedback(t('Comunicado enviado com sucesso.'));
-    } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : t('Não foi possível criar o comunicado.'));
-    } finally {
-      setBusy(false);
-    }
+    return (
+      <>
+        <BroadcastComposer
+          className={variant === 'mobile' ? 'notice-mobile__compose-card' : 'app-panel app-panel-pad'}
+          heading={t('Criar comunicado')}
+          description={t('Escolha quem recebe, escreva e envie agora ou agende.')}
+          academyUsers={academyUsers}
+          currentUserId={currentUserId}
+          isSuperAdmin={isSuperAdmin}
+          academies={academies}
+          selectedAcademyId={selectedAcademyId}
+          onSelectAcademy={onSelectAcademy}
+          onSend={sendBroadcast}
+        />
+        {onUpdateBroadcast && onDeleteBroadcast ? (
+          <BroadcastList
+            broadcasts={broadcasts}
+            onUpdate={onUpdateBroadcast}
+            onDelete={onDeleteBroadcast}
+          />
+        ) : null}
+      </>
+    );
   }
 
   async function handleMarkRead(notificationId: string) {
@@ -1223,35 +1198,7 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
 
         {activeTab === 'communication' ? (
           <section className="notice-mobile__list">
-            {canBroadcast ? (
-              <form onSubmit={handleProfessorCommunicationSubmit} className="notice-mobile__compose-card">
-                <div>
-                  <p className="notice-mobile__compose-label">{t('Comunicação')}</p>
-                  <h2 className="notice-mobile__compose-title">{t('Criar comunicado')}</h2>
-                  <p className="notice-mobile__compose-copy">{t('Envie um aviso rápido para toda a unidade.')}</p>
-                </div>
-
-                {feedback ? <div className="app-alert app-alert--success">{feedback}</div> : null}
-                {error ? <div className="app-alert app-alert--error">{error}</div> : null}
-
-                <label className="app-field">
-                  <span className="app-field__label">{t('Título')}</span>
-                  <input value={title} onChange={(event) => setTitle(event.target.value)} className="app-input" required />
-                </label>
-
-                <label className="app-field">
-                  <span className="app-field__label">{t('Mensagem')}</span>
-                  <textarea value={body} onChange={(event) => setBody(event.target.value)} className="app-textarea" required />
-                </label>
-
-                <button type="submit" disabled={busy} className="app-button app-button--gold">
-                  <Send size={16} />
-                  {busy ? t('Enviando...') : t('Criar comunicado')}
-                </button>
-              </form>
-            ) : (
-              <div className="notice-mobile__empty">{t('Seu perfil não pode criar comunicados.')}</div>
-            )}
+            {renderBroadcastManager('mobile')}
           </section>
         ) : null}
 
@@ -1389,6 +1336,16 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
               <ClipboardCheck size={16} />
               {`${t('Solicitações')}${requestItems.length > 0 ? ` (${requestItems.length})` : ''}`}
             </button>
+            {canBroadcast ? (
+              <button
+                type="button"
+                onClick={() => setActiveTab('communication')}
+                className={`app-segment__button ${activeTab === 'communication' ? 'is-active' : ''}`}
+              >
+                <Send size={16} />
+                {t('Comunicação')}
+              </button>
+            ) : null}
             <button
               type="button"
               onClick={() => setActiveTab('graduations')}
@@ -1531,84 +1488,13 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
               <div className="app-empty">{t('Nenhuma notificação encontrada para o contexto atual.')}</div>
             ) : null}
           </section>
-
-          {canBroadcast ? (
-            <form onSubmit={handleSubmit} className="app-panel app-panel-pad">
-              <div className="flex items-center gap-3">
-                <div className="app-icon-shell">
-                  <Send size={18} />
-                </div>
-                <div>
-                  <p className="app-section-label">{t('Comunicação')}</p>
-                  <h2 className="text-xl font-bold">{t('Enviar aviso')}</h2>
-                </div>
-              </div>
-
-              {feedback ? <div className="app-alert app-alert--success mt-6">{feedback}</div> : null}
-              {error ? <div className="app-alert app-alert--error mt-6">{error}</div> : null}
-
-              <div className="mt-6 app-grid-2">
-                {isSuperAdmin ? (
-                  <label className="app-field md:col-span-2">
-                    <span className="app-field__label">{t('Destino')}</span>
-                    <select
-                      value={selectedAcademyId}
-                      onChange={(event) => onSelectAcademy?.(event.target.value)}
-                      className="app-select"
-                    >
-                      <option value="">{t('Toda a rede')}</option>
-                      {academies.map((academyOption) => (
-                        <option key={academyOption.id} value={academyOption.id}>{academyOption.name}</option>
-                      ))}
-                    </select>
-                  </label>
-                ) : null}
-
-                <label className="app-field">
-                  <span className="app-field__label">{t('Canal')}</span>
-                  <select value={channel} onChange={(event) => setChannel(event.target.value as NotificationChannel)} className="app-select">
-                    <option value="academy">{t('Academia')}</option>
-                    <option value="team">{t('Equipe')}</option>
-                  </select>
-                </label>
-
-                <label className="app-field">
-                  <span className="app-field__label">{t('Perfil alvo')}</span>
-                  <select value={targetRole} onChange={(event) => setTargetRole(event.target.value)} className="app-select">
-                    <option value="">{t('Toda a academia')}</option>
-                    <option value="student">{t('Alunos')}</option>
-                    <option value="professor">{t('Professores')}</option>
-                    {userRole === UserRole.SUPERADMIN ? <option value="superadmin">{t('Superadmin')}</option> : null}
-                  </select>
-                </label>
-
-                <label className="app-field md:col-span-2">
-                  <span className="app-field__label">{t('Título')}</span>
-                  <input value={title} onChange={(event) => setTitle(event.target.value)} className="app-input" required />
-                </label>
-
-                <label className="app-field md:col-span-2">
-                  <span className="app-field__label">{t('Mensagem')}</span>
-                  <textarea value={body} onChange={(event) => setBody(event.target.value)} className="app-textarea" required />
-                </label>
-
-                <label className="app-field">
-                  <span className="app-field__label">{t('Faixa alvo')}</span>
-                  <select value={targetBelt} onChange={(event) => setTargetBelt(event.target.value)} className="app-select">
-                    {getNotificationBeltOptions().map((option, index) => (
-                      <option key={option.value || `belt-option-${index}`} value={option.value}>{option.label}</option>
-                    ))}
-                  </select>
-                </label>
-              </div>
-
-              <button type="submit" disabled={busy} className="app-button app-button--gold mt-6">
-                <Send size={16} />
-                {busy ? t('Enviando...') : t('Enviar aviso')}
-              </button>
-            </form>
-          ) : null}
         </>
+      ) : null}
+
+      {!isStudent && activeTab === 'communication' ? (
+        <section className="app-list">
+          {renderBroadcastManager('desktop')}
+        </section>
       ) : null}
 
       {!isStudent && activeTab === 'requests' ? (

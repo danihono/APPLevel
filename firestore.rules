@@ -219,6 +219,13 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // Comunicados enviados/agendados: so a equipe da unidade le. Toda escrita
+    // passa pelas Cloud Functions (envio, edicao, exclusao, contagem de lidos).
+    match /notification_broadcasts/{broadcastId} {
+      allow read: if isSuperAdmin() || isAcademyStaff(resource.data.academyId);
+      allow write: if false;
+    }
+
     match /notifications/{notificationId} {
       allow read: if isSuperAdmin()
         || sameAcademy(resource.data.academyId)

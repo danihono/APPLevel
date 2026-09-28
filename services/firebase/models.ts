@@ -216,6 +216,41 @@ export interface NotificationRecord {
   createdAt?: Timestamp;
   updatedAt?: Timestamp;
   readAt?: Timestamp;
+  broadcastId?: string;
+}
+
+export type BroadcastAudience = 'all' | 'adult' | 'kids';
+export type BroadcastStatus = 'scheduled' | 'sending' | 'sent' | 'failed';
+
+export interface BroadcastFilters {
+  roles?: AppRole[];
+  belts?: string[];
+  // Pessoas escolhidas uma a uma: quando preenchido, os demais filtros nao se aplicam.
+  userIds?: string[];
+  audience: BroadcastAudience;
+  onlyActive: boolean;
+  onlyCompetitors: boolean;
+}
+
+export interface NotificationBroadcastRecord {
+  academyId: string;
+  title: string;
+  body: string;
+  channel: NotificationChannel;
+  filters: BroadcastFilters;
+  status: BroadcastStatus;
+  scheduledAt?: Timestamp;
+  sentAt?: Timestamp;
+  createdBy: string;
+  createdByName: string;
+  createdAt?: Timestamp;
+  updatedAt?: Timestamp;
+  recipientCount: number;
+  tokenCount: number;
+  pushSent: number;
+  pushFailed: number;
+  readCount: number;
+  failureReason?: string;
 }
 
 export interface UserMissionRecord {

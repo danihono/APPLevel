@@ -19,7 +19,7 @@ import {
 } from './classRules';
 import { normalizeAudienceRole } from './learningAudience';
 import { resolveFocusPeriod, type FocusPeriodPreset } from './calendarUtils';
-import { refreshPushRegistration } from './services/firebase/messaging';
+import { listenForegroundNotifications, refreshPushRegistration } from './services/firebase/messaging';
 import { logout, reauthenticateCurrentUser, signInWithEmail, subscribeToAuthState, updateSignedInEmail } from './services/firebase/auth';
 import { toBranch, toUiUser, toUserVideoLibrary } from './services/firebase/adapters';
 import {
@@ -50,6 +50,7 @@ import {
   subscribeToLearningProgress,
   subscribeToLearningQuizzes,
   subscribeToLearningTracks,
+  subscribeToNotificationBroadcasts,
   subscribeToNotifications,
   subscribeToRankingAttendances,
   subscribeToReactivationRequests,
@@ -102,6 +103,7 @@ import type {
   LearningQuizRecord,
   LearningTrackRecord,
   NotificationChannel,
+  NotificationBroadcastRecord,
   NotificationRecord,
   ReactivationRequestRecord,
   UserRecord,
@@ -626,6 +628,7 @@ const App: React.FC = () => {
   const [academyFights, setAcademyFights] = useState<Array<FirestoreEntity<FightRecord>>>([]);
   const [fightVideoSubmissions, setFightVideoSubmissions] = useState<Array<FirestoreEntity<FightVideoSubmissionRecord>>>([]);
   const [notifications, setNotifications] = useState<Array<FirestoreEntity<NotificationRecord>>>([]);
+  const [notificationBroadcasts, setNotificationBroadcasts] = useState<Array<FirestoreEntity<NotificationBroadcastRecord>>>([]);
   const [reactivationRequests, setReactivationRequests] = useState<Array<FirestoreEntity<ReactivationRequestRecord>>>([]);
   const [financeProducts, setFinanceProducts] = useState<Array<FirestoreEntity<FinanceProductRecord>>>([]);
   const [financeServices, setFinanceServices] = useState<Array<FirestoreEntity<FinanceServiceRecord>>>([]);
@@ -745,9 +748,26 @@ const App: React.FC = () => {
   // Com a sessao validada, reconfirma o cadastro do aparelho para notificacoes
   // (so age se a pessoa ja tiver permitido; nao pergunta nada aqui).
   useEffect(() => {
-    if (authUser?.uid && profile?.id) {
-      void refreshPushRegistration();
+    if (!authUser?.uid || !profile?.id) {
+      return undefined;
     }
+
+    let stopForeground: (() => void) | undefined;
+    let cancelled = false;
+    void refreshPushRegistration()
+      .then(() => listenForegroundNotifications())
+      .then((stop) => {
+        if (cancelled) {
+          stop();
+        } else {
+          stopForeground = stop;
+        }
+      });
+
+    return () => {
+      cancelled = true;
+      stopForeground?.();
+    };
   }, [authUser?.uid, profile?.id]);
 
   useEffect(() => {
@@ -1106,6 +1126,28 @@ const App: React.FC = () => {
       },
       setNotifications,
       (error) => reportSessionError('data:subscribeToNotifications', error),
+    );
+  }, [profile, selectedAcademyId, sessionValidated]);
+
+  // Comunicados enviados/agendados da unidade (so a equipe ve).
+  useEffect(() => {
+    if (!profile || !sessionValidated || profile.role === 'student') {
+      setNotificationBroadcasts([]);
+      return;
+    }
+
+    const scopedAcademyId = profile.role === 'superadmin'
+      ? (selectedAcademyId || profile.academyId)
+      : profile.academyId;
+    if (!scopedAcademyId) {
+      setNotificationBroadcasts([]);
+      return;
+    }
+
+    return subscribeToNotificationBroadcasts(
+      scopedAcademyId,
+      setNotificationBroadcasts,
+      (error) => reportSessionError('data:subscribeToNotificationBroadcasts', error),
     );
   }, [profile, selectedAcademyId, sessionValidated]);
 
@@ -2025,16 +2067,25 @@ const App: React.FC = () => {
     }
   }
 
-  async function handleSendNotification(payload: {
-    title: string;
-    body: string;
-    academyId?: string;
-    channel?: NotificationChannel;
-    targetRole?: 'student' | 'professor' | 'superadmin';
-    targetBelt?: string;
-  }) {
+  async function handleSendNotification(payload: Parameters<typeof backendFunctions.sendSegmentedNotification>[0]) {
     try {
-      await backendFunctions.sendSegmentedNotification(payload);
+      return await backendFunctions.sendSegmentedNotification(payload);
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
+  }
+
+  async function handleUpdateBroadcast(payload: Parameters<typeof backendFunctions.updateNotificationBroadcast>[0]) {
+    try {
+      await backendFunctions.updateNotificationBroadcast(payload);
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
+  }
+
+  async function handleDeleteBroadcast(broadcastId: string) {
+    try {
+      await backendFunctions.deleteNotificationBroadcast({ broadcastId });
     } catch (error) {
       throw new Error(getErrorMessage(error));
     }
@@ -2989,6 +3040,7 @@ const App: React.FC = () => {
             academyUsers={academyUsers}
             classes={classes}
             notifications={notifications}
+            broadcasts={notificationBroadcasts}
             joinRequests={joinRequests}
             attendanceRequests={attendanceRequests}
             graduationRequests={graduationRequests}
@@ -2999,6 +3051,8 @@ const App: React.FC = () => {
             canActionRequests={canActionRequests}
             onSelectAcademy={setSelectedAcademyId}
             onSendNotification={handleSendNotification}
+            onUpdateBroadcast={handleUpdateBroadcast}
+            onDeleteBroadcast={handleDeleteBroadcast}
             onMarkRead={handleMarkNotificationRead}
             onClearNotifications={handleClearNotifications}
             onApproveJoinRequest={handleApproveJoinRequest}

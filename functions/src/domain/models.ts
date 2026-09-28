@@ -29,6 +29,7 @@ export const COLLECTIONS = {
   financeWithdrawals: 'finance_withdrawals',
   missions: 'missions',
   notifications: 'notifications',
+  notificationBroadcasts: 'notification_broadcasts',
   rankings: 'rankings',
   userMissions: 'user_missions',
   users: 'users',
@@ -714,6 +715,43 @@ export interface NotificationDoc {
   targetBelt?: string;
   actionRef?: string;
   data?: Record<string, string>;
+  // Comunicado de origem (notification_broadcasts): agrupa as copias de cada
+  // destinatario para a lista de enviados, edicao, exclusao e contagem de lidos.
+  broadcastId?: string;
+}
+
+export type BroadcastAudience = 'all' | 'adult' | 'kids';
+export type BroadcastStatus = 'scheduled' | 'sending' | 'sent' | 'failed';
+
+export interface BroadcastFilters {
+  roles?: Role[];
+  belts?: string[];
+  // Pessoas escolhidas uma a uma: quando preenchido, os demais filtros nao se aplicam.
+  userIds?: string[];
+  audience: BroadcastAudience;
+  onlyActive: boolean;
+  onlyCompetitors: boolean;
+}
+
+export interface NotificationBroadcastDoc {
+  academyId: string;
+  title: string;
+  body: string;
+  channel: NotificationChannel;
+  filters: BroadcastFilters;
+  status: BroadcastStatus;
+  scheduledAt?: FirebaseFirestore.Timestamp;
+  sentAt?: FirebaseFirestore.Timestamp;
+  createdBy: string;
+  createdByName: string;
+  createdAt: FirebaseFirestore.Timestamp;
+  updatedAt: FirebaseFirestore.Timestamp;
+  recipientCount: number;
+  tokenCount: number;
+  pushSent: number;
+  pushFailed: number;
+  readCount: number;
+  failureReason?: string;
 }
 
 export interface JoinRequestDoc {

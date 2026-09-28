@@ -1,23 +1,31 @@
 import { FieldValue, Timestamp } from 'firebase-admin/firestore';
+import { logger } from 'firebase-functions/v2';
 import { onCall } from 'firebase-functions/v2/https';
+import { onSchedule } from 'firebase-functions/v2/scheduler';
 import {
   COLLECTIONS,
   GraduationApprovalRequestDoc,
+  NotificationBroadcastDoc,
   NotificationChannel,
   NotificationDoc,
   Role,
-  UserDoc,
 } from '../domain/models';
-import { getRequestContext } from '../lib/context';
+import { getRequestContext, type RequestContext } from '../lib/context';
 import { assertCondition } from '../lib/errors';
 import { db } from '../lib/firebase';
 import {
-  optionalRecord,
   optionalString,
   optionalStringArray,
+  optionalTimestamp,
   requiredString,
 } from '../lib/payload';
-import { sendPushToUsers } from '../services/push';
+import {
+  deleteBroadcastCopies,
+  deliverBroadcast,
+  incrementBroadcastReadCount,
+  parseBroadcastFilters,
+  updateBroadcastCopies,
+} from '../services/broadcasts';
 import { syncAllUsersInAcademy } from '../services/userState';
 
 const callableOptions = { region: 'southamerica-east1', invoker: 'public' as const };
@@ -184,114 +192,181 @@ export const unregisterDeviceToken = onCall(callableOptions, async (request) => 
   };
 });
 
-export const sendSegmentedNotification = onCall(callableOptions, async (request) => {
-  const actor = await getRequestContext(request, 'professor');
-  const title = requiredString(request.data, 'title');
-  const body = requiredString(request.data, 'body');
-  const academyId = optionalString(request.data, 'academyId') ?? actor.academyId;
-  const channel = (optionalString(request.data, 'channel') as NotificationChannel | undefined) ?? 'academy';
-  const targetRole = optionalString(request.data, 'targetRole') as Role | undefined;
-  const targetBelt = optionalString(request.data, 'targetBelt');
-  const recipientUserIds = optionalStringArray(request.data, 'recipientUserIds');
-  const data = optionalRecord(request.data, 'data');
-
+// Unidade alvo de um comunicado: professor so na propria; superadmin em qualquer.
+function assertCanManageAcademy(actor: RequestContext, academyId: string) {
   assertCondition(
     actor.role === 'superadmin' || academyId === actor.academyId,
     'permission-denied',
-    'Você só pode notificar usuários da própria academia.',
+    'Você só pode gerenciar comunicados da própria academia.',
   );
+}
 
-  let query: FirebaseFirestore.Query<FirebaseFirestore.DocumentData> = db
-    .collection(COLLECTIONS.users)
-    .where('academyId', '==', academyId)
-    .limit(2000);
-  if (targetRole) {
-    query = query.where('role', '==', targetRole);
+const MIN_SCHEDULE_LEAD_MS = 60 * 1000;
+
+function parseScheduledAt(data: unknown): Timestamp | undefined {
+  const scheduledAt = optionalTimestamp(data, 'scheduledAt');
+  if (!scheduledAt) {
+    return undefined;
   }
+  assertCondition(
+    scheduledAt.toMillis() > Date.now() + MIN_SCHEDULE_LEAD_MS,
+    'invalid-argument',
+    'Escolha um horário de envio no futuro.',
+  );
+  return scheduledAt;
+}
 
-  const usersSnapshot = await query.get();
-  const recipients = usersSnapshot.docs
-    .map((doc) => ({ id: doc.id, data: doc.data() as UserDoc & { fcmTokens?: string[] } }))
-    .filter(({ data: user }) => !targetBelt || user.belt === targetBelt)
-    .filter(({ id }) => !recipientUserIds || recipientUserIds.includes(id));
+async function getManageableBroadcast(actor: RequestContext, broadcastId: string) {
+  const ref = db.collection(COLLECTIONS.notificationBroadcasts).doc(broadcastId);
+  const snapshot = await ref.get();
+  assertCondition(snapshot.exists, 'not-found', 'Comunicado não encontrado.');
+  const broadcast = snapshot.data() as NotificationBroadcastDoc;
+  assertCanManageAcademy(actor, broadcast.academyId);
+  return { ref, broadcast };
+}
+
+export const sendSegmentedNotification = onCall(callableOptions, async (request) => {
+  const actor = await getRequestContext(request, 'professor');
+  const title = requiredString(request.data, 'title').trim();
+  const body = requiredString(request.data, 'body').trim();
+  const academyId = optionalString(request.data, 'academyId') ?? actor.academyId;
+  const channel = (optionalString(request.data, 'channel') as NotificationChannel | undefined) ?? 'academy';
+  const filters = parseBroadcastFilters(request.data);
+  const scheduledAt = parseScheduledAt(request.data);
+
+  assertCanManageAcademy(actor, academyId);
+  assertCondition(['academy', 'team'].includes(channel), 'invalid-argument', 'Canal inválido.');
 
   const now = Timestamp.now();
-  const tokensByUser = new Map<string, string[]>();
-
-  type PendingNotification = {
-    ref: FirebaseFirestore.DocumentReference;
-    doc: NotificationDoc;
-    hasToken: boolean;
-  };
-
-  const pending: PendingNotification[] = recipients.map((recipient) => {
-    const tokenList = recipient.data.fcmTokens ?? [];
-    const hasToken = tokenList.length > 0;
-    if (hasToken) {
-      tokensByUser.set(recipient.id, tokenList);
-    }
-    return {
-      ref: db.collection(COLLECTIONS.notifications).doc(),
-      doc: {
-        academyId,
-        title,
-        body,
-        channel,
-        kind: 'notice',
-        status: hasToken ? 'queued' : 'stored',
-        createdBy: actor.uid,
-        createdAt: now,
-        updatedAt: now,
-        recipientUserId: recipient.id,
-        targetRole,
-        targetBelt,
-        data,
-      },
-      hasToken,
-    };
-  });
-
-  // Write notifications in chunks of 500 (Firestore batch limit)
-  for (const batchChunk of chunk(pending, 500)) {
-    const writeBatch = db.batch();
-    for (const entry of batchChunk) {
-      writeBatch.set(entry.ref, entry.doc);
-    }
-    await writeBatch.commit();
-  }
-
-  const { tokens, sent, failed } = await sendPushToUsers({
-    tokensByUser,
+  const broadcastRef = db.collection(COLLECTIONS.notificationBroadcasts).doc();
+  const broadcast: NotificationBroadcastDoc = {
+    academyId,
     title,
     body,
-    data,
-  });
+    channel,
+    filters,
+    status: scheduledAt ? 'scheduled' : 'sending',
+    ...(scheduledAt ? { scheduledAt } : {}),
+    createdBy: actor.uid,
+    createdByName: actor.user.displayName || [actor.user.firstName, actor.user.lastName].filter(Boolean).join(' '),
+    createdAt: now,
+    updatedAt: now,
+    recipientCount: 0,
+    tokenCount: 0,
+    pushSent: 0,
+    pushFailed: 0,
+    readCount: 0,
+  };
+  await broadcastRef.set(broadcast);
 
-  // Update delivery status using the refs we already have — no re-query needed
-  const allFailed = tokens > 0 && failed === tokens;
-  const deliveredAt = Timestamp.now();
-  const toUpdate = pending.filter((entry) => entry.hasToken);
-
-  for (const updateChunk of chunk(toUpdate, 500)) {
-    const updateBatch = db.batch();
-    for (const entry of updateChunk) {
-      updateBatch.update(entry.ref, {
-        status: allFailed ? 'failed' : 'sent',
-        deliveredAt,
-        updatedAt: deliveredAt,
-      });
-    }
-    await updateBatch.commit();
+  if (scheduledAt) {
+    return {
+      broadcastId: broadcastRef.id,
+      academyId,
+      status: 'scheduled',
+      scheduledAt: scheduledAt.toMillis(),
+      recipients: 0,
+      tokens: 0,
+      sent: 0,
+      failed: 0,
+    };
   }
 
-  return {
-    academyId,
-    recipients: recipients.length,
-    tokens,
-    sent,
-    failed,
-  };
+  try {
+    const result = await deliverBroadcast(broadcastRef);
+    return { broadcastId: broadcastRef.id, academyId, status: 'sent', ...result };
+  } catch (error) {
+    await broadcastRef.update({
+      status: 'failed',
+      failureReason: error instanceof Error ? error.message : String(error),
+      updatedAt: Timestamp.now(),
+    });
+    throw error;
+  }
 });
+
+// Editar so corrige o texto (no comunicado e na lista de cada destinatario).
+// O push que ja chegou no celular nao muda nem e reenviado.
+export const updateNotificationBroadcast = onCall(callableOptions, async (request) => {
+  const actor = await getRequestContext(request, 'professor');
+  const broadcastId = requiredString(request.data, 'broadcastId');
+  const title = requiredString(request.data, 'title').trim();
+  const body = requiredString(request.data, 'body').trim();
+  const { ref, broadcast } = await getManageableBroadcast(actor, broadcastId);
+
+  const changes: Partial<NotificationBroadcastDoc> = { title, body, updatedAt: Timestamp.now() };
+  if (broadcast.status === 'scheduled') {
+    const scheduledAt = parseScheduledAt(request.data);
+    if (scheduledAt) {
+      changes.scheduledAt = scheduledAt;
+    }
+  }
+
+  await ref.update(changes);
+  const updatedCopies = broadcast.status === 'scheduled'
+    ? 0
+    : await updateBroadcastCopies(broadcastId, { title, body });
+
+  return { broadcastId, updatedCopies };
+});
+
+export const deleteNotificationBroadcast = onCall(callableOptions, async (request) => {
+  const actor = await getRequestContext(request, 'professor');
+  const broadcastId = requiredString(request.data, 'broadcastId');
+  const { ref, broadcast } = await getManageableBroadcast(actor, broadcastId);
+  assertCondition(broadcast.status !== 'sending', 'failed-precondition', 'Este comunicado está sendo enviado agora. Tente de novo em instantes.');
+
+  const deletedCopies = await deleteBroadcastCopies(broadcastId);
+  await ref.delete();
+
+  return { broadcastId, deletedCopies };
+});
+
+// Envia os comunicados agendados que ja passaram do horario.
+export const dispatchScheduledBroadcasts = onSchedule(
+  {
+    schedule: 'every 5 minutes',
+    timeZone: 'America/Sao_Paulo',
+    region: 'southamerica-east1',
+  },
+  async () => {
+    const due = await db
+      .collection(COLLECTIONS.notificationBroadcasts)
+      .where('status', '==', 'scheduled')
+      .where('scheduledAt', '<=', Timestamp.now())
+      .limit(20)
+      .get();
+
+    for (const doc of due.docs) {
+      // Reserva o comunicado para nao enviar duas vezes se duas execucoes se cruzarem.
+      const claimed = await db.runTransaction(async (transaction) => {
+        const fresh = await transaction.get(doc.ref);
+        if (!fresh.exists || fresh.get('status') !== 'scheduled') {
+          return false;
+        }
+        transaction.update(doc.ref, { status: 'sending', updatedAt: Timestamp.now() });
+        return true;
+      });
+      if (!claimed) {
+        continue;
+      }
+
+      try {
+        await deliverBroadcast(doc.ref);
+      } catch (error) {
+        logger.error('dispatchScheduledBroadcasts: falha ao enviar comunicado agendado', {
+          broadcastId: doc.id,
+          message: error instanceof Error ? error.message : String(error),
+        });
+        await doc.ref.update({
+          status: 'failed',
+          failureReason: error instanceof Error ? error.message : String(error),
+          updatedAt: Timestamp.now(),
+        });
+      }
+    }
+  },
+);
 
 export const repairPendingGraduationNotifications = onCall(callableOptions, async (request) => {
   const actor = await getRequestContext(request, 'professor');
@@ -438,6 +513,10 @@ export const markNotificationRead = onCall(callableOptions, async (request) => {
     readAt: Timestamp.now(),
     updatedAt: Timestamp.now(),
   });
+
+  if (notification.broadcastId && !notification.readAt && notification.recipientUserId === actor.uid) {
+    await incrementBroadcastReadCount(notification.broadcastId);
+  }
 
   return {
     notificationId,

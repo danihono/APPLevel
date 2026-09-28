@@ -2,6 +2,7 @@ import {
   collection,
   doc,
   getDoc,
+  limit,
   onSnapshot,
   orderBy,
   query,
@@ -39,6 +40,7 @@ import type {
   LearningProgressRecord,
   LearningQuizRecord,
   LearningTrackRecord,
+  NotificationBroadcastRecord,
   NotificationRecord,
   ReactivationRequestRecord,
   UserRecord,
@@ -605,6 +607,25 @@ export function subscribeToNotifications(
         .sort((left, right) => toMillis(right.createdAt) - toMillis(left.createdAt));
       listener(records);
     },
+    onError,
+  );
+}
+
+export function subscribeToNotificationBroadcasts(
+  academyId: string,
+  listener: (records: Array<FirestoreEntity<NotificationBroadcastRecord>>) => void,
+  onError?: (error: Error) => void,
+) {
+  const broadcastQuery = query(
+    collection(firebaseDb, 'notification_broadcasts'),
+    where('academyId', '==', academyId),
+    orderBy('createdAt', 'desc'),
+    limit(50),
+  );
+
+  return onSnapshot(
+    broadcastQuery,
+    (snapshot) => listener(snapshot.docs.map((item) => mapDoc<NotificationBroadcastRecord>(item))),
     onError,
   );
 }

@@ -16,6 +16,7 @@ import type {
   LearningAudienceConfig,
   LearningContentStatus,
   LearningLessonBlockType,
+  BroadcastFilters,
   NotificationChannel,
   ReactivationRequestStatus,
 } from './models';
@@ -164,6 +165,17 @@ export function isRetryableBackendError(error: unknown): boolean {
 
 /** @deprecated Use `isRetryableBackendError`. Mantido para os pontos de uso atuais. */
 export const isRetryableSignupAcademyFetchError = isRetryableBackendError;
+
+export interface SendBroadcastResult {
+  broadcastId: string;
+  academyId: string;
+  status: 'scheduled' | 'sent';
+  scheduledAt?: number;
+  recipients: number;
+  tokens: number;
+  sent: number;
+  failed: number;
+}
 
 export const backendFunctions = {
   listSignupAcademies: () =>
@@ -469,17 +481,20 @@ export const backendFunctions = {
     body: string;
     academyId?: string;
     channel?: NotificationChannel;
-    targetRole?: AppRole;
-    targetBelt?: string;
-    recipientUserIds?: string[];
-    data?: Record<string, string>;
-  }) => callFunction<{
-    academyId: string;
-    recipients: number;
-    tokens: number;
-    sent: number;
-    failed: number;
-  }>('sendSegmentedNotification', payload),
+    filters?: BroadcastFilters;
+    // Data/hora do envio em milissegundos; sem ela, envia na hora.
+    scheduledAt?: number;
+  }) => callFunction<SendBroadcastResult>('sendSegmentedNotification', payload),
+
+  updateNotificationBroadcast: (payload: {
+    broadcastId: string;
+    title: string;
+    body: string;
+    scheduledAt?: number;
+  }) => callFunction<{ broadcastId: string; updatedCopies: number }>('updateNotificationBroadcast', payload),
+
+  deleteNotificationBroadcast: (payload: { broadcastId: string }) =>
+    callFunction<{ broadcastId: string; deletedCopies: number }>('deleteNotificationBroadcast', payload),
 
   markNotificationRead: (payload: { notificationId: string }) =>
     callFunction<{ notificationId: string; status: string }>('markNotificationRead', payload),

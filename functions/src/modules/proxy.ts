@@ -54,6 +54,8 @@ const ALLOWED_CALLABLES = new Set([
   'registerDeviceToken',
   'unregisterDeviceToken',
   'sendSegmentedNotification',
+  'updateNotificationBroadcast',
+  'deleteNotificationBroadcast',
   'markNotificationRead',
   'clearNotifications',
   'clearGraduationRequests',

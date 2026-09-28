@@ -195,6 +195,37 @@ export async function releasePushRegistration(): Promise<void> {
   }
 }
 
+// Com o app aberto e visivel, o FCM nao mostra o balao: entrega a mensagem
+// para a pagina. Aqui a notificacao e exibida mesmo assim, pelo service worker
+// do push. No app nativo o plugin ja faz isso (presentationOptions).
+export async function listenForegroundNotifications(): Promise<() => void> {
+  if (isNativeApp() || (await getPushStatus()) !== 'granted') {
+    return () => undefined;
+  }
+
+  const messaging = await getFirebaseMessaging();
+  if (!messaging) {
+    return () => undefined;
+  }
+
+  return onMessage(messaging, (payload) => {
+    const title = payload.notification?.title || payload.data?.title;
+    if (!title) {
+      return;
+    }
+
+    void navigator.serviceWorker
+      .getRegistration(MESSAGING_SW_SCOPE)
+      .then((registration) => registration?.showNotification(title, {
+        body: payload.notification?.body || payload.data?.body || '',
+        icon: '/icon-192.png',
+        tag: payload.data?.broadcastId || payload.messageId,
+        data: { click_action: '/' },
+      }))
+      .catch((error) => console.warn('[push:foreground]', error));
+  });
+}
+
 export async function subscribeToForegroundMessages(
   listener: (payload: unknown) => void,
 ) {
