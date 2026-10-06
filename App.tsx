@@ -3202,8 +3202,8 @@ const App: React.FC = () => {
   const ownHeaderTabs = isSuperadminNetworkView
     ? []
     : isStaff
-      ? ['home', 'calendar', 'notifications']
-      : ['home', 'calendar', 'evolution', 'graduation', 'competition', 'notifications'];
+      ? ['home', 'calendar', 'notifications', 'profile']
+      : ['home', 'calendar', 'evolution', 'graduation', 'competition', 'notifications', 'profile'];
   const screenOwnsHeader = !isFirstAcademySetup && ownHeaderTabs.includes(activeTab);
   const shellValue: RedesignShellValue = {
     role: isSuperadminNetworkView ? 'superadmin' : (isStaff ? 'staff' : 'student'),

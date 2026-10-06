@@ -16,6 +16,11 @@ const LEVEL_CLASS: Record<CommitmentResult['level'], string> = {
   verde: 'commitment--green',
 };
 
+/** Classe da cor do nivel (`commitment--red` etc.), para telas que desenham o proprio card. */
+export function commitmentLevelClass(level: CommitmentResult['level']): string {
+  return LEVEL_CLASS[level];
+}
+
 function classesLabel(classes: number): string {
   return classes === 1 ? t('1 treino') : t('{count} treinos', { count: classes });
 }
@@ -23,7 +28,7 @@ function classesLabel(classes: number): string {
 // O comprometimento conta participacao; presenca segue a regra da faixa. Quando os dois numeros
 // diferem (aula iniciante fora da faixa, 3a aula do dia) a linha explica a diferenca — senao o
 // aluno ve 6 aqui e 5 em "Total de treinos no mes" e acha que o app errou.
-function commitmentNote(commitment: CommitmentResult): string {
+export function commitmentNote(commitment: CommitmentResult): string {
   const base = t('{classes} em {month}', { classes: classesLabel(commitment.classes), month: commitment.monthLabel });
   return commitment.countedClasses < commitment.classes
     ? `${base} · ${t('{count} contam para graduação', { count: commitment.countedClasses })}`

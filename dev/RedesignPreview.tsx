@@ -550,7 +550,7 @@ const RedesignPreview: React.FC = () => {
     );
   }
 
-  const ownsHeader = ['home', 'calendar', 'evolution', 'competition', 'notifications'].includes(screen.tab);
+  const ownsHeader = ['home', 'calendar', 'evolution', 'competition', 'notifications', 'profile'].includes(screen.tab);
   const showOverlay = screen.overlay && !overlayClosed;
 
   const galleryMenu = (

@@ -1,0 +1,534 @@
+/* Perfil (aluno e professor) — redesign LEVEL. Mesmo conteudo de antes, visual novo:
+   card preto de identidade, Comprometimento com a cor da escala, numeros e listas agrupadas. */
+
+.rd-profile {
+  gap: var(--lv-space-4);
+}
+
+/* ─── Card de identidade ──────────────────────────────────────────────── */
+.rd-profile__hero {
+  display: flex;
+  flex-direction: column;
+  gap: var(--lv-space-4);
+  padding: var(--lv-space-5);
+  border-radius: var(--lv-r-xl);
+  background: var(--lv-black);
+  color: #ffffff;
+  box-shadow: 0 18px 36px rgba(15, 18, 33, 0.18);
+}
+
+html.dark .rd-profile__hero {
+  background: #000000;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12);
+}
+
+.rd-profile__hero-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--lv-space-3);
+}
+
+.rd-profile__eyebrow {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--lv-yellow);
+}
+
+.rd-profile__mark {
+  display: inline-flex;
+  gap: 3px;
+}
+
+.rd-profile__mark > i {
+  display: block;
+  width: 4px;
+  height: 11px;
+  border-radius: 1px;
+  background: #ffffff;
+}
+
+.rd-profile__mark > i:nth-child(n + 3) {
+  opacity: 0.35;
+}
+
+.rd-profile__identity {
+  display: flex;
+  align-items: center;
+  gap: var(--lv-space-4);
+}
+
+.rd-profile__avatar {
+  position: relative;
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 76px;
+  height: 76px;
+  padding: 0;
+  border: 4px solid #ffffff;
+  border-radius: 50%;
+  background: var(--lv-yellow);
+  color: var(--lv-on-yellow);
+  font-family: var(--font-display);
+  font-size: 28px;
+  font-weight: 800;
+}
+
+.rd-profile__avatar img {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.rd-profile__avatar--button {
+  cursor: pointer;
+}
+
+.rd-profile__avatar--button:focus-visible {
+  outline: 3px solid var(--lv-yellow);
+  outline-offset: 3px;
+}
+
+.rd-profile__avatar-cam {
+  position: absolute;
+  right: -4px;
+  bottom: -4px;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border: 2px solid var(--lv-black);
+  border-radius: 50%;
+  background: var(--lv-yellow);
+  color: var(--lv-on-yellow);
+}
+
+.rd-profile__spinner {
+  width: 12px;
+  height: 12px;
+  border: 2px solid var(--lv-on-yellow);
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: rd-profile-spin 0.8s linear infinite;
+}
+
+@keyframes rd-profile-spin {
+  to { transform: rotate(360deg); }
+}
+
+.rd-profile__file {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.rd-profile__who {
+  min-width: 0;
+}
+
+.rd-profile__name {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 26px;
+  font-weight: 800;
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+  color: #ffffff;
+  text-wrap: balance;
+}
+
+.rd-profile__team {
+  margin: 6px 0 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.68);
+}
+
+.rd-profile__belt {
+  width: 100%;
+}
+
+.rd-profile__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.rd-profile__chip {
+  padding: 6px 11px;
+  border-radius: var(--lv-r-pill);
+  background: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.rd-profile__chip.is-yellow {
+  background: var(--lv-yellow);
+  color: var(--lv-on-yellow);
+}
+
+.rd-profile__chip.is-outline {
+  background: transparent;
+  box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, 0.4);
+}
+
+.rd-profile__hero-note {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.rd-profile__hero-note.is-ok { color: #6ee7b7; }
+.rd-profile__hero-note.is-error { color: #fca5a5; }
+
+/* ─── Cards claros ────────────────────────────────────────────────────── */
+.rd-profile__card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--lv-space-3);
+  padding: var(--lv-space-5);
+  border: 1px solid var(--lv-border);
+  border-radius: var(--lv-r-xl);
+  background: var(--lv-surface);
+  color: var(--lv-text);
+}
+
+.rd-profile__label {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--lv-gold-text, var(--lv-text-soft));
+}
+
+/* Comprometimento: as variaveis --commitment-* vem da classe da escala (index.css) */
+.rd-profile__commit {
+  gap: var(--lv-space-2);
+}
+
+.rd-profile__commit-row {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--lv-space-3);
+}
+
+.rd-profile__commit-score {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 72px;
+  font-weight: 800;
+  line-height: 0.95;
+  letter-spacing: -0.04em;
+  color: var(--commitment-ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.rd-profile__commit-score small {
+  margin-left: 4px;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: 0;
+}
+
+.rd-profile__commit-level {
+  margin-bottom: 10px;
+  padding: 6px 12px;
+  border-radius: var(--lv-r-pill);
+  background: var(--commitment-soft);
+  box-shadow: inset 0 0 0 1px var(--commitment-line);
+  color: var(--commitment-ink);
+  font-size: 13px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.rd-profile__commit-track {
+  height: 12px;
+  margin-top: var(--lv-space-2);
+  overflow: hidden;
+  border-radius: var(--lv-r-pill);
+  background: var(--lv-sunken);
+}
+
+.rd-profile__commit-fill {
+  height: 100%;
+  min-width: 12px;
+  border-radius: inherit;
+  background: var(--commitment-fill);
+}
+
+.rd-profile__commit-note {
+  margin: 4px 0 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--lv-text-muted);
+}
+
+/* ─── Numeros ─────────────────────────────────────────────────────────── */
+.rd-profile__kpis {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--lv-space-3);
+}
+
+.rd-profile__kpi {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  padding: var(--lv-space-4);
+  border: 1px solid var(--lv-border);
+  border-radius: var(--lv-r-xl);
+  background: var(--lv-surface);
+  color: var(--lv-text);
+}
+
+.rd-profile__kpi.is-yellow {
+  border-color: var(--lv-yellow);
+  background: var(--lv-yellow);
+  color: var(--lv-on-yellow);
+}
+
+.rd-profile__kpi-label {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.rd-profile__kpi-value {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 44px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+}
+
+.rd-profile__kpi-note {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--lv-text-muted);
+}
+
+.rd-profile__kpi.is-yellow .rd-profile__kpi-note {
+  color: rgba(26, 19, 0, 0.72);
+}
+
+/* Progresso do professor (proximo grau/faixa) */
+.rd-profile__progress-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 800;
+  line-height: 1.15;
+}
+
+.rd-profile__progress-copy {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--lv-text-muted);
+}
+
+.rd-profile__progress-bar {
+  height: 10px;
+}
+
+.rd-profile__progress-caption {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--lv-text-soft);
+}
+
+/* ─── Listas agrupadas ────────────────────────────────────────────────── */
+.rd-profile__group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--lv-space-2);
+}
+
+.rd-profile__group-title {
+  margin: var(--lv-space-2) 0 0;
+  padding: 0 2px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--lv-text);
+}
+
+.rd-profile__list {
+  overflow: hidden;
+  border: 1px solid var(--lv-border);
+  border-radius: var(--lv-r-xl);
+  background: var(--lv-surface);
+}
+
+.rd-profile__item + .rd-profile__item {
+  border-top: 1px solid var(--lv-border);
+}
+
+.rd-profile__row {
+  display: flex;
+  align-items: center;
+  gap: var(--lv-space-3);
+  width: 100%;
+  min-height: 58px;
+  padding: 12px var(--lv-space-4);
+  border: 0;
+  background: transparent;
+  color: var(--lv-text);
+  font-family: var(--font-body);
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.rd-profile__row:focus-visible {
+  outline: 2px solid var(--lv-text);
+  outline-offset: -2px;
+}
+
+.rd-profile__row-icon {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 24px;
+  color: var(--lv-text);
+}
+
+.rd-profile__row-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.rd-profile__row-label {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.rd-profile__row-hint {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--lv-text-soft);
+}
+
+.rd-profile__row-value {
+  flex: none;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--lv-text-soft);
+}
+
+.rd-profile__row-arrow {
+  flex: none;
+  color: var(--lv-text-soft);
+  transition: transform 200ms ease;
+}
+
+.rd-profile__row-arrow.is-open {
+  transform: rotate(90deg);
+}
+
+.rd-profile__panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--lv-space-3);
+  padding: var(--lv-space-2) var(--lv-space-4) var(--lv-space-5);
+}
+
+.rd-profile__panel-copy {
+  margin: 0;
+  font-size: 14px;
+  color: var(--lv-text-muted);
+}
+
+.rd-profile__panel-title {
+  margin: var(--lv-space-2) 0 0;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--lv-text-soft);
+}
+
+.rd-profile__form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--lv-space-3);
+}
+
+.rd-profile__form.app-form-grid {
+  display: grid;
+}
+
+.rd-profile__form-actions {
+  display: flex;
+  gap: var(--lv-space-2);
+}
+
+/* ─── Rodape ──────────────────────────────────────────────────────────── */
+.rd-profile__footer {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--lv-space-3);
+  margin-top: var(--lv-space-2);
+}
+
+.rd-profile__logout {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--lv-space-2);
+  min-height: 54px;
+  border: 1.5px solid var(--lv-danger);
+  border-radius: var(--lv-r-pill);
+  background: var(--lv-surface);
+  color: var(--lv-danger);
+  font-family: var(--font-body);
+  font-size: 16px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.rd-profile__delete-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  align-self: center;
+  padding: 8px 12px;
+  border: 0;
+  background: transparent;
+  color: var(--lv-danger);
+  font-family: var(--font-body);
+  font-size: 14px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.rd-profile__logout:focus-visible,
+.rd-profile__delete-link:focus-visible {
+  outline: 2px solid var(--lv-danger);
+  outline-offset: 3px;
+}

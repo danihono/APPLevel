@@ -9,13 +9,15 @@ import {
   type ProgressionRules,
 } from '../beltCatalog';
 import { resolveAttendanceDate } from '../attendanceUtils';
-import { CommitmentBar } from '../components/CommitmentBar';
+import { commitmentLevelClass, commitmentNote } from '../components/CommitmentBar';
 import type { CommitmentResult } from '../commitmentScale';
 import { nonCountingReasonLabel } from '../classRules';
 import {
   AlertTriangle,
+  ArrowLeftRight,
   Award,
   Bell,
+  BellRing,
   Building2,
   Camera,
   ChevronRight,
@@ -23,8 +25,10 @@ import {
   Languages,
   LogOut,
   Mail,
+  Medal,
   Moon,
   Phone,
+  Plus,
   Save,
   ScrollText,
   Settings2,
@@ -34,16 +38,18 @@ import {
   Trash2,
   UserRound,
 } from 'lucide-react';
-import AvatarWithBelt from '../components/AvatarWithBelt';
+import BeltImage from '../components/BeltImage';
 import DateField from '../components/DateField';
 import ExamRulesModal from '../components/ExamRulesModal';
 import PushSettingsPanel from '../components/PushSettingsPanel';
 import LanguagePicker from '../components/LanguagePicker';
-import ProgressBar from '../components/ProgressBar';
+import ScreenHeader from '../components/redesign/ScreenHeader';
+import { useRedesignShell } from '../components/redesign/ShellContext';
 import type { FirestoreEntity } from '../services/firebase/data';
 import type { AttendanceRecord, GraduationRecord, UserRecord } from '../services/firebase/models';
 import type { User } from '../types';
-import { t, getLocale } from '../i18n';
+import { SUPPORTED_LANGUAGES, t, getLocale, useI18n } from '../i18n';
+import './redesign/profile.css';
 
 interface ProfileViewProps {
   user: User;
@@ -82,6 +88,19 @@ interface ProfileViewProps {
   onRequestAcademyChange?: () => void;
   onRequestAdditionalAcademy?: (academyId: string) => Promise<void>;
 }
+
+// Linhas que abrem um painel embaixo (o resto navega ou abre modal).
+type ProfileSection =
+  | 'dados-pessoais'
+  | 'faixa-grau'
+  | 'acesso-email'
+  | 'aparencia'
+  | 'idioma'
+  | 'notificacoes'
+  | 'historicos'
+  | 'historico-aulas'
+  | 'conquistas'
+  | 'excluir-conta';
 
 function roleLabel(role: UserRecord['role']) {
   switch (role) {
@@ -132,6 +151,8 @@ const ProfileView: React.FC<ProfileViewProps> = ({
   onRequestAcademyChange,
   onRequestAdditionalAcademy,
 }) => {
+  const shell = useRedesignShell();
+  const { language } = useI18n();
   const [firstName, setFirstName] = useState(profile.firstName);
   const [lastName, setLastName] = useState(profile.lastName);
   const [cpf, setCpf] = useState(profile.cpf);
@@ -240,20 +261,12 @@ const ProfileView: React.FC<ProfileViewProps> = ({
   const currentGradeLabel = blackBeltProgress
     ? (blackBeltProgress.degreeLabel || t('Faixa lisa'))
     : user.stripes > 0 ? t('{stripe}o Grau', { stripe: user.stripes }) : t('0 Grau');
-  const [activeSection, setActiveSection] = useState<'settings' | 'history' | 'achievements' | null>(null);
-  const [activeStudentSection, setActiveStudentSection] = useState<'dados-pessoais' | 'acesso-email' | 'aparencia' | 'idioma' | 'notificacoes' | 'historicos' | 'excluir-conta' | null>(null);
+  const [openSection, setOpenSection] = useState<ProfileSection | null>(null);
   const [examRulesOpen, setExamRulesOpen] = useState(false);
   const [deletePassword, setDeletePassword] = useState('');
   const [deleteConfirmChecked, setDeleteConfirmChecked] = useState(false);
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [deleteError, setDeleteError] = useState('');
-  const staffMenuItems = [
-    { id: 'settings' as const, icon: Settings2, label: t('Configurações da conta') },
-    { id: 'notifications' as const, icon: Bell, label: t('Notificações') },
-    { id: 'exam-rules' as const, icon: ScrollText, label: t('Regras de exame') },
-    { id: 'history' as const, icon: History, label: t('Histórico de aulas') },
-    { id: 'achievements' as const, icon: Award, label: t('Conquistas') },
-  ];
 
   useEffect(() => {
     setFirstName(profile.firstName);
@@ -384,62 +397,298 @@ const ProfileView: React.FC<ProfileViewProps> = ({
     }
   }
 
-  if (isStaffMobileProfile) {
-    return (
-      <div className="view-shell profile-mobile">
-        <section className="profile-mobile__hero">
-          <div className="relative inline-block">
+  const toggleSection = (id: ProfileSection) => {
+    setOpenSection((current) => (current === id ? null : id));
+  };
+
+  const beltTitle = blackBeltProgress ? blackBeltProgress.title : t('Faixa {belt}', { belt: beltLabel(user.belt) });
+  const avatarInitial = (user.name || '?').trim().charAt(0).toUpperCase() || '?';
+  const languageLabel = (SUPPORTED_LANGUAGES.find((entry) => entry.code === language)?.label ?? '').replace(/\s*\(.*\)\s*$/, '');
+  const showOwnHeader = shell.role !== 'superadmin';
+
+  // Linha de menu no estilo do redesign (icone, rotulo, valor atual e seta). `children` e o painel
+  // que abre embaixo da linha — o mesmo conteudo que o acordeao antigo mostrava.
+  const renderRow = (row: {
+    id: string;
+    icon: React.ReactNode;
+    label: string;
+    hint?: string;
+    value?: string;
+    open?: boolean;
+    danger?: boolean;
+    onClick: () => void;
+    children?: React.ReactNode;
+  }) => (
+    <div key={row.id} className="rd-profile__item">
+      <button
+        type="button"
+        className={`rd-profile__row ${row.danger ? 'is-danger' : ''}`.trim()}
+        onClick={row.onClick}
+        aria-expanded={row.children !== undefined ? Boolean(row.open) : undefined}
+      >
+        <span className="rd-profile__row-icon">{row.icon}</span>
+        <span className="rd-profile__row-text">
+          <span className="rd-profile__row-label">{row.label}</span>
+          {row.hint ? <span className="rd-profile__row-hint">{row.hint}</span> : null}
+        </span>
+        {row.value ? <span className="rd-profile__row-value">{row.value}</span> : null}
+        <ChevronRight size={18} className={`rd-profile__row-arrow ${row.open ? 'is-open' : ''}`.trim()} aria-hidden="true" />
+      </button>
+      {row.open && row.children !== undefined ? <div className="rd-profile__panel">{row.children}</div> : null}
+    </div>
+  );
+
+  const renderHero = (staff: boolean) => (
+    <section className="rd-profile__hero">
+      <div className="rd-profile__hero-top">
+        <span className="rd-profile__eyebrow">
+          {staff ? `LEVEL · ${roleLabel(profile.role)}` : t('LEVEL · Atleta')}
+        </span>
+        <span className="rd-profile__mark" aria-hidden="true"><i /><i /><i /><i /></span>
+      </div>
+
+      <div className="rd-profile__identity">
+        {staff ? (
+          <>
             <button
               type="button"
               onClick={() => staffPhotoInputRef.current?.click()}
               disabled={staffPhotoBusy}
-              className="block focus:outline-none"
+              className="rd-profile__avatar rd-profile__avatar--button"
               aria-label={t('Trocar foto de perfil')}
             >
-              <AvatarWithBelt
-                avatar={user.avatar}
-                name={user.name}
-                belt={user.belt}
-                stripes={user.stripes}
-                size="lg"
-                blackBelt={blackBeltProgress}
-              />
-              <span className="absolute bottom-1 right-1 flex h-7 w-7 items-center justify-center rounded-full bg-[color:var(--gold-mid)] text-black shadow-md pointer-events-none">
-                {staffPhotoBusy ? (
-                  <span className="h-3 w-3 animate-spin rounded-full border-2 border-black border-t-transparent" />
-                ) : (
-                  <Camera size={14} />
-                )}
+              {user.avatar ? <img src={user.avatar} alt="" /> : <span>{avatarInitial}</span>}
+              <span className="rd-profile__avatar-cam" aria-hidden="true">
+                {staffPhotoBusy ? <span className="rd-profile__spinner" /> : <Camera size={13} />}
               </span>
             </button>
             <input
               ref={staffPhotoInputRef}
               type="file"
               accept="image/*"
-              className="sr-only"
+              className="rd-profile__file"
               onChange={(e) => void handleStaffPhotoUpload(e)}
               disabled={staffPhotoBusy}
             />
-          </div>
+          </>
+        ) : (
+          <span className="rd-profile__avatar">
+            {user.avatar ? <img src={user.avatar} alt="" /> : <span>{avatarInitial}</span>}
+          </span>
+        )}
+        <div className="rd-profile__who">
+          <h2 className="rd-profile__name">{user.name}</h2>
+          <p className="rd-profile__team">
+            {academyName || (staff ? 'LEVEL' : t('Academia ativa'))} • {roleLabel(profile.role)}
+          </p>
+        </div>
+      </div>
 
-          <div className="profile-mobile__identity">
-            <h1 className="profile-mobile__name">{user.name}</h1>
-            <p className="profile-mobile__team">{academyName || 'LEVEL'} - {roleLabel(profile.role)}</p>
-          </div>
+      <BeltImage
+        belt={user.belt}
+        stripes={user.stripes}
+        blackBelt={blackBeltProgress}
+        className="rd-profile__belt"
+        alt={beltTitle}
+      />
 
-          <div className="profile-mobile__tags">
-            <span className="profile-mobile__tag is-gold">{blackBeltProgress ? blackBeltProgress.title : t('Faixa {belt}', { belt: beltLabel(user.belt) })}</span>
-            <span className="profile-mobile__tag">{currentGradeLabel}</span>
-            <span className="profile-mobile__tag">{t(user.type)}</span>
-          </div>
+      <div className="rd-profile__chips">
+        <span className="rd-profile__chip is-yellow">{beltTitle}</span>
+        <span className="rd-profile__chip">
+          {staff
+            ? currentGradeLabel
+            : (blackBeltProgress ? (blackBeltProgress.degreeLabel || t('Faixa lisa')) : t('{count} graus', { count: user.stripes }))}
+        </span>
+        <span className="rd-profile__chip">{t(user.type)}</span>
+        {!staff && profile.isCompetitor ? <span className="rd-profile__chip is-outline">{t('Competidor')}</span> : null}
+      </div>
 
-          {staffPhotoFeedback ? <p className="text-xs text-green-400 text-center">{staffPhotoFeedback}</p> : null}
-          {staffPhotoError ? <p className="text-xs text-red-400 text-center">{staffPhotoError}</p> : null}
-        </section>
+      {staffPhotoFeedback ? <p className="rd-profile__hero-note is-ok">{staffPhotoFeedback}</p> : null}
+      {staffPhotoError ? <p className="rd-profile__hero-note is-error">{staffPhotoError}</p> : null}
+    </section>
+  );
+
+  // Comprometimento: a cor vem da escala (commitmentScale), igual ao resto do app.
+  const renderCommitment = () => (commitment ? (
+    <section className={`rd-profile__card rd-profile__commit commitment ${commitmentLevelClass(commitment.level)}`}>
+      <p className="rd-profile__label">{t('Comprometimento')}</p>
+      <div className="rd-profile__commit-row">
+        <p className="rd-profile__commit-score">
+          {commitment.score}
+          <small>/100</small>
+        </p>
+        <span className="rd-profile__commit-level">{t(commitment.label)}</span>
+      </div>
+      <div
+        className="rd-profile__commit-track"
+        role="meter"
+        aria-valuenow={commitment.score}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-label={t('Comprometimento: {score} de 100, {level}', { score: commitment.score, level: t(commitment.label).toLocaleLowerCase(getLocale()) })}
+      >
+        {commitment.score > 0 ? <div className="rd-profile__commit-fill" style={{ width: `${commitment.score}%` }} /> : null}
+      </div>
+      <p className="rd-profile__commit-note">{commitmentNote(commitment)}</p>
+    </section>
+  ) : null);
+
+  const renderKpi = (label: string, value: React.ReactNode, note: string, highlight = false) => (
+    <article className={`rd-profile__kpi ${highlight ? 'is-yellow' : ''}`.trim()}>
+      <p className="rd-profile__kpi-label">{label}</p>
+      <p className="rd-profile__kpi-value">{value}</p>
+      <p className="rd-profile__kpi-note">{note}</p>
+    </article>
+  );
+
+  const appearancePanel = (
+    <>
+      <p className="rd-profile__panel-copy">{t('Tema atual: {theme}.', { theme: currentThemeLabel })}</p>
+      <div className="profile-theme-picker">
+        <button
+          type="button"
+          onClick={() => onSetThemeMode('light')}
+          className="app-button app-button--small app-button--block app-button--theme-light profile-theme-choice"
+          aria-pressed={!isDarkMode}
+        >
+          <Sun size={16} />
+          {t('Claro')}
+        </button>
+        <button
+          type="button"
+          onClick={() => onSetThemeMode('dark')}
+          className="app-button app-button--small app-button--block app-button--theme-dark profile-theme-choice"
+          aria-pressed={isDarkMode}
+        >
+          <Moon size={16} />
+          {t('Escuro')}
+        </button>
+      </div>
+    </>
+  );
+
+  const languagePanel = (
+    <>
+      <p className="rd-profile__panel-copy">{t('Escolha o idioma do aplicativo. A preferência fica salva no seu perfil.')}</p>
+      <LanguagePicker userId={profile.id} />
+    </>
+  );
+
+  const emailForm = (
+    <form onSubmit={(e) => void handleEmailSubmit(e)} className="rd-profile__form">
+      <p className="rd-profile__panel-title">{t('Alterar e-mail')}</p>
+      {emailFeedback ? <div className="app-alert app-alert--success">{emailFeedback}</div> : null}
+      {emailError ? <div className="app-alert app-alert--error">{emailError}</div> : null}
+      <label className="app-field">
+        <span className="app-field__label">{t('Novo e-mail')}</span>
+        <input type="email" value={newEmail} onChange={(event) => setNewEmail(event.target.value)} className="app-input" required />
+      </label>
+      <label className="app-field">
+        <span className="app-field__label">{t('Senha atual')}</span>
+        <input type="password" value={currentPassword} onChange={(event) => setCurrentPassword(event.target.value)} className="app-input" required />
+      </label>
+      <button type="submit" disabled={emailBusy} className="app-button app-button--ghost app-button--block">
+        <Mail size={16} />
+        {emailBusy ? t('Atualizando e-mail...') : t('Atualizar e-mail')}
+      </button>
+    </form>
+  );
+
+  const graduationList = (limit: number, emptyText: string) => (
+    <div className="app-list">
+      {graduations.slice(0, limit).map((graduation) => (
+        <div key={graduation.id} className="app-list-card">
+          <p className="text-sm font-bold">
+            {beltLabel(graduation.previousBelt)} {graduation.previousStripes} → {beltLabel(graduation.newBelt)} {graduation.newStripes}
+          </p>
+          <p className="mt-1 text-xs text-[color:var(--text-soft)]">
+            {graduation.promotedAt?.toDate().toLocaleDateString(getLocale())} • {graduation.reason.replaceAll('_', ' ')}
+          </p>
+        </div>
+      ))}
+      {graduations.length === 0 ? <div className="app-empty">{emptyText}</div> : null}
+    </div>
+  );
+
+  const unitRows = [
+    hasMultipleMemberships && onRequestAcademyChange
+      ? renderRow({
+        id: 'trocar-academia',
+        icon: <ArrowLeftRight size={18} />,
+        label: t('Trocar de academia'),
+        onClick: () => onRequestAcademyChange(),
+      })
+      : null,
+    canRequestAdditionalAcademy
+      ? renderRow({
+        id: 'outra-unidade',
+        icon: <Plus size={18} />,
+        label: t('Solicitar entrada em outra unidade'),
+        open: requestAcademyOpen,
+        onClick: () => {
+          setRequestAcademyOpen((open) => !open);
+          setRequestAcademyError('');
+        },
+        children: (
+          <div className="rd-profile__form">
+            <select
+              value={requestAcademyId}
+              onChange={(event) => setRequestAcademyId(event.target.value)}
+              className="app-select"
+            >
+              <option value="">{t('Selecione a unidade')}</option>
+              {availableAcademiesForRequest!.map((entry) => (
+                <option key={entry.id} value={entry.id}>{entry.name}</option>
+              ))}
+            </select>
+            <div className="rd-profile__form-actions">
+              <button
+                type="button"
+                onClick={() => void handleSubmitAdditionalAcademy()}
+                disabled={!requestAcademyId || requestAcademyBusy}
+                className="app-button app-button--gold app-button--block"
+              >
+                {requestAcademyBusy ? t('Enviando...') : t('Enviar solicitação')}
+              </button>
+              <button
+                type="button"
+                onClick={() => { setRequestAcademyOpen(false); setRequestAcademyError(''); }}
+                className="app-button app-button--ghost app-button--block"
+              >
+                {t('Cancelar')}
+              </button>
+            </div>
+          </div>
+        ),
+      })
+      : null,
+  ].filter(Boolean);
+
+  const unitGroup = unitRows.length > 0 || requestAcademyFeedback || requestAcademyError ? (
+    <section className="rd-profile__group" aria-label={t('Unidade')}>
+      <p className="rd-profile__group-title">{t('Unidade')}</p>
+      {requestAcademyFeedback ? <div className="app-alert app-alert--success">{requestAcademyFeedback}</div> : null}
+      {requestAcademyError ? <div className="app-alert app-alert--error">{requestAcademyError}</div> : null}
+      {unitRows.length > 0 ? <div className="rd-profile__list">{unitRows}</div> : null}
+    </section>
+  ) : null;
+
+  const header = showOwnHeader ? (
+    <ScreenHeader
+      eyebrow={isStaffMobileProfile ? shell.unitLabel : undefined}
+      title={t('Perfil')}
+    />
+  ) : null;
+
+  if (isStaffMobileProfile) {
+    return (
+      <div className="view-shell rd-profile">
+        {header}
+        {renderHero(true)}
 
         {onSetSuperadminViewMode ? (
-          <section className="profile-mobile__progress-card">
-            <p className="profile-mobile__section-label">{t('Visão atual')}</p>
+          <section className="rd-profile__card">
+            <p className="rd-profile__label">{t('Visão atual')}</p>
             <div className="app-vision-switch" role="group" aria-label={t('Trocar visão')}>
               <button
                 type="button"
@@ -466,31 +715,24 @@ const ProfileView: React.FC<ProfileViewProps> = ({
           </section>
         ) : null}
 
-        <section className="profile-mobile__kpis">
-          <article className="profile-mobile__kpi-card">
-            <p className="profile-mobile__kpi-label">{t('Total de aulas')}</p>
-            <p className="profile-mobile__kpi-value">{totalClasses}</p>
-            <p className="profile-mobile__kpi-note">{t('Presenças registradas')}</p>
-          </article>
+        {renderCommitment()}
 
-          <article className="profile-mobile__kpi-card">
-            <p className="profile-mobile__kpi-label">{t('Frequência')}</p>
-            <p className="profile-mobile__kpi-value">{attendanceRate}%</p>
-            <p className="profile-mobile__kpi-note">{t('No mês atual')}</p>
-          </article>
+        <section className="rd-profile__kpis">
+          {renderKpi(t('Total de aulas'), totalClasses, t('Presenças registradas'))}
+          {renderKpi(t('Frequência'), `${attendanceRate}%`, t('No mês atual'))}
         </section>
 
-        <section className="profile-mobile__progress-card">
-          <p className="profile-mobile__section-label">{isNextBeltMilestone ? t('Próxima faixa') : t('Próximo grau')}</p>
-          <h2 className="profile-mobile__progress-title">{nextMilestoneLabel}</h2>
-          <p className="profile-mobile__progress-copy">
+        <section className="rd-profile__card rd-profile__progress">
+          <p className="rd-profile__label">{isNextBeltMilestone ? t('Próxima faixa') : t('Próximo grau')}</p>
+          <h3 className="rd-profile__progress-title">{nextMilestoneLabel}</h3>
+          <p className="rd-profile__progress-copy">
             {nextMilestoneRemaining > 0 ? t('{count} aulas restantes para elegibilidade', { count: nextMilestoneRemaining }) : t('Progressão manual ou meta atingida')}
           </p>
-          <div className="profile-mobile__progress-bar">
-            <ProgressBar current={nextMilestoneCurrent} total={nextMilestoneGoal} />
+          <div className="lv-progress rd-profile__progress-bar" role="progressbar" aria-valuenow={nextMilestonePercent} aria-valuemin={0} aria-valuemax={100}>
+            <span style={{ width: `${Math.min(100, Math.max(0, nextMilestonePercent))}%` }} />
           </div>
-          <p className="profile-mobile__progress-caption">{t('{percent}% do objetivo', { percent: nextMilestonePercent })}</p>
-          <p className="profile-mobile__progress-caption">
+          <p className="rd-profile__progress-caption">{t('{percent}% do objetivo', { percent: nextMilestonePercent })}</p>
+          <p className="rd-profile__progress-caption">
             {progression.classesPerStripe > 0
               ? (progression.beltTotal > 0
                 ? t('Regra da faixa: {perStripe} aulas por grau / {beltTotal} aulas para a próxima faixa.', { perStripe: progression.classesPerStripe, beltTotal: progression.beltTotal })
@@ -499,267 +741,213 @@ const ProfileView: React.FC<ProfileViewProps> = ({
           </p>
         </section>
 
-        <section className="profile-mobile__menu-card" aria-label={t('Menu do perfil')}>
-          {staffMenuItems.map((item) => {
-            const Icon = item.icon;
-            const isExpanded = activeSection === item.id;
-            return (
-              <div key={item.id}>
-                <button
-                  type="button"
-                  className="profile-mobile__menu-row w-full text-left"
-                  onClick={() => {
-                    if (item.id === 'notifications') {
-                      onOpenNotifications?.();
-                      return;
-                    }
-                    if (item.id === 'exam-rules') {
-                      setExamRulesOpen(true);
-                      return;
-                    }
-                    setActiveSection(isExpanded ? null : item.id as 'settings' | 'history' | 'achievements');
-                  }}
-                >
-                  <div className="profile-mobile__menu-icon">
-                    <Icon size={18} />
-                  </div>
-                  <span className="profile-mobile__menu-label">{item.label}</span>
-                  <ChevronRight
-                    size={18}
-                    className={`profile-mobile__menu-arrow transition-transform duration-200 ${isExpanded ? 'rotate-90' : ''}`}
-                  />
-                </button>
-
-                {isExpanded && item.id === 'settings' ? (
-                  <div className="px-4 pb-5 space-y-4 border-t border-white/10">
-                    <form onSubmit={(e) => void handleStaffSettingsSubmit(e)} className="space-y-3 pt-4">
-                      {feedback ? <div className="app-alert app-alert--success">{feedback}</div> : null}
-                      {error ? <div className="app-alert app-alert--error">{error}</div> : null}
-                      <label className="app-field">
-                        <span className="app-field__label">{t('Telefone')}</span>
-                        <input value={phone} onChange={(e) => setPhone(e.target.value)} className="app-input" placeholder="+55 11 99999-9999" />
-                      </label>
-                      <button type="submit" disabled={busy} className="app-button app-button--gold app-button--block app-button--small">
-                        <Save size={14} />
-                        {busy ? t('Salvando...') : t('Salvar telefone')}
-                      </button>
-                    </form>
-
-                    {onSaveBeltGrade ? (
-                      <form onSubmit={(e) => void handleBeltGradeSubmit(e)} className="space-y-3 pt-3 border-t border-white/10">
-                        <p className="text-[10px] font-bold uppercase tracking-widest text-[color:var(--text-soft)] pt-1">{t('Faixa e Grau')}</p>
-                        {beltGradeFeedback ? <div className="app-alert app-alert--success">{beltGradeFeedback}</div> : null}
-                        {beltGradeError ? <div className="app-alert app-alert--error">{beltGradeError}</div> : null}
-                        <label className="app-field">
-                          <span className="app-field__label">{t('Faixa')}</span>
-                          <select value={staffBelt} onChange={(e) => setStaffBelt(e.target.value)} className="app-select">
-                            {ADULT_BELTS.map((b) => (
-                              <option key={b} value={b}>{beltLabel(b)}</option>
-                            ))}
-                          </select>
-                        </label>
-                        {staffBeltIsBlack ? (
-                          <>
-                            <label className="app-field">
-                              <span className="app-field__label">{t('Data da faixa preta')}</span>
-                              <DateField value={staffBlackBeltDate} onChange={setStaffBlackBeltDate} />
-                              <span className="app-field__hint">
-                                {staffBlackBeltPreview
-                                  ? `${staffBlackBeltPreview.label} · ${staffBlackBeltPreview.years === 1 ? t('1 ano de faixa preta') : t('{years} anos de faixa preta', { years: staffBlackBeltPreview.years })}${staffBlackBeltPreview.styleNote ? ` (${staffBlackBeltPreview.styleNote})` : ''}.`
-                                  : t('Informe a data em que recebeu a preta para calcular o grau por tempo (IBJJF).')}
-                              </span>
-                            </label>
-                            <label className="app-field">
-                              <span className="app-field__label">{t('Grau manual (opcional)')}</span>
-                              <input
-                                type="number"
-                                min={0}
-                                max={9}
-                                value={staffBlackBeltManual}
-                                onChange={(e) => setStaffBlackBeltManual(
-                                  e.target.value === '' ? '' : String(Math.max(0, Math.min(9, Math.floor(Number(e.target.value) || 0)))),
-                                )}
-                                className="app-input"
-                                placeholder={t('Automático ({degree}º)', { degree: staffAutoBlackDegree })}
-                              />
-                              <span className="app-field__hint">{t('Deixe vazio para usar o grau automático pela data. Preencha só para ajustar manualmente.')}</span>
-                            </label>
-                          </>
-                        ) : (
-                          <>
-                            <label className="app-field">
-                              <span className="app-field__label">{t('Grau')}</span>
-                              <select value={staffStripes} onChange={(e) => setStaffStripes(Number(e.target.value))} className="app-select">
-                                {[1, 2, 3, 4, 5, 6].map((g) => (
-                                  <option key={g} value={g}>{t('{degree}º grau', { degree: g })}</option>
-                                ))}
-                              </select>
-                            </label>
-                            <label className="app-field">
-                              <span className="app-field__label">{t('Aulas bônus')}</span>
-                              <input
-                                type="number"
-                                min="0"
-                                value={staffAttendanceCountBonus}
-                                onChange={(e) => setStaffAttendanceCountBonus(Math.max(0, Number(e.target.value)))}
-                                className="app-input"
-                              />
-                            </label>
-                          </>
-                        )}
-                        <button type="submit" disabled={beltGradeBusy} className="app-button app-button--gold app-button--block app-button--small">
-                          <Save size={14} />
-                          {beltGradeBusy ? t('Salvando...') : t('Salvar faixa e grau')}
-                        </button>
-                      </form>
-                    ) : null}
-
-                    <form onSubmit={(e) => void handleEmailSubmit(e)} className="space-y-3 pt-3 border-t border-white/10">
-                      <p className="text-[10px] font-bold uppercase tracking-widest text-[color:var(--text-soft)] pt-1">{t('Alterar e-mail')}</p>
-                      {emailFeedback ? <div className="app-alert app-alert--success">{emailFeedback}</div> : null}
-                      {emailError ? <div className="app-alert app-alert--error">{emailError}</div> : null}
-                      <label className="app-field">
-                        <span className="app-field__label">{t('Novo e-mail')}</span>
-                        <input type="email" value={newEmail} onChange={(e) => setNewEmail(e.target.value)} className="app-input" required />
-                      </label>
-                      <label className="app-field">
-                        <span className="app-field__label">{t('Senha atual')}</span>
-                        <input type="password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} className="app-input" required />
-                      </label>
-                      <button type="submit" disabled={emailBusy} className="app-button app-button--ghost app-button--block app-button--small">
-                        <Mail size={14} />
-                        {emailBusy ? t('Atualizando...') : t('Atualizar e-mail')}
-                      </button>
-                    </form>
-
-                    <div className="pt-3 border-t border-white/10">
-                      <p className="text-[10px] font-bold uppercase tracking-widest text-[color:var(--text-soft)] pb-3">{t('Aparência')}</p>
-                      <div className="flex gap-2">
-                        <button type="button" onClick={() => onSetThemeMode('light')} aria-pressed={!isDarkMode} className="app-button app-button--small flex-1 app-button--theme-light">
-                          <Sun size={14} />{t('Claro')}
-                        </button>
-                        <button type="button" onClick={() => onSetThemeMode('dark')} aria-pressed={isDarkMode} className="app-button app-button--small flex-1 app-button--theme-dark">
-                          <Moon size={14} />{t('Escuro')}
-                        </button>
+        <section className="rd-profile__group" aria-label={t('Conta')}>
+          <p className="rd-profile__group-title">{t('Conta')}</p>
+          <div className="rd-profile__list">
+            {renderRow({
+              id: 'dados-pessoais',
+              icon: <UserRound size={18} />,
+              label: t('Dados pessoais'),
+              open: openSection === 'dados-pessoais',
+              onClick: () => toggleSection('dados-pessoais'),
+              children: (
+                <form onSubmit={(e) => void handleStaffSettingsSubmit(e)} className="rd-profile__form">
+                  {feedback ? <div className="app-alert app-alert--success">{feedback}</div> : null}
+                  {error ? <div className="app-alert app-alert--error">{error}</div> : null}
+                  <div className="app-list">
+                    <div className="app-list-card">
+                      <p className="text-[11px] uppercase tracking-[0.16em] text-[color:var(--text-soft)]">{t('Função')}</p>
+                      <p className="mt-1 text-sm font-bold">{roleLabel(profile.role)}</p>
+                    </div>
+                    <div className="app-list-card">
+                      <div className="flex items-center gap-2 text-sm font-bold">
+                        <Mail size={16} className="text-[color:var(--gold-mid)]" />
+                        {user.email}
                       </div>
                     </div>
-
-                    <div className="pt-3 border-t border-white/10">
-                      <p className="text-[10px] font-bold uppercase tracking-widest text-[color:var(--text-soft)] pb-3">{t('Idioma')}</p>
-                      <LanguagePicker userId={profile.id} />
-                    </div>
-
-                    <div className="pt-3 border-t border-white/10">
-                      <p className="text-[10px] font-bold uppercase tracking-widest text-[color:var(--text-soft)] pb-3">{t('Notificações neste aparelho')}</p>
-                      <PushSettingsPanel />
-                    </div>
                   </div>
-                ) : null}
+                  <label className="app-field">
+                    <span className="app-field__label">{t('Telefone')}</span>
+                    <input value={phone} onChange={(e) => setPhone(e.target.value)} className="app-input" placeholder="+55 11 99999-9999" />
+                  </label>
+                  <button type="submit" disabled={busy} className="app-button app-button--gold app-button--block app-button--small">
+                    <Save size={14} />
+                    {busy ? t('Salvando...') : t('Salvar telefone')}
+                  </button>
+                </form>
+              ),
+            })}
 
-                {isExpanded && item.id === 'history' ? (
-                  <div className="px-4 pb-5 border-t border-white/10">
-                    <div className="pt-4 space-y-2">
-                      {sortedAttendances.slice(0, 8).map((attendance) => (
-                        <div key={attendance.id} className="app-list-card">
-                          <p className="text-sm font-bold">{classNameById.get(attendance.classId) || t('Aula da academia')}</p>
-                          <p className="mt-1 text-xs text-[color:var(--text-soft)]">
-                            {resolveAttendanceDate(attendance, classStartById.get(attendance.classId))?.toLocaleString(getLocale()) ?? t('Sem data')} • {attendance.checkInMethod}
-                          </p>
-                        </div>
+            {onSaveBeltGrade ? renderRow({
+              id: 'faixa-grau',
+              icon: <Award size={18} />,
+              label: t('Faixa e Grau'),
+              open: openSection === 'faixa-grau',
+              onClick: () => toggleSection('faixa-grau'),
+              children: (
+                <form onSubmit={(e) => void handleBeltGradeSubmit(e)} className="rd-profile__form">
+                  {beltGradeFeedback ? <div className="app-alert app-alert--success">{beltGradeFeedback}</div> : null}
+                  {beltGradeError ? <div className="app-alert app-alert--error">{beltGradeError}</div> : null}
+                  <label className="app-field">
+                    <span className="app-field__label">{t('Faixa')}</span>
+                    <select value={staffBelt} onChange={(e) => setStaffBelt(e.target.value)} className="app-select">
+                      {ADULT_BELTS.map((b) => (
+                        <option key={b} value={b}>{beltLabel(b)}</option>
                       ))}
-                      {attendances.length === 0 ? <div className="app-empty">{t('Nenhuma presença registrada.')}</div> : null}
-                    </div>
-                  </div>
-                ) : null}
+                    </select>
+                  </label>
+                  {staffBeltIsBlack ? (
+                    <>
+                      <label className="app-field">
+                        <span className="app-field__label">{t('Data da faixa preta')}</span>
+                        <DateField value={staffBlackBeltDate} onChange={setStaffBlackBeltDate} />
+                        <span className="app-field__hint">
+                          {staffBlackBeltPreview
+                            ? `${staffBlackBeltPreview.label} · ${staffBlackBeltPreview.years === 1 ? t('1 ano de faixa preta') : t('{years} anos de faixa preta', { years: staffBlackBeltPreview.years })}${staffBlackBeltPreview.styleNote ? ` (${staffBlackBeltPreview.styleNote})` : ''}.`
+                            : t('Informe a data em que recebeu a preta para calcular o grau por tempo (IBJJF).')}
+                        </span>
+                      </label>
+                      <label className="app-field">
+                        <span className="app-field__label">{t('Grau manual (opcional)')}</span>
+                        <input
+                          type="number"
+                          min={0}
+                          max={9}
+                          value={staffBlackBeltManual}
+                          onChange={(e) => setStaffBlackBeltManual(
+                            e.target.value === '' ? '' : String(Math.max(0, Math.min(9, Math.floor(Number(e.target.value) || 0)))),
+                          )}
+                          className="app-input"
+                          placeholder={t('Automático ({degree}º)', { degree: staffAutoBlackDegree })}
+                        />
+                        <span className="app-field__hint">{t('Deixe vazio para usar o grau automático pela data. Preencha só para ajustar manualmente.')}</span>
+                      </label>
+                    </>
+                  ) : (
+                    <>
+                      <label className="app-field">
+                        <span className="app-field__label">{t('Grau')}</span>
+                        <select value={staffStripes} onChange={(e) => setStaffStripes(Number(e.target.value))} className="app-select">
+                          {[1, 2, 3, 4, 5, 6].map((g) => (
+                            <option key={g} value={g}>{t('{degree}º grau', { degree: g })}</option>
+                          ))}
+                        </select>
+                      </label>
+                      <label className="app-field">
+                        <span className="app-field__label">{t('Aulas bônus')}</span>
+                        <input
+                          type="number"
+                          min="0"
+                          value={staffAttendanceCountBonus}
+                          onChange={(e) => setStaffAttendanceCountBonus(Math.max(0, Number(e.target.value)))}
+                          className="app-input"
+                        />
+                      </label>
+                    </>
+                  )}
+                  <button type="submit" disabled={beltGradeBusy} className="app-button app-button--gold app-button--block app-button--small">
+                    <Save size={14} />
+                    {beltGradeBusy ? t('Salvando...') : t('Salvar faixa e grau')}
+                  </button>
+                </form>
+              ),
+            }) : null}
 
-                {isExpanded && item.id === 'achievements' ? (
-                  <div className="px-4 pb-5 border-t border-white/10">
-                    <div className="pt-4 space-y-2">
-                      {graduations.slice(0, 8).map((graduation) => (
-                        <div key={graduation.id} className="app-list-card">
-                          <p className="text-sm font-bold">
-                            {beltLabel(graduation.previousBelt)} {graduation.previousStripes} → {beltLabel(graduation.newBelt)} {graduation.newStripes}
-                          </p>
-                          <p className="mt-1 text-xs text-[color:var(--text-soft)]">
-                            {graduation.promotedAt?.toDate().toLocaleDateString(getLocale())} • {graduation.reason.replaceAll('_', ' ')}
-                          </p>
-                        </div>
-                      ))}
-                      {graduations.length === 0 ? <div className="app-empty">{t('Nenhuma graduação registrada.')}</div> : null}
-                    </div>
-                  </div>
-                ) : null}
-              </div>
-            );
-          })}
+            {renderRow({
+              id: 'acesso-email',
+              icon: <ShieldCheck size={18} />,
+              label: t('Acesso conta email'),
+              open: openSection === 'acesso-email',
+              onClick: () => toggleSection('acesso-email'),
+              children: emailForm,
+            })}
+
+            {renderRow({
+              id: 'aparencia',
+              icon: isDarkMode ? <Moon size={18} /> : <Sun size={18} />,
+              label: t('Aparência'),
+              value: currentThemeLabel,
+              open: openSection === 'aparencia',
+              onClick: () => toggleSection('aparencia'),
+              children: appearancePanel,
+            })}
+
+            {renderRow({
+              id: 'idioma',
+              icon: <Languages size={18} />,
+              label: t('Idioma'),
+              value: languageLabel,
+              open: openSection === 'idioma',
+              onClick: () => toggleSection('idioma'),
+              children: languagePanel,
+            })}
+
+            {renderRow({
+              id: 'notificacoes',
+              icon: <BellRing size={18} />,
+              label: t('Notificações neste aparelho'),
+              open: openSection === 'notificacoes',
+              onClick: () => toggleSection('notificacoes'),
+              children: <PushSettingsPanel />,
+            })}
+          </div>
         </section>
 
-        <div className="profile-mobile__footer">
-          {hasMultipleMemberships && onRequestAcademyChange ? (
-            <button
-              type="button"
-              onClick={() => onRequestAcademyChange()}
-              className="app-button app-button--ghost app-button--block"
-              style={{ marginBottom: '0.5rem' }}
-            >
-              {t('Trocar de academia')}
-            </button>
-          ) : null}
+        <section className="rd-profile__group" aria-label={t('Treino')}>
+          <p className="rd-profile__group-title">{t('Treino')}</p>
+          <div className="rd-profile__list">
+            {renderRow({
+              id: 'avisos',
+              icon: <Bell size={18} />,
+              label: t('Notificações'),
+              onClick: () => onOpenNotifications?.(),
+            })}
 
-          {canRequestAdditionalAcademy ? (
-            <div style={{ marginBottom: '0.75rem' }}>
-              {requestAcademyFeedback ? (
-                <div className="app-alert app-alert--success" style={{ marginBottom: '0.5rem' }}>{requestAcademyFeedback}</div>
-              ) : null}
-              {requestAcademyError ? (
-                <div className="app-alert app-alert--error" style={{ marginBottom: '0.5rem' }}>{requestAcademyError}</div>
-              ) : null}
+            {renderRow({
+              id: 'regras-exame',
+              icon: <ScrollText size={18} />,
+              label: t('Regras de exame'),
+              onClick: () => setExamRulesOpen(true),
+            })}
 
-              {requestAcademyOpen ? (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                  <select
-                    value={requestAcademyId}
-                    onChange={(event) => setRequestAcademyId(event.target.value)}
-                    className="app-select"
-                  >
-                    <option value="">{t('Selecione a unidade')}</option>
-                    {availableAcademiesForRequest!.map((entry) => (
-                      <option key={entry.id} value={entry.id}>{entry.name}</option>
-                    ))}
-                  </select>
-                  <div style={{ display: 'flex', gap: '0.5rem' }}>
-                    <button
-                      type="button"
-                      onClick={() => void handleSubmitAdditionalAcademy()}
-                      disabled={!requestAcademyId || requestAcademyBusy}
-                      className="app-button app-button--gold app-button--block"
-                    >
-                      {requestAcademyBusy ? t('Enviando...') : t('Enviar solicitação')}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => { setRequestAcademyOpen(false); setRequestAcademyError(''); }}
-                      className="app-button app-button--ghost app-button--block"
-                    >
-                      {t('Cancelar')}
-                    </button>
-                  </div>
+            {renderRow({
+              id: 'historico-aulas',
+              icon: <History size={18} />,
+              label: t('Histórico de aulas'),
+              open: openSection === 'historico-aulas',
+              onClick: () => toggleSection('historico-aulas'),
+              children: (
+                <div className="app-list">
+                  {sortedAttendances.slice(0, 8).map((attendance) => (
+                    <div key={attendance.id} className="app-list-card">
+                      <p className="text-sm font-bold">{classNameById.get(attendance.classId) || t('Aula da academia')}</p>
+                      <p className="mt-1 text-xs text-[color:var(--text-soft)]">
+                        {resolveAttendanceDate(attendance, classStartById.get(attendance.classId))?.toLocaleString(getLocale()) ?? t('Sem data')} • {attendance.checkInMethod}
+                      </p>
+                    </div>
+                  ))}
+                  {attendances.length === 0 ? <div className="app-empty">{t('Nenhuma presença registrada.')}</div> : null}
                 </div>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => setRequestAcademyOpen(true)}
-                  className="app-button app-button--ghost app-button--block"
-                >
-                  {t('Solicitar entrada em outra unidade')}
-                </button>
-              )}
-            </div>
-          ) : null}
+              ),
+            })}
 
-          <button type="button" onClick={() => void onLogout()} className="app-button app-button--danger app-button--block">
-            <LogOut size={16} />
-            {t('Sair')}
+            {renderRow({
+              id: 'conquistas',
+              icon: <Medal size={18} />,
+              label: t('Conquistas'),
+              open: openSection === 'conquistas',
+              onClick: () => toggleSection('conquistas'),
+              children: graduationList(8, t('Nenhuma graduação registrada.')),
+            })}
+          </div>
+        </section>
+
+        {unitGroup}
+
+        <div className="rd-profile__footer">
+          <button type="button" onClick={() => void onLogout()} className="rd-profile__logout">
+            <LogOut size={18} />
+            {t('Sair da conta')}
           </button>
         </div>
 
@@ -771,464 +959,231 @@ const ProfileView: React.FC<ProfileViewProps> = ({
   }
 
   return (
-    <div className="view-shell">
-      {/* Header */}
-      <section className="app-panel app-panel-pad">
-        <div className="flex flex-wrap items-center gap-4">
-          <AvatarWithBelt
-            avatar={user.avatar}
-            name={user.name}
-            belt={user.belt}
-            stripes={user.stripes}
-            size="md"
-            blackBelt={blackBeltProgress}
-          />
+    <div className="view-shell rd-profile">
+      {header}
+      {renderHero(false)}
+      {renderCommitment()}
 
-          <div className="min-w-0 flex-1">
-            <h2 className="text-2xl font-bold">{user.name}</h2>
-            <p className="mt-2 text-sm text-[color:var(--text-muted)]">
-              {academyName || t('Academia ativa')} • {roleLabel(profile.role)}
-            </p>
-            <div className="mt-3 flex flex-wrap items-center gap-2">
-              <span className="app-badge app-badge--gold">{blackBeltProgress ? blackBeltProgress.title : t('Faixa {belt}', { belt: beltLabel(user.belt) })}</span>
-              <span className="app-badge app-badge--muted">{blackBeltProgress ? (blackBeltProgress.degreeLabel || t('Faixa lisa')) : t('{count} graus', { count: user.stripes })}</span>
-              <span className="app-badge app-badge--muted">{t(user.type)}</span>
-              {profile.isCompetitor ? <span className="app-badge app-badge--muted">{t('Competidor')}</span> : null}
-            </div>
-          </div>
-        </div>
+      <section className="rd-profile__kpis">
+        {renderKpi(t('Total de aulas'), totalClasses, t('Presenças registradas'))}
+        {renderKpi(t('Frequência'), `${attendanceRate}%`, t('No mês atual'))}
+        {renderKpi(t('Próximo grau'), progression.stripeCycleRemaining ?? 0, t('Aulas restantes'), true)}
+        {renderKpi(t('Próxima faixa'), nextBeltRemaining, t('Aulas para elegibilidade'))}
       </section>
 
-      {commitment ? (
-        <section className="app-panel app-panel-pad">
-          <CommitmentBar commitment={commitment} title={t('Comprometimento')} />
-        </section>
-      ) : null}
+      <section className="rd-profile__group" aria-label={t('Conta')}>
+        <p className="rd-profile__group-title">{t('Conta')}</p>
+        <div className="rd-profile__list">
+          {renderRow({
+            id: 'dados-pessoais',
+            icon: <UserRound size={18} />,
+            label: t('Dados pessoais'),
+            open: openSection === 'dados-pessoais',
+            onClick: () => toggleSection('dados-pessoais'),
+            children: canEditProfile ? (
+              <form onSubmit={handleSubmit} className="rd-profile__form app-form-grid">
+                {feedback ? <div className="app-alert app-alert--success">{feedback}</div> : null}
+                {error ? <div className="app-alert app-alert--error">{error}</div> : null}
 
-      {/* KPIs 2x2 */}
-      <section className="grid grid-cols-2 gap-3">
-        <article className="app-panel app-panel-pad">
-          <p className="app-stat-card__label">{t('Total de aulas')}</p>
-          <p className="app-stat-card__value">{totalClasses}</p>
-          <p className="app-stat-card__note">{t('Presenças registradas')}</p>
-        </article>
-        <article className="app-panel app-panel-pad">
-          <p className="app-stat-card__label">{t('Frequência')}</p>
-          <p className="app-stat-card__value">{attendanceRate}%</p>
-          <p className="app-stat-card__note">{t('No mês atual')}</p>
-        </article>
-        <article className="app-panel app-panel-pad">
-          <p className="app-stat-card__label">{t('Próximo grau')}</p>
-          <p className="app-stat-card__value">{progression.stripeCycleRemaining ?? 0}</p>
-          <p className="app-stat-card__note">{t('Aulas restantes')}</p>
-        </article>
-        <article className="app-panel app-panel-pad">
-          <p className="app-stat-card__label">{t('Próxima faixa')}</p>
-          <p className="app-stat-card__value">{nextBeltRemaining}</p>
-          <p className="app-stat-card__note">{t('Aulas para elegibilidade')}</p>
-        </article>
-      </section>
+                <label className="app-field">
+                  <span className="app-field__label">{t('Nome')}</span>
+                  <input value={firstName} onChange={(event) => setFirstName(event.target.value)} className="app-input" required />
+                </label>
 
-      {/* Accordion menu */}
-      <section className="app-panel" aria-label={t('Configurações do perfil')}>
-        {/* Dados pessoais */}
-        <div>
-          <button
-            type="button"
-            className="profile-mobile__menu-row w-full text-left"
-            onClick={() => setActiveStudentSection(activeStudentSection === 'dados-pessoais' ? null : 'dados-pessoais')}
-          >
-            <div className="profile-mobile__menu-icon"><UserRound size={18} /></div>
-            <span className="profile-mobile__menu-label">{t('Dados pessoais')}</span>
-            <ChevronRight
-              size={18}
-              className={`profile-mobile__menu-arrow transition-transform duration-200 ${activeStudentSection === 'dados-pessoais' ? 'rotate-90' : ''}`}
-            />
-          </button>
+                <label className="app-field">
+                  <span className="app-field__label">{t('Sobrenome')}</span>
+                  <input value={lastName} onChange={(event) => setLastName(event.target.value)} className="app-input" required />
+                </label>
 
-          {activeStudentSection === 'dados-pessoais' ? (
-            <div className="px-4 pb-5 border-t border-white/10">
-              {canEditProfile ? (
-                <form onSubmit={handleSubmit} className="mt-4 app-form-grid">
-                  {feedback ? <div className="app-alert app-alert--success">{feedback}</div> : null}
-                  {error ? <div className="app-alert app-alert--error">{error}</div> : null}
+                <label className="app-field">
+                  <span className="app-field__label">CPF</span>
+                  <input value={cpf} onChange={(event) => setCpf(event.target.value)} className="app-input" required />
+                </label>
 
-                  <label className="app-field">
-                    <span className="app-field__label">{t('Nome')}</span>
-                    <input value={firstName} onChange={(event) => setFirstName(event.target.value)} className="app-input" required />
-                  </label>
+                <label className="app-field">
+                  <span className="app-field__label">{t('Telefone')}</span>
+                  <input value={phone} onChange={(event) => setPhone(event.target.value)} className="app-input" />
+                </label>
 
-                  <label className="app-field">
-                    <span className="app-field__label">{t('Sobrenome')}</span>
-                    <input value={lastName} onChange={(event) => setLastName(event.target.value)} className="app-input" required />
-                  </label>
+                <label className="app-field">
+                  <span className="app-field__label">{t('Nascimento')}</span>
+                  <DateField value={birthDate} onChange={setBirthDate} required />
+                </label>
 
-                  <label className="app-field">
-                    <span className="app-field__label">CPF</span>
-                    <input value={cpf} onChange={(event) => setCpf(event.target.value)} className="app-input" required />
-                  </label>
+                <label className="app-field">
+                  <span className="app-field__label">{t('Competidor')}</span>
+                  <select value={isCompetitor ? 'yes' : 'no'} onChange={(event) => setIsCompetitor(event.target.value === 'yes')} className="app-select">
+                    <option value="no">{t('Não')}</option>
+                    <option value="yes">{t('Sim')}</option>
+                  </select>
+                </label>
 
-                  <label className="app-field">
-                    <span className="app-field__label">{t('Telefone')}</span>
-                    <input value={phone} onChange={(event) => setPhone(event.target.value)} className="app-input" />
-                  </label>
+                <label className="app-field md:col-span-2">
+                  <span className="app-field__label">{t('Foto')}</span>
+                  <input type="file" accept="image/*" onChange={(event) => setPhotoFile(event.target.files?.[0] ?? null)} className="app-input" />
+                </label>
 
-                  <label className="app-field">
-                    <span className="app-field__label">{t('Nascimento')}</span>
-                    <DateField value={birthDate} onChange={setBirthDate} required />
-                  </label>
-
-                  <label className="app-field">
-                    <span className="app-field__label">{t('Competidor')}</span>
-                    <select value={isCompetitor ? 'yes' : 'no'} onChange={(event) => setIsCompetitor(event.target.value === 'yes')} className="app-select">
-                      <option value="no">{t('Não')}</option>
-                      <option value="yes">{t('Sim')}</option>
-                    </select>
-                  </label>
-
-                  <label className="app-field md:col-span-2">
-                    <span className="app-field__label">{t('Foto')}</span>
-                    <input type="file" accept="image/*" onChange={(event) => setPhotoFile(event.target.files?.[0] ?? null)} className="app-input" />
-                  </label>
-
-                  <button type="submit" disabled={busy} className="app-button app-button--gold app-button--block md:col-span-2">
-                    <Save size={16} />
-                    {busy ? t('Salvando...') : t('Salvar perfil')}
-                  </button>
-                </form>
-              ) : (
-                <div className="mt-4 app-list">
-                  <div className="app-list-card">
-                    <p className="text-[11px] uppercase tracking-[0.16em] text-[color:var(--text-soft)]">{t('Função')}</p>
-                    <p className="mt-1 text-sm font-bold">{roleLabel(profile.role)}</p>
-                  </div>
-                  <div className="app-list-card">
-                    <div className="flex items-center gap-2 text-sm font-bold">
-                      <Mail size={16} className="text-[color:var(--gold-mid)]" />
-                      {user.email}
-                    </div>
-                  </div>
-                  <div className="app-list-card">
-                    <div className="flex items-center gap-2 text-sm font-bold">
-                      <Phone size={16} className="text-[color:var(--gold-mid)]" />
-                      {profile.phone || t('Telefone não informado')}
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          ) : null}
-        </div>
-
-        {/* Acesso conta email */}
-        <div>
-          <button
-            type="button"
-            className="profile-mobile__menu-row w-full text-left"
-            onClick={() => setActiveStudentSection(activeStudentSection === 'acesso-email' ? null : 'acesso-email')}
-          >
-            <div className="profile-mobile__menu-icon"><ShieldCheck size={18} /></div>
-            <span className="profile-mobile__menu-label">{t('Acesso conta email')}</span>
-            <ChevronRight
-              size={18}
-              className={`profile-mobile__menu-arrow transition-transform duration-200 ${activeStudentSection === 'acesso-email' ? 'rotate-90' : ''}`}
-            />
-          </button>
-
-          {activeStudentSection === 'acesso-email' ? (
-            <div className="px-4 pb-5 border-t border-white/10">
-              <div className="mt-4 app-list">
-                <div className="app-list-card">
-                  <p className="text-sm font-bold">{t('Permissões')}</p>
-                  <p className="mt-1 text-xs text-[color:var(--text-soft)]">{t('Perfil atual: {role}', { role: roleLabel(profile.role) })}</p>
-                </div>
-                <div className="app-list-card">
-                  <p className="text-sm font-bold">{t('Academia')}</p>
-                  <p className="mt-1 text-xs text-[color:var(--text-soft)]">{academyName || t('Sem academia vinculada')}</p>
-                </div>
-                <div className="app-list-card">
-                  <p className="text-sm font-bold">{t('Faixa e grau')}</p>
-                  <p className="mt-1 text-xs text-[color:var(--text-soft)]">{t('Alteração feita apenas por professor ou superadmin.')}</p>
-                </div>
-              </div>
-
-              {canEditProfile ? (
-                <form onSubmit={handleEmailSubmit} className="mt-4 app-form-grid">
-                  <p className="app-section-label md:col-span-2">{t('Alterar e-mail')}</p>
-
-                  {emailFeedback ? <div className="app-alert app-alert--success md:col-span-2">{emailFeedback}</div> : null}
-                  {emailError ? <div className="app-alert app-alert--error md:col-span-2">{emailError}</div> : null}
-
-                  <label className="app-field">
-                    <span className="app-field__label">{t('Novo e-mail')}</span>
-                    <input type="email" value={newEmail} onChange={(event) => setNewEmail(event.target.value)} className="app-input" required />
-                  </label>
-
-                  <label className="app-field">
-                    <span className="app-field__label">{t('Senha atual')}</span>
-                    <input type="password" value={currentPassword} onChange={(event) => setCurrentPassword(event.target.value)} className="app-input" required />
-                  </label>
-
-                  <button type="submit" disabled={emailBusy} className="app-button app-button--ghost app-button--block md:col-span-2">
-                    <Mail size={16} />
-                    {emailBusy ? t('Atualizando e-mail...') : t('Atualizar e-mail')}
-                  </button>
-                </form>
-              ) : null}
-            </div>
-          ) : null}
-        </div>
-
-        {/* Aparencia */}
-        <div>
-          <button
-            type="button"
-            className="profile-mobile__menu-row w-full text-left"
-            onClick={() => setActiveStudentSection(activeStudentSection === 'aparencia' ? null : 'aparencia')}
-          >
-            <div className="profile-mobile__menu-icon">
-              {isDarkMode ? <Moon size={18} /> : <Sun size={18} />}
-            </div>
-            <span className="profile-mobile__menu-label">{t('Aparência')}</span>
-            <ChevronRight
-              size={18}
-              className={`profile-mobile__menu-arrow transition-transform duration-200 ${activeStudentSection === 'aparencia' ? 'rotate-90' : ''}`}
-            />
-          </button>
-
-          {activeStudentSection === 'aparencia' ? (
-            <div className="px-4 pb-5 border-t border-white/10">
-              <p className="mt-4 text-sm text-[color:var(--text-muted)]">{t('Tema atual: {theme}.', { theme: currentThemeLabel })}</p>
-              <div className="profile-theme-picker mt-3">
-                <button
-                  type="button"
-                  onClick={() => onSetThemeMode('light')}
-                  className="app-button app-button--small app-button--block app-button--theme-light profile-theme-choice"
-                  aria-pressed={!isDarkMode}
-                >
-                  <Sun size={16} />
-                  {t('Claro')}
+                <button type="submit" disabled={busy} className="app-button app-button--gold app-button--block md:col-span-2">
+                  <Save size={16} />
+                  {busy ? t('Salvando...') : t('Salvar perfil')}
                 </button>
-                <button
-                  type="button"
-                  onClick={() => onSetThemeMode('dark')}
-                  className="app-button app-button--small app-button--block app-button--theme-dark profile-theme-choice"
-                  aria-pressed={isDarkMode}
-                >
-                  <Moon size={16} />
-                  {t('Escuro')}
-                </button>
-              </div>
-            </div>
-          ) : null}
-        </div>
-
-        {/* Idioma */}
-        <div>
-          <button
-            type="button"
-            className="profile-mobile__menu-row w-full text-left"
-            onClick={() => setActiveStudentSection(activeStudentSection === 'idioma' ? null : 'idioma')}
-          >
-            <div className="profile-mobile__menu-icon"><Languages size={18} /></div>
-            <span className="profile-mobile__menu-label">{t('Idioma')}</span>
-            <ChevronRight
-              size={18}
-              className={`profile-mobile__menu-arrow transition-transform duration-200 ${activeStudentSection === 'idioma' ? 'rotate-90' : ''}`}
-            />
-          </button>
-
-          {activeStudentSection === 'idioma' ? (
-            <div className="px-4 pb-5 border-t border-white/10">
-              <p className="mt-4 mb-3 text-sm text-[color:var(--text-muted)]">{t('Escolha o idioma do aplicativo. A preferência fica salva no seu perfil.')}</p>
-              <LanguagePicker userId={profile.id} />
-            </div>
-          ) : null}
-        </div>
-
-        {/* Notificacoes deste aparelho */}
-        <div>
-          <button
-            type="button"
-            className="profile-mobile__menu-row w-full text-left"
-            onClick={() => setActiveStudentSection(activeStudentSection === 'notificacoes' ? null : 'notificacoes')}
-          >
-            <div className="profile-mobile__menu-icon"><Bell size={18} /></div>
-            <span className="profile-mobile__menu-label">{t('Notificações neste aparelho')}</span>
-            <ChevronRight
-              size={18}
-              className={`profile-mobile__menu-arrow transition-transform duration-200 ${activeStudentSection === 'notificacoes' ? 'rotate-90' : ''}`}
-            />
-          </button>
-
-          {activeStudentSection === 'notificacoes' ? (
-            <div className="px-4 pb-5 pt-4 border-t border-white/10">
-              <PushSettingsPanel />
-            </div>
-          ) : null}
-        </div>
-
-        {/* Historicos */}
-        <div>
-          <button
-            type="button"
-            className="profile-mobile__menu-row w-full text-left"
-            onClick={() => setActiveStudentSection(activeStudentSection === 'historicos' ? null : 'historicos')}
-          >
-            <div className="profile-mobile__menu-icon"><History size={18} /></div>
-            <span className="profile-mobile__menu-label">{t('Históricos')}</span>
-            <ChevronRight
-              size={18}
-              className={`profile-mobile__menu-arrow transition-transform duration-200 ${activeStudentSection === 'historicos' ? 'rotate-90' : ''}`}
-            />
-          </button>
-
-          {activeStudentSection === 'historicos' ? (
-            <div className="px-4 pb-5 border-t border-white/10">
-              <p className="mt-4 text-[10px] font-bold uppercase tracking-widest text-[color:var(--text-soft)]">{t('Presenças recentes')}</p>
-              <div className="mt-2 app-list">
-                {recentAttendances.map((attendance) => (
-                  <div key={attendance.id} className="app-list-card">
-                    <p className="text-sm font-bold">{classNameById.get(attendance.classId) || t('Aula da academia')}</p>
-                    <p className="mt-1 text-xs text-[color:var(--text-soft)]">
-                      {resolveAttendanceDate(attendance, classStartById.get(attendance.classId))?.toLocaleString(getLocale()) ?? t('Sem data')} • {t('método {method}', { method: attendance.checkInMethod })}
-                    </p>
-                    {attendance.countsAsAttendance === false ? (
-                      <span className="app-badge app-badge--muted mt-2 inline-flex">
-                        {nonCountingReasonLabel(attendance.nonCountingReason)
-                          ? `${t('Não computada')} · ${nonCountingReasonLabel(attendance.nonCountingReason)}`
-                          : t('Não computada')}
-                      </span>
-                    ) : null}
-                  </div>
-                ))}
-                {recentAttendances.length === 0 ? (
-                  <div className="app-empty">{t('Ainda não há presenças registradas neste perfil.')}</div>
-                ) : null}
-              </div>
-
-              <p className="mt-4 text-[10px] font-bold uppercase tracking-widest text-[color:var(--text-soft)]">{t('Graduações')}</p>
-              <div className="mt-2 app-list">
-                {graduations.slice(0, 5).map((graduation) => (
-                  <div key={graduation.id} className="app-list-card">
-                    <p className="text-sm font-bold">
-                      {beltLabel(graduation.previousBelt)} {graduation.previousStripes} → {beltLabel(graduation.newBelt)} {graduation.newStripes}
-                    </p>
-                    <p className="mt-1 text-xs text-[color:var(--text-soft)]">
-                      {graduation.promotedAt?.toDate().toLocaleDateString(getLocale())} • {graduation.reason.replaceAll('_', ' ')}
-                    </p>
-                  </div>
-                ))}
-                {graduations.length === 0 ? (
-                  <div className="app-empty">{t('Ainda não há graduações registradas para este perfil.')}</div>
-                ) : null}
-              </div>
-            </div>
-          ) : null}
-        </div>
-
-        {/* Regras de exame */}
-        <div>
-          <button
-            type="button"
-            className="profile-mobile__menu-row w-full text-left"
-            onClick={() => setExamRulesOpen(true)}
-          >
-            <div className="profile-mobile__menu-icon"><ScrollText size={18} /></div>
-            <span className="profile-mobile__menu-label">{t('Regras de exame')}</span>
-            <ChevronRight size={18} className="profile-mobile__menu-arrow" />
-          </button>
-        </div>
-
-        {/* Trocar de academia */}
-        {hasMultipleMemberships && onRequestAcademyChange ? (
-          <div>
-            <button
-              type="button"
-              className="profile-mobile__menu-row w-full text-left"
-              onClick={() => onRequestAcademyChange()}
-            >
-              <div className="profile-mobile__menu-icon"><History size={18} /></div>
-              <span className="profile-mobile__menu-label">{t('Trocar de academia')}</span>
-              <ChevronRight size={18} className="profile-mobile__menu-arrow" />
-            </button>
-          </div>
-        ) : null}
-
-        {/* Solicitar entrada em outra unidade */}
-        {canRequestAdditionalAcademy ? (
-          <div style={{ padding: '0 1rem 1rem' }}>
-            {requestAcademyFeedback ? (
-              <div className="app-alert app-alert--success" style={{ marginBottom: '0.5rem' }}>{requestAcademyFeedback}</div>
-            ) : null}
-            {requestAcademyError ? (
-              <div className="app-alert app-alert--error" style={{ marginBottom: '0.5rem' }}>{requestAcademyError}</div>
-            ) : null}
-
-            {requestAcademyOpen ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                <select
-                  value={requestAcademyId}
-                  onChange={(event) => setRequestAcademyId(event.target.value)}
-                  className="app-select"
-                >
-                  <option value="">{t('Selecione a unidade')}</option>
-                  {availableAcademiesForRequest!.map((entry) => (
-                    <option key={entry.id} value={entry.id}>{entry.name}</option>
-                  ))}
-                </select>
-                <div style={{ display: 'flex', gap: '0.5rem' }}>
-                  <button
-                    type="button"
-                    onClick={() => void handleSubmitAdditionalAcademy()}
-                    disabled={!requestAcademyId || requestAcademyBusy}
-                    className="app-button app-button--gold app-button--block"
-                  >
-                    {requestAcademyBusy ? t('Enviando...') : t('Enviar solicitação')}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => { setRequestAcademyOpen(false); setRequestAcademyError(''); }}
-                    className="app-button app-button--ghost app-button--block"
-                  >
-                    {t('Cancelar')}
-                  </button>
-                </div>
-              </div>
+              </form>
             ) : (
-              <button
-                type="button"
-                onClick={() => setRequestAcademyOpen(true)}
-                className="app-button app-button--ghost app-button--block"
-              >
-                {t('Solicitar entrada em outra unidade')}
-              </button>
-            )}
-          </div>
-        ) : null}
+              <div className="app-list">
+                <div className="app-list-card">
+                  <p className="text-[11px] uppercase tracking-[0.16em] text-[color:var(--text-soft)]">{t('Função')}</p>
+                  <p className="mt-1 text-sm font-bold">{roleLabel(profile.role)}</p>
+                </div>
+                <div className="app-list-card">
+                  <div className="flex items-center gap-2 text-sm font-bold">
+                    <Mail size={16} className="text-[color:var(--gold-mid)]" />
+                    {user.email}
+                  </div>
+                </div>
+                <div className="app-list-card">
+                  <div className="flex items-center gap-2 text-sm font-bold">
+                    <Phone size={16} className="text-[color:var(--gold-mid)]" />
+                    {profile.phone || t('Telefone não informado')}
+                  </div>
+                </div>
+              </div>
+            ),
+          })}
+
+          {renderRow({
+            id: 'acesso-email',
+            icon: <ShieldCheck size={18} />,
+            label: t('Acesso conta email'),
+            open: openSection === 'acesso-email',
+            onClick: () => toggleSection('acesso-email'),
+            children: (
+              <>
+                <div className="app-list">
+                  <div className="app-list-card">
+                    <p className="text-sm font-bold">{t('Permissões')}</p>
+                    <p className="mt-1 text-xs text-[color:var(--text-soft)]">{t('Perfil atual: {role}', { role: roleLabel(profile.role) })}</p>
+                  </div>
+                  <div className="app-list-card">
+                    <p className="text-sm font-bold">{t('Academia')}</p>
+                    <p className="mt-1 text-xs text-[color:var(--text-soft)]">{academyName || t('Sem academia vinculada')}</p>
+                  </div>
+                  <div className="app-list-card">
+                    <p className="text-sm font-bold">{t('Faixa e grau')}</p>
+                    <p className="mt-1 text-xs text-[color:var(--text-soft)]">{t('Alteração feita apenas por professor ou superadmin.')}</p>
+                  </div>
+                </div>
+                {canEditProfile ? emailForm : null}
+              </>
+            ),
+          })}
+
+          {renderRow({
+            id: 'aparencia',
+            icon: isDarkMode ? <Moon size={18} /> : <Sun size={18} />,
+            label: t('Aparência'),
+            value: currentThemeLabel,
+            open: openSection === 'aparencia',
+            onClick: () => toggleSection('aparencia'),
+            children: appearancePanel,
+          })}
+
+          {renderRow({
+            id: 'idioma',
+            icon: <Languages size={18} />,
+            label: t('Idioma'),
+            value: languageLabel,
+            open: openSection === 'idioma',
+            onClick: () => toggleSection('idioma'),
+            children: languagePanel,
+          })}
+
+          {renderRow({
+            id: 'notificacoes',
+            icon: <Bell size={18} />,
+            label: t('Notificações neste aparelho'),
+            open: openSection === 'notificacoes',
+            onClick: () => toggleSection('notificacoes'),
+            children: <PushSettingsPanel />,
+          })}
+        </div>
+      </section>
+
+      <section className="rd-profile__group" aria-label={t('Treino')}>
+        <p className="rd-profile__group-title">{t('Treino')}</p>
+        <div className="rd-profile__list">
+          {renderRow({
+            id: 'historicos',
+            icon: <History size={18} />,
+            label: t('Históricos'),
+            hint: t('Presenças recentes e graduações'),
+            open: openSection === 'historicos',
+            onClick: () => toggleSection('historicos'),
+            children: (
+              <>
+                <p className="rd-profile__panel-title">{t('Presenças recentes')}</p>
+                <div className="app-list">
+                  {recentAttendances.map((attendance) => (
+                    <div key={attendance.id} className="app-list-card">
+                      <p className="text-sm font-bold">{classNameById.get(attendance.classId) || t('Aula da academia')}</p>
+                      <p className="mt-1 text-xs text-[color:var(--text-soft)]">
+                        {resolveAttendanceDate(attendance, classStartById.get(attendance.classId))?.toLocaleString(getLocale()) ?? t('Sem data')} • {t('método {method}', { method: attendance.checkInMethod })}
+                      </p>
+                      {attendance.countsAsAttendance === false ? (
+                        <span className="app-badge app-badge--muted mt-2 inline-flex">
+                          {nonCountingReasonLabel(attendance.nonCountingReason)
+                            ? `${t('Não computada')} · ${nonCountingReasonLabel(attendance.nonCountingReason)}`
+                            : t('Não computada')}
+                        </span>
+                      ) : null}
+                    </div>
+                  ))}
+                  {recentAttendances.length === 0 ? (
+                    <div className="app-empty">{t('Ainda não há presenças registradas neste perfil.')}</div>
+                  ) : null}
+                </div>
+
+                <p className="rd-profile__panel-title">{t('Graduações')}</p>
+                {graduationList(5, t('Ainda não há graduações registradas para este perfil.'))}
+              </>
+            ),
+          })}
+
+          {renderRow({
+            id: 'regras-exame',
+            icon: <ScrollText size={18} />,
+            label: t('Regras de exame'),
+            onClick: () => setExamRulesOpen(true),
+          })}
+        </div>
+      </section>
+
+      {unitGroup}
+
+      <div className="rd-profile__footer">
+        <button type="button" onClick={() => void onLogout()} className="rd-profile__logout">
+          <LogOut size={18} />
+          {t('Sair da conta')}
+        </button>
 
         {/* Zona de perigo — excluir conta (apenas alunos) */}
         {onDeleteAccount ? (
-          <div>
+          <>
             <button
               type="button"
-              className="profile-mobile__menu-row w-full text-left"
+              className="rd-profile__delete-link"
               onClick={() => {
-                setActiveStudentSection(activeStudentSection === 'excluir-conta' ? null : 'excluir-conta');
+                toggleSection('excluir-conta');
                 setDeleteError('');
               }}
+              aria-expanded={openSection === 'excluir-conta'}
             >
-              <div className="profile-mobile__menu-icon" style={{ color: 'var(--color-danger, #ef4444)' }}><Trash2 size={18} /></div>
-              <span className="profile-mobile__menu-label" style={{ color: 'var(--color-danger, #ef4444)' }}>{t('Excluir minha conta')}</span>
-              <ChevronRight
-                size={18}
-                className={`profile-mobile__menu-arrow transition-transform duration-200 ${activeStudentSection === 'excluir-conta' ? 'rotate-90' : ''}`}
-              />
+              <Trash2 size={16} />
+              {t('Excluir minha conta')}
             </button>
 
-            {activeStudentSection === 'excluir-conta' ? (
-              <div className="px-4 pb-5 border-t border-white/10">
-                <div className="app-alert app-alert--warning mt-4">
+            {openSection === 'excluir-conta' ? (
+              <div className="rd-profile__card rd-profile__delete">
+                <div className="app-alert app-alert--warning">
                   <div className="flex items-start gap-2">
                     <AlertTriangle size={18} className="shrink-0 mt-0.5" />
                     <div>
@@ -1241,10 +1196,10 @@ const ProfileView: React.FC<ProfileViewProps> = ({
                   </div>
                 </div>
 
-                <form onSubmit={handleDeleteSubmit} className="mt-4 app-form-grid">
-                  {deleteError ? <div className="app-alert app-alert--error md:col-span-2">{deleteError}</div> : null}
+                <form onSubmit={handleDeleteSubmit} className="rd-profile__form">
+                  {deleteError ? <div className="app-alert app-alert--error">{deleteError}</div> : null}
 
-                  <label className="app-field md:col-span-2">
+                  <label className="app-field">
                     <span className="app-field__label">{t('Confirme sua senha')}</span>
                     <input
                       type="password"
@@ -1256,7 +1211,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({
                     />
                   </label>
 
-                  <label className="flex items-start gap-2 text-xs md:col-span-2">
+                  <label className="flex items-start gap-2 text-xs">
                     <input
                       type="checkbox"
                       checked={deleteConfirmChecked}
@@ -1269,7 +1224,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({
                   <button
                     type="submit"
                     disabled={deleteBusy || !deleteConfirmChecked || deletePassword.length === 0}
-                    className="app-button app-button--solid-danger app-button--block md:col-span-2"
+                    className="app-button app-button--solid-danger app-button--block"
                   >
                     <Trash2 size={16} />
                     {deleteBusy ? t('Excluindo conta...') : t('Excluir minha conta permanentemente')}
@@ -1277,22 +1232,9 @@ const ProfileView: React.FC<ProfileViewProps> = ({
                 </form>
               </div>
             ) : null}
-          </div>
+          </>
         ) : null}
-
-        {/* Sair da conta */}
-        <div>
-          <button
-            type="button"
-            className="profile-mobile__menu-row w-full text-left"
-            onClick={() => void onLogout()}
-          >
-            <div className="profile-mobile__menu-icon" style={{ color: 'var(--color-danger, #ef4444)' }}><LogOut size={18} /></div>
-            <span className="profile-mobile__menu-label" style={{ color: 'var(--color-danger, #ef4444)' }}>{t('Sair da conta')}</span>
-            <ChevronRight size={18} className="profile-mobile__menu-arrow" />
-          </button>
-        </div>
-      </section>
+      </div>
 
       {examRulesOpen ? (
         <ExamRulesModal currentBelt={user.belt} onClose={() => setExamRulesOpen(false)} />
