@@ -818,6 +818,9 @@ const CalendarView: React.FC<CalendarViewProps> = ({
   const [isCompactMonthGrid, setIsCompactMonthGrid] = useState(
     () => (typeof window !== 'undefined' ? window.matchMedia('(max-width: 719px)').matches : false),
   );
+  // Redesign: aluno e professor usam a agenda nova (semana tatame + lista) em qualquer largura de
+  // tela. So o superadmin, que trabalha no computador, mantem o calendario mensal de desktop.
+  const isAgendaLayout = isCompactMonthGrid || !isSuperAdmin;
 
   const [surfaceTab, setSurfaceTab] = useState<CalendarSurface>('calendar');
   const [view, setView] = useState<StaffFilter>('todas');
@@ -1015,11 +1018,11 @@ const CalendarView: React.FC<CalendarViewProps> = ({
   // o tablet, redimensionar a janela) eles precisam sair do ar, senao a folha reabre sozinha na
   // proxima vez que a tela encolher.
   useEffect(() => {
-    if (!isCompactMonthGrid) {
+    if (!isAgendaLayout) {
       setCalendarOpen(false);
       setFiltersOpen(false);
     }
-  }, [isCompactMonthGrid]);
+  }, [isAgendaLayout]);
 
   useEffect(() => {
     const id = setInterval(() => {
@@ -2119,7 +2122,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
   );
 
   return (
-    <div className={`view-shell ${!isCompactMonthGrid ? 'calendar-desktop' : ''}`.trim()}>
+    <div className={`view-shell ${!isAgendaLayout ? 'calendar-desktop' : ''}`.trim()}>
       {feedbackToast ? (
         <div className="fixed top-24 left-4 right-4 z-[72] mx-auto max-w-lg">
           <div className="app-toast text-sm">
@@ -2129,7 +2132,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
         </div>
       ) : null}
 
-      {!isCompactMonthGrid ? (
+      {!isAgendaLayout ? (
         <section className="app-panel app-panel-pad">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
@@ -2156,7 +2159,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
 
       {/* Mobile: a agenda do dia e a tela inteira — calendario e filtros vivem atras de um
           botao cada. Desktop segue com as abas e o calendario sempre aberto. */}
-      {isCompactMonthGrid ? (
+      {isAgendaLayout ? (
         surfaceTab === 'unfinished' && isStaff ? renderMobilePending() : renderMobileAgenda()
       ) : surfaceTab === 'calendar' ? (
         <>
@@ -2341,7 +2344,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
         </section>
       )}
 
-      {isCompactMonthGrid && filtersOpen ? renderAgendaFiltersSheet() : null}
+      {isAgendaLayout && filtersOpen ? renderAgendaFiltersSheet() : null}
 
       {selectedClass ? (
         <div

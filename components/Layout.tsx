@@ -557,10 +557,11 @@ const Layout: React.FC<LayoutProps> = ({
                     </div>
                   ) : null}
 
-                  {isStudentNav ? (
+                  {/* Telas com cabecalho proprio ja tem o sino: aqui ele sairia duplicado. */}
+                  {isStudentNav && (!screenOwnsHeader || onUnitClick) ? (
                     <div className="app-pagebar__context app-pagebar__bell">
                       {onUnitClick ? renderUnitChip() : null}
-                      {renderBellButton()}
+                      {!screenOwnsHeader ? renderBellButton() : null}
                     </div>
                   ) : null}
                 </div>
