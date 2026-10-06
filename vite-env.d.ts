@@ -12,6 +12,8 @@ interface ImportMetaEnv {
   readonly VITE_FIREBASE_FUNCTIONS_REGION?: string;
   readonly VITE_USE_FIREBASE_EMULATORS?: string;
   readonly VITE_GEMINI_API_KEY?: string;
+  /** 'true' so no build de demonstracao (`npm run build:demo`): abre direto a galeria com dados ficticios. */
+  readonly VITE_DEMO_PREVIEW?: string;
 }
 
 interface ImportMeta {

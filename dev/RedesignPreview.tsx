@@ -1,6 +1,6 @@
-// Galeria do redesign: http://localhost:3000/?preview=redesign
-// So existe em desenvolvimento (index.tsx so carrega este arquivo quando import.meta.env.DEV).
-// Mostra as telas novas com dados ficticios, sem login e sem gravar nada no Firebase.
+// Galeria do redesign: http://localhost:3000/?preview=redesign (desenvolvimento) e o build de
+// demonstracao para o cliente (`npm run build:demo`). index.tsx so carrega este arquivo nesses dois
+// casos. Simula a visao do aluno e a do professor com dados ficticios, sem login e sem gravar nada.
 import React, { useEffect, useMemo, useState } from 'react';
 import { Timestamp } from 'firebase/firestore';
 import Layout from '../components/Layout';
@@ -10,8 +10,12 @@ import GraduationCelebrationModal from '../components/GraduationCelebrationModal
 import CalendarView from '../views/CalendarView';
 import EvolutionView from '../views/EvolutionView';
 import HomeView from '../views/HomeView';
+import LearningHubView from '../views/LearningHubView';
+import ManagementView from '../views/ManagementView';
 import NotificationsView from '../views/NotificationsView';
+import ProfileView from '../views/ProfileView';
 import StaffDashboardView from '../views/StaffDashboardView';
+import StudentsView from '../views/StudentsView';
 import { getUserProgressionSummary } from '../beltCatalog';
 import { resolveMonthlyCommitment } from '../commitmentScale';
 import { previewNonCountingReason } from '../classRules';
@@ -19,11 +23,13 @@ import { toUiUser } from '../services/firebase/adapters';
 import type { FirestoreEntity } from '../services/firebase/data';
 import type { AttendanceRecord, ClassRsvpRecord, UserRecord } from '../services/firebase/models';
 import { UserRole } from '../types';
-import { SUPPORTED_LANGUAGES, useI18n } from '../i18n';
+import { SUPPORTED_LANGUAGES, t, useI18n } from '../i18n';
+import { publicAsset } from '../publicAsset';
 import {
   ACADEMY_ID,
   TODAY_EVENING_CLASS_ID,
   previewAcademy,
+  previewAcademyAttendances,
   previewAttendanceRequests,
   previewBroadcasts,
   previewClasses,
@@ -32,6 +38,12 @@ import {
   previewGraduationRequests,
   previewGraduations,
   previewJoinRequests,
+  previewLearningBlocks,
+  previewLearningCourses,
+  previewLearningLessons,
+  previewLearningProgress,
+  previewLearningQuizzes,
+  previewLearningTracks,
   previewNotifications,
   previewProfessor,
   previewStudent,
@@ -98,7 +110,20 @@ const pastClassIds = previewClasses
     return () => undefined;
   },
   getMyClassRsvp: (classId: string) => Promise.resolve(classId === TODAY_EVENING_CLASS_ID),
+  // Detalhe do aluno (Academia): historico de presencas e graduacoes do aluno aberto.
+  subscribeToUserAttendances: (_academyId: string, userId: string, listener: (records: unknown[]) => void) => {
+    listener(userId === previewStudent.id
+      ? previewStudentAttendances
+      : previewAcademyAttendances.filter((entry) => entry.userId === userId));
+    return () => undefined;
+  },
+  subscribeToUserGraduations: (_academyId: string, userId: string, listener: (records: unknown[]) => void) => {
+    listener(userId === previewStudent.id ? previewGraduations : []);
+    return () => undefined;
+  },
 };
+
+const isDemoBuild = import.meta.env.VITE_DEMO_PREVIEW === 'true';
 
 // ─── Telas ──────────────────────────────────────────────────────────────────
 type PreviewRole = 'student' | 'staff';
@@ -118,6 +143,8 @@ const SCREENS: ScreenDef[] = [
   { id: 'aluno-evolucao', role: 'student', tab: 'evolution', label: 'Aluno · Evolução' },
   { id: 'aluno-evolucao-preta', role: 'student', tab: 'evolution', label: 'Aluno · Evolução (faixa preta)', variant: 'black' },
   { id: 'aluno-competicao', role: 'student', tab: 'competition', label: 'Aluno · Competição' },
+  { id: 'aluno-learning', role: 'student', tab: 'learning', label: 'Aluno · Learning' },
+  { id: 'aluno-perfil', role: 'student', tab: 'profile', label: 'Aluno · Perfil' },
   { id: 'aluno-avisos', role: 'student', tab: 'notifications', label: 'Aluno · Avisos' },
   { id: 'aluno-avisos-vazio', role: 'student', tab: 'notifications', label: 'Aluno · Avisos (vazio)', variant: 'empty' },
   { id: 'aluno-checkin', role: 'student', tab: 'home', label: 'Aluno · Check-in (câmera)', overlay: 'checkin' },
@@ -125,8 +152,15 @@ const SCREENS: ScreenDef[] = [
   { id: 'aluno-celebracao', role: 'student', tab: 'home', label: 'Aluno · Celebração de graduação', overlay: 'celebration' },
   { id: 'prof-inicio', role: 'staff', tab: 'home', label: 'Professor · Início' },
   { id: 'prof-calendario', role: 'staff', tab: 'calendar', label: 'Professor · Calendário (toque numa aula)' },
+  { id: 'prof-academia', role: 'staff', tab: 'management', label: 'Professor · Academia' },
+  { id: 'prof-aluno', role: 'staff', tab: 'students', label: 'Professor · Detalhe do aluno' },
   { id: 'prof-avisos', role: 'staff', tab: 'notifications', label: 'Professor · Avisos' },
+  { id: 'prof-learning', role: 'staff', tab: 'learning', label: 'Professor · Learning' },
+  { id: 'prof-perfil', role: 'staff', tab: 'profile', label: 'Professor · Perfil' },
 ];
+
+// Tela inicial: escolher a visao (aluno ou professor).
+const CHOOSER_ID = 'escolha';
 
 const noopAsync = async () => undefined;
 const delay = <T,>(value: T, ms = 700) => new Promise<T>((resolve) => { window.setTimeout(() => resolve(value), ms); });
@@ -137,7 +171,7 @@ function readParam(name: string) {
 
 function writeParams(screenId: string, dark: boolean) {
   const params = new URLSearchParams(window.location.search);
-  params.set('preview', 'redesign');
+  if (!isDemoBuild) params.set('preview', 'redesign');
   params.set('screen', screenId);
   if (dark) params.set('theme', 'dark'); else params.delete('theme');
   window.history.replaceState({}, '', `${window.location.pathname}?${params.toString()}`);
@@ -147,11 +181,13 @@ const RedesignPreview: React.FC = () => {
   const { language, setLanguage } = useI18n();
   const [screenId, setScreenId] = useState(() => {
     const fromUrl = readParam('screen');
-    return SCREENS.some((screen) => screen.id === fromUrl) ? fromUrl! : SCREENS[0].id;
+    return fromUrl === CHOOSER_ID || SCREENS.some((screen) => screen.id === fromUrl) ? fromUrl! : CHOOSER_ID;
   });
   const [dark, setDark] = useState(() => readParam('theme') === 'dark');
-  const [menuOpen, setMenuOpen] = useState(() => readParam('menu') !== '0' && !readParam('screen'));
+  const [menuOpen, setMenuOpen] = useState(false);
   const [overlayClosed, setOverlayClosed] = useState(false);
+  const [selectedStudentId, setSelectedStudentId] = useState('aluno-marina');
+  const isChooser = screenId === CHOOSER_ID;
   const screen = SCREENS.find((entry) => entry.id === screenId) ?? SCREENS[0];
 
   useEffect(() => {
@@ -192,6 +228,10 @@ const RedesignPreview: React.FC = () => {
       ?? (tab === 'graduation' ? SCREENS.find((entry) => entry.id === 'aluno-evolucao') : undefined);
     if (target) setScreenId(target.id);
   };
+  const openStudent = (studentId: string) => {
+    setSelectedStudentId(studentId);
+    setScreenId('prof-aluno');
+  };
 
   const shell: RedesignShellValue = {
     role: screen.role,
@@ -205,6 +245,93 @@ const RedesignPreview: React.FC = () => {
   };
 
   const professors = previewUsers.filter((user) => user.role === 'professor').map((user) => ({ id: user.id, displayName: user.displayName }));
+  const toUi = (record: FirestoreEntity<UserRecord>) => toUiUser({ id: record.id, user: record, graduations: [], fights: [] });
+  const activeStudents = previewUsers.filter((user) => user.role === 'student' && user.status !== 'suspended').map(toUi);
+  const suspendedStudents = previewUsers.filter((user) => user.role === 'student' && user.status === 'suspended').map(toUi);
+  const studentClassNames = new Map<string, string>([
+    ...previewClasses.map((lesson) => [lesson.id, lesson.title] as [string, string]),
+    ...previewStudentAttendances.map((entry) => [entry.classId, 'Iniciante'] as [string, string]),
+  ]);
+  const studentClassStarts = new Map<string, Date>([
+    ...classStartById,
+    ...previewStudentAttendances.map((entry) => [entry.classId, entry.classStartAt!.toDate()] as [string, Date]),
+  ]);
+  const saveDelay = async () => { await delay(undefined); };
+  const learningHandlers = {
+    onUpsertTrack: async () => delay({ trackId: 'track-fundamentos' }),
+    onUpsertCourse: async () => delay({ courseId: 'course-base', trackId: 'track-fundamentos' }),
+    onUpsertLesson: async () => delay({ lessonId: 'lesson-queda', courseId: 'course-base', trackId: 'track-fundamentos' }),
+    onDeleteTrack: async (trackId: string) => delay({ trackId }),
+    onDeleteCourse: async (courseId: string) => delay({ courseId }),
+    onDeleteLesson: async (lessonId: string) => delay({ lessonId }),
+    onBackfillAudience: async () => delay({ trackCount: 1 }),
+    onReplaceLessonBlocks: async () => delay({}) as never,
+    onUpsertQuiz: async () => delay({}) as never,
+    onUploadLearningAsset: async () => delay({}) as never,
+    onRecordPlayback: async () => ({ contentCompletionPercent: 100, contentCompleted: true, quizReady: true }),
+    onMarkBlockComplete: async () => delay({ contentCompletionPercent: 100, contentCompleted: true, lessonCompleted: false, quizReady: true }),
+    onStartQuiz: async (lessonId: string) => {
+      const quiz = previewLearningQuizzes.find((entry) => entry.lessonId === lessonId);
+      return delay({
+        questions: (quiz?.questions ?? []).map((question, index) => ({ id: `q${index}`, prompt: question.prompt, options: question.options })),
+        passingScore: quiz?.passingScore ?? 70,
+        attemptCount: 0,
+      });
+    },
+    onSubmitQuiz: async ({ lessonId, answers }: { lessonId: string; answers: number[] }) => {
+      const quiz = previewLearningQuizzes.find((entry) => entry.lessonId === lessonId);
+      const questions = quiz?.questions ?? [];
+      const correct = questions.filter((question, index) => question.correctOptionIndex === answers[index]).length;
+      const scorePercent = questions.length ? Math.round((correct / questions.length) * 100) : 100;
+      return delay({ scorePercent, passed: scorePercent >= (quiz?.passingScore ?? 70) });
+    },
+  };
+  const renderLearning = (role: UserRole, viewer: FirestoreEntity<UserRecord>) => (
+    <LearningHubView
+      academyName={previewAcademy.name}
+      userName={viewer.displayName}
+      userRole={role}
+      viewerRole={viewer.role}
+      viewerBelt={viewer.belt}
+      selectedAcademyId={ACADEMY_ID}
+      selectedAcademy={previewAcademy}
+      academies={[previewAcademy]}
+      allUsers={previewUsers}
+      academyUsers={previewUsers}
+      tracks={previewLearningTracks}
+      courses={previewLearningCourses}
+      lessons={previewLearningLessons}
+      lessonBlocks={previewLearningBlocks}
+      quizzes={previewLearningQuizzes}
+      progressRecords={viewer.id === previewStudent.id ? previewLearningProgress : []}
+      {...learningHandlers}
+    />
+  );
+  const renderProfile = (viewer: typeof student, record: FirestoreEntity<UserRecord>, isStudentViewer: boolean) => (
+    <ProfileView
+      user={viewer}
+      progressionRules={previewAcademy.progressionRules}
+      profile={record}
+      totalClasses={record.attendanceCount}
+      commitment={isStudentViewer ? commitment : null}
+      academyName={previewAcademy.name}
+      attendanceRate={isStudentViewer ? 72 : 0}
+      attendances={isStudentViewer ? previewStudentAttendances : []}
+      classNameById={studentClassNames}
+      classStartById={studentClassStarts}
+      graduations={isStudentViewer ? previewGraduations : []}
+      isDarkMode={dark}
+      onSetThemeMode={(mode) => setDark(mode === 'dark')}
+      onSaveProfile={saveDelay}
+      onChangeEmail={saveDelay}
+      onDeleteAccount={isStudentViewer ? saveDelay : undefined}
+      onOpenNotifications={() => goTab('notifications')}
+      onLogout={() => setScreenId(CHOOSER_ID)}
+      studentMemberships={isStudentViewer ? [ACADEMY_ID] : undefined}
+      availableAcademiesForRequest={isStudentViewer ? [] : undefined}
+      onRequestAdditionalAcademy={isStudentViewer ? saveDelay : undefined}
+    />
+  );
   const lessonTonight = previewClasses.find((lesson) => lesson.id === TODAY_EVENING_CLASS_ID) ?? null;
 
   const renderScreen = () => {
@@ -250,6 +377,10 @@ const RedesignPreview: React.FC = () => {
           );
         case 'notifications':
           return renderNotifications(UserRole.ALUNO, student.id, screen.variant === 'empty' ? [] : previewNotifications);
+        case 'learning':
+          return renderLearning(UserRole.ALUNO, studentRecord);
+        case 'profile':
+          return renderProfile(student, studentRecord, true);
         default:
           return (
             <HomeView
@@ -305,11 +436,64 @@ const RedesignPreview: React.FC = () => {
             onSubmitAttendanceRequest={noopAsync}
             onMarkStudentPresent={async () => { await delay(undefined); }}
             onRemoveStudentPresent={async () => { await delay(undefined); }}
-            onOpenStudent={() => undefined}
+            onOpenStudent={openStudent}
           />
         );
       case 'notifications':
         return renderNotifications(UserRole.PROFESSOR, professor.id, previewNotifications);
+      case 'learning':
+        return renderLearning(UserRole.PROFESSOR, previewProfessor);
+      case 'profile':
+        return renderProfile(professor, previewProfessor, false);
+      case 'management':
+        return (
+          <ManagementView
+            userRole={UserRole.PROFESSOR}
+            academy={previewAcademy}
+            classes={previewClasses}
+            academyUsers={previewUsers}
+            academies={[previewAcademy]}
+            allUsers={previewUsers}
+            rankingAttendances={previewAcademyAttendances}
+            studentVideoLibraryById={new Map()}
+            selectedAcademyId={ACADEMY_ID}
+            onUpdateAcademy={saveDelay}
+            onCreateAcademy={async () => delay({ academyId: ACADEMY_ID })}
+            onCreateUser={saveDelay}
+            onUpdateStudentBeltGrade={saveDelay}
+            onSetStudentAttendanceBonus={saveDelay}
+            onAdminUpdateStudentProfile={saveDelay}
+            onAdminUpdateStudentTimeline={saveDelay}
+            onAdminUpdateStudentPhoto={saveDelay}
+            onUpdateInstructor={saveDelay}
+          />
+        );
+      case 'students':
+        return (
+          <StudentsView
+            students={activeStudents}
+            deactivatedStudents={suspendedStudents}
+            progressionRules={previewAcademy.progressionRules}
+            graduationRequests={previewGraduationRequests}
+            rankingAttendances={previewAcademyAttendances}
+            classes={previewClasses}
+            academyName={previewAcademy.name}
+            academies={[{ id: ACADEMY_ID, name: previewAcademy.name }]}
+            selectedAcademyId={ACADEMY_ID}
+            requireAcademySelection={false}
+            selectedStudentId={selectedStudentId}
+            onSelectStudent={setSelectedStudentId}
+            onApproveGraduationRequest={saveDelay}
+            onUpdateStudentBeltGrade={saveDelay}
+            onSetStudentAttendanceBonus={saveDelay}
+            onAdminUpdateStudentProfile={saveDelay}
+            onAdminUpdateStudentTimeline={saveDelay}
+            onAdminUpdateStudentPhoto={saveDelay}
+            onDeactivateStudent={saveDelay}
+            onActivateStudent={saveDelay}
+            viewerRole="professor"
+          />
+        );
       default:
         return (
           <StaffDashboardView
@@ -325,6 +509,7 @@ const RedesignPreview: React.FC = () => {
             onNavigateToPending={() => goTab('notifications')}
             onNavigateToClasses={() => goTab('calendar')}
             onStartClass={async () => { await delay(undefined); goTab('calendar'); }}
+            onOpenStudent={openStudent}
           />
         );
     }
@@ -361,6 +546,96 @@ const RedesignPreview: React.FC = () => {
 
   const ownsHeader = ['home', 'calendar', 'evolution', 'competition', 'notifications'].includes(screen.tab);
   const showOverlay = screen.overlay && !overlayClosed;
+
+  const galleryMenu = (
+    <div className="rd-preview" data-open={menuOpen ? 'true' : 'false'}>
+      <button type="button" className="rd-preview__toggle" onClick={() => setMenuOpen((open) => !open)} aria-expanded={menuOpen}>
+        {menuOpen ? '×' : t('Telas')}
+      </button>
+      {menuOpen ? (
+        <div className="rd-preview__panel">
+          <p className="rd-preview__title">{t('Demonstração do redesign')}</p>
+          <p className="rd-preview__note">{t('Dados fictícios. Nada é salvo.')}</p>
+          <button
+            type="button"
+            className="rd-preview__item rd-preview__item--switch"
+            onClick={() => { setScreenId(CHOOSER_ID); setMenuOpen(false); }}
+          >
+            {t('Trocar visão (aluno / professor)')}
+          </button>
+          {(['student', 'staff'] as PreviewRole[]).map((role) => (
+            <div key={role} className="rd-preview__group">
+              <p className="rd-preview__group-title">{role === 'student' ? t('Aluno') : t('Professor')}</p>
+              {SCREENS.filter((entry) => entry.role === role).map((entry) => (
+                <button
+                  key={entry.id}
+                  type="button"
+                  className={`rd-preview__item ${!isChooser && entry.id === screen.id ? 'is-active' : ''}`.trim()}
+                  onClick={() => { setScreenId(entry.id); setMenuOpen(false); }}
+                >
+                  {t(entry.label.replace(/^(Aluno|Professor) · /, ''))}
+                </button>
+              ))}
+            </div>
+          ))}
+          <div className="rd-preview__row">
+            <button type="button" className="rd-preview__item" onClick={() => setDark((value) => !value)}>
+              {dark ? t('Tema claro') : t('Tema escuro')}
+            </button>
+            <select className="rd-preview__select" value={language} onChange={(event) => setLanguage(event.target.value as typeof language)}>
+              {SUPPORTED_LANGUAGES.map((entry) => <option key={entry.code} value={entry.code}>{entry.short}</option>)}
+            </select>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+
+  if (isChooser) {
+    return (
+      <>
+        <main className="rd-demo">
+          <div className="rd-demo__inner">
+            <img src={publicAsset('logo3.png')} alt="LEVEL Jiu-Jitsu" className="rd-demo__logo" />
+            <p className="rd-demo__eyebrow">{t('Novo design · demonstração')}</p>
+            <h1 className="rd-demo__title">{t('Escolha uma visão.')}</h1>
+            <p className="rd-demo__lead">
+              {t('Navegue pelo app como aluno ou como professor. Toque nas abas, abra aulas, faça check-in — tudo funciona com dados fictícios e nada é salvo.')}
+            </p>
+            <div className="rd-demo__choices">
+              <button type="button" className="rd-demo__choice" onClick={() => setScreenId('aluno-inicio')}>
+                <span className="rd-demo__choice-kicker">{t('Aluno')}</span>
+                <strong>{t('Ver como aluno')}</strong>
+                <span>{t('Início, aulas, check-in, evolução, learning, perfil e avisos.')}</span>
+              </button>
+              <button type="button" className="rd-demo__choice rd-demo__choice--ink" onClick={() => setScreenId('prof-inicio')}>
+                <span className="rd-demo__choice-kicker">{t('Professor')}</span>
+                <strong>{t('Ver como professor')}</strong>
+                <span>{t('Início, calendário com QR e presença, academia, avisos, learning e perfil.')}</span>
+              </button>
+            </div>
+            <p className="rd-demo__hint">{t('Dica: o botão “Telas” na lateral leva direto a qualquer tela e troca a visão a qualquer momento.')}</p>
+            <div className="rd-demo__prefs">
+              <button type="button" className="rd-demo__pref" onClick={() => setDark((value) => !value)}>
+                {dark ? t('Tema claro') : t('Tema escuro')}
+              </button>
+              {SUPPORTED_LANGUAGES.map((entry) => (
+                <button
+                  key={entry.code}
+                  type="button"
+                  className={`rd-demo__pref ${entry.code === language ? 'is-active' : ''}`.trim()}
+                  onClick={() => setLanguage(entry.code)}
+                >
+                  {entry.short}
+                </button>
+              ))}
+            </div>
+          </div>
+        </main>
+        {previewStyles}
+      </>
+    );
+  }
 
   return (
     <RedesignShellProvider value={shell}>
@@ -410,59 +685,49 @@ const RedesignPreview: React.FC = () => {
         />
       ) : null}
 
-      {/* Seletor da galeria */}
-      <div className="rd-preview" data-open={menuOpen ? 'true' : 'false'}>
-        <button type="button" className="rd-preview__toggle" onClick={() => setMenuOpen((open) => !open)} aria-expanded={menuOpen}>
-          {menuOpen ? '×' : 'Telas'}
-        </button>
-        {menuOpen ? (
-          <div className="rd-preview__panel">
-            <p className="rd-preview__title">Galeria do redesign</p>
-            <p className="rd-preview__note">Dados de exemplo. Nada é gravado no Firebase.</p>
-            {(['student', 'staff'] as PreviewRole[]).map((role) => (
-              <div key={role} className="rd-preview__group">
-                <p className="rd-preview__group-title">{role === 'student' ? 'Aluno' : 'Professor'}</p>
-                {SCREENS.filter((entry) => entry.role === role).map((entry) => (
-                  <button
-                    key={entry.id}
-                    type="button"
-                    className={`rd-preview__item ${entry.id === screen.id ? 'is-active' : ''}`.trim()}
-                    onClick={() => { setScreenId(entry.id); setMenuOpen(false); }}
-                  >
-                    {entry.label.replace(/^(Aluno|Professor) · /, '')}
-                  </button>
-                ))}
-              </div>
-            ))}
-            <div className="rd-preview__row">
-              <button type="button" className="rd-preview__item" onClick={() => setDark((value) => !value)}>
-                {dark ? 'Tema claro' : 'Tema escuro'}
-              </button>
-              <select className="rd-preview__select" value={language} onChange={(event) => setLanguage(event.target.value as typeof language)}>
-                {SUPPORTED_LANGUAGES.map((entry) => <option key={entry.code} value={entry.code}>{entry.short}</option>)}
-              </select>
-            </div>
-          </div>
-        ) : null}
-      </div>
-
-      <style>{`
-        .rd-preview { position: fixed; right: 4px; top: 50%; transform: translateY(-50%); z-index: 400; font-family: var(--font-body); }
-        .rd-preview__toggle { writing-mode: vertical-rl; padding: 12px 6px; border: 0; border-radius: 12px; background: #16161e; color: #f0b429; font-weight: 800; font-size: 12px; cursor: pointer; box-shadow: 0 6px 18px rgba(0,0,0,.25); }
-        .rd-preview[data-open='true'] .rd-preview__toggle { writing-mode: horizontal-tb; position: absolute; top: -40px; right: 0; width: 32px; height: 32px; padding: 0; font-size: 20px; }
-        .rd-preview__panel { width: 260px; max-height: 80vh; overflow-y: auto; padding: 14px; border-radius: 18px; background: #ffffff; color: #10131a; box-shadow: 0 20px 50px rgba(0,0,0,.3); }
-        .rd-preview__title { margin: 0; font-family: var(--font-display); font-weight: 700; font-size: 16px; }
-        .rd-preview__note { margin: 2px 0 10px; font-size: 12px; color: #606a7f; }
-        .rd-preview__group { display: flex; flex-direction: column; gap: 4px; margin-bottom: 10px; }
-        .rd-preview__group-title { margin: 0 0 2px; font-size: 11px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: #533517; }
-        .rd-preview__item { padding: 8px 10px; border: 1px solid #e2e5ec; border-radius: 10px; background: #fff; color: #10131a; font-size: 13px; font-weight: 700; text-align: left; cursor: pointer; }
-        .rd-preview__item.is-active { background: #f0b429; border-color: #f0b429; color: #1a1300; }
-        .rd-preview__row { display: flex; gap: 6px; }
-        .rd-preview__row .rd-preview__item { flex: 1; text-align: center; }
-        .rd-preview__select { border: 1px solid #e2e5ec; border-radius: 10px; padding: 0 6px; font-weight: 700; }
-      `}</style>
+      {galleryMenu}
+      {previewStyles}
     </RedesignShellProvider>
   );
 };
+
+const previewStyles = (
+  <style>{`
+    .rd-preview { position: fixed; right: 4px; top: 50%; transform: translateY(-50%); z-index: 400; font-family: var(--font-body); }
+    .rd-preview__toggle { writing-mode: vertical-rl; padding: 12px 6px; border: 0; border-radius: 12px; background: #16161e; color: #f0b429; font-weight: 800; font-size: 12px; cursor: pointer; box-shadow: 0 6px 18px rgba(0,0,0,.25); }
+    .rd-preview[data-open='true'] .rd-preview__toggle { writing-mode: horizontal-tb; position: absolute; top: -40px; right: 0; width: 32px; height: 32px; padding: 0; font-size: 20px; }
+    .rd-preview__panel { width: 260px; max-height: 80vh; overflow-y: auto; padding: 14px; border-radius: 18px; background: #ffffff; color: #10131a; box-shadow: 0 20px 50px rgba(0,0,0,.3); }
+    .rd-preview__title { margin: 0; font-family: var(--font-display); font-weight: 700; font-size: 16px; }
+    .rd-preview__note { margin: 2px 0 10px; font-size: 12px; color: #606a7f; }
+    .rd-preview__group { display: flex; flex-direction: column; gap: 4px; margin-bottom: 10px; }
+    .rd-preview__group-title { margin: 0 0 2px; font-size: 11px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: #533517; }
+    .rd-preview__item { padding: 8px 10px; border: 1px solid #e2e5ec; border-radius: 10px; background: #fff; color: #10131a; font-size: 13px; font-weight: 700; text-align: left; cursor: pointer; }
+    .rd-preview__item.is-active { background: #f0b429; border-color: #f0b429; color: #1a1300; }
+    .rd-preview__item--switch { width: 100%; margin-bottom: 12px; background: #16161e; border-color: #16161e; color: #ffffff; text-align: center; }
+    .rd-preview__row { display: flex; gap: 6px; }
+    .rd-preview__row .rd-preview__item { flex: 1; text-align: center; }
+    .rd-preview__select { border: 1px solid #e2e5ec; border-radius: 10px; padding: 0 6px; font-weight: 700; }
+
+    .rd-demo { min-height: 100dvh; display: flex; justify-content: center; padding: calc(env(safe-area-inset-top, 0px) + 32px) 16px calc(env(safe-area-inset-bottom, 0px) + 32px); background: #f0b429; color: #1a1300; font-family: var(--font-body); }
+    .rd-demo__inner { width: 100%; max-width: 460px; display: flex; flex-direction: column; gap: 14px; }
+    .rd-demo__logo { width: 72px; height: 72px; object-fit: contain; border-radius: 20px; background: #16161e; padding: 8px; }
+    .rd-demo__eyebrow { margin: 8px 0 0; font-size: 12px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: rgba(26,19,0,.72); }
+    .rd-demo__title { margin: 0; font-family: var(--font-display); font-size: 40px; font-weight: 800; line-height: 1.02; letter-spacing: -.03em; }
+    .rd-demo__lead { margin: 0; font-size: 16px; font-weight: 600; line-height: 1.45; }
+    .rd-demo__choices { display: flex; flex-direction: column; gap: 12px; margin-top: 8px; }
+    .rd-demo__choice { display: flex; flex-direction: column; gap: 4px; padding: 20px; border: 0; border-radius: 24px; background: #ffffff; color: #10131a; text-align: left; font-family: var(--font-body); cursor: pointer; box-shadow: 0 14px 30px rgba(26,19,0,.16); }
+    .rd-demo__choice strong { font-family: var(--font-display); font-size: 24px; font-weight: 800; letter-spacing: -.02em; }
+    .rd-demo__choice span { font-size: 14px; font-weight: 600; line-height: 1.4; color: #4a5266; }
+    .rd-demo__choice .rd-demo__choice-kicker { font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: #8a5a00; }
+    .rd-demo__choice--ink { background: #16161e; color: #ffffff; }
+    .rd-demo__choice--ink span { color: rgba(255,255,255,.72); }
+    .rd-demo__choice--ink .rd-demo__choice-kicker { color: #f0b429; }
+    .rd-demo__choice:focus-visible, .rd-demo__pref:focus-visible { outline: 3px solid #16161e; outline-offset: 3px; }
+    .rd-demo__hint { margin: 4px 0 0; font-size: 13px; font-weight: 700; color: rgba(26,19,0,.72); }
+    .rd-demo__prefs { display: flex; flex-wrap: wrap; gap: 8px; }
+    .rd-demo__pref { padding: 8px 14px; border: 1.5px solid #1a1300; border-radius: 999px; background: transparent; color: #1a1300; font-weight: 800; font-size: 13px; cursor: pointer; }
+    .rd-demo__pref.is-active { background: #1a1300; color: #f0b429; }
+  `}</style>
+);
 
 export default RedesignPreview;

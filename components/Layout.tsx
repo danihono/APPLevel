@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { UserRole } from '../types';
 import { t } from '../i18n';
+import { publicAsset } from '../publicAsset';
 
 type SuperadminViewMode = 'superadmin' | 'professor';
 
@@ -330,13 +331,13 @@ const Layout: React.FC<LayoutProps> = ({
         className="app-mobile-header__unit cursor-pointer hover:opacity-80 transition-opacity"
         aria-label={t('Trocar unidade')}
       >
-        <img src="/logo3.png" alt="" aria-hidden="true" className="app-mobile-header__unit-mark" />
+        <img src={publicAsset('logo3.png')} alt="" aria-hidden="true" className="app-mobile-header__unit-mark" />
         <span className="app-mobile-header__unit-name">{mobileUnitLabel}</span>
         <ChevronDown size={14} aria-hidden="true" />
       </button>
     ) : (
       <div className="app-mobile-header__unit">
-        <img src="/logo3.png" alt="" aria-hidden="true" className="app-mobile-header__unit-mark" />
+        <img src={publicAsset('logo3.png')} alt="" aria-hidden="true" className="app-mobile-header__unit-mark" />
         <span className="app-mobile-header__unit-name">{mobileUnitLabel}</span>
       </div>
     )
@@ -412,7 +413,7 @@ const Layout: React.FC<LayoutProps> = ({
     <aside className={`app-sidebar app-panel ${sidebarCollapsed ? 'app-sidebar--collapsed' : ''}`}>
       <div className="app-sidebar__header">
         <div className="app-sidebar__brand">
-          <img src="/logo3.png" alt="APPLevel" className="h-20 w-20 object-contain flex-shrink-0" />
+          <img src={publicAsset('logo3.png')} alt="APPLevel" className="h-20 w-20 object-contain flex-shrink-0" />
           <div className="app-sidebar__brand-copy" aria-hidden={sidebarCollapsed}>
             <p className="app-kicker">{t('Plataforma APPLevel')}</p>
             <h2 className="app-sidebar__title">{sidebarIdentity.title}</h2>

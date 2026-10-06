@@ -49,12 +49,13 @@ import { isNotificationInViewerInbox } from './notifications';
 
 export type FirestoreEntity<T> = T & { id: string };
 
-// Galeria de preview do redesign (?preview=redesign, so em desenvolvimento): troca algumas leituras
-// do Firestore por dados ficticios. Em producao `import.meta.env.DEV` e false e isto some do bundle.
+// Galeria de preview do redesign (?preview=redesign em desenvolvimento, ou o build de demonstracao
+// `npm run build:demo`): troca algumas leituras do Firestore por dados ficticios. No build de producao
+// as duas condicoes sao false e isto some do bundle.
 type PreviewDataOverrides = Partial<Record<string, (...args: never[]) => unknown>>;
 
 function previewOverride<T extends (...args: never[]) => unknown>(name: string): T | undefined {
-  if (!import.meta.env.DEV) {
+  if (!import.meta.env.DEV && import.meta.env.VITE_DEMO_PREVIEW !== 'true') {
     return undefined;
   }
   const registry = (globalThis as { __LEVEL_PREVIEW_DATA__?: PreviewDataOverrides }).__LEVEL_PREVIEW_DATA__;
@@ -259,6 +260,10 @@ export function subscribeToUserAttendances(
   listener: (records: Array<FirestoreEntity<AttendanceRecord>>) => void,
   onError?: (error: Error) => void,
 ) {
+  const previewImpl = previewOverride<typeof subscribeToUserAttendances>('subscribeToUserAttendances');
+  if (previewImpl) {
+    return previewImpl(academyId, userId, listener, onError);
+  }
   return onSnapshot(
     query(
       collection(firebaseDb, 'attendances'),
@@ -421,6 +426,10 @@ export function subscribeToUserGraduations(
   listener: (records: Array<FirestoreEntity<GraduationRecord>>) => void,
   onError?: (error: Error) => void,
 ) {
+  const previewImpl = previewOverride<typeof subscribeToUserGraduations>('subscribeToUserGraduations');
+  if (previewImpl) {
+    return previewImpl(academyId, userId, listener, onError);
+  }
   return onSnapshot(
     query(
       collection(firebaseDb, 'graduations'),

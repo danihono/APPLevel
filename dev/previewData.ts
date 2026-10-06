@@ -1,6 +1,7 @@
 // Dados ficticios da galeria de preview (?preview=redesign, so em desenvolvimento).
 // Nada aqui toca o Firebase: sao objetos no mesmo formato dos documentos do Firestore.
 import { Timestamp } from 'firebase/firestore';
+import { publicAsset } from '../publicAsset';
 import type { FirestoreEntity } from '../services/firebase/data';
 import type {
   AcademyRecord,
@@ -12,6 +13,12 @@ import type {
   GraduationApprovalRequestRecord,
   GraduationRecord,
   JoinRequestRecord,
+  LearningCourseRecord,
+  LearningLessonBlockRecord,
+  LearningLessonRecord,
+  LearningProgressRecord,
+  LearningQuizRecord,
+  LearningTrackRecord,
   NotificationBroadcastRecord,
   NotificationRecord,
   UserRecord,
@@ -332,3 +339,124 @@ export const previewFights: Array<FirestoreEntity<FightRecord>> = [{
   result: 'submission',
   occurredAt: ts(dayAt(-60, 11)),
 }];
+
+
+// Presencas de toda a academia (Academia > ranking, frequencia, faltantes): ultimos ~60 dias.
+export const previewAcademyAttendances: Array<FirestoreEntity<AttendanceRecord>> = previewUsers
+  .filter((user) => user.role === 'student')
+  .flatMap((user, userIndex) => {
+    const perWeek = user.status !== 'active' ? 0 : [3, 4, 2, 3, 1, 2, 3, 1, 0, 2, 3, 2][userIndex % 12];
+    const days: number[] = [];
+    for (let week = 0; week < 9; week += 1) {
+      for (let slot = 0; slot < perWeek; slot += 1) {
+        days.push(-(week * 7 + 1 + slot * 2));
+      }
+    }
+    return days.map((offset, index) => {
+      const start = dayAt(offset, slot19(index));
+      return {
+        id: `att-${user.id}-${index}`,
+        academyId: ACADEMY_ID,
+        classId: `hist-${offset}`,
+        userId: user.id,
+        checkInMethod: index % 3 === 0 ? 'manual' : 'qr',
+        checkedInBy: user.id,
+        countsAsAttendance: true,
+        classStartAt: ts(start),
+        checkedInAt: ts(new Date(start.getTime() + 4 * 60_000)),
+        createdAt: ts(start),
+      } as FirestoreEntity<AttendanceRecord>;
+    });
+  });
+
+function slot19(index: number) {
+  return index % 2 === 0 ? 19 : 7;
+}
+
+// Learning: uma trilha com dois cursos, modulos com imagem e um quiz.
+const beltImage = (file: string) => publicAsset(`illustrations/belts/${file}`);
+
+export const previewLearningTracks: Array<FirestoreEntity<LearningTrackRecord>> = [{
+  id: 'track-fundamentos',
+  title: 'Fundamentos do Jiu-Jitsu',
+  description: 'O caminho da faixa branca até a azul: posições, defesas e as primeiras finalizações.',
+  order: 1,
+  status: 'published',
+  audience: { mode: 'custom', roles: [], belts: [] }, // todos (alunos e professores, todas as faixas)
+}];
+
+export const previewLearningCourses: Array<FirestoreEntity<LearningCourseRecord>> = [
+  { id: 'course-base', trackId: 'track-fundamentos', title: 'Base e postura', description: 'Postura na guarda, base em pé e quedas seguras.', order: 1, status: 'published' },
+  { id: 'course-guarda', trackId: 'track-fundamentos', title: 'Guarda fechada', description: 'Controle, quebra de postura e as finalizações clássicas.', order: 2, status: 'published' },
+];
+
+const lessonSeeds: Array<[string, string, string, string, number]> = [
+  ['lesson-queda', 'course-base', 'Rolamento e queda segura', 'Como cair sem se machucar — o primeiro passo de todo treino.', 1],
+  ['lesson-postura', 'course-base', 'Postura dentro da guarda', 'Cotovelos fechados, quadril pra frente, cabeça alinhada.', 2],
+  ['lesson-armlock', 'course-guarda', 'Armlock da guarda fechada', 'Controle o braço, gire o quadril e finalize com calma.', 1],
+  ['lesson-triangulo', 'course-guarda', 'Triângulo', 'Um braço dentro, um fora: ajuste o ângulo e feche.', 2],
+];
+
+export const previewLearningLessons: Array<FirestoreEntity<LearningLessonRecord>> = lessonSeeds.map(([id, courseId, title, description, order]) => ({
+  id,
+  trackId: 'track-fundamentos',
+  courseId,
+  title,
+  description,
+  order,
+  status: 'published',
+  passingScore: 70,
+  requiredWatchPercent: 80,
+  quizQuestionCount: id === 'lesson-armlock' ? 3 : 0,
+  contentBlockCount: 1,
+}));
+
+export const previewLearningBlocks: Array<FirestoreEntity<LearningLessonBlockRecord>> = lessonSeeds.map(([id, courseId, title], index) => ({
+  id: `block-${id}`,
+  lessonId: id,
+  trackId: 'track-fundamentos',
+  courseId,
+  type: 'image',
+  title,
+  order: 1,
+  sourceUrl: beltImage(['faixa-branca-amarrada.webp', 'faixa-azul-amarrada.webp', 'faixa-roxa-amarrada.webp', 'faixa-marrom-amarrada.webp'][index]),
+  lessonStatus: 'published',
+}));
+
+export const previewLearningQuizzes: Array<FirestoreEntity<LearningQuizRecord>> = [{
+  id: 'quiz-armlock',
+  lessonId: 'lesson-armlock',
+  trackId: 'track-fundamentos',
+  courseId: 'course-guarda',
+  passingScore: 70,
+  questions: [
+    { prompt: 'Antes de finalizar o armlock, o que você precisa controlar?', options: ['O braço do oponente', 'A perna do oponente', 'Nada'], correctOptionIndex: 0 },
+    { prompt: 'Para onde o quadril vai na finalização?', options: ['Para trás', 'Para cima, em direção ao cotovelo', 'Fica parado'], correctOptionIndex: 1 },
+    { prompt: 'Quando o parceiro bate, você...', options: ['Solta na hora', 'Aperta mais', 'Espera o professor'], correctOptionIndex: 0 },
+  ],
+}];
+
+export const previewLearningProgress: Array<FirestoreEntity<LearningProgressRecord>> = [
+  {
+    id: 'progress-queda',
+    academyId: ACADEMY_ID,
+    userId: previewStudent.id,
+    userDisplayName: previewStudent.displayName,
+    trackId: 'track-fundamentos',
+    courseId: 'course-base',
+    lessonId: 'lesson-queda',
+    videoSecondsWatched: 0,
+    durationSeconds: 0,
+    watchPercent: 100,
+    videoCompleted: true,
+    quizReady: false,
+    quizPassed: true,
+    lessonCompleted: true,
+    completedContentIds: ['block-lesson-queda'],
+    contentCompletionPercent: 100,
+    contentCompleted: true,
+    lastScore: 100,
+    bestScore: 100,
+    attemptCount: 1,
+  },
+];

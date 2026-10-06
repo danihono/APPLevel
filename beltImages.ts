@@ -1,4 +1,5 @@
 import { BeltColor } from './types';
+import { publicAsset } from './publicAsset';
 
 // Imagens 3D das faixas adultas (public/illustrations/belts). Cada imagem vem recortada no
 // contorno da faixa, com a ponteira LISA: os graus sao desenhados por cima em BeltImage.
@@ -24,7 +25,7 @@ export interface BeltImageAsset {
 type BeltImageEntry = Record<BeltImageVariant, BeltImageAsset>;
 
 const asset = (file: string, width: number, height: number, tip: BeltImageTip): BeltImageAsset => ({
-  src: `/illustrations/belts/${file}`,
+  src: publicAsset(`illustrations/belts/${file}`),
   aspect: width / height,
   tip,
 });

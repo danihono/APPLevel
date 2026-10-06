@@ -1,3 +1,5 @@
+import { publicAsset } from '../publicAsset';
+
 interface LoadingScreenProps {
   message?: string;
 }
@@ -29,7 +31,7 @@ export function LoadingScreen({ message }: LoadingScreenProps) {
           }}
         />
         <img
-          src="/logo3.png"
+          src={publicAsset('logo3.png')}
           alt="APPLevel"
           style={{
             position: 'absolute',

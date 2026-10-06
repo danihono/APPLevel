@@ -11,6 +11,7 @@ import type { GraduationRecord } from '../services/firebase/models';
 import BeltImage from './BeltImage';
 import { t, getLocale } from '../i18n';
 import '../views/redesign/evolution.css';
+import { publicAsset } from '../publicAsset';
 
 interface GraduationCelebrationModalProps {
   graduation: FirestoreEntity<GraduationRecord>;
@@ -46,7 +47,7 @@ const GraduationCelebrationModal: React.FC<GraduationCelebrationModalProps> = ({
   const beltChanged = previousBelt !== newBelt;
   const targetMeta = getBeltMeta(newBelt);
   const firstName = studentName.trim().split(/\s+/)[0] || t('atleta');
-  const imageBasePath = `/graduation-celebrations/${previousBelt}-to-${newBelt}`;
+  const imageBasePath = publicAsset(`graduation-celebrations/${previousBelt}-to-${newBelt}`);
   const [imageFormat, setImageFormat] = useState<ImageFormat>('webp');
   // Faixa adulta tem a imagem 3D amarrada; kids/combinadas usam a ilustracao da promocao.
   const hasTiedBelt = hasBeltImage(newBelt);

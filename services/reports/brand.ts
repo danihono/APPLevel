@@ -1,3 +1,5 @@
+import { publicAsset } from '../../publicAsset';
+
 // Identidade visual da Level usada nos relatorios exportados (Excel/PDF).
 // Cores extraidas dos tokens de index.css (dourado sobre fundo escuro).
 
@@ -38,7 +40,7 @@ let logoCache: string | null | undefined;
 export async function loadLogoDataUrl(): Promise<string | null> {
   if (logoCache !== undefined) return logoCache;
   try {
-    const response = await fetch('/logo3.png');
+    const response = await fetch(publicAsset('logo3.png'));
     if (!response.ok) {
       logoCache = null;
       return null;

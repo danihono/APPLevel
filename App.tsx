@@ -111,6 +111,7 @@ import type {
 import { UserRole, type UserVideo } from './types';
 import { normalizePersonName } from './utils';
 import { t, getLocale, isAppLanguage, useI18n } from './i18n';
+import { publicAsset } from './publicAsset';
 
 const CalendarView = lazy(() => import('./views/CalendarView'));
 const CompetitionView = lazy(() => import('./views/CompetitionView'));
@@ -329,7 +330,7 @@ function buildAcademyAccessIssueView(params: {
 
         <section className="app-panel app-auth-card app-panel-pad text-center">
           <div className="mx-auto flex items-center justify-center">
-            <img src="/logo3.png" alt="APPLevel" className="h-32 w-32 object-contain" />
+            <img src={publicAsset('logo3.png')} alt="APPLevel" className="h-32 w-32 object-contain" />
           </div>
           <h2 className="mt-6 text-2xl font-bold">{t('Revise o acesso desta conta')}</h2>
           <p className="mt-3 app-note">

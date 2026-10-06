@@ -1,4 +1,5 @@
 import { BeltColor } from './types';
+import { publicAsset } from './publicAsset';
 
 /**
  * Roteiros oficiais de exame de faixa da LEVEL Jiu-Jitsu.
@@ -24,24 +25,24 @@ export const EXAM_RULE_DOCS: ExamRuleDoc[] = [
     belt: BeltColor.AZUL,
     label: 'Azul',
     title: 'Exame Faixa Azul',
-    imageUrl: '/exames/exame-faixa-azul.webp',
-    pdfUrl: '/exames/exame-faixa-azul.pdf',
+    imageUrl: publicAsset('exames/exame-faixa-azul.webp'),
+    pdfUrl: publicAsset('exames/exame-faixa-azul.pdf'),
     fileName: 'exame-faixa-azul.pdf',
   },
   {
     belt: BeltColor.ROXA,
     label: 'Roxa',
     title: 'Exame Faixa Roxa',
-    imageUrl: '/exames/exame-faixa-roxa.webp',
-    pdfUrl: '/exames/exame-faixa-roxa.pdf',
+    imageUrl: publicAsset('exames/exame-faixa-roxa.webp'),
+    pdfUrl: publicAsset('exames/exame-faixa-roxa.pdf'),
     fileName: 'exame-faixa-roxa.pdf',
   },
   {
     belt: BeltColor.MARROM,
     label: 'Marrom',
     title: 'Exame Faixa Marrom',
-    imageUrl: '/exames/exame-faixa-marrom.webp',
-    pdfUrl: '/exames/exame-faixa-marrom.pdf',
+    imageUrl: publicAsset('exames/exame-faixa-marrom.webp'),
+    pdfUrl: publicAsset('exames/exame-faixa-marrom.pdf'),
     fileName: 'exame-faixa-marrom.pdf',
   },
 ];

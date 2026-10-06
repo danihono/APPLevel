@@ -21,7 +21,20 @@ export default defineConfig(({ mode }) => {
           }
           : undefined,
       },
-      plugins: [react()],
+      plugins: [
+        react(),
+        // Build de demonstracao (`npm run build:demo`): pagina estatica sem service worker nem
+        // manifest do app instalavel, para nao cachear/instalar a demo no aparelho do cliente.
+        mode === 'demo' && {
+          name: 'level-demo-html',
+          transformIndexHtml(html: string) {
+            return html
+              .replace(/<link rel="manifest"[^>]*>\n?/, '')
+              .replace(/<script>\s*if \('serviceWorker' in navigator\)[\s\S]*?<\/script>\n?/, '')
+              .replace('<title>APPLevel</title>', '<title>LEVEL · Demonstração</title>');
+          },
+        },
+      ],
       define: {
         'process.env.API_KEY': JSON.stringify(env.GEMINI_API_KEY),
         'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY)

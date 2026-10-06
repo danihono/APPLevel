@@ -12,11 +12,13 @@ if (!rootElement) {
 
 const root = ReactDOM.createRoot(rootElement);
 
-// Galeria do redesign (so em desenvolvimento): http://localhost:3000/?preview=redesign
-const isRedesignPreview = import.meta.env.DEV
-  && new URLSearchParams(window.location.search).get('preview') === 'redesign';
+// Galeria do redesign: em desenvolvimento via http://localhost:3000/?preview=redesign, e sempre no
+// build de demonstracao para o cliente (`npm run build:demo`). No build de producao isto some do bundle.
+const isDemoBuild = import.meta.env.VITE_DEMO_PREVIEW === 'true';
+const isRedesignPreview = isDemoBuild || (import.meta.env.DEV
+  && new URLSearchParams(window.location.search).get('preview') === 'redesign');
 
-if (import.meta.env.DEV && isRedesignPreview) {
+if ((import.meta.env.DEV || isDemoBuild) && isRedesignPreview) {
   void import('./dev/RedesignPreview').then(({ default: RedesignPreview }) => {
     root.render(
       <React.StrictMode>
