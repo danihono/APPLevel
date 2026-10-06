@@ -1,10 +1,11 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Check, ChevronLeft, ChevronRight, X } from 'lucide-react';
+import { Check, ChevronLeft, ChevronRight, Minus, Plus, X } from 'lucide-react';
 import { buildMonthGrid, MONTH_WEEK_HEADER, stripDate, toDateKey } from '../calendarUtils';
 import DateField from './DateField';
 import TimeField from './TimeField';
 import type { CreateClassScheduleBatchResult } from '../services/firebase/functions';
 import { t, createDateFormatter } from '../i18n';
+import './redesign/class-modals.css';
 
 const TATAME_OPTIONS = [
   { label: 'Tatame 1', value: 'Tatame 1' },
@@ -61,6 +62,10 @@ const summaryDateTimeFormatter = createDateFormatter({
 });
 
 type CreateMode = 'single' | 'recurring';
+
+// Limites do campo Capacidade (mesmos min/max do input numerico).
+const CAPACITY_MIN = 1;
+const CAPACITY_MAX = 500;
 
 function toHHMM(date: Date) {
   return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
@@ -355,246 +360,329 @@ const CreateClassModal: React.FC<CreateClassModalProps> = ({
   const firstOccurrence = payloads[0];
   const lastOccurrence = payloads[payloads.length - 1];
 
+  const typeGroups = Array.from(new Map(TYPE_OPTIONS.map((o) => [o.group, o.group])).keys());
+  const todayKey = toDateKey(today);
+  const capacityValue = Number.isFinite(capacity) ? capacity : 0;
+
+  function stepCapacity(delta: -1 | 1) {
+    setCapacity((current) => {
+      const base = Number.isFinite(current) ? current : 0;
+      return Math.min(CAPACITY_MAX, Math.max(CAPACITY_MIN, base + delta));
+    });
+  }
+
   return (
-    <div className="fixed inset-0 z-[90] flex items-end justify-center bg-black/60 sm:items-center" onClick={onClose}>
+    <div className="lv-backdrop" onClick={onClose}>
       <div
-        className="app-panel app-panel-pad app-sheet-modal create-class-modal w-full max-w-2xl rounded-b-none sm:rounded-[1.8rem]"
+        className="lv-sheet rd-cm rd-cm--wide rd-cm--tall"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="rd-cm-create-title"
         onClick={(event) => event.stopPropagation()}
       >
-        <div className="flex items-center justify-between">
-          <h2 className="text-xl font-bold">{t('Criar aula')}</h2>
-          <button type="button" onClick={onClose} className="app-button app-button--ghost app-button--icon">
-            <X size={18} />
-          </button>
+        <div className="rd-cm__top">
+          <div className="lv-sheet__grip" aria-hidden="true" />
+          <div className="rd-cm__bar">
+            <button type="button" onClick={onClose} className="lv-icon-btn" aria-label={t('Fechar')}>
+              <X size={20} strokeWidth={2} />
+            </button>
+            <span className="lv-eyebrow">{t('Calendário')}</span>
+          </div>
+          <div className="rd-cm__title-row">
+            <h2 id="rd-cm-create-title" className="rd-cm__title">{t('Criar aula')}</h2>
+          </div>
         </div>
 
-        <form onSubmit={(event) => void handleSubmit(event)} className="mt-6 flex min-h-0 flex-1 flex-col">
-          <div className="create-class-modal__body">
-            <div className="app-segment">
-              <button
-                type="button"
-                onClick={() => setMode('single')}
-                className={`app-segment__button ${mode === 'single' ? 'is-active' : ''}`}
-              >
-                {t('Dias avulsos')}
-              </button>
-              <button
-                type="button"
-                onClick={() => setMode('recurring')}
-                className={`app-segment__button ${mode === 'recurring' ? 'is-active' : ''}`}
-              >
-                {t('Recorrente')}
-              </button>
-            </div>
+        <form onSubmit={(event) => void handleSubmit(event)} className="rd-cm__form">
+          <div className="rd-cm__body">
+            <section className="rd-cm__section">
+              <h3 className="rd-cm__section-title">{t('Aula')}</h3>
 
-            <div className="app-form-grid">
-              <label className="app-field">
-                <span className="app-field__label">{t('Nome da aula')}</span>
+              <label className="lv-field">
+                <span>{t('Nome da aula')}</span>
                 <input
                   type="text"
                   value={title}
                   onChange={(event) => setTitle(event.target.value)}
-                  className="app-input"
+                  className="lv-input"
                   placeholder={t('Ex: Treino, Fundamentos, Sparring')}
                   required
                 />
               </label>
 
-              <label className="app-field">
-                <span className="app-field__label">{t('Tipo')}</span>
-                <select value={tipo} onChange={(event) => setTipo(event.target.value)} className="app-input">
-                  {Array.from(new Map(TYPE_OPTIONS.map((o) => [o.group, o.group])).keys()).map((group) => (
-                    <optgroup key={group} label={t(group)}>
-                      {TYPE_OPTIONS.filter((o) => o.group === group).map((option) => (
-                        <option key={option.value} value={option.value}>{option.label}</option>
-                      ))}
-                    </optgroup>
-                  ))}
-                </select>
-              </label>
-            </div>
-
-            {mode === 'single' ? (
-              <div>
-                <div className="mb-3 flex items-center justify-between">
-                  <p className="app-field__label">
-                    {t('Dias')}
-                    {count > 0 ? <span className="ml-2 text-[color:var(--gold-mid)]">{count === 1 ? t('1 selecionado') : t('{count} selecionados', { count })}</span> : null}
-                  </p>
-                  <div className="flex items-center gap-1">
-                    <button type="button" onClick={() => shiftMonth(-1)} className="app-button app-button--ghost app-button--icon" style={{ width: 28, height: 28 }}>
-                      <ChevronLeft size={14} />
-                    </button>
-                    <span className="min-w-[110px] text-center text-xs font-semibold capitalize">
-                      {monthFormatter.format(new Date(calYear, calMonth))}
-                    </span>
-                    <button type="button" onClick={() => shiftMonth(1)} className="app-button app-button--ghost app-button--icon" style={{ width: 28, height: 28 }}>
-                      <ChevronRight size={14} />
-                    </button>
-                  </div>
-                </div>
-
-                <div className="mb-1 grid grid-cols-7">
-                  {MONTH_WEEK_HEADER.map((day) => (
-                    <div key={day} className="py-1 text-center text-[10px] font-bold uppercase tracking-[0.12em] text-[color:var(--text-soft)]">
-                      {t(day)}
+              <div className="lv-field" role="radiogroup" aria-label={t('Tipo')}>
+                <span>{t('Tipo')}</span>
+                <div>
+                  {typeGroups.map((group) => (
+                    <div key={group} className="rd-cm__group">
+                      <span className="rd-cm__group-label">{t(group)}</span>
+                      <div className="rd-cm__chips">
+                        {TYPE_OPTIONS.filter((o) => o.group === group).map((option) => {
+                          const isActive = tipo === option.value;
+                          return (
+                            <button
+                              key={option.value}
+                              type="button"
+                              role="radio"
+                              aria-checked={isActive}
+                              onClick={() => setTipo(option.value)}
+                              className={`lv-chip-btn rd-cm__chip ${isActive ? 'is-active' : ''}`}
+                            >
+                              {isActive ? <Check size={16} strokeWidth={2.5} aria-hidden="true" /> : null}
+                              {option.label}
+                            </button>
+                          );
+                        })}
+                      </div>
                     </div>
                   ))}
                 </div>
+              </div>
+            </section>
 
-                <div className="grid grid-cols-7 gap-y-1">
-                  {cells.map((cell, index) => {
-                    if (!cell) {
-                      return <div key={`pad-${index}`} />;
-                    }
+            <section className="rd-cm__section">
+              <h3 className="rd-cm__section-title">{t('Datas e horário')}</h3>
 
-                    const key = toDateKey(cell);
-                    const isSelected = selectedKeys.has(key);
-                    const isToday = key === toDateKey(today);
+              <div className="lv-segmented">
+                <button
+                  type="button"
+                  onClick={() => setMode('single')}
+                  className={mode === 'single' ? 'is-active' : ''}
+                  aria-pressed={mode === 'single'}
+                >
+                  {t('Dias avulsos')}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMode('recurring')}
+                  className={mode === 'recurring' ? 'is-active' : ''}
+                  aria-pressed={mode === 'recurring'}
+                >
+                  {t('Recorrente')}
+                </button>
+              </div>
 
+              {mode === 'single' ? (
+                <div className="lv-field">
+                  <div className="rd-cm__field-head">
+                    <span className="rd-cm__field-label">{t('Dias')}</span>
+                    {count > 0 ? (
+                      <span className="lv-chip lv-chip--gold">
+                        {count === 1 ? t('1 selecionado') : t('{count} selecionados', { count })}
+                      </span>
+                    ) : null}
+                  </div>
+
+                  <div className="rd-cm__cal">
+                    <div className="rd-cm__cal-nav">
+                      <button type="button" onClick={() => shiftMonth(-1)} className="lv-icon-btn" aria-label={t('Mês anterior')}>
+                        <ChevronLeft size={18} strokeWidth={2} />
+                      </button>
+                      <span className="rd-cm__cal-month" aria-live="polite">
+                        {monthFormatter.format(new Date(calYear, calMonth))}
+                      </span>
+                      <button type="button" onClick={() => shiftMonth(1)} className="lv-icon-btn" aria-label={t('Próximo mês')}>
+                        <ChevronRight size={18} strokeWidth={2} />
+                      </button>
+                    </div>
+
+                    <div className="rd-cm__cal-grid">
+                      {MONTH_WEEK_HEADER.map((day) => (
+                        <div key={day} className="rd-cm__cal-weekday">
+                          {t(day)}
+                        </div>
+                      ))}
+
+                      {cells.map((cell, index) => {
+                        if (!cell) {
+                          return <div key={`pad-${index}`} />;
+                        }
+
+                        const key = toDateKey(cell);
+                        const isSelected = selectedKeys.has(key);
+                        const isToday = key === todayKey;
+
+                        return (
+                          <button
+                            key={key}
+                            type="button"
+                            onClick={() => toggleDate(cell)}
+                            aria-pressed={isSelected}
+                            className={[
+                              'rd-cm__cal-day',
+                              isSelected ? 'is-selected' : '',
+                              isToday ? 'is-today' : '',
+                            ].join(' ')}
+                          >
+                            {cell.getDate()}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div className="rd-cm__grid2">
+                    <label className="lv-field">
+                      <span>{t('Data inicial')}</span>
+                      <DateField value={recurringStart} onChange={setRecurringStart} className="lv-input" required />
+                    </label>
+
+                    <label className="lv-field">
+                      <span>{t('Data final')}</span>
+                      <DateField value={recurringEnd} onChange={setRecurringEnd} className="lv-input" required />
+                    </label>
+                  </div>
+
+                  <div className="lv-field">
+                    <div className="rd-cm__field-head">
+                      <span className="rd-cm__field-label">{t('Dias da semana')}</span>
+                      <span className={recurringWeekdays.size > 0 ? 'lv-chip lv-chip--gold' : 'lv-chip'}>
+                        {recurringWeekdays.size === 1 ? t('1 selecionado') : t('{count} selecionados', { count: recurringWeekdays.size })}
+                      </span>
+                    </div>
+                    <p className="rd-cm__hint">
+                      {t('Toque nos dias que devem repetir automaticamente dentro do período.')}
+                    </p>
+
+                    <div className="rd-cm__weekdays">
+                      {WEEKDAY_OPTIONS.map((option) => {
+                        const isSelected = recurringWeekdays.has(option.value);
+                        return (
+                          <button
+                            key={option.value}
+                            type="button"
+                            onClick={() => toggleWeekday(option.value)}
+                            className={`rd-cm__weekday ${isSelected ? 'is-selected' : ''}`}
+                            aria-pressed={isSelected}
+                          >
+                            <span className="rd-cm__weekday-label">{t(option.label)}</span>
+                            <span className="rd-cm__weekday-check" aria-hidden="true">
+                              {isSelected ? <Check size={12} strokeWidth={3} /> : null}
+                            </span>
+                            <span className="rd-cm__weekday-note">
+                              {isSelected ? t('Selecionado') : t('Disponível')}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {recurringStartDate && recurringEndDate && recurringEndDate.getTime() >= recurringStartDate.getTime() ? (
+                    <p className="rd-cm__hint">
+                      {t('Período de {start} até {end}.', { start: summaryDateFormatter.format(recurringStartDate), end: summaryDateFormatter.format(recurringEndDate) })}
+                    </p>
+                  ) : null}
+                </>
+              )}
+
+              <div className="rd-cm__grid2">
+                <label className="lv-field">
+                  <span>{t('Horário')}</span>
+                  <TimeField value={time} onChange={setTime} className="lv-input" required />
+                </label>
+
+                <label className="lv-field">
+                  <span>{t('Duração')}</span>
+                  <select value={duration} onChange={(event) => setDuration(Number(event.target.value))} className="lv-select">
+                    {DURATION_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>{option.label}</option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+            </section>
+
+            <section className="rd-cm__section">
+              <h3 className="rd-cm__section-title">{t('Onde e com quem')}</h3>
+
+              <label className="lv-field">
+                <span>{t('Professor')}</span>
+                <select value={professorId} onChange={(event) => handleProfessorChange(event.target.value)} className="lv-select">
+                  {professorId ? null : <option value="">{t('Selecione o professor')}</option>}
+                  {professorOptions.map((professor) => (
+                    <option key={professor.id} value={professor.id}>{professor.label ?? professor.displayName}</option>
+                  ))}
+                </select>
+              </label>
+
+              <div className="lv-field" role="radiogroup" aria-label={t('Tatame')}>
+                <span>{t('Tatame')}</span>
+                <div className="rd-cm__tatames">
+                  {TATAME_OPTIONS.map((option) => {
+                    const isActive = tatame === option.value;
                     return (
                       <button
-                        key={key}
+                        key={option.value}
                         type="button"
-                        onClick={() => toggleDate(cell)}
-                        className={[
-                          'mx-auto flex h-9 w-9 items-center justify-center rounded-full text-sm font-medium transition-colors',
-                          isSelected
-                            ? 'bg-[color:var(--gold-mid)] text-white font-bold'
-                            : isToday
-                              ? 'border border-[color:var(--gold-mid)] text-[color:var(--gold-mid)]'
-                              : 'text-[color:var(--text-muted)] hover:bg-white/10',
-                        ].join(' ')}
+                        role="radio"
+                        aria-checked={isActive}
+                        onClick={() => setTatame(option.value)}
+                        className={`lv-chip-btn rd-cm__chip ${isActive ? 'is-active' : ''}`}
                       >
-                        {cell.getDate()}
+                        {option.label}
                       </button>
                     );
                   })}
                 </div>
               </div>
-            ) : (
-              <div className="flex flex-col gap-5">
-                <div className="app-form-grid">
-                  <label className="app-field">
-                    <span className="app-field__label">{t('Data inicial')}</span>
-                    <DateField value={recurringStart} onChange={setRecurringStart} required />
-                  </label>
 
-                  <label className="app-field">
-                    <span className="app-field__label">{t('Data final')}</span>
-                    <DateField value={recurringEnd} onChange={setRecurringEnd} required />
-                  </label>
-                </div>
-
-                <div>
-                  <div className="mb-3 flex items-start justify-between gap-3">
-                    <div>
-                      <p className="app-field__label">{t('Dias da semana')}</p>
-                      <p className="mt-1 text-xs text-[color:var(--text-soft)]">
-                        {t('Toque nos dias que devem repetir automaticamente dentro do período.')}
-                      </p>
-                    </div>
-                    <span className={recurringWeekdays.size > 0 ? 'app-badge app-badge--gold' : 'app-badge app-badge--muted'}>
-                      {recurringWeekdays.size === 1 ? t('1 selecionado') : t('{count} selecionados', { count: recurringWeekdays.size })}
-                    </span>
-                  </div>
-
-                  <div className="create-class-modal__weekday-grid">
-                    {WEEKDAY_OPTIONS.map((option) => {
-                      const isSelected = recurringWeekdays.has(option.value);
-                      return (
-                        <button
-                          key={option.value}
-                          type="button"
-                          onClick={() => toggleWeekday(option.value)}
-                          className={`create-class-modal__weekday ${isSelected ? 'is-selected' : ''}`}
-                          aria-pressed={isSelected}
-                        >
-                          <div className="create-class-modal__weekday-top">
-                            <span className="create-class-modal__weekday-label">{t(option.label)}</span>
-                            <span className="create-class-modal__weekday-check" aria-hidden="true">
-                              {isSelected ? <Check size={12} strokeWidth={3} /> : null}
-                            </span>
-                          </div>
-                          <span className="create-class-modal__weekday-note">
-                            {isSelected ? t('Selecionado') : t('Disponível')}
-                          </span>
-                        </button>
-                      );
-                    })}
-                  </div>
+              <div className="lv-field">
+                <span>{t('Capacidade')}</span>
+                <div className="rd-cm__stepper">
+                  <button
+                    type="button"
+                    className="lv-icon-btn"
+                    onClick={() => stepCapacity(-1)}
+                    disabled={capacityValue <= CAPACITY_MIN}
+                    aria-label={t('Diminuir capacidade')}
+                  >
+                    <Minus size={18} strokeWidth={2} />
+                  </button>
+                  <input
+                    type="number"
+                    inputMode="numeric"
+                    value={capacity}
+                    onChange={(event) => setCapacity(Number(event.target.value))}
+                    className="lv-input"
+                    min={CAPACITY_MIN}
+                    max={CAPACITY_MAX}
+                    aria-label={t('Capacidade')}
+                  />
+                  <button
+                    type="button"
+                    className="lv-icon-btn"
+                    onClick={() => stepCapacity(1)}
+                    disabled={capacityValue >= CAPACITY_MAX}
+                    aria-label={t('Aumentar capacidade')}
+                  >
+                    <Plus size={18} strokeWidth={2} />
+                  </button>
                 </div>
               </div>
-            )}
+            </section>
 
-            <div className="app-form-grid">
-              <label className="app-field">
-                <span className="app-field__label">{t('Horário')}</span>
-                <TimeField value={time} onChange={setTime} required />
-              </label>
-
-              <label className="app-field">
-                <span className="app-field__label">{t('Duração')}</span>
-                <select value={duration} onChange={(event) => setDuration(Number(event.target.value))} className="app-input">
-                  {DURATION_OPTIONS.map((option) => (
-                    <option key={option.value} value={option.value}>{option.label}</option>
-                  ))}
-                </select>
-              </label>
-            </div>
-
-            <label className="app-field">
-              <span className="app-field__label">{t('Professor')}</span>
-              <select value={professorId} onChange={(event) => handleProfessorChange(event.target.value)} className="app-input">
-                {professorId ? null : <option value="">{t('Selecione o professor')}</option>}
-                {professorOptions.map((professor) => (
-                  <option key={professor.id} value={professor.id}>{professor.label ?? professor.displayName}</option>
-                ))}
-              </select>
-            </label>
-
-            <div className="app-form-grid">
-              <label className="app-field">
-                <span className="app-field__label">{t('Tatame')}</span>
-                <select value={tatame} onChange={(event) => setTatame(event.target.value)} className="app-input">
-                  {TATAME_OPTIONS.map((option) => (
-                    <option key={option.value} value={option.value}>{option.label}</option>
-                  ))}
-                </select>
-              </label>
-
-              <label className="app-field">
-                <span className="app-field__label">{t('Capacidade')}</span>
-                <input
-                  type="number"
-                  value={capacity}
-                  onChange={(event) => setCapacity(Number(event.target.value))}
-                  className="app-input"
-                  min={1}
-                  max={500}
-                />
-              </label>
-            </div>
-
-            <div className="app-list-card">
-              <p className="text-xs font-bold uppercase tracking-[0.12em] text-[color:var(--text-soft)]">{t('Resumo')}</p>
+            <div className="rd-cm__summary">
+              <span className="lv-label">{t('Resumo')}</span>
               {count > 0 && firstOccurrence && lastOccurrence ? (
-                <div className="mt-3 grid gap-3 sm:grid-cols-3">
-                  <div>
-                    <p className="text-[11px] uppercase tracking-[0.12em] text-[color:var(--text-soft)]">{t('Quantidade')}</p>
-                    <p className="mt-1 text-base font-bold">{count === 1 ? t('1 aula') : t('{count} aulas', { count })}</p>
+                <div className="rd-cm__summary-grid">
+                  <div className="rd-cm__summary-item rd-cm__summary-count">
+                    <span className="lv-label">{t('Quantidade')}</span>
+                    <span className="rd-cm__summary-numeral">{count === 1 ? t('1 aula') : t('{count} aulas', { count })}</span>
                   </div>
-                  <div>
-                    <p className="text-[11px] uppercase tracking-[0.12em] text-[color:var(--text-soft)]">{t('Primeira')}</p>
-                    <p className="mt-1 text-sm font-semibold">{summaryDateTimeFormatter.format(new Date(firstOccurrence.scheduledStart))}</p>
+                  <div className="rd-cm__summary-item">
+                    <span className="lv-label">{t('Primeira')}</span>
+                    <span className="rd-cm__summary-value">{summaryDateTimeFormatter.format(new Date(firstOccurrence.scheduledStart))}</span>
                   </div>
-                  <div>
-                    <p className="text-[11px] uppercase tracking-[0.12em] text-[color:var(--text-soft)]">{t('Última')}</p>
-                    <p className="mt-1 text-sm font-semibold">{summaryDateTimeFormatter.format(new Date(lastOccurrence.scheduledStart))}</p>
+                  <div className="rd-cm__summary-item">
+                    <span className="lv-label">{t('Última')}</span>
+                    <span className="rd-cm__summary-value">{summaryDateTimeFormatter.format(new Date(lastOccurrence.scheduledStart))}</span>
                   </div>
                 </div>
               ) : (
-                <p className="mt-3 text-sm text-[color:var(--text-muted)]">
+                <p className="rd-cm__hint">
                   {mode === 'recurring'
                     ? t('Defina o período e os dias da semana para visualizar quantas aulas serão geradas.')
                     : t('Selecione pelo menos um dia no calendário para montar o lote.')}
@@ -603,50 +691,46 @@ const CreateClassModal: React.FC<CreateClassModalProps> = ({
             </div>
 
             {submitResult ? (
-              <div className="app-panel app-panel--tint p-4">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div>
-                    <p className="text-xs font-bold uppercase tracking-[0.12em] text-[color:var(--text-soft)]">{t('Resultado do lote')}</p>
-                    <p className="mt-1 text-base font-bold">
+              <div className="rd-cm__result" role="status">
+                <div className="rd-cm__result-head">
+                  <div className="rd-cm__summary-item">
+                    <span className="lv-label">{t('Resultado do lote')}</span>
+                    <span className="rd-cm__summary-numeral">
                       {t('{created} de {requested} criada(s)', { created: submitResult.createdCount, requested: submitResult.requestedCount })}
-                    </p>
+                    </span>
                   </div>
-                  <span className="app-badge app-badge--gold">
+                  <span className="lv-chip lv-chip--warning">
                     {t('{count} pulada(s)', { count: submitResult.skippedCount })}
                   </span>
                 </div>
 
-                <p className="mt-3 text-sm text-[color:var(--text-muted)]">
+                <p className="rd-cm__lesson-text">
                   {t('As aulas criadas foram gravadas. As ocorrências abaixo ficaram de fora para você ajustar depois.')}
                 </p>
 
-                <div className="mt-4 max-h-56 space-y-2 overflow-y-auto pr-1">
+                <div className="lv-list rd-cm__result-list">
                   {submitResult.skipped.map((entry) => (
-                    <div key={`${entry.scheduledStart}-${entry.reason}`} className="app-list-card">
-                      <p className="text-sm font-semibold">{summaryDateTimeFormatter.format(new Date(entry.scheduledStart))}</p>
-                      <p className="mt-1 text-sm text-[color:var(--text-muted)]">{t(entry.reason)}</p>
+                    <div key={`${entry.scheduledStart}-${entry.reason}`} className="lv-row">
+                      <div className="lv-row__main">
+                        <span className="lv-row__title">{summaryDateTimeFormatter.format(new Date(entry.scheduledStart))}</span>
+                        <span className="lv-row__meta">{t(entry.reason)}</span>
+                      </div>
                     </div>
                   ))}
                 </div>
               </div>
             ) : null}
-
-            {mode === 'recurring' && recurringStartDate && recurringEndDate && recurringEndDate.getTime() >= recurringStartDate.getTime() ? (
-              <p className="text-xs text-[color:var(--text-soft)]">
-                {t('Período de {start} até {end}.', { start: summaryDateFormatter.format(recurringStartDate), end: summaryDateFormatter.format(recurringEndDate) })}
-              </p>
-            ) : null}
           </div>
 
-          <div className="create-class-modal__footer">
-            {error ? <p className="mb-3 text-sm text-red-400">{error}</p> : null}
+          <div className="rd-cm__footer">
+            {error ? <p className="lv-alert lv-alert--danger" role="alert">{error}</p> : null}
 
-            <div className="flex gap-3">
-              <button type="button" onClick={onClose} disabled={submitting} className="app-button app-button--ghost flex-1">
+            <div className="rd-cm__actions">
+              <button type="button" onClick={onClose} disabled={submitting} className="lv-btn lv-btn--neutral">
                 {submitResult ? t('Fechar') : t('Cancelar')}
               </button>
-              <button type="submit" disabled={submitting || count === 0} className="app-button app-button--gold flex-1">
-                {submitLabel}
+              <button type="submit" disabled={submitting || count === 0} className="lv-btn lv-btn--primary">
+                <span>{submitLabel}</span>
               </button>
             </div>
           </div>

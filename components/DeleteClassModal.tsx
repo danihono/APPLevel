@@ -3,7 +3,16 @@ import { AlertTriangle, Trash2, X } from 'lucide-react';
 import type { FirestoreEntity } from '../services/firebase/data';
 import type { DeleteClassScheduleResult } from '../services/firebase/functions';
 import type { ClassRecord } from '../services/firebase/models';
-import { t } from '../i18n';
+import { t, createDateFormatter } from '../i18n';
+import './redesign/class-modals.css';
+
+const lessonDateFormatter = createDateFormatter({
+  weekday: 'short',
+  day: '2-digit',
+  month: 'short',
+  hour: '2-digit',
+  minute: '2-digit',
+});
 
 export interface DeleteClassPayload {
   classId: string;
@@ -65,63 +74,87 @@ const DeleteClassModal: React.FC<DeleteClassModalProps> = ({ lesson, onClose, on
     }
   }
 
+  const lessonStart = lesson.scheduledStart?.toDate();
+  const lessonMeta = [
+    lessonStart ? lessonDateFormatter.format(lessonStart) : null,
+    lesson.tatame || null,
+    lesson.professorName || null,
+  ].filter(Boolean).join(' · ');
+
   return (
-    <div className="fixed inset-0 z-[90] flex items-end justify-center bg-black/60 sm:items-center" onClick={onClose}>
+    <div className="lv-backdrop" onClick={onClose}>
       <div
-        className="app-panel app-panel-pad app-sheet-modal w-full max-w-xl rounded-b-none sm:rounded-[1.8rem]"
+        className="lv-sheet rd-cm"
+        role="alertdialog"
+        aria-modal="true"
+        aria-labelledby="rd-cm-delete-title"
         onClick={(event) => event.stopPropagation()}
       >
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="app-icon-shell" style={{ color: '#ef4444' }}>
-              <AlertTriangle size={18} />
-            </div>
-            <h2 className="text-xl font-bold">{t('Excluir aula')}</h2>
+        <div className="rd-cm__top">
+          <div className="lv-sheet__grip" aria-hidden="true" />
+          <div className="rd-cm__bar">
+            <button type="button" onClick={onClose} className="lv-icon-btn" aria-label={t('Fechar')}>
+              <X size={20} strokeWidth={2} />
+            </button>
           </div>
-          <button type="button" onClick={onClose} className="app-button app-button--ghost app-button--icon">
-            <X size={18} />
-          </button>
+          <div className="rd-cm__title-row">
+            <span className="rd-cm__danger-icon" aria-hidden="true">
+              <AlertTriangle size={20} strokeWidth={2} />
+            </span>
+            <h2 id="rd-cm-delete-title" className="rd-cm__title">{t('Excluir aula')}</h2>
+          </div>
         </div>
 
-        <form onSubmit={(event) => void handleSubmit(event)} className="mt-6 flex flex-col gap-5">
-          {hasRecurringSeries ? (
-            <div className="app-list-card">
-              <p className="app-field__label">{t('Excluir')}</p>
-              <div className="mt-3 app-segment">
-                <button
-                  type="button"
-                  onClick={() => !singleUnavailable && setScope('single')}
-                  disabled={singleUnavailable}
-                  className={`app-segment__button ${scope === 'single' ? 'is-active' : ''}`}
-                >
-                  {t('Somente esta aula')}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setScope('future')}
-                  className={`app-segment__button ${scope === 'future' ? 'is-active' : ''}`}
-                >
-                  {t('Esta e as próximas')}
-                </button>
+        <form onSubmit={(event) => void handleSubmit(event)} className="rd-cm__form">
+          <div className="rd-cm__body">
+            {hasRecurringSeries ? (
+              <div className="rd-cm__scope">
+                <span className="rd-cm__field-label">{t('Excluir')}</span>
+                <div className="lv-segmented">
+                  <button
+                    type="button"
+                    onClick={() => !singleUnavailable && setScope('single')}
+                    disabled={singleUnavailable}
+                    className={scope === 'single' ? 'is-active' : ''}
+                    aria-pressed={scope === 'single'}
+                  >
+                    {t('Somente esta aula')}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setScope('future')}
+                    className={scope === 'future' ? 'is-active' : ''}
+                    aria-pressed={scope === 'future'}
+                  >
+                    {t('Esta e as próximas')}
+                  </button>
+                </div>
               </div>
-            </div>
-          ) : null}
+            ) : null}
 
-          <div className="app-list-card">
-            <p className="text-sm font-semibold">{lesson.title}</p>
-            <p className="mt-2 text-sm text-[color:var(--text-muted)]">{helperCopy}</p>
+            <div className="rd-cm__lesson">
+              <p className="rd-cm__lesson-title">{lesson.title}</p>
+              {lessonMeta ? <p className="rd-cm__hint">{lessonMeta}</p> : null}
+              <p className="rd-cm__lesson-text">{helperCopy}</p>
+            </div>
+
+            {canSubmit ? (
+              <p className="lv-alert lv-alert--danger">{t('Esta ação não pode ser desfeita.')}</p>
+            ) : null}
           </div>
 
-          {error ? <p className="text-sm text-red-400">{error}</p> : null}
+          <div className="rd-cm__footer">
+            {error ? <p className="lv-alert lv-alert--danger" role="alert">{error}</p> : null}
 
-          <div className="flex gap-3">
-            <button type="button" onClick={onClose} disabled={submitting} className="app-button app-button--ghost flex-1">
-              {t('Cancelar')}
-            </button>
-            <button type="submit" disabled={submitting || !canSubmit} className="app-button app-button--solid-danger flex-1">
-              <Trash2 size={14} />
-              {submitting ? t('Excluindo...') : scope === 'future' ? t('Excluir em série') : t('Excluir aula')}
-            </button>
+            <div className="rd-cm__actions">
+              <button type="button" onClick={onClose} disabled={submitting} className="lv-btn lv-btn--neutral">
+                {t('Cancelar')}
+              </button>
+              <button type="submit" disabled={submitting || !canSubmit} className="lv-btn lv-btn--danger rd-cm__danger-btn">
+                <Trash2 size={16} strokeWidth={2} aria-hidden="true" />
+                <span>{submitting ? t('Excluindo...') : scope === 'future' ? t('Excluir em série') : t('Excluir aula')}</span>
+              </button>
+            </div>
           </div>
         </form>
       </div>

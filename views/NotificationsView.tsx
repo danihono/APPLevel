@@ -8,12 +8,15 @@ import {
   isKidsOnlyBelt,
   kidsCategoryLabel,
 } from '../beltCatalog';
-import { Bell, BellRing, CheckCircle2, ChevronDown, ChevronUp, ClipboardCheck, GraduationCap, Send, Trash2, X, XCircle } from 'lucide-react';
+import { CheckCircle2, ChevronDown, ChevronUp, Plus, Trash2, X, XCircle } from 'lucide-react';
 import { useConfirm } from '../components/ConfirmDialog';
 import AppVideoContent from '../components/AppVideoContent';
+import BeltImage from '../components/BeltImage';
 import PushOptInBanner from '../components/PushOptInBanner';
 import BroadcastComposer, { type BroadcastComposerSubmit } from '../components/BroadcastComposer';
-import BroadcastList from '../components/BroadcastList';
+import BroadcastList, { NoticeDate, NoticeMonthDivider, groupNoticesByMonth } from '../components/BroadcastList';
+import ScreenHeader from '../components/redesign/ScreenHeader';
+import { useRedesignShell } from '../components/redesign/ShellContext';
 import type { EditBroadcastSubmit } from '../components/EditBroadcastModal';
 import type { SendBroadcastResult } from '../services/firebase/functions';
 import DateField from '../components/DateField';
@@ -33,6 +36,7 @@ import type {
 import { isUnreadNotificationForViewer } from '../services/firebase/notifications';
 import { UserRole, type KidsCategory } from '../types';
 import { t, getLocale } from '../i18n';
+import './redesign/notifications.css';
 
 interface NotificationsViewProps {
   academy: FirestoreEntity<AcademyRecord>;
@@ -255,6 +259,34 @@ function shouldRebuildGraduationState(user: FirestoreEntity<UserRecord>, rules?:
     || (progression.stripeRemaining !== null && progression.stripeRemaining <= 1);
 }
 
+// Ilustracao do estado vazio: apito amarelo com contorno preto e cordao tracejado.
+const WhistleIllustration: React.FC = () => (
+  <svg className="rd-notices__whistle" viewBox="0 0 240 200" aria-hidden="true" focusable="false">
+    <ellipse className="rd-notices__whistle-shadow" cx="150" cy="188" rx="66" ry="7" />
+    <g className="rd-notices__whistle-cord" fill="none" stroke="currentColor">
+      <path
+        d="M46 80 C 28 52, 50 30, 92 30 C 140 30, 168 36, 200 22 C 212 17, 220 12, 228 6"
+        strokeWidth="9"
+        strokeDasharray="13 6"
+      />
+      <circle cx="48" cy="90" r="9" strokeWidth="5" />
+    </g>
+    {/* Contorno (desenhado mais grosso por baixo) + preenchimento por cima = contorno da uniao. */}
+    <g fill="#16161e" stroke="#16161e" strokeWidth="10" strokeLinejoin="round">
+      <rect x="52" y="92" width="122" height="42" rx="8" />
+      <circle cx="168" cy="132" r="48" />
+    </g>
+    <g fill="#f0b429">
+      <rect x="52" y="92" width="122" height="42" rx="8" />
+      <circle cx="168" cy="132" r="48" />
+    </g>
+    <rect x="140" y="84" width="28" height="11" rx="3" fill="#16161e" />
+    <line x1="66" y1="108" x2="108" y2="108" stroke="#c68f12" strokeWidth="4" strokeLinecap="round" />
+    <path d="M150 104 A 36 36 0 0 1 196 112" fill="none" stroke="#ffffff" strokeWidth="6" strokeLinecap="round" opacity="0.85" />
+    <circle cx="184" cy="150" r="9" fill="#dda318" />
+  </svg>
+);
+
 const NotificationsView: React.FC<NotificationsViewProps> = ({
   academy,
   userRole,
@@ -322,7 +354,13 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
   const [transferTargetAcademyId, setTransferTargetAcademyId] = useState('');
   const [transferBusy, setTransferBusy] = useState(false);
   const [transferError, setTransferError] = useState('');
+  const [composerOpen, setComposerOpen] = useState(false);
+  const [broadcastChannelTab, setBroadcastChannelTab] = useState<'academy' | 'team'>('academy');
+  const [broadcastFeedback, setBroadcastFeedback] = useState('');
   const rebuildQueuedRef = useRef(new Set<string>());
+  const shell = useRedesignShell();
+  // Superadmin na visao de rede continua com o cabecalho do Layout.
+  const ownsHeader = shell.role !== 'superadmin';
 
   const canBroadcast =
     userRole === UserRole.PROFESSOR ||
@@ -544,35 +582,115 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
     academyId: isSuperAdmin ? (selectedAcademyId || undefined) : academy.id,
   });
 
+  // Lista de enviados filtrada pelo segmento Academia | Equipe (canal do comunicado).
+  const visibleBroadcasts = useMemo(
+    () => broadcasts.filter((entry) => (
+      broadcastChannelTab === 'team' ? entry.channel === 'team' : entry.channel !== 'team'
+    )),
+    [broadcasts, broadcastChannelTab],
+  );
+
   function renderBroadcastManager(variant: 'desktop' | 'mobile') {
     if (!canBroadcast) {
       return variant === 'mobile'
-        ? <div className="notice-mobile__empty">{t('Seu perfil não pode criar comunicados.')}</div>
+        ? <p className="rd-notices__note">{t('Seu perfil não pode criar comunicados.')}</p>
         : null;
     }
 
     return (
       <>
-        <BroadcastComposer
-          className={variant === 'mobile' ? 'notice-mobile__compose-card' : 'app-panel app-panel-pad'}
-          heading={t('Criar comunicado')}
-          description={t('Escolha quem recebe, escreva e envie agora ou agende.')}
-          academyUsers={academyUsers}
-          currentUserId={currentUserId}
-          isSuperAdmin={isSuperAdmin}
-          academies={academies}
-          selectedAcademyId={selectedAcademyId}
-          onSelectAcademy={onSelectAcademy}
-          onSend={sendBroadcast}
-        />
+        {broadcastFeedback ? (
+          <div className="lv-alert rd-compose__alert--success" role="status">{broadcastFeedback}</div>
+        ) : null}
         {onUpdateBroadcast && onDeleteBroadcast ? (
-          <BroadcastList
-            broadcasts={broadcasts}
-            onUpdate={onUpdateBroadcast}
-            onDelete={onDeleteBroadcast}
-          />
+          <>
+            <div className="lv-segmented" role="tablist" aria-label={t('Canal')}>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={broadcastChannelTab === 'academy'}
+                className={broadcastChannelTab === 'academy' ? 'is-active' : ''}
+                onClick={() => setBroadcastChannelTab('academy')}
+              >
+                {t('Academia')}
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={broadcastChannelTab === 'team'}
+                className={broadcastChannelTab === 'team' ? 'is-active' : ''}
+                onClick={() => setBroadcastChannelTab('team')}
+              >
+                {t('Equipe')}
+              </button>
+            </div>
+            <BroadcastList
+              broadcasts={visibleBroadcasts}
+              onUpdate={onUpdateBroadcast}
+              onDelete={onDeleteBroadcast}
+            />
+          </>
         ) : null}
       </>
+    );
+  }
+
+  // O compositor fica montado (escondido) para nao perder o texto ao fechar.
+  function renderComposer() {
+    if (!canBroadcast) {
+      return null;
+    }
+
+    return (
+      <div
+        className="lv-fullscreen rd-compose-screen"
+        hidden={!composerOpen}
+        role="dialog"
+        aria-modal="true"
+        aria-label={t('Novo aviso')}
+      >
+        <div className="lv-fullscreen__inner">
+          <BroadcastComposer
+            className=""
+            heading={t('Novo aviso')}
+            description={t('Escolha quem recebe, escreva e envie agora ou agende.')}
+            academyUsers={academyUsers}
+            currentUserId={currentUserId}
+            isSuperAdmin={isSuperAdmin}
+            academies={academies}
+            selectedAcademyId={selectedAcademyId}
+            onSelectAcademy={onSelectAcademy}
+            onSend={sendBroadcast}
+            defaultChannel={broadcastChannelTab}
+            onClose={() => setComposerOpen(false)}
+            onSent={(summary, channel) => {
+              setBroadcastFeedback(summary);
+              setBroadcastChannelTab(channel === 'team' ? 'team' : 'academy');
+              setActiveTab('communication');
+              setComposerOpen(false);
+            }}
+          />
+        </div>
+      </div>
+    );
+  }
+
+  function renderNewNoticeCta() {
+    if (!canBroadcast) {
+      return null;
+    }
+
+    return (
+      <div className="lv-sticky-cta">
+        <button
+          type="button"
+          className="lv-btn lv-btn--primary"
+          onClick={() => setComposerOpen(true)}
+        >
+          <Plus size={20} strokeWidth={2.2} />
+          {t('Novo aviso')}
+        </button>
+      </div>
     );
   }
 
@@ -771,60 +889,76 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
   function renderClearButton(notifList: Array<FirestoreEntity<NotificationRecord>>) {
     if (notifList.length === 0) return null;
     return (
-      <div className="flex justify-end px-1">
+      <div className="rd-notices__list-tools">
         <button
           type="button"
           onClick={() => setConfirmClear(true)}
-          className="app-button app-button--ghost app-button--small"
+          className="rd-notices__head-action"
         >
-          <Trash2 size={14} />
+          <Trash2 size={16} strokeWidth={2} />
           {t('Limpar tudo')}
         </button>
       </div>
     );
   }
 
+  // "Limpar tudo" no lugar de acao do cabecalho (onde o design tinha "Marcar todas").
+  function renderHeaderClear(notifList: Array<FirestoreEntity<NotificationRecord>>) {
+    if (notifList.length === 0) return null;
+    return (
+      <button
+        type="button"
+        onClick={() => setConfirmClear(true)}
+        className="rd-notices__head-action"
+        disabled={clearing}
+      >
+        <Trash2 size={16} strokeWidth={2} />
+        {clearing ? t('Limpando...') : t('Limpar tudo')}
+      </button>
+    );
+  }
+
   function renderClearModal() {
     if (!confirmClear) return null;
     return (
-      <div
-        className="fixed inset-0 z-[90] flex items-end justify-center bg-black/60 sm:items-center"
-        onClick={() => setConfirmClear(false)}
-      >
+      <div className="lv-backdrop" onClick={() => setConfirmClear(false)}>
         <div
-          className="app-panel app-panel-pad app-sheet-modal w-full max-w-sm rounded-b-none sm:rounded-[1.8rem]"
+          className="lv-sheet"
+          role="dialog"
+          aria-modal="true"
+          aria-label={t('Limpar notificações')}
           onClick={(e) => e.stopPropagation()}
         >
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="app-icon-shell" style={{ color: '#ef4444' }}>
-                <Trash2 size={18} />
-              </div>
-              <h2 className="text-xl font-bold">{t('Limpar notificações')}</h2>
-            </div>
+          <div className="lv-sheet__grip" aria-hidden="true" />
+          <div className="lv-sheet__head">
+            <h2 className="rd-notices__sheet-title">
+              <span className="rd-notices__sheet-icon" aria-hidden="true">
+                <Trash2 size={18} strokeWidth={2} />
+              </span>
+              {t('Limpar notificações')}
+            </h2>
             <button
               type="button"
               onClick={() => setConfirmClear(false)}
-              className="app-button app-button--ghost app-button--icon"
+              className="lv-icon-btn"
+              aria-label={t('Fechar')}
             >
-              <X size={18} />
+              <X size={20} strokeWidth={2} />
             </button>
           </div>
 
-          <div className="mt-6 app-list-card">
-            <p className="text-sm text-[color:var(--text-muted)]">
-              {t('Todas as notificações serão removidas permanentemente, inclusive as não lidas. Esta ação não pode ser desfeita.')}
-            </p>
-          </div>
+          <p className="rd-notices__sheet-copy">
+            {t('Todas as notificações serão removidas permanentemente, inclusive as não lidas. Esta ação não pode ser desfeita.')}
+          </p>
 
-          {error ? <p className="mt-4 text-sm text-red-400">{error}</p> : null}
+          {error ? <div className="lv-alert lv-alert--danger" style={{ marginBottom: 16 }}>{error}</div> : null}
 
-          <div className="mt-6 flex gap-3">
+          <div className="rd-notices__sheet-actions">
             <button
               type="button"
               onClick={() => setConfirmClear(false)}
               disabled={clearing}
-              className="app-button app-button--ghost flex-1"
+              className="lv-btn lv-btn--neutral"
             >
               {t('Cancelar')}
             </button>
@@ -832,9 +966,9 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
               type="button"
               disabled={clearing}
               onClick={() => void handleClear()}
-              className="app-button app-button--solid-danger flex-1"
+              className="lv-btn rd-notices__btn-danger"
             >
-              <Trash2 size={14} />
+              <Trash2 size={16} strokeWidth={2} />
               {clearing ? t('Limpando...') : t('Confirmar')}
             </button>
           </div>
@@ -843,109 +977,376 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
     );
   }
 
-  if (isProfessorMobileView) {
+  function renderEmpty(text: string) {
     return (
-      <div className="view-shell notice-mobile">
-        <section className="notice-mobile__hero">
-          <div className="notice-mobile__tabs" role="tablist" aria-label={t('Central de avisos')}>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={activeTab === 'notifications'}
-              onClick={() => setActiveTab('notifications')}
-              className={`notice-mobile__tab ${activeTab === 'notifications' ? 'is-active' : ''}`}
-            >
-              {t('Notificações')}
-            </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={activeTab === 'requests'}
-              onClick={() => setActiveTab('requests')}
-              className={`notice-mobile__tab ${activeTab === 'requests' ? 'is-active' : ''}`}
-            >
-              {t('Solicitações')}
-            </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={activeTab === 'communication'}
-              onClick={() => setActiveTab('communication')}
-              className={`notice-mobile__tab ${activeTab === 'communication' ? 'is-active' : ''}`}
-            >
-              {t('Comunicação')}
-            </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={activeTab === 'graduations'}
-              onClick={() => setActiveTab('graduations')}
-              className={`notice-mobile__tab ${activeTab === 'graduations' ? 'is-active' : ''}`}
-            >
-              <span className="notice-mobile__tab-inner">
-                {t('Graduações')}
-                {graduationItems.length > 0
-                  ? <span className="notice-mobile__tab-badge">{graduationItems.length}</span>
-                  : null}
-              </span>
-            </button>
+      <div className="lv-empty rd-notices__empty">
+        <WhistleIllustration />
+        <p className="lv-empty__title">{t('Tudo em dia.')}</p>
+        <p className="lv-empty__text">{text}</p>
+      </div>
+    );
+  }
+
+  const unreadTitle = (
+    <span className="rd-notices__title-row">
+      <span>{t('Avisos')}</span>
+      <span className="rd-notices__unread">{t('{count} não lidas', { count: unreadCount })}</span>
+    </span>
+  );
+
+  type NoticeVariant = 'student' | 'staff-mobile' | 'staff-desktop';
+
+  function renderNoticeCard(notification: FirestoreEntity<NotificationRecord>, variant: NoticeVariant) {
+    const unread = isUnreadNotificationForViewer(notification, {
+      viewerRole: userRole,
+      actionState: notificationActionState,
+    });
+    const className = `rd-notices__card ${unread ? 'is-unread' : ''}`.trim();
+    const stateLabel = variant === 'staff-desktop'
+      ? notification.status
+      : (variant === 'student' && !unread ? t('Lida') : '');
+
+    const content = (
+      <>
+        <NoticeDate value={notification.createdAt} />
+        <div className="rd-notices__main">
+          <div className="rd-notices__tags">
+            <span className="rd-notices__type">{notificationType(notification)}</span>
           </div>
-        </section>
+          <h3 className="rd-notices__title">{notification.title}</h3>
+          <p className="rd-notices__body">{notification.body}</p>
+          <p className="rd-notices__time">
+            {formatStamp(notification.createdAt)}
+            {stateLabel ? ` · ${stateLabel}` : ''}
+          </p>
 
-        {activeTab === 'notifications' ? (
-          <section className="notice-mobile__list">
-            <PushOptInBanner />
-            {error ? <div className="app-alert app-alert--error">{error}</div> : null}
+          {variant === 'staff-desktop' && (notification.targetRole || notification.targetBelt) ? (
+            <div className="rd-notices__tags-row">
+              <span className="rd-notices__tag">{t('Canal: {channel}', { channel: notification.channel })}</span>
+              {notification.targetRole ? <span className="rd-notices__tag">{t('Perfil: {role}', { role: notification.targetRole })}</span> : null}
+              {notification.targetBelt ? <span className="rd-notices__tag">{t('Faixa: {belt}', { belt: beltLabel(notification.targetBelt) })}</span> : null}
+            </div>
+          ) : null}
 
-            {renderClearButton(professorNotifications)}
-
-            {professorNotifications.slice(0, showAllStaff ? undefined : 5).map((notification) => {
-              const unread = isUnreadNotificationForViewer(notification, {
-                viewerRole: userRole,
-                actionState: notificationActionState,
-              });
-
-              return (
-                <button
-                  key={notification.id}
-                  type="button"
-                  onClick={() => {
-                    if (unread) {
-                      void handleMarkRead(notification.id);
-                    }
-                  }}
-                  className="notice-mobile__notice-card"
-                >
-                  <div className="notice-mobile__notice-head">
-                    <span className="notice-mobile__type-tag">{notificationType(notification)}</span>
-                    {unread ? <span className="notice-mobile__unread-dot" aria-hidden="true" /> : null}
-                  </div>
-                  <p className="notice-mobile__notice-title">{notification.title}</p>
-                  <p className="notice-mobile__notice-body">{notification.body}</p>
-                  <p className="notice-mobile__notice-time">{formatStamp(notification.createdAt)}</p>
-                </button>
-              );
-            })}
-
-            {professorNotifications.length > 5 && !showAllStaff ? (
+          {variant !== 'staff-mobile' && unread ? (
+            <div className="rd-notices__actions">
               <button
                 type="button"
-                onClick={() => setShowAllStaff(true)}
-                className="app-button app-button--ghost w-full"
+                onClick={() => void handleMarkRead(notification.id)}
+                className="rd-notices__link"
               >
-                {t('Ver mais ({count} restantes)', { count: professorNotifications.length - 5 })}
+                <CheckCircle2 size={16} strokeWidth={2} />
+                {t('Marcar como lida')}
               </button>
-            ) : null}
+            </div>
+          ) : null}
+        </div>
+        {unread ? <span className="rd-notices__dot" role="img" aria-label={t('Novo')} /> : null}
+      </>
+    );
 
-            {professorNotifications.length === 0 ? (
-              <div className="notice-mobile__empty">{t('Nenhuma notificação encontrada para a unidade.')}</div>
+    // Professor: tocar no card marca como lida (como antes).
+    if (variant === 'staff-mobile') {
+      return (
+        <button
+          key={notification.id}
+          type="button"
+          onClick={() => {
+            if (unread) {
+              void handleMarkRead(notification.id);
+            }
+          }}
+          className={className}
+        >
+          {content}
+        </button>
+      );
+    }
+
+    return (
+      <article key={notification.id} className={className}>
+        {content}
+      </article>
+    );
+  }
+
+  function renderNoticeList(
+    list: Array<FirestoreEntity<NotificationRecord>>,
+    showAll: boolean,
+    onShowAll: () => void,
+    variant: NoticeVariant,
+    emptyText: string,
+  ) {
+    const shown = list.slice(0, showAll ? undefined : 5);
+    const groups = groupNoticesByMonth(shown, (notification) => notification.createdAt);
+
+    return (
+      <>
+        {groups.map((group) => (
+          <React.Fragment key={group.key}>
+            <NoticeMonthDivider label={group.label} />
+            {group.items.map((notification) => renderNoticeCard(notification, variant))}
+          </React.Fragment>
+        ))}
+
+        {list.length > 5 && !showAll ? (
+          <button
+            type="button"
+            onClick={onShowAll}
+            className="lv-btn lv-btn--neutral lv-btn--block"
+          >
+            {t('Ver mais ({count} restantes)', { count: list.length - 5 })}
+          </button>
+        ) : null}
+
+        {list.length === 0 ? renderEmpty(emptyText) : null}
+      </>
+    );
+  }
+
+  function renderStaffTabs(variant: 'mobile' | 'desktop') {
+    const tabs: Array<{ id: StaffTab; label: string; count?: number }> = [
+      { id: 'notifications', label: t('Notificações') },
+      { id: 'requests', label: t('Solicitações'), count: requestItems.length },
+      ...(variant === 'mobile' || canBroadcast ? [{ id: 'communication' as const, label: t('Comunicação') }] : []),
+      { id: 'graduations', label: t('Graduações'), count: graduationItems.length },
+    ];
+
+    return (
+      <div className="lv-chip-row rd-notices__tabs" role="tablist" aria-label={t('Central de avisos')}>
+        {tabs.map((tab) => (
+          <button
+            key={tab.id}
+            type="button"
+            role="tab"
+            aria-selected={activeTab === tab.id}
+            onClick={() => setActiveTab(tab.id)}
+            className={`lv-chip-btn ${activeTab === tab.id ? 'is-active' : ''}`}
+          >
+            {tab.label}
+            {tab.count ? <span className="rd-notices__tab-count">{tab.count}</span> : null}
+            {tab.id === 'graduations' && beltReadyCount > 0 ? (
+              <span className="rd-notices__tab-count rd-notices__tab-count--soft">{t('{count} faixa', { count: beltReadyCount })}</span>
             ) : null}
+            {tab.id === 'graduations' && grauReadyCount > 0 ? (
+              <span className="rd-notices__tab-count rd-notices__tab-count--soft">{t('{count} grau', { count: grauReadyCount })}</span>
+            ) : null}
+          </button>
+        ))}
+      </div>
+    );
+  }
+
+  function renderJoinEditFields(withBeltAndGrade: boolean, beltOptions: Array<{ value: string; label: string }>) {
+    if (!editingDraft) return null;
+    return (
+      <div className="rd-notices__panel">
+        <p className="rd-notices__panel-title">{t('Editar dados do aluno')}</p>
+        {editingError ? (
+          <div className="lv-alert lv-alert--danger">{editingError}</div>
+        ) : null}
+        <div className="rd-notices__grid2">
+          <label className="lv-field">
+            <span>{t('Nome')}</span>
+            <input
+              className="lv-input"
+              value={editingDraft.firstName}
+              onChange={(event) => setEditingDraft({ ...editingDraft, firstName: event.target.value })}
+            />
+          </label>
+          <label className="lv-field">
+            <span>{t('Sobrenome')}</span>
+            <input
+              className="lv-input"
+              value={editingDraft.lastName}
+              onChange={(event) => setEditingDraft({ ...editingDraft, lastName: event.target.value })}
+            />
+          </label>
+          <label className="lv-field">
+            <span>CPF</span>
+            <input
+              className="lv-input"
+              value={editingDraft.cpf}
+              onChange={(event) => setEditingDraft({ ...editingDraft, cpf: event.target.value })}
+            />
+          </label>
+          <label className="lv-field">
+            <span>{t('Telefone')}</span>
+            <input
+              className="lv-input"
+              value={editingDraft.phone}
+              onChange={(event) => setEditingDraft({ ...editingDraft, phone: event.target.value })}
+            />
+          </label>
+          <label className="lv-field">
+            <span>{t('Nascimento')}</span>
+            <DateField
+              className="lv-input"
+              value={editingDraft.birthDate}
+              onChange={(value) => setEditingDraft({ ...editingDraft, birthDate: value })}
+            />
+          </label>
+          <label className="lv-field">
+            <span>{t('Competidor')}</span>
+            <select
+              className="lv-select"
+              value={editingDraft.isCompetitor ? 'yes' : 'no'}
+              onChange={(event) => setEditingDraft({ ...editingDraft, isCompetitor: event.target.value === 'yes' })}
+            >
+              <option value="no">{t('Não')}</option>
+              <option value="yes">{t('Sim')}</option>
+            </select>
+          </label>
+          {withBeltAndGrade ? (
+            <>
+              <label className="lv-field">
+                <span>{t('Faixa')}</span>
+                <select
+                  className="lv-select"
+                  value={editingDraft.requestedBelt}
+                  onChange={(event) => setEditingDraft({ ...editingDraft, requestedBelt: event.target.value })}
+                >
+                  {beltOptions.map((option) => (
+                    <option key={option.value} value={option.value}>{option.label}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="lv-field">
+                <span>{t('Grau')}</span>
+                <input
+                  type="number"
+                  min={0}
+                  step={1}
+                  inputMode="numeric"
+                  className="lv-input"
+                  value={editingDraft.requestedGrade}
+                  onChange={(event) => {
+                    const parsed = Number.parseInt(event.target.value, 10);
+                    setEditingDraft({
+                      ...editingDraft,
+                      requestedGrade: Number.isNaN(parsed) ? 0 : Math.max(0, parsed),
+                    });
+                  }}
+                />
+              </label>
+            </>
+          ) : null}
+        </div>
+        <div className="rd-notices__actions">
+          <button
+            type="button"
+            disabled={editingBusy}
+            onClick={() => void submitEditJoinRequest()}
+            className="lv-btn lv-btn--primary lv-btn--sm rd-notices__btn"
+          >
+            {editingBusy ? t('Salvando...') : t('Salvar alterações')}
+          </button>
+          <button
+            type="button"
+            disabled={editingBusy}
+            onClick={() => cancelEditJoinRequest()}
+            className="lv-btn lv-btn--neutral lv-btn--sm rd-notices__btn"
+          >
+            {t('Cancelar')}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  function renderTransferPanel(request: FirestoreEntity<JoinRequestRecord>) {
+    return (
+      <div className="rd-notices__panel">
+        <p className="rd-notices__panel-title">{t('Transferir para outra unidade')}</p>
+        <p className="rd-notices__panel-copy">
+          {t('A solicitação sai desta unidade e vai para a unidade escolhida. Só os professores da nova unidade poderão aprovar.')}
+        </p>
+        {transferError ? (
+          <div className="lv-alert lv-alert--danger">{transferError}</div>
+        ) : null}
+        <label className="lv-field">
+          <span>{t('Unidade de destino')}</span>
+          <select
+            className="lv-select"
+            value={transferTargetAcademyId}
+            onChange={(event) => setTransferTargetAcademyId(event.target.value)}
+            disabled={transferBusy}
+          >
+            <option value="">{t('Selecione a unidade')}</option>
+            {academies
+              .filter((entry) => entry.id !== request.academyId)
+              .map((entry) => (
+                <option key={entry.id} value={entry.id}>{entry.name}</option>
+              ))}
+          </select>
+        </label>
+        <div className="rd-notices__actions">
+          <button
+            type="button"
+            disabled={transferBusy || !transferTargetAcademyId}
+            onClick={() => void submitTransferJoinRequest()}
+            className="lv-btn lv-btn--primary lv-btn--sm rd-notices__btn"
+          >
+            {transferBusy ? t('Encaminhando...') : t('Confirmar transferência')}
+          </button>
+          <button
+            type="button"
+            disabled={transferBusy}
+            onClick={() => cancelTransferJoinRequest()}
+            className="lv-btn lv-btn--neutral lv-btn--sm rd-notices__btn"
+          >
+            {t('Cancelar')}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  function renderGraduationBelt(item: FirestoreEntity<GraduationApprovalRequestRecord>) {
+    return (
+      <BeltImage
+        belt={item.currentBelt}
+        stripes={item.currentStripes}
+        className="lv-belt-mini"
+        alt={beltLabel(item.currentBelt)}
+      />
+    );
+  }
+
+  if (isProfessorMobileView) {
+    return (
+      <div className="lv-screen rd-notices">
+        {ownsHeader ? (
+          <ScreenHeader
+            eyebrow={shell.unitLabel || academy.name}
+            eyebrowIsUnit
+            title={unreadTitle}
+            actions={activeTab === 'notifications' ? renderHeaderClear(professorNotifications) : null}
+          />
+        ) : null}
+
+        {renderStaffTabs('mobile')}
+
+        {activeTab === 'notifications' ? (
+          <section className="rd-notices__list">
+            <PushOptInBanner />
+            {error ? <div className="lv-alert lv-alert--danger">{error}</div> : null}
+
+            {!ownsHeader ? renderClearButton(professorNotifications) : null}
+
+            {renderNoticeList(
+              professorNotifications,
+              showAllStaff,
+              () => setShowAllStaff(true),
+              'staff-mobile',
+              t('Nenhuma notificação encontrada para a unidade.'),
+            )}
           </section>
         ) : null}
 
         {activeTab === 'requests' ? (
-          <section className="notice-mobile__list">
-            {error ? <div className="app-alert app-alert--error">{error}</div> : null}
+          <section className="rd-notices__list">
+            {error ? <div className="lv-alert lv-alert--danger">{error}</div> : null}
 
             {requestItems.map((item) => {
               const isProcessing = processingRequestId === item.id;
@@ -959,28 +1360,28 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
 
               return (
                 <React.Fragment key={item.id}>
-                  <article className="notice-mobile__request-card">
-                    <div className="notice-mobile__request-row">
-                      <div className="notice-mobile__avatar" aria-hidden="true">{getInitial(item.title)}</div>
+                  <article className="rd-notices__request">
+                    <div className="rd-notices__request-row">
+                      <span className="lv-avatar lv-avatar--ink" aria-hidden="true">{getInitial(item.title)}</span>
 
-                      <div className="notice-mobile__request-copy">
-                        <p className="notice-mobile__request-name">{item.title}</p>
-                        <p className="notice-mobile__request-body">{item.body}</p>
-                        <p className="notice-mobile__request-time">
+                      <div className="rd-notices__request-copy">
+                        <p className="rd-notices__request-name">{item.title}</p>
+                        <p className="rd-notices__request-body">{item.body}</p>
+                        <p className="rd-notices__request-meta">
                           {isJoinRequest ? formatStamp(item.createdAt) : item.meta}
                         </p>
                       </div>
                     </div>
 
                     {joinRequest && (joinRequest.transferredFromAcademyName || groupOtherCount > 0) ? (
-                      <div className="mt-2 flex flex-wrap gap-2">
+                      <div className="rd-notices__tags-row">
                         {joinRequest.transferredFromAcademyName ? (
-                          <span className="app-badge app-badge--gold">
+                          <span className="rd-notices__tag rd-notices__tag--gold">
                             {t('Encaminhada de {name}', { name: joinRequest.transferredFromAcademyName })}
                           </span>
                         ) : null}
                         {groupOtherCount > 0 ? (
-                          <span className="app-badge app-badge--muted">
+                          <span className="rd-notices__tag">
                             {t('Aluno também solicitou em {count} outra(s) unidade(s)', { count: groupOtherCount })}
                           </span>
                         ) : null}
@@ -988,14 +1389,14 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
                     ) : null}
 
                     {canActionRequests ? (
-                      <div className="notice-mobile__actions" style={{ flexWrap: 'wrap' }}>
+                      <div className="rd-notices__actions">
                         <button
                           type="button"
                           disabled={isProcessing}
                           onClick={() => void handleApprove(item)}
-                          className="app-button app-button--green app-button--small"
+                          className="lv-btn lv-btn--success lv-btn--sm rd-notices__btn"
                         >
-                          <CheckCircle2 size={15} />
+                          <CheckCircle2 size={16} strokeWidth={2} />
                           {isProcessing ? t('Processando...') : t('Aprovar')}
                         </button>
                         {isJoinRequest && onUpdateJoinRequest ? (
@@ -1003,7 +1404,7 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
                             type="button"
                             disabled={isProcessing}
                             onClick={() => startEditJoinRequest(item.request)}
-                            className="app-button app-button--ghost app-button--small"
+                            className="lv-btn lv-btn--neutral lv-btn--sm rd-notices__btn"
                           >
                             {t('Editar')}
                           </button>
@@ -1013,7 +1414,7 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
                             type="button"
                             disabled={isProcessing}
                             onClick={() => startTransferJoinRequest(item.request)}
-                            className="app-button app-button--ghost app-button--small"
+                            className="lv-btn lv-btn--neutral lv-btn--sm rd-notices__btn"
                           >
                             {t('Transferir')}
                           </button>
@@ -1022,189 +1423,41 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
                           type="button"
                           disabled={isProcessing}
                           onClick={() => void handleReject(item)}
-                          className="app-button app-button--danger app-button--small"
+                          className="lv-btn lv-btn--danger lv-btn--sm rd-notices__btn"
                         >
-                          <XCircle size={15} />
+                          <XCircle size={16} strokeWidth={2} />
                           {t('Recusar')}
                         </button>
                       </div>
                     ) : (
-                      <div className="notice-mobile__request-note">{t('Sem permissão para agir sobre esta solicitação.')}</div>
+                      <p className="rd-notices__note">{t('Sem permissão para agir sobre esta solicitação.')}</p>
                     )}
+
+                    {isJoinRequest && editingRequestId === item.id && editingDraft
+                      ? renderJoinEditFields(true, item.beltOptions)
+                      : null}
+
+                    {isJoinRequest && transferringRequestId === item.id
+                      ? renderTransferPanel(item.request)
+                      : null}
                   </article>
-
-                  {isJoinRequest && editingRequestId === item.id && editingDraft ? (
-                    <div className="app-panel app-panel--soft p-4 mt-2">
-                      <p className="app-section-label">{t('Editar dados do aluno')}</p>
-                      {editingError ? (
-                        <div className="app-alert app-alert--error mt-3">{editingError}</div>
-                      ) : null}
-                      <div className="mt-4 flex flex-col gap-3">
-                        <label className="app-field">
-                          <span className="app-field__label">{t('Nome')}</span>
-                          <input
-                            className="app-input"
-                            value={editingDraft.firstName}
-                            onChange={(event) => setEditingDraft({ ...editingDraft, firstName: event.target.value })}
-                          />
-                        </label>
-                        <label className="app-field">
-                          <span className="app-field__label">{t('Sobrenome')}</span>
-                          <input
-                            className="app-input"
-                            value={editingDraft.lastName}
-                            onChange={(event) => setEditingDraft({ ...editingDraft, lastName: event.target.value })}
-                          />
-                        </label>
-                        <label className="app-field">
-                          <span className="app-field__label">CPF</span>
-                          <input
-                            className="app-input"
-                            value={editingDraft.cpf}
-                            onChange={(event) => setEditingDraft({ ...editingDraft, cpf: event.target.value })}
-                          />
-                        </label>
-                        <label className="app-field">
-                          <span className="app-field__label">{t('Telefone')}</span>
-                          <input
-                            className="app-input"
-                            value={editingDraft.phone}
-                            onChange={(event) => setEditingDraft({ ...editingDraft, phone: event.target.value })}
-                          />
-                        </label>
-                        <label className="app-field">
-                          <span className="app-field__label">{t('Nascimento')}</span>
-                          <DateField
-                            value={editingDraft.birthDate}
-                            onChange={(value) => setEditingDraft({ ...editingDraft, birthDate: value })}
-                          />
-                        </label>
-                        <label className="app-field">
-                          <span className="app-field__label">{t('Competidor')}</span>
-                          <select
-                            className="app-select"
-                            value={editingDraft.isCompetitor ? 'yes' : 'no'}
-                            onChange={(event) => setEditingDraft({ ...editingDraft, isCompetitor: event.target.value === 'yes' })}
-                          >
-                            <option value="no">{t('Não')}</option>
-                            <option value="yes">{t('Sim')}</option>
-                          </select>
-                        </label>
-                        <label className="app-field">
-                          <span className="app-field__label">{t('Faixa')}</span>
-                          <select
-                            className="app-select"
-                            value={editingDraft.requestedBelt}
-                            onChange={(event) => setEditingDraft({ ...editingDraft, requestedBelt: event.target.value })}
-                          >
-                            {item.beltOptions.map((option) => (
-                              <option key={option.value} value={option.value}>{option.label}</option>
-                            ))}
-                          </select>
-                        </label>
-                        <label className="app-field">
-                          <span className="app-field__label">{t('Grau')}</span>
-                          <input
-                            type="number"
-                            min={0}
-                            step={1}
-                            className="app-input"
-                            value={editingDraft.requestedGrade}
-                            onChange={(event) => {
-                              const parsed = Number.parseInt(event.target.value, 10);
-                              setEditingDraft({
-                                ...editingDraft,
-                                requestedGrade: Number.isNaN(parsed) ? 0 : Math.max(0, parsed),
-                              });
-                            }}
-                          />
-                        </label>
-                      </div>
-                      <div className="mt-4 flex flex-wrap gap-3">
-                        <button
-                          type="button"
-                          disabled={editingBusy}
-                          onClick={() => void submitEditJoinRequest()}
-                          className="app-button app-button--gold app-button--small"
-                        >
-                          {editingBusy ? t('Salvando...') : t('Salvar alterações')}
-                        </button>
-                        <button
-                          type="button"
-                          disabled={editingBusy}
-                          onClick={() => cancelEditJoinRequest()}
-                          className="app-button app-button--ghost app-button--small"
-                        >
-                          {t('Cancelar')}
-                        </button>
-                      </div>
-                    </div>
-                  ) : null}
-
-                  {isJoinRequest && transferringRequestId === item.id ? (
-                    <div className="app-panel app-panel--soft p-4 mt-2">
-                      <p className="app-section-label">{t('Transferir para outra unidade')}</p>
-                      <p className="mt-2 text-sm text-[color:var(--text-muted)]">
-                        {t('A solicitação sai desta unidade e vai para a unidade escolhida. Só os professores da nova unidade poderão aprovar.')}
-                      </p>
-                      {transferError ? (
-                        <div className="app-alert app-alert--error mt-3">{transferError}</div>
-                      ) : null}
-                      <label className="app-field mt-4">
-                        <span className="app-field__label">{t('Unidade de destino')}</span>
-                        <select
-                          className="app-select"
-                          value={transferTargetAcademyId}
-                          onChange={(event) => setTransferTargetAcademyId(event.target.value)}
-                          disabled={transferBusy}
-                        >
-                          <option value="">{t('Selecione a unidade')}</option>
-                          {academies
-                            .filter((entry) => entry.id !== item.request.academyId)
-                            .map((entry) => (
-                              <option key={entry.id} value={entry.id}>{entry.name}</option>
-                            ))}
-                        </select>
-                      </label>
-                      <div className="mt-4 flex flex-wrap gap-3">
-                        <button
-                          type="button"
-                          disabled={transferBusy || !transferTargetAcademyId}
-                          onClick={() => void submitTransferJoinRequest()}
-                          className="app-button app-button--gold app-button--small"
-                        >
-                          {transferBusy ? t('Encaminhando...') : t('Confirmar transferência')}
-                        </button>
-                        <button
-                          type="button"
-                          disabled={transferBusy}
-                          onClick={() => cancelTransferJoinRequest()}
-                          className="app-button app-button--ghost app-button--small"
-                        >
-                          {t('Cancelar')}
-                        </button>
-                      </div>
-                    </div>
-                  ) : null}
                 </React.Fragment>
               );
             })}
 
-            {requestItems.length === 0 ? (
-              <div className="notice-mobile__empty">{t('Sem solicitações pendentes no momento.')}</div>
-            ) : null}
+            {requestItems.length === 0 ? renderEmpty(t('Sem solicitações pendentes no momento.')) : null}
           </section>
         ) : null}
 
         {activeTab === 'communication' ? (
-          <section className="notice-mobile__list">
+          <section className="rd-notices__list">
             {renderBroadcastManager('mobile')}
           </section>
         ) : null}
 
         {activeTab === 'graduations' ? (
-          <section className="notice-mobile__list">
-            {error ? <div className="app-alert app-alert--error">{error}</div> : null}
+          <section className="rd-notices__list">
+            {error ? <div className="lv-alert lv-alert--danger">{error}</div> : null}
 
             {graduationItems.map((item) => {
               const isProcessing = processingRequestId === item.id;
@@ -1215,52 +1468,54 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
                 && !(lastAttendanceMs !== null && lastAttendanceMs > lastApprovalMs);
 
               return (
-                <article key={item.id} className="notice-mobile__request-card">
-                  <div className="notice-mobile__request-row">
-                    <div className="notice-mobile__avatar" aria-hidden="true">{getInitial(item.userDisplayName)}</div>
+                <article key={item.id} className="rd-notices__request">
+                  <div className="rd-notices__request-row">
+                    <span className="lv-avatar lv-avatar--ink" aria-hidden="true">{getInitial(item.userDisplayName)}</span>
 
-                    <div className="notice-mobile__request-copy">
-                      <p className="notice-mobile__request-name">{item.userDisplayName}</p>
-                      <p className="notice-mobile__request-body">
+                    <div className="rd-notices__request-copy">
+                      <p className="rd-notices__request-name">{item.userDisplayName}</p>
+                      {renderGraduationBelt(item)}
+                      <p className="rd-notices__request-body">
                         {t('Atual: {belt} • {count} grau(s)', { belt: beltLabel(item.currentBelt), count: item.currentStripes })}
                       </p>
-                      <p className="notice-mobile__request-time">
+                      <p className="rd-notices__request-meta">
                         {t('Próximo passo: {target}', { target: graduationTargetLabel(item) })}
                       </p>
-                      <p className="notice-mobile__request-time">{graduationStatusLabel(item)}</p>
-                      {item.targetType === 'belt' && item.remainingClasses <= 0 ? (
-                        <p className="notice-mobile__belt-ready-alert">
-                          {t('Esse aluno está apto a mudar de faixa')}
-                        </p>
-                      ) : null}
-                      {item.targetType === 'stripe' && item.remainingClasses <= 0 ? (
-                        <p className="notice-mobile__belt-ready-alert">
-                          {t('Esse aluno está apto a subir de grau')}
-                        </p>
-                      ) : null}
+                      <p className="rd-notices__request-meta">{graduationStatusLabel(item)}</p>
                     </div>
                   </div>
 
-                  {isBlocked ? (
-                    <div className="app-alert app-alert--warning text-sm">
-                      {t('Este aluno já foi graduado recentemente. Aguarde ele completar a próxima aula para liberar a próxima graduação.')}
-                    </div>
+                  {item.targetType === 'belt' && item.remainingClasses <= 0 ? (
+                    <p className="rd-notices__note rd-notices__note--success">
+                      {t('Esse aluno está apto a mudar de faixa')}
+                    </p>
+                  ) : null}
+                  {item.targetType === 'stripe' && item.remainingClasses <= 0 ? (
+                    <p className="rd-notices__note rd-notices__note--success">
+                      {t('Esse aluno está apto a subir de grau')}
+                    </p>
                   ) : null}
 
-                  <div className="notice-mobile__actions">
+                  {isBlocked ? (
+                    <p className="rd-notices__note rd-notices__note--warning">
+                      {t('Este aluno já foi graduado recentemente. Aguarde ele completar a próxima aula para liberar a próxima graduação.')}
+                    </p>
+                  ) : null}
+
+                  <div className="rd-notices__actions">
                     <button
                       type="button"
                       disabled={isProcessing || isBlocked}
                       onClick={() => void handleApproveGraduation(item)}
-                      className="app-button app-button--green app-button--small"
+                      className="lv-btn lv-btn--success lv-btn--sm rd-notices__btn"
                     >
-                      <CheckCircle2 size={15} />
+                      <CheckCircle2 size={16} strokeWidth={2} />
                       {isProcessing ? t('Processando...') : t('Aprovar')}
                     </button>
                     <button
                       type="button"
                       onClick={() => onOpenStudent?.(item.userId)}
-                      className="app-button app-button--ghost app-button--small"
+                      className="lv-btn lv-btn--neutral lv-btn--sm rd-notices__btn"
                     >
                       {t('Abrir aluno')}
                     </button>
@@ -1269,237 +1524,108 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
               );
             })}
 
-            {graduationItems.length === 0 ? (
-              <div className="notice-mobile__empty">{t('Nenhuma graduação pendente na unidade.')}</div>
-            ) : null}
+            {graduationItems.length === 0 ? renderEmpty(t('Nenhuma graduação pendente na unidade.')) : null}
           </section>
         ) : null}
 
+        {activeTab === 'notifications' || activeTab === 'communication' ? renderNewNoticeCta() : null}
+        {renderComposer()}
         {renderClearModal()}
       </div>
     );
   }
 
   return (
-    <div className="view-shell">
-      <section className="app-panel app-panel-pad">
-        <div className="flex flex-wrap items-center justify-between gap-4">
+    <div className="lv-screen rd-notices">
+      {ownsHeader ? (
+        <ScreenHeader
+          back={isStudent}
+          showBell={false}
+          eyebrow={isStudent ? academy.name : focusedAcademyName}
+          title={unreadTitle}
+          subtitle={isStudent ? undefined : t('Comunicados, solicitações e graduações do contexto atual.')}
+          actions={isStudent
+            ? renderHeaderClear(studentNotifications)
+            : (activeTab === 'notifications' ? renderHeaderClear(professorNotifications) : null)}
+        />
+      ) : (
+        <section className="lv-card rd-notices__context">
           <div>
-            <p className="text-sm font-bold">{isStudent ? academy.name : focusedAcademyName}</p>
-            <p className="mt-2 text-sm text-[color:var(--text-muted)]">
+            <p className="rd-notices__context-name">{isStudent ? academy.name : focusedAcademyName}</p>
+            <p className="rd-notices__context-copy">
               {isStudent
                 ? t('Avisos da academia e da equipe em um fluxo mais direto.')
                 : t('Comunicados, solicitações e graduações do contexto atual.')}
             </p>
           </div>
+          <span className="rd-notices__count">{t('{count} não lidas', { count: unreadCount })}</span>
+        </section>
+      )}
 
-          <div className="app-orb">
-            <Bell size={16} />
-            {t('{count} não lidas', { count: unreadCount })}
-          </div>
+      {isStudent ? (
+        <div className="lv-segmented lv-segmented--yellow" role="tablist" aria-label={t('Avisos')}>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={studentChannelTab === 'academy'}
+            onClick={() => setStudentChannelTab('academy')}
+            className={studentChannelTab === 'academy' ? 'is-active' : ''}
+          >
+            {t('Academia')}
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={studentChannelTab === 'team'}
+            onClick={() => setStudentChannelTab('team')}
+            className={studentChannelTab === 'team' ? 'is-active' : ''}
+          >
+            {t('Equipe')}
+          </button>
         </div>
-
-        {isStudent ? (
-          <div className="mt-5 app-segment app-segment--block">
-            <button
-              type="button"
-              onClick={() => setStudentChannelTab('academy')}
-              className={`app-segment__button ${studentChannelTab === 'academy' ? 'is-active' : ''}`}
-            >
-              <BellRing size={16} />
-              {t('Academia')}
-            </button>
-            <button
-              type="button"
-              onClick={() => setStudentChannelTab('team')}
-              className={`app-segment__button ${studentChannelTab === 'team' ? 'is-active' : ''}`}
-            >
-              <ClipboardCheck size={16} />
-              {t('Equipe')}
-            </button>
-          </div>
-        ) : (
-          <div className="mt-5 app-segment app-segment--block">
-            <button
-              type="button"
-              onClick={() => setActiveTab('notifications')}
-              className={`app-segment__button ${activeTab === 'notifications' ? 'is-active' : ''}`}
-            >
-              <BellRing size={16} />
-              {t('Notificações')}
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab('requests')}
-              className={`app-segment__button ${activeTab === 'requests' ? 'is-active' : ''}`}
-            >
-              <ClipboardCheck size={16} />
-              {`${t('Solicitações')}${requestItems.length > 0 ? ` (${requestItems.length})` : ''}`}
-            </button>
-            {canBroadcast ? (
-              <button
-                type="button"
-                onClick={() => setActiveTab('communication')}
-                className={`app-segment__button ${activeTab === 'communication' ? 'is-active' : ''}`}
-              >
-                <Send size={16} />
-                {t('Comunicação')}
-              </button>
-            ) : null}
-            <button
-              type="button"
-              onClick={() => setActiveTab('graduations')}
-              className={`app-segment__button ${activeTab === 'graduations' ? 'is-active' : ''}`}
-            >
-              <GraduationCap size={16} />
-              {`${t('Graduações')}${graduationItems.length > 0 ? ` (${graduationItems.length})` : ''}`}
-              {beltReadyCount > 0 ? <span className="app-badge app-badge--gold">{t('{count} faixa', { count: beltReadyCount })}</span> : null}
-              {grauReadyCount > 0 ? <span className="app-badge app-badge--muted">{t('{count} grau', { count: grauReadyCount })}</span> : null}
-            </button>
-          </div>
-        )}
-      </section>
+      ) : renderStaffTabs('desktop')}
 
       <PushOptInBanner />
 
       {isStudent ? (
-        <section className="app-list">
-          {renderClearButton(studentNotifications)}
+        <section className="rd-notices__list">
+          {error && !confirmClear ? <div className="lv-alert lv-alert--danger">{error}</div> : null}
+          {!ownsHeader ? renderClearButton(studentNotifications) : null}
 
-          {studentNotifications.slice(0, showAllStudent ? undefined : 5).map((notification) => {
-            const unread = isUnreadNotificationForViewer(notification, {
-              viewerRole: userRole,
-              actionState: notificationActionState,
-            });
-
-            return (
-              <article key={notification.id} className="app-panel app-panel-pad">
-                <div className="flex flex-wrap items-start justify-between gap-4">
-                  <div>
-                    <div className="flex flex-wrap items-center gap-3">
-                      <h2 className="text-lg font-bold">{notification.title}</h2>
-                      <span className="app-badge app-badge--muted">{notificationType(notification)}</span>
-                      {unread ? <span className="app-badge app-badge--gold">{t('Novo')}</span> : null}
-                    </div>
-                    <p className="mt-3 text-sm leading-7 text-[color:var(--text-muted)]">{notification.body}</p>
-                  </div>
-                  <div className="text-right text-xs text-[color:var(--text-soft)]">
-                    <p>{formatStamp(notification.createdAt)}</p>
-                    <p className="mt-1 capitalize">{notification.status}</p>
-                  </div>
-                </div>
-
-                {unread ? (
-                  <div className="mt-5 flex flex-wrap gap-3">
-                    <button
-                      type="button"
-                      onClick={() => void handleMarkRead(notification.id)}
-                      className="app-button app-button--ghost app-button--small"
-                    >
-                      <CheckCircle2 size={15} />
-                      {t('Marcar como lida')}
-                    </button>
-                  </div>
-                ) : null}
-              </article>
-            );
-          })}
-
-          {studentNotifications.length > 5 && !showAllStudent ? (
-            <button
-              type="button"
-              onClick={() => setShowAllStudent(true)}
-              className="app-button app-button--ghost w-full"
-            >
-              {t('Ver mais ({count} restantes)', { count: studentNotifications.length - 5 })}
-            </button>
-          ) : null}
-
-          {studentNotifications.length === 0 ? (
-            <div className="app-empty">{t('Nenhum aviso encontrado para este canal.')}</div>
-          ) : null}
+          {renderNoticeList(
+            studentNotifications,
+            showAllStudent,
+            () => setShowAllStudent(true),
+            'student',
+            t('Nada de novo no mural.'),
+          )}
         </section>
       ) : null}
 
       {!isStudent && activeTab === 'notifications' ? (
-        <>
-          <section className="app-list">
-            {renderClearButton(professorNotifications)}
+        <section className="rd-notices__list">
+          {error && !confirmClear ? <div className="lv-alert lv-alert--danger">{error}</div> : null}
+          {!ownsHeader ? renderClearButton(professorNotifications) : null}
 
-            {professorNotifications.slice(0, showAllStaff ? undefined : 5).map((notification) => {
-              const unread = isUnreadNotificationForViewer(notification, {
-                viewerRole: userRole,
-                actionState: notificationActionState,
-              });
-
-              return (
-                <article key={notification.id} className="app-panel app-panel-pad">
-                  <div className="flex flex-wrap items-start justify-between gap-4">
-                    <div>
-                      <div className="flex flex-wrap items-center gap-3">
-                        <h2 className="text-lg font-bold">{notification.title}</h2>
-                        <span className="app-badge app-badge--muted">{notificationType(notification)}</span>
-                        {unread ? <span className="app-badge app-badge--gold">{t('Novo')}</span> : null}
-                      </div>
-                      <p className="mt-3 text-sm leading-7 text-[color:var(--text-muted)]">{notification.body}</p>
-                    </div>
-
-                    <div className="text-right text-xs text-[color:var(--text-soft)]">
-                      <p>{formatStamp(notification.createdAt)}</p>
-                      <p className="mt-1 capitalize">{notification.status}</p>
-                    </div>
-                  </div>
-
-                  {(notification.targetRole || notification.targetBelt) ? (
-                    <div className="mt-5 flex flex-wrap gap-3">
-                      <span className="app-badge app-badge--muted">{t('Canal: {channel}', { channel: notification.channel })}</span>
-                      {notification.targetRole ? <span className="app-badge app-badge--muted">{t('Perfil: {role}', { role: notification.targetRole })}</span> : null}
-                      {notification.targetBelt ? <span className="app-badge app-badge--muted">{t('Faixa: {belt}', { belt: beltLabel(notification.targetBelt) })}</span> : null}
-                    </div>
-                  ) : null}
-
-                  {unread ? (
-                    <div className="mt-5 flex flex-wrap gap-3">
-                      <button
-                        type="button"
-                        onClick={() => void handleMarkRead(notification.id)}
-                        className="app-button app-button--ghost app-button--small"
-                      >
-                        <CheckCircle2 size={15} />
-                        {t('Marcar como lida')}
-                      </button>
-                    </div>
-                  ) : null}
-                </article>
-              );
-            })}
-
-            {professorNotifications.length > 5 && !showAllStaff ? (
-              <button
-                type="button"
-                onClick={() => setShowAllStaff(true)}
-                className="app-button app-button--ghost w-full"
-              >
-                {t('Ver mais ({count} restantes)', { count: professorNotifications.length - 5 })}
-              </button>
-            ) : null}
-
-            {professorNotifications.length === 0 ? (
-              <div className="app-empty">{t('Nenhuma notificação encontrada para o contexto atual.')}</div>
-            ) : null}
-          </section>
-        </>
+          {renderNoticeList(
+            professorNotifications,
+            showAllStaff,
+            () => setShowAllStaff(true),
+            'staff-desktop',
+            t('Nenhuma notificação encontrada para o contexto atual.'),
+          )}
+        </section>
       ) : null}
 
       {!isStudent && activeTab === 'communication' ? (
-        <section className="app-list">
+        <section className="rd-notices__list">
           {renderBroadcastManager('desktop')}
         </section>
       ) : null}
 
       {!isStudent && activeTab === 'requests' ? (
-        <section className="app-list">
-          {error ? <div className="app-alert app-alert--error mb-4">{error}</div> : null}
+        <section className="rd-notices__list">
+          {error ? <div className="lv-alert lv-alert--danger">{error}</div> : null}
 
           {requestItems.map((item) => {
             const isProcessing = processingRequestId === item.id;
@@ -1507,118 +1633,112 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
             if (item.kind === 'join_request') {
               const draft = getJoinRequestDraft(item.request);
               const isExpanded = expandedRequestId === item.id;
+              const otherCount = item.request.requestGroupId
+                ? joinRequests.filter(
+                    (entry) => entry.requestGroupId === item.request.requestGroupId && entry.id !== item.id,
+                  ).length
+                : 0;
 
               return (
-                <article key={`${item.kind}-${item.id}`} className="app-panel app-panel-pad">
+                <article key={`${item.kind}-${item.id}`} className="rd-notices__request">
                   <button
                     type="button"
                     onClick={() => setExpandedRequestId((current) => current === item.id ? null : item.id)}
-                    className="w-full text-left"
+                    className="rd-notices__toggle"
                     aria-expanded={isExpanded}
                   >
-                    <div className="flex flex-wrap items-start justify-between gap-4">
-                      <div>
-                        <div className="flex flex-wrap items-center gap-3">
-                          <h2 className="text-lg font-bold">{item.title}</h2>
-                          <span className="app-badge app-badge--gold">{t('Pedido de acesso')}</span>
-                        </div>
-                        <div className="mt-3 flex flex-wrap gap-2">
-                          <span className="app-badge app-badge--muted">{t('Faixa {belt}', { belt: beltLabel(item.request.requestedBelt) })}</span>
-                          <span className="app-badge app-badge--muted">{t('Grau {grade}', { grade: item.request.requestedGrade })}</span>
-                        </div>
-                        <div className="mt-3 flex flex-wrap items-center gap-2 text-xs font-bold uppercase tracking-[0.16em] text-[color:var(--text-soft)]">
-                          <span>{isExpanded ? t('Ocultar detalhes') : t('Toque para ver detalhes')}</span>
-                          {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-                        </div>
-                      </div>
-                    </div>
+                    <span className="rd-notices__request-row">
+                      <span className="lv-avatar lv-avatar--ink" aria-hidden="true">{getInitial(item.title)}</span>
+                      <span className="rd-notices__request-copy">
+                        <span className="rd-notices__tags">
+                          <span className="rd-notices__type">{t('Pedido de acesso')}</span>
+                        </span>
+                        <span className="rd-notices__request-name">{item.title}</span>
+                        <span className="rd-notices__tags-row">
+                          <span className="rd-notices__tag">{t('Faixa {belt}', { belt: beltLabel(item.request.requestedBelt) })}</span>
+                          <span className="rd-notices__tag">{t('Grau {grade}', { grade: item.request.requestedGrade })}</span>
+                        </span>
+                        <span className="rd-notices__toggle-hint">
+                          {isExpanded ? t('Ocultar detalhes') : t('Toque para ver detalhes')}
+                          {isExpanded ? <ChevronUp size={14} strokeWidth={2} /> : <ChevronDown size={14} strokeWidth={2} />}
+                        </span>
+                      </span>
+                    </span>
                   </button>
 
                   {isExpanded ? (
                     <>
-                      <div className="mt-5 flex flex-wrap items-center gap-3">
-                        <span className="app-badge app-badge--muted">{t('Trilha {track}', { track: t(item.trainingType) })}</span>
+                      <div className="rd-notices__tags-row">
+                        <span className="rd-notices__tag">{t('Trilha {track}', { track: t(item.trainingType) })}</span>
                         {item.inferredKidsCategory ? (
-                          <span className="app-badge app-badge--muted">{kidsCategoryLabel(item.inferredKidsCategory)}</span>
+                          <span className="rd-notices__tag">{kidsCategoryLabel(item.inferredKidsCategory)}</span>
                         ) : null}
-                        <span className="app-badge app-badge--muted">{formatStamp(item.createdAt)}</span>
+                        <span className="rd-notices__tag">{formatStamp(item.createdAt)}</span>
                         {item.request.transferredFromAcademyName ? (
-                          <span className="app-badge app-badge--gold">
+                          <span className="rd-notices__tag rd-notices__tag--gold">
                             {t('Encaminhada de {name}', { name: item.request.transferredFromAcademyName })}
                           </span>
                         ) : null}
-                        {item.request.requestGroupId ? (
-                          (() => {
-                            const otherCount = joinRequests.filter(
-                              (entry) =>
-                                entry.requestGroupId === item.request.requestGroupId && entry.id !== item.id,
-                            ).length;
-                            return otherCount > 0 ? (
-                              <span className="app-badge app-badge--muted">
-                                {t('Aluno também solicitou em {count} outra(s) unidade(s)', { count: otherCount })}
-                              </span>
-                            ) : null;
-                          })()
+                        {otherCount > 0 ? (
+                          <span className="rd-notices__tag">
+                            {t('Aluno também solicitou em {count} outra(s) unidade(s)', { count: otherCount })}
+                          </span>
                         ) : null}
                       </div>
 
-                      <div className="mt-5 app-grid-2">
-                        <div className="app-list-card">
-                          <p className="text-[11px] uppercase tracking-[0.16em] text-[color:var(--text-soft)]">{t('Nome completo')}</p>
-                          <p className="mt-1 text-sm font-bold">{item.request.firstName} {item.request.lastName}</p>
+                      <div className="rd-notices__facts">
+                        <div className="rd-notices__fact">
+                          <span className="rd-notices__fact-label">{t('Nome completo')}</span>
+                          <span className="rd-notices__fact-value">{item.request.firstName} {item.request.lastName}</span>
                         </div>
-                        <div className="app-list-card">
-                          <p className="text-[11px] uppercase tracking-[0.16em] text-[color:var(--text-soft)]">{t('E-mail')}</p>
-                          <p className="mt-1 text-sm font-bold">{item.request.email}</p>
+                        <div className="rd-notices__fact">
+                          <span className="rd-notices__fact-label">{t('E-mail')}</span>
+                          <span className="rd-notices__fact-value">{item.request.email}</span>
                         </div>
-                        <div className="app-list-card">
-                          <p className="text-[11px] uppercase tracking-[0.16em] text-[color:var(--text-soft)]">CPF</p>
-                          <p className="mt-1 text-sm font-bold">{item.request.cpf}</p>
+                        <div className="rd-notices__fact">
+                          <span className="rd-notices__fact-label">CPF</span>
+                          <span className="rd-notices__fact-value">{item.request.cpf}</span>
                         </div>
-                        <div className="app-list-card">
-                          <p className="text-[11px] uppercase tracking-[0.16em] text-[color:var(--text-soft)]">{t('Nascimento')}</p>
-                          <p className="mt-1 text-sm font-bold">{formatDateOnly(item.request.birthDate)}</p>
+                        <div className="rd-notices__fact">
+                          <span className="rd-notices__fact-label">{t('Nascimento')}</span>
+                          <span className="rd-notices__fact-value">{formatDateOnly(item.request.birthDate)}</span>
                         </div>
-                        <div className="app-list-card">
-                          <p className="text-[11px] uppercase tracking-[0.16em] text-[color:var(--text-soft)]">{t('Faixa solicitada')}</p>
-                          <p className="mt-1 text-sm font-bold">{beltLabel(item.request.requestedBelt)}</p>
+                        <div className="rd-notices__fact">
+                          <span className="rd-notices__fact-label">{t('Faixa solicitada')}</span>
+                          <span className="rd-notices__fact-value">{beltLabel(item.request.requestedBelt)}</span>
                         </div>
-                        <div className="app-list-card">
-                          <p className="text-[11px] uppercase tracking-[0.16em] text-[color:var(--text-soft)]">{t('Grau solicitado')}</p>
-                          <p className="mt-1 text-sm font-bold">{item.request.requestedGrade}</p>
+                        <div className="rd-notices__fact">
+                          <span className="rd-notices__fact-label">{t('Grau solicitado')}</span>
+                          <span className="rd-notices__fact-value">{item.request.requestedGrade}</span>
                         </div>
-                        <div className="app-list-card">
-                          <p className="text-[11px] uppercase tracking-[0.16em] text-[color:var(--text-soft)]">{t('Competidor')}</p>
-                          <p className="mt-1 text-sm font-bold">{item.request.isCompetitor ? t('Sim') : t('Nao')}</p>
+                        <div className="rd-notices__fact">
+                          <span className="rd-notices__fact-label">{t('Competidor')}</span>
+                          <span className="rd-notices__fact-value">{item.request.isCompetitor ? t('Sim') : t('Nao')}</span>
                         </div>
-                        <div className="app-list-card">
-                          <p className="text-[11px] uppercase tracking-[0.16em] text-[color:var(--text-soft)]">{t('Responsável pela aprovação')}</p>
-                          <p className="mt-1 text-sm font-bold">{t('Professores da unidade')}</p>
+                        <div className="rd-notices__fact">
+                          <span className="rd-notices__fact-label">{t('Responsável pela aprovação')}</span>
+                          <span className="rd-notices__fact-value">{t('Professores da unidade')}</span>
                         </div>
                       </div>
 
                       {canActionRequests ? (
                         <>
-                          <div className="mt-5 app-panel app-panel--soft p-4">
-                            <div className="flex flex-wrap items-center justify-between gap-3">
-                              <div>
-                                <p className="app-section-label">{t('Graduacao de entrada')}</p>
-                                <p className="mt-2 text-sm text-[color:var(--text-muted)]">
-                                  {t('Ajuste faixa e grau antes de aprovar. O aluno será criado com essa graduação.')}
-                                </p>
-                              </div>
-                            </div>
+                          <div className="rd-notices__panel">
+                            <p className="rd-notices__panel-title">{t('Graduacao de entrada')}</p>
+                            <p className="rd-notices__panel-copy">
+                              {t('Ajuste faixa e grau antes de aprovar. O aluno será criado com essa graduação.')}
+                            </p>
 
-                            <div className="mt-4 app-grid-2">
-                              <label className="app-field">
-                                <span className="app-field__label">{t('Faixa')}</span>
+                            <div className="rd-notices__grid2">
+                              <label className="lv-field">
+                                <span>{t('Faixa')}</span>
                                 <select
                                   value={draft.belt}
                                   onChange={(event) => setJoinRequestDraft(item.id, {
                                     ...draft,
                                     belt: event.target.value,
                                   })}
-                                  className="app-select"
+                                  className="lv-select"
                                   disabled={isProcessing}
                                 >
                                   {item.beltOptions.map((option) => (
@@ -1627,31 +1747,32 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
                                 </select>
                               </label>
 
-                              <label className="app-field">
-                                <span className="app-field__label">{t('Grau')}</span>
+                              <label className="lv-field">
+                                <span>{t('Grau')}</span>
                                 <input
                                   type="number"
                                   min={0}
+                                  inputMode="numeric"
                                   value={draft.grade}
                                   onChange={(event) => setJoinRequestDraft(item.id, {
                                     ...draft,
                                     grade: Math.max(0, Math.floor(Number(event.target.value) || 0)),
                                   })}
-                                  className="app-input"
+                                  className="lv-input"
                                   disabled={isProcessing}
                                 />
                               </label>
                             </div>
                           </div>
 
-                          <div className="mt-5 flex flex-wrap gap-3">
+                          <div className="rd-notices__actions">
                             <button
                               type="button"
                               disabled={isProcessing}
                               onClick={() => void handleApprove(item)}
-                              className="app-button app-button--green app-button--small"
+                              className="lv-btn lv-btn--success lv-btn--sm rd-notices__btn"
                             >
-                              <CheckCircle2 size={15} />
+                              <CheckCircle2 size={16} strokeWidth={2} />
                               {isProcessing ? t('Processando...') : t('Aprovar aluno')}
                             </button>
                             {onUpdateJoinRequest ? (
@@ -1659,7 +1780,7 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
                                 type="button"
                                 disabled={isProcessing}
                                 onClick={() => startEditJoinRequest(item.request)}
-                                className="app-button app-button--ghost app-button--small"
+                                className="lv-btn lv-btn--neutral lv-btn--sm rd-notices__btn"
                               >
                                 {t('Editar dados')}
                               </button>
@@ -1669,7 +1790,7 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
                                 type="button"
                                 disabled={isProcessing}
                                 onClick={() => startTransferJoinRequest(item.request)}
-                                className="app-button app-button--ghost app-button--small"
+                                className="lv-btn lv-btn--neutral lv-btn--sm rd-notices__btn"
                               >
                                 {t('Transferir unidade')}
                               </button>
@@ -1678,140 +1799,21 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
                               type="button"
                               disabled={isProcessing}
                               onClick={() => void handleReject(item)}
-                              className="app-button app-button--danger app-button--small"
+                              className="lv-btn lv-btn--danger lv-btn--sm rd-notices__btn"
                             >
-                              <XCircle size={15} />
+                              <XCircle size={16} strokeWidth={2} />
                               {t('Rejeitar')}
                             </button>
                           </div>
 
-                          {editingRequestId === item.id && editingDraft ? (
-                            <div className="mt-5 app-panel app-panel--soft p-4">
-                              <p className="app-section-label">{t('Editar dados do aluno')}</p>
-                              {editingError ? (
-                                <div className="app-alert app-alert--error mt-3">{editingError}</div>
-                              ) : null}
-                              <div className="mt-4 app-grid-2">
-                                <label className="app-field">
-                                  <span className="app-field__label">{t('Nome')}</span>
-                                  <input
-                                    className="app-input"
-                                    value={editingDraft.firstName}
-                                    onChange={(event) => setEditingDraft({ ...editingDraft, firstName: event.target.value })}
-                                  />
-                                </label>
-                                <label className="app-field">
-                                  <span className="app-field__label">{t('Sobrenome')}</span>
-                                  <input
-                                    className="app-input"
-                                    value={editingDraft.lastName}
-                                    onChange={(event) => setEditingDraft({ ...editingDraft, lastName: event.target.value })}
-                                  />
-                                </label>
-                                <label className="app-field">
-                                  <span className="app-field__label">CPF</span>
-                                  <input
-                                    className="app-input"
-                                    value={editingDraft.cpf}
-                                    onChange={(event) => setEditingDraft({ ...editingDraft, cpf: event.target.value })}
-                                  />
-                                </label>
-                                <label className="app-field">
-                                  <span className="app-field__label">{t('Telefone')}</span>
-                                  <input
-                                    className="app-input"
-                                    value={editingDraft.phone}
-                                    onChange={(event) => setEditingDraft({ ...editingDraft, phone: event.target.value })}
-                                  />
-                                </label>
-                                <label className="app-field">
-                                  <span className="app-field__label">{t('Nascimento')}</span>
-                                  <DateField
-                                    value={editingDraft.birthDate}
-                                    onChange={(value) => setEditingDraft({ ...editingDraft, birthDate: value })}
-                                  />
-                                </label>
-                                <label className="app-field">
-                                  <span className="app-field__label">{t('Competidor')}</span>
-                                  <select
-                                    className="app-select"
-                                    value={editingDraft.isCompetitor ? 'yes' : 'no'}
-                                    onChange={(event) => setEditingDraft({ ...editingDraft, isCompetitor: event.target.value === 'yes' })}
-                                  >
-                                    <option value="no">{t('Não')}</option>
-                                    <option value="yes">{t('Sim')}</option>
-                                  </select>
-                                </label>
-                              </div>
-                              <div className="mt-4 flex flex-wrap gap-3">
-                                <button
-                                  type="button"
-                                  disabled={editingBusy}
-                                  onClick={() => void submitEditJoinRequest()}
-                                  className="app-button app-button--gold app-button--small"
-                                >
-                                  {editingBusy ? t('Salvando...') : t('Salvar alterações')}
-                                </button>
-                                <button
-                                  type="button"
-                                  disabled={editingBusy}
-                                  onClick={() => cancelEditJoinRequest()}
-                                  className="app-button app-button--ghost app-button--small"
-                                >
-                                  {t('Cancelar')}
-                                </button>
-                              </div>
-                            </div>
-                          ) : null}
+                          {editingRequestId === item.id && editingDraft
+                            ? renderJoinEditFields(false, item.beltOptions)
+                            : null}
 
-                          {transferringRequestId === item.id ? (
-                            <div className="mt-5 app-panel app-panel--soft p-4">
-                              <p className="app-section-label">{t('Transferir para outra unidade')}</p>
-                              <p className="mt-2 text-sm text-[color:var(--text-muted)]">
-                                {t('A solicitação sai desta unidade e vai para a unidade escolhida. Só os professores da nova unidade poderão aprovar.')}
-                              </p>
-                              {transferError ? (
-                                <div className="app-alert app-alert--error mt-3">{transferError}</div>
-                              ) : null}
-                              <label className="app-field mt-4">
-                                <span className="app-field__label">{t('Unidade de destino')}</span>
-                                <select
-                                  className="app-select"
-                                  value={transferTargetAcademyId}
-                                  onChange={(event) => setTransferTargetAcademyId(event.target.value)}
-                                  disabled={transferBusy}
-                                >
-                                  <option value="">{t('Selecione a unidade')}</option>
-                                  {academies
-                                    .filter((entry) => entry.id !== item.request.academyId)
-                                    .map((entry) => (
-                                      <option key={entry.id} value={entry.id}>{entry.name}</option>
-                                    ))}
-                                </select>
-                              </label>
-                              <div className="mt-4 flex flex-wrap gap-3">
-                                <button
-                                  type="button"
-                                  disabled={transferBusy || !transferTargetAcademyId}
-                                  onClick={() => void submitTransferJoinRequest()}
-                                  className="app-button app-button--gold app-button--small"
-                                >
-                                  {transferBusy ? t('Encaminhando...') : t('Confirmar transferência')}
-                                </button>
-                                <button
-                                  type="button"
-                                  disabled={transferBusy}
-                                  onClick={() => cancelTransferJoinRequest()}
-                                  className="app-button app-button--ghost app-button--small"
-                                >
-                                  {t('Cancelar')}
-                                </button>
-                              </div>
-                            </div>
-                          ) : null}
+                          {transferringRequestId === item.id ? renderTransferPanel(item.request) : null}
                         </>
                       ) : (
-                        <div className="mt-5 app-empty">{t('Somente professores da unidade podem agir sobre esta solicitação.')}</div>
+                        <p className="rd-notices__note">{t('Somente professores da unidade podem agir sobre esta solicitação.')}</p>
                       )}
                     </>
                   ) : null}
@@ -1821,125 +1823,122 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
 
             if (item.kind === 'fight_video_submission') {
               return (
-                <article key={`${item.kind}-${item.id}`} className="app-panel app-panel-pad">
-                  <div className="flex flex-wrap items-start justify-between gap-4">
-                    <div>
-                      <div className="flex flex-wrap items-center gap-3">
-                        <h2 className="text-lg font-bold">{item.title}</h2>
-                        <span className="app-badge app-badge--gold">{t('Solicitacao de video')}</span>
+                <article key={`${item.kind}-${item.id}`} className="rd-notices__request">
+                  <div className="rd-notices__request-row">
+                    <span className="lv-avatar lv-avatar--ink" aria-hidden="true">{getInitial(item.title)}</span>
+                    <div className="rd-notices__request-copy">
+                      <div className="rd-notices__tags">
+                        <span className="rd-notices__type">{t('Solicitacao de video')}</span>
                       </div>
-                      <p className="mt-3 text-sm leading-7 text-[color:var(--text-muted)]">{item.body}</p>
-                      <div className="mt-4 flex flex-wrap gap-2">
-                        <span className="app-badge app-badge--muted">{fightVideoSourceLabel(item.request.sourceKind)}</span>
-                        {item.request.opponentName ? (
-                          <span className="app-badge app-badge--muted">vs {item.request.opponentName}</span>
-                        ) : null}
-                        <span className="app-badge app-badge--muted">
-                          {item.request.occurredAt ? item.request.occurredAt.toDate().toLocaleDateString(getLocale()) : t('Data não informada')}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="text-right text-xs text-[color:var(--text-soft)]">
-                      {formatStamp(item.createdAt)}
+                      <p className="rd-notices__request-name">{item.title}</p>
+                      <p className="rd-notices__request-body">{item.body}</p>
+                      <p className="rd-notices__request-meta">{formatStamp(item.createdAt)}</p>
                     </div>
                   </div>
 
-                  <div className="mt-5">
-                    <AppVideoContent
-                      title={item.request.title}
-                      sourceUrl={item.request.sourceUrl}
-                      sourceKind={item.request.sourceKind}
-                    />
+                  <div className="rd-notices__tags-row">
+                    <span className="rd-notices__tag">{fightVideoSourceLabel(item.request.sourceKind)}</span>
+                    {item.request.opponentName ? (
+                      <span className="rd-notices__tag">vs {item.request.opponentName}</span>
+                    ) : null}
+                    <span className="rd-notices__tag">
+                      {item.request.occurredAt ? item.request.occurredAt.toDate().toLocaleDateString(getLocale()) : t('Data não informada')}
+                    </span>
                   </div>
+
+                  <AppVideoContent
+                    title={item.request.title}
+                    sourceUrl={item.request.sourceUrl}
+                    sourceKind={item.request.sourceKind}
+                  />
 
                   {canActionRequests ? (
-                    <div className="mt-5 flex flex-wrap gap-3">
+                    <div className="rd-notices__actions">
                       <button
                         type="button"
                         disabled={isProcessing}
                         onClick={() => void handleApprove(item)}
-                        className="app-button app-button--green app-button--small"
+                        className="lv-btn lv-btn--success lv-btn--sm rd-notices__btn"
                       >
-                        <CheckCircle2 size={15} />
+                        <CheckCircle2 size={16} strokeWidth={2} />
                         {isProcessing ? t('Processando...') : t('Aprovar video')}
                       </button>
                       <button
                         type="button"
                         disabled={isProcessing}
                         onClick={() => void handleReject(item)}
-                        className="app-button app-button--danger app-button--small"
+                        className="lv-btn lv-btn--danger lv-btn--sm rd-notices__btn"
                       >
-                        <XCircle size={15} />
+                        <XCircle size={16} strokeWidth={2} />
                         {t('Rejeitar')}
                       </button>
                       <button
                         type="button"
                         onClick={() => onOpenStudent?.(item.request.athleteId)}
-                        className="app-button app-button--ghost app-button--small"
+                        className="lv-btn lv-btn--neutral lv-btn--sm rd-notices__btn"
                       >
                         {t('Abrir aluno')}
                       </button>
                     </div>
                   ) : (
-                    <div className="mt-5 app-empty">{t('Somente professor ou superadmin podem agir sobre esta solicitação.')}</div>
+                    <p className="rd-notices__note">{t('Somente professor ou superadmin podem agir sobre esta solicitação.')}</p>
                   )}
                 </article>
               );
             }
 
             return (
-              <article key={`${item.kind}-${item.id}`} className="app-panel app-panel-pad">
-                <div className="flex flex-wrap items-start justify-between gap-4">
-                  <div>
-                    <div className="flex flex-wrap items-center gap-3">
-                      <h2 className="text-lg font-bold">{item.title}</h2>
-                      <span className="app-badge app-badge--gold">{t('Solicitação de presença')}</span>
+              <article key={`${item.kind}-${item.id}`} className="rd-notices__request">
+                <div className="rd-notices__request-row">
+                  <span className="lv-avatar lv-avatar--ink" aria-hidden="true">{getInitial(item.title)}</span>
+                  <div className="rd-notices__request-copy">
+                    <div className="rd-notices__tags">
+                      <span className="rd-notices__type">
+                        {item.kind === 'reactivation_request' ? t('Reativação') : t('Solicitação de presença')}
+                      </span>
                     </div>
-                    <p className="mt-3 text-sm leading-7 text-[color:var(--text-muted)]">{item.body}</p>
-                    <p className="mt-2 text-xs text-[color:var(--text-soft)]">{item.meta}</p>
-                  </div>
-                  <div className="text-right text-xs text-[color:var(--text-soft)]">
-                    {formatStamp(item.createdAt)}
+                    <p className="rd-notices__request-name">{item.title}</p>
+                    <p className="rd-notices__request-body">{item.body}</p>
+                    <p className="rd-notices__request-meta">{item.meta}</p>
+                    <p className="rd-notices__request-meta">{formatStamp(item.createdAt)}</p>
                   </div>
                 </div>
 
                 {canActionRequests ? (
-                  <div className="mt-5 flex flex-wrap gap-3">
+                  <div className="rd-notices__actions">
                     <button
                       type="button"
                       disabled={isProcessing}
                       onClick={() => void handleApprove(item)}
-                      className="app-button app-button--green app-button--small"
+                      className="lv-btn lv-btn--success lv-btn--sm rd-notices__btn"
                     >
-                      <CheckCircle2 size={15} />
+                      <CheckCircle2 size={16} strokeWidth={2} />
                       {isProcessing ? t('Processando...') : t('Aprovar')}
                     </button>
                     <button
                       type="button"
                       disabled={isProcessing}
                       onClick={() => void handleReject(item)}
-                      className="app-button app-button--danger app-button--small"
+                      className="lv-btn lv-btn--danger lv-btn--sm rd-notices__btn"
                     >
-                      <XCircle size={15} />
+                      <XCircle size={16} strokeWidth={2} />
                       {t('Rejeitar')}
                     </button>
                   </div>
                 ) : (
-                  <div className="mt-5 app-empty">{t('Somente professor ou superadmin podem agir sobre esta solicitação.')}</div>
+                  <p className="rd-notices__note">{t('Somente professor ou superadmin podem agir sobre esta solicitação.')}</p>
                 )}
               </article>
             );
           })}
 
-          {requestItems.length === 0 ? (
-            <div className="app-empty">{t('Sem solicitações pendentes no momento.')}</div>
-          ) : null}
+          {requestItems.length === 0 ? renderEmpty(t('Sem solicitações pendentes no momento.')) : null}
         </section>
       ) : null}
 
       {!isStudent && activeTab === 'graduations' ? (
-        <section className="app-list">
-          {error ? <div className="app-alert app-alert--error mb-4">{error}</div> : null}
+        <section className="rd-notices__list">
+          {error ? <div className="lv-alert lv-alert--danger">{error}</div> : null}
 
           {graduationItems.map((item) => {
             const isProcessing = processingRequestId === item.id;
@@ -1952,72 +1951,76 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
               && !(lastAttendanceMs !== null && lastAttendanceMs > lastApprovalMs);
 
             return (
-            <article key={item.id} className="app-panel app-panel-pad">
-              <div className="flex flex-wrap items-start justify-between gap-4">
-                <div>
-                  <div className="flex flex-wrap items-center gap-3">
-                    <h2 className="text-lg font-bold">{item.userDisplayName}</h2>
-                    <span className="app-badge app-badge--muted">{t('Atual: {belt}', { belt: beltLabel(item.currentBelt) })}</span>
-                    <span className="app-badge app-badge--gold">{item.targetType === 'belt' ? t('Faixa') : t('Grau')}</span>
-                  </div>
-                  <p className="mt-3 text-sm leading-7 text-[color:var(--text-muted)]">{graduationStatusLabel(item)}</p>
-                  {item.targetType === 'belt' && item.remainingClasses <= 0 ? (
-                    <div className="app-alert app-alert--success mt-3 text-sm">
-                      {t('Esse aluno está apto a mudar de faixa')}
+              <article key={item.id} className="rd-notices__request">
+                <div className="rd-notices__request-row">
+                  <span className="lv-avatar lv-avatar--ink" aria-hidden="true">{getInitial(item.userDisplayName)}</span>
+                  <div className="rd-notices__request-copy">
+                    <div className="rd-notices__tags">
+                      <span className="rd-notices__tag">{t('Atual: {belt}', { belt: beltLabel(item.currentBelt) })}</span>
+                      <span className="rd-notices__tag rd-notices__tag--gold">{item.targetType === 'belt' ? t('Faixa') : t('Grau')}</span>
                     </div>
-                  ) : null}
-                  {item.targetType === 'stripe' && item.remainingClasses <= 0 ? (
-                    <div className="app-alert app-alert--success mt-3 text-sm">
-                      {t('Esse aluno está apto a subir de grau')}
-                    </div>
-                  ) : null}
-                  <div className="mt-4 flex flex-wrap gap-2">
-                    <span className="app-badge app-badge--muted">{t('Atual: {count} grau(s)', { count: item.currentStripes })}</span>
-                    <span className="app-badge app-badge--muted">{t('Próximo passo: {target}', { target: graduationTargetLabel(item) })}</span>
-                    <span className="app-badge app-badge--muted">
-                      {item.remainingClasses <= 0 ? t('Meta atingida') : t('Restam {count} aula(s)', { count: item.remainingClasses })}
-                    </span>
+                    <p className="rd-notices__request-name">{item.userDisplayName}</p>
+                    {renderGraduationBelt(item)}
+                    <p className="rd-notices__request-body">{graduationStatusLabel(item)}</p>
                   </div>
+                  <span className="rd-notices__count rd-notices__request-side">
+                    {t('{count} presenças', { count: item.attendanceCount })}
+                  </span>
                 </div>
-                <div className="app-orb">
-                  {t('{count} presenças', { count: item.attendanceCount })}
-                </div>
-              </div>
 
-              {isBlocked ? (
-                <div className="app-alert app-alert--warning mt-3 text-sm">
-                  {t('Este aluno já foi graduado recentemente. Aguarde ele completar a próxima aula para liberar a próxima graduação.')}
-                </div>
-              ) : null}
+                {item.targetType === 'belt' && item.remainingClasses <= 0 ? (
+                  <p className="rd-notices__note rd-notices__note--success">
+                    {t('Esse aluno está apto a mudar de faixa')}
+                  </p>
+                ) : null}
+                {item.targetType === 'stripe' && item.remainingClasses <= 0 ? (
+                  <p className="rd-notices__note rd-notices__note--success">
+                    {t('Esse aluno está apto a subir de grau')}
+                  </p>
+                ) : null}
 
-              <div className="mt-5 flex flex-wrap gap-3">
-                <button
-                  type="button"
-                  disabled={isProcessing || isBlocked}
-                  onClick={() => void handleApproveGraduation(item)}
-                  className="app-button app-button--green app-button--small"
-                >
-                  <CheckCircle2 size={15} />
-                  {isProcessing ? t('Processando...') : t('Aprovar próxima graduação')}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onOpenStudent?.(item.userId)}
-                  className="app-button app-button--ghost app-button--small"
-                >
-                  {t('Abrir aluno')}
-                </button>
-              </div>
-            </article>
+                <div className="rd-notices__tags-row">
+                  <span className="rd-notices__tag">{t('Atual: {count} grau(s)', { count: item.currentStripes })}</span>
+                  <span className="rd-notices__tag">{t('Próximo passo: {target}', { target: graduationTargetLabel(item) })}</span>
+                  <span className="rd-notices__tag">
+                    {item.remainingClasses <= 0 ? t('Meta atingida') : t('Restam {count} aula(s)', { count: item.remainingClasses })}
+                  </span>
+                </div>
+
+                {isBlocked ? (
+                  <p className="rd-notices__note rd-notices__note--warning">
+                    {t('Este aluno já foi graduado recentemente. Aguarde ele completar a próxima aula para liberar a próxima graduação.')}
+                  </p>
+                ) : null}
+
+                <div className="rd-notices__actions">
+                  <button
+                    type="button"
+                    disabled={isProcessing || isBlocked}
+                    onClick={() => void handleApproveGraduation(item)}
+                    className="lv-btn lv-btn--success lv-btn--sm rd-notices__btn"
+                  >
+                    <CheckCircle2 size={16} strokeWidth={2} />
+                    {isProcessing ? t('Processando...') : t('Aprovar próxima graduação')}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onOpenStudent?.(item.userId)}
+                    className="lv-btn lv-btn--neutral lv-btn--sm rd-notices__btn"
+                  >
+                    {t('Abrir aluno')}
+                  </button>
+                </div>
+              </article>
             );
           })}
 
-          {graduationItems.length === 0 ? (
-            <div className="app-empty">{t('Nenhuma graduação pendente no contexto atual.')}</div>
-          ) : null}
+          {graduationItems.length === 0 ? renderEmpty(t('Nenhuma graduação pendente no contexto atual.')) : null}
         </section>
       ) : null}
 
+      {!isStudent && (activeTab === 'notifications' || activeTab === 'communication') ? renderNewNoticeCta() : null}
+      {renderComposer()}
       {renderClearModal()}
     </div>
   );

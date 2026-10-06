@@ -1,0 +1,748 @@
+/* ═══ Inicio do professor (redesign) ═══════════════════════════════════════
+   Classes rd-staff__*. Tokens --lv-* de redesign.css. O card de pendencias e o
+   avatar usam cores fixas de marca (preto/amarelo) para nao inverter no escuro. */
+
+.rd-staff {
+  width: 100%;
+  max-width: 560px;
+  margin: 0 auto;
+  padding-bottom: var(--lv-space-6);
+}
+
+.rd-staff__grid,
+.rd-staff__col {
+  display: flex;
+  flex-direction: column;
+  gap: var(--lv-space-6);
+  min-width: 0;
+}
+
+/* ─── Cabecalho ──────────────────────────────────────────────────────────── */
+.rd-staff__me {
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  font-size: 17px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.rd-staff__me:focus-visible {
+  outline: 2px solid var(--lv-text);
+  outline-offset: 2px;
+}
+
+/* ─── Card preto de pendencias ───────────────────────────────────────────── */
+.rd-staff__pending {
+  padding: var(--lv-space-5);
+  border-radius: var(--lv-r-xl);
+  background: var(--lv-black);
+  color: #ffffff;
+}
+
+html.dark .rd-staff__pending {
+  background: #000000;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12);
+}
+
+.rd-staff__pending-head {
+  display: flex;
+  align-items: center;
+  gap: var(--lv-space-4);
+  padding-bottom: var(--lv-space-4);
+}
+
+.rd-staff__pending-number {
+  flex: none;
+  font-family: var(--font-display);
+  font-size: 88px;
+  line-height: 0.85;
+  font-weight: 800;
+  letter-spacing: -0.05em;
+  color: var(--lv-yellow);
+  font-variant-numeric: tabular-nums;
+}
+
+.rd-staff__pending-title {
+  font-family: var(--font-display);
+  font-size: 22px;
+  line-height: 1.15;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: #ffffff;
+}
+
+.rd-staff__pending-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.rd-staff__pending-row {
+  display: flex;
+  align-items: center;
+  gap: var(--lv-space-4);
+  width: 100%;
+  min-height: 64px;
+  padding: var(--lv-space-3) 0;
+  border: 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  background: transparent;
+  color: #ffffff;
+  font: inherit;
+  text-align: left;
+  -webkit-tap-highlight-color: transparent;
+}
+
+button.rd-staff__pending-row {
+  cursor: pointer;
+}
+
+button.rd-staff__pending-row:focus-visible {
+  outline: 2px solid var(--lv-yellow);
+  outline-offset: 2px;
+  border-radius: 8px;
+}
+
+.rd-staff__pending-count {
+  flex: none;
+  width: 28px;
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--lv-yellow);
+  font-variant-numeric: tabular-nums;
+}
+
+.rd-staff__pending-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.rd-staff__pending-row-title {
+  font-size: 16px;
+  font-weight: 800;
+  line-height: 1.3;
+}
+
+.rd-staff__pending-row-note {
+  overflow: hidden;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.35;
+  color: var(--lv-on-ink-soft);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rd-staff__pending-chevron {
+  flex: none;
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.rd-staff__pending-empty {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.rd-staff__pending-empty-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 24px;
+  line-height: 1.15;
+  font-weight: 700;
+  color: var(--lv-yellow);
+}
+
+.rd-staff__pending-empty-note {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--lv-on-ink-soft);
+}
+
+/* ─── Cards de numeros ───────────────────────────────────────────────────── */
+.rd-staff__stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--lv-space-3);
+}
+
+.rd-staff__stat {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: var(--lv-space-4) var(--lv-space-4) var(--lv-space-2);
+  border: 1px solid var(--lv-border);
+  border-radius: var(--lv-r-lg);
+  background: var(--lv-surface);
+  color: var(--lv-text);
+}
+
+.rd-staff__stat-main {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+
+.rd-staff__stat-main--full {
+  flex: 1 1 auto;
+  padding-bottom: var(--lv-space-2);
+}
+
+button.rd-staff__stat-main,
+.rd-staff__stat-link {
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+button.rd-staff__stat-main:focus-visible,
+.rd-staff__stat-link:focus-visible {
+  outline: 2px solid var(--lv-text);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+.rd-staff__stat-value {
+  font-family: var(--font-display);
+  font-size: 44px;
+  line-height: 1.02;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+}
+
+.rd-staff__stat-note {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.35;
+  font-weight: 600;
+  color: var(--lv-text-muted);
+}
+
+p.rd-staff__stat-note {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  column-gap: 2px;
+}
+
+.rd-staff__stat-link {
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--lv-text-muted);
+  font: inherit;
+  text-decoration: underline;
+  text-decoration-color: var(--lv-border-strong);
+  text-underline-offset: 3px;
+}
+
+/* ─── Secoes ─────────────────────────────────────────────────────────────── */
+.rd-staff__section-title {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--lv-space-2);
+}
+
+.rd-staff__count-chip {
+  font-size: 12px;
+  letter-spacing: 0;
+}
+
+.rd-staff__section .lv-section__head {
+  align-items: center;
+}
+
+.rd-staff__link {
+  min-height: 44px;
+  color: var(--lv-gold-text);
+}
+
+.rd-staff__empty {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--lv-text-muted);
+  text-align: center;
+}
+
+/* ─── Aulas de hoje ──────────────────────────────────────────────────────── */
+.rd-staff__classes {
+  display: flex;
+  flex-direction: column;
+  gap: var(--lv-space-3);
+}
+
+.rd-staff__next {
+  display: flex;
+  flex-direction: column;
+  gap: var(--lv-space-2);
+  padding-bottom: var(--lv-space-2);
+}
+
+.rd-staff__next-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--lv-space-3);
+}
+
+.rd-staff__next-time {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+}
+
+.rd-staff__next-start {
+  font-family: var(--font-display);
+  font-size: 40px;
+  line-height: 1;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+}
+
+.rd-staff__next-end {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--lv-text-soft);
+}
+
+.rd-staff__next-head .lv-chip {
+  margin-top: 6px;
+}
+
+.rd-staff__next-meta {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.35;
+  color: var(--lv-text);
+}
+
+.rd-staff__next-counts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 4px var(--lv-space-3);
+  margin-top: var(--lv-space-2);
+}
+
+.rd-staff__next-confirmed,
+.rd-staff__next-attendance {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.rd-staff__next-confirmed {
+  color: var(--lv-text);
+}
+
+.rd-staff__next-attendance {
+  color: var(--lv-text-soft);
+}
+
+.rd-staff__next-label {
+  margin-top: var(--lv-space-3);
+}
+
+.rd-staff__people {
+  display: flex;
+  flex-direction: column;
+}
+
+.rd-staff__person {
+  display: flex;
+  align-items: center;
+  gap: var(--lv-space-3);
+  min-height: 52px;
+  padding: 6px 0;
+  border-top: 1px solid var(--lv-border);
+}
+
+.rd-staff__person-avatar {
+  width: 32px;
+  height: 32px;
+  font-size: 13px;
+}
+
+.rd-staff__person-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.rd-staff__person-name {
+  overflow: hidden;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.3;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rd-staff__person-note {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--lv-text-soft);
+}
+
+.rd-staff__belt-mini {
+  width: 64px;
+}
+
+.rd-staff__people-empty {
+  margin: 0;
+  padding: var(--lv-space-3) 0;
+  border-top: 1px solid var(--lv-border);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--lv-text-soft);
+}
+
+.rd-staff__next-more {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--lv-space-3);
+  width: 100%;
+  min-height: 52px;
+  padding: 0;
+  border: 0;
+  border-top: 1px solid var(--lv-border);
+  background: transparent;
+  color: var(--lv-text);
+  font-family: var(--font-body);
+  font-size: 15px;
+  font-weight: 800;
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.rd-staff__next-more:focus-visible,
+.rd-staff__class:focus-visible,
+.rd-staff__near-row:focus-visible {
+  outline: 2px solid var(--lv-text);
+  outline-offset: 2px;
+}
+
+/* Aulas compactas */
+.rd-staff__class {
+  display: flex;
+  align-items: center;
+  gap: var(--lv-space-4);
+  width: 100%;
+  min-height: 68px;
+  padding: var(--lv-space-3) var(--lv-space-4);
+  border: 1px solid var(--lv-border);
+  border-radius: var(--lv-r-lg);
+  background: var(--lv-surface);
+  color: var(--lv-text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.rd-staff__class-time {
+  flex: none;
+  font-family: var(--font-display);
+  font-size: 19px;
+  font-weight: 700;
+  color: var(--lv-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.rd-staff__class-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.rd-staff__class-title {
+  overflow: hidden;
+  font-size: 15px;
+  font-weight: 800;
+  line-height: 1.3;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rd-staff__class-meta {
+  overflow: hidden;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.35;
+  color: var(--lv-text-soft);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rd-staff__class-status.is-live { color: var(--lv-success); font-weight: 800; }
+.rd-staff__class-status.is-soon { color: var(--lv-gold-text); font-weight: 800; }
+.rd-staff__class-status.is-cancelled { color: var(--lv-danger); font-weight: 800; }
+.rd-staff__class-status.is-unfinished { color: var(--lv-warning); font-weight: 800; }
+
+.rd-staff__class.is-cancelled .rd-staff__class-title {
+  text-decoration: line-through;
+  text-decoration-color: var(--lv-text-soft);
+}
+
+.rd-staff__class-count {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  flex: none;
+  min-width: 56px;
+}
+
+.rd-staff__class-count strong {
+  font-family: var(--font-display);
+  font-size: 22px;
+  line-height: 1.1;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.rd-staff__class-count span {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--lv-text-soft);
+}
+
+/* ─── Perto de graduar ───────────────────────────────────────────────────── */
+.rd-staff__near {
+  display: flex;
+  flex-direction: column;
+  gap: var(--lv-space-2);
+}
+
+.rd-staff__near-row {
+  display: flex;
+  align-items: center;
+  gap: var(--lv-space-3);
+  width: 100%;
+  min-height: 72px;
+  padding: var(--lv-space-3) var(--lv-space-4);
+  border: 1px solid var(--lv-border);
+  border-radius: var(--lv-r-lg);
+  background: var(--lv-surface);
+  color: var(--lv-text);
+  font: inherit;
+  text-align: left;
+}
+
+button.rd-staff__near-row {
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.rd-staff__near-count {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: none;
+  width: 52px;
+}
+
+.rd-staff__near-count strong {
+  font-family: var(--font-display);
+  font-size: 30px;
+  line-height: 1;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.rd-staff__near-count span {
+  margin-top: 3px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--lv-text-soft);
+}
+
+.rd-staff__near-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.rd-staff__near-name {
+  overflow: hidden;
+  font-size: 16px;
+  font-weight: 800;
+  line-height: 1.3;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rd-staff__near-line {
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.35;
+  color: var(--lv-text-muted);
+}
+
+/* ─── Faixa preta do professor (compacta) ────────────────────────────────── */
+.rd-staff__belt {
+  display: flex;
+  flex-direction: column;
+  gap: var(--lv-space-3);
+  padding: var(--lv-space-4);
+}
+
+.rd-staff__belt-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 4px var(--lv-space-3);
+}
+
+.rd-staff__belt-title {
+  font-family: var(--font-display);
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.rd-staff__belt-since {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--lv-text-soft);
+}
+
+.rd-staff__belt-image {
+  width: min(100%, 320px);
+}
+
+.rd-staff__belt-meta {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--lv-text-muted);
+}
+
+/* ─── CTA fixo ───────────────────────────────────────────────────────────── */
+.rd-staff__cta {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.rd-staff__cta .lv-btn {
+  min-height: 56px;
+  font-size: 16px;
+}
+
+.rd-staff__cta-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.rd-staff__cta-error {
+  margin: 0;
+}
+
+/* ─── Sheet da aula ──────────────────────────────────────────────────────── */
+.rd-staff__sheet-title-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.rd-staff__sheet-subtitle {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--lv-text-soft);
+}
+
+.rd-staff__sheet-summary {
+  display: flex;
+  align-items: center;
+  gap: var(--lv-space-3);
+  margin-bottom: var(--lv-space-4);
+  padding: var(--lv-space-4);
+  border-radius: var(--lv-r-md);
+  background: var(--lv-sunken);
+}
+
+.rd-staff__sheet-summary-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--lv-yellow);
+  color: var(--lv-on-yellow);
+}
+
+.rd-staff__sheet-count {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.rd-staff__sheet-note {
+  margin: 2px 0 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--lv-text-muted);
+}
+
+.rd-staff__sheet-list-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--lv-space-3);
+  margin-bottom: var(--lv-space-2);
+}
+
+/* ─── Telas largas ───────────────────────────────────────────────────────── */
+@media (min-width: 980px) {
+  .rd-staff {
+    max-width: 1080px;
+  }
+
+  .rd-staff__grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+    align-items: start;
+    gap: var(--lv-space-6);
+  }
+
+  .rd-staff__cta {
+    bottom: var(--lv-space-4);
+    align-self: flex-end;
+    width: min(100%, 420px);
+  }
+}

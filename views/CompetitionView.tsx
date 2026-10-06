@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import {
   Bell,
   Calendar,
+  Check,
   CheckSquare,
   ExternalLink,
   Medal,
@@ -22,6 +23,7 @@ import type {
 import { UserRole, type UserVideo } from '../types';
 import { getVideoSourceKindFromUrl, isHttpUrl } from '../utils';
 import { t } from '../i18n';
+import './redesign/evolution.css';
 
 export interface CompetitionViewProps {
   userRole?: UserRole;
@@ -47,6 +49,7 @@ export interface CompetitionViewProps {
   }) => Promise<unknown>;
 }
 
+// Textos em pt (chave do catalogo); traduzidos no render com t(item.label).
 const checklistItems = [
   { id: 1, label: 'Kimono limpo e dentro das medidas', checked: true },
   { id: 2, label: 'Faixa reserva', checked: false },
@@ -66,16 +69,64 @@ function submissionStatusLabel(status: FightVideoSubmissionRecord['status']) {
   }
 }
 
-function submissionStatusBadge(status: FightVideoSubmissionRecord['status']) {
+function submissionStatusChip(status: FightVideoSubmissionRecord['status']) {
   switch (status) {
     case 'approved':
-      return 'app-badge app-badge--success';
+      return 'lv-chip lv-chip--success';
     case 'rejected':
-      return 'app-badge app-badge--danger';
+      return 'lv-chip lv-chip--danger';
     default:
-      return 'app-badge app-badge--gold';
+      return 'lv-chip lv-chip--gold';
   }
 }
+
+function competitionStatusLabel(status: CompetitionRecord['status'] | string) {
+  switch (status) {
+    case 'published':
+      return t('Publicado');
+    case 'finished':
+      return t('Encerrado');
+    case 'draft':
+      return t('Rascunho');
+    default:
+      return String(status ?? '');
+  }
+}
+
+function competitionStatusChip(status: CompetitionRecord['status'] | string) {
+  if (status === 'published') return 'lv-chip lv-chip--success';
+  if (status === 'finished') return 'lv-chip lv-chip--done';
+  return 'lv-chip lv-chip--gold';
+}
+
+function fightResultLabel(result: FightRecord['result'] | string) {
+  switch (result) {
+    case 'win':
+      return t('Vitória');
+    case 'submission':
+      return t('Vitória por finalização');
+    case 'points':
+      return t('Vitória por pontos');
+    case 'loss':
+      return t('Derrota');
+    case 'draw':
+      return t('Empate');
+    case 'walkover':
+      return t('W.O.');
+    default:
+      return String(result ?? '');
+  }
+}
+
+const SectionHead: React.FC<{ icon: React.ReactNode; label: string; title: string }> = ({ icon, label, title }) => (
+  <header className="rd-grad__card-head">
+    <span className="rd-grad__icon" aria-hidden="true">{icon}</span>
+    <div className="rd-grad__card-titles">
+      <span className="lv-label">{label}</span>
+      <h2 className="lv-title-md">{title}</h2>
+    </div>
+  </header>
+);
 
 const CompetitionView: React.FC<CompetitionViewProps> = ({
   userRole,
@@ -157,33 +208,37 @@ const CompetitionView: React.FC<CompetitionViewProps> = ({
   }
 
   return (
-    <div className="view-shell">
-      <section className="app-panel app-panel-pad">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <p className="text-sm font-bold">{t('{count} eventos cadastrados', { count: competitions.length })}</p>
-            <p className="mt-2 text-sm text-[color:var(--text-muted)]">
+    <div className="lv-screen rd-comp">
+      <section className="lv-card rd-comp__summary">
+        <div className="rd-comp__summary-row">
+          <div className="rd-grad__card-titles">
+            <p className="lv-title-md">{t('{count} eventos cadastrados', { count: competitions.length })}</p>
+            <p className="rd-grad__note">
               {t('{medals} medalhas confirmadas • {points} pontos somados', { medals: medalCount, points: totalRankingPoints })}
             </p>
           </div>
-          <span className="app-badge app-badge--muted">{t('{count} videos', { count: videoLibrary.length })}</span>
+          <span className="lv-chip">{t('{count} videos', { count: videoLibrary.length })}</span>
         </div>
 
-        <div className="mt-5 app-segment app-segment--block">
+        <div className="rd-comp__tabs" role="tablist">
           <button
             type="button"
+            role="tab"
+            aria-selected={activeSection === 'calendar'}
             onClick={() => setActiveSection('calendar')}
-            className={`app-segment__button ${activeSection === 'calendar' ? 'is-active' : ''}`}
+            className={`lv-chip-btn ${activeSection === 'calendar' ? 'is-active' : ''}`}
           >
-            <Calendar size={16} />
+            <Calendar size={16} strokeWidth={2} />
             {t('Calendario')}
           </button>
           <button
             type="button"
+            role="tab"
+            aria-selected={activeSection === 'profile'}
             onClick={() => setActiveSection('profile')}
-            className={`app-segment__button ${activeSection === 'profile' ? 'is-active' : ''}`}
+            className={`lv-chip-btn ${activeSection === 'profile' ? 'is-active' : ''}`}
           >
-            <Trophy size={16} />
+            <Trophy size={16} strokeWidth={2} />
             {t('Perfil atleta')}
           </button>
         </div>
@@ -191,189 +246,136 @@ const CompetitionView: React.FC<CompetitionViewProps> = ({
 
       {activeSection === 'calendar' ? (
         <>
-          <section className="app-list">
-            <div className="flex items-center gap-3">
-              <div className="app-icon-shell">
-                <Calendar size={18} />
-              </div>
-              <div>
-                <p className="app-section-label">{t('Eventos oficiais')}</p>
-                <h2 className="text-xl font-bold">{t('Calendario competitivo')}</h2>
-              </div>
-            </div>
+          <section className="lv-section">
+            <SectionHead icon={<Calendar size={18} strokeWidth={2} />} label={t('Eventos oficiais')} title={t('Calendario competitivo')} />
 
             {competitions.length > 0 ? (
-              competitions.map((event) => (
-                <article key={event.id} className="app-panel app-panel-pad">
-                  <div className="flex flex-wrap items-start justify-between gap-4">
-                    <div>
-                      <h3 className="text-xl font-bold">{event.name}</h3>
-                      <p className="app-section-copy mt-3">
+              <div className="rd-comp__events">
+                {competitions.map((event) => (
+                  <article key={event.id} className="lv-card rd-comp__event">
+                    <div className="rd-comp__event-main">
+                      <h3 className="lv-title-md">{event.name}</h3>
+                      <p className="rd-grad__note">
                         {formatDateLabel(event.startDate)} - {event.location || t('Local a definir')}
                       </p>
-                      <div className="mt-4">
-                        <span className={`${
-                          event.status === 'published'
-                            ? 'app-badge app-badge--success'
-                            : event.status === 'finished'
-                              ? 'app-badge app-badge--muted'
-                              : 'app-badge app-badge--gold'
-                        }`}
-                        >
-                          {event.status}
-                        </span>
-                      </div>
+                      <span className={competitionStatusChip(event.status)}>{competitionStatusLabel(event.status)}</span>
                     </div>
                     <a
                       href="https://cbjj.com.br"
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="app-button app-button--ghost app-button--icon"
+                      className="lv-icon-btn"
                       aria-label={t('Abrir site oficial')}
                     >
-                      <ExternalLink size={18} />
+                      <ExternalLink size={18} strokeWidth={2} />
                     </a>
-                  </div>
-                </article>
-              ))
+                  </article>
+                ))}
+              </div>
             ) : (
-              <div className="app-empty">{t('Nenhuma competicao cadastrada nesta academia ainda.')}</div>
+              <p className="lv-card lv-card--dashed rd-grad__empty">{t('Nenhuma competicao cadastrada nesta academia ainda.')}</p>
             )}
           </section>
 
-          <section className="app-panel app-panel-pad">
-            <div className="flex items-center gap-3">
-              <div className="app-icon-shell">
-                <CheckSquare size={18} />
-              </div>
-              <div>
-                <p className="app-section-label">{t('Checklist')}</p>
-                <h2 className="text-xl font-bold">{t('Pre-competicao')}</h2>
-              </div>
-            </div>
+          <section className="lv-card rd-grad__card">
+            <SectionHead icon={<CheckSquare size={18} strokeWidth={2} />} label={t('Checklist')} title={t('Pre-competicao')} />
 
-            <div className="mt-6 app-list">
+            <ul className="lv-list rd-comp__checklist">
               {checklistItems.map((item) => (
-                <div key={item.id} className="app-list-card flex items-center gap-3">
-                  <div className={`flex h-6 w-6 items-center justify-center rounded-full border ${item.checked ? 'border-amber-200 bg-amber-200/80 text-stone-900' : 'border-white/10 bg-white/5 text-[color:var(--text-soft)]'}`}>
-                    <CheckSquare size={14} />
-                  </div>
-                  <span className={`text-sm ${item.checked ? 'line-through text-[color:var(--text-soft)]' : 'text-[color:var(--text-strong)]'}`}>
-                    {t(item.label)}
+                <li key={item.id} className={`lv-row rd-comp__check ${item.checked ? 'is-checked' : ''}`}>
+                  <span className="rd-comp__check-box" aria-hidden="true">
+                    {item.checked ? <Check size={14} strokeWidth={3} /> : null}
                   </span>
-                </div>
+                  <span className="rd-comp__check-label">{t(item.label)}</span>
+                </li>
               ))}
-            </div>
+            </ul>
           </section>
 
-          <section className="app-panel app-panel--tint app-panel-pad">
-            <div className="flex items-start gap-3">
-              <div className="app-icon-shell">
-                <Bell size={18} />
-              </div>
-              <div>
-                <p className="app-section-label">{t('Notificacoes')}</p>
-                <h2 className="text-xl font-bold">{t('Alerta ativo')}</h2>
-                <p className="app-section-copy mt-3">
-                  {t('As proximas competicoes e atualizacoes de desempenho aparecem aqui conforme forem cadastradas.')}
-                </p>
-              </div>
+          <section className="lv-card rd-comp__alert">
+            <span className="rd-grad__icon" aria-hidden="true"><Bell size={18} strokeWidth={2} /></span>
+            <div className="rd-grad__card-titles">
+              <span className="lv-label">{t('Notificacoes')}</span>
+              <h2 className="lv-title-md">{t('Alerta ativo')}</h2>
+              <p className="rd-grad__note">
+                {t('As proximas competicoes e atualizacoes de desempenho aparecem aqui conforme forem cadastradas.')}
+              </p>
             </div>
           </section>
         </>
       ) : (
         <>
-          <section className="app-stat-grid">
-            <article className="app-panel app-panel-pad">
-              <div className="app-icon-shell">
-                <Weight size={18} />
-              </div>
-              <p className="app-stat-card__label mt-4">{t('Lutas registradas')}</p>
-              <p className="app-stat-card__value">{fights.length}</p>
-              <p className="app-stat-card__note">{t('Historico total da academia')}</p>
+          <section className="rd-comp__stats">
+            <article className="lv-card rd-comp__stat">
+              <span className="rd-grad__icon" aria-hidden="true"><Weight size={18} strokeWidth={2} /></span>
+              <span className="lv-label">{t('Lutas registradas')}</span>
+              <span className="lv-stat__value">{fights.length}</span>
+              <span className="lv-stat__note">{t('Suas lutas registradas na academia')}</span>
             </article>
-            <article className="app-panel app-panel-pad">
-              <div className="app-icon-shell">
-                <Medal size={18} />
-              </div>
-              <p className="app-stat-card__label mt-4">{t('Pontuacao')}</p>
-              <p className="app-stat-card__value">{totalRankingPoints}</p>
-              <p className="app-stat-card__note">{t('{count} vitorias registradas', { count: medalCount })}</p>
+            <article className="lv-card rd-comp__stat">
+              <span className="rd-grad__icon" aria-hidden="true"><Medal size={18} strokeWidth={2} /></span>
+              <span className="lv-label">{t('Pontuacao')}</span>
+              <span className="lv-stat__value">{totalRankingPoints}</span>
+              <span className="lv-stat__note">{t('{count} vitorias registradas', { count: medalCount })}</span>
             </article>
           </section>
 
-          <section className="app-list">
-            <div className="flex items-center gap-3">
-              <div className="app-icon-shell">
-                <Trophy size={18} />
-              </div>
-              <div>
-                <p className="app-section-label">{t('Historico')}</p>
-                <h2 className="text-xl font-bold">{t('Resumo de lutas')}</h2>
-              </div>
-            </div>
+          <section className="lv-section">
+            <SectionHead icon={<Trophy size={18} strokeWidth={2} />} label={t('Historico')} title={t('Resumo de lutas')} />
 
             {fights.length > 0 ? (
-              fights.map((fight) => (
-                <article key={fight.id} className="app-panel app-panel-pad">
-                  <div className="flex flex-wrap items-center justify-between gap-4">
-                    <div>
-                      <h3 className="text-lg font-bold">{fight.opponentName ? `vs ${fight.opponentName}` : t('Luta registrada')}</h3>
-                      <p className="app-section-copy mt-2">{formatDateLabel(fight.occurredAt)}</p>
+              <div className="lv-list">
+                {fights.map((fight) => (
+                  <article key={fight.id} className="lv-row">
+                    <div className="lv-row__main">
+                      <h3 className="lv-row__title">{fight.opponentName ? `vs ${fight.opponentName}` : t('Luta registrada')}</h3>
+                      <span className="lv-row__meta">{formatDateLabel(fight.occurredAt)}</span>
                     </div>
-                    <span className="app-badge app-badge--gold">{fight.result}</span>
-                  </div>
-                </article>
-              ))
+                    <span className={`lv-chip ${fight.result === 'loss' ? '' : 'lv-chip--gold'}`}>{fightResultLabel(fight.result)}</span>
+                  </article>
+                ))}
+              </div>
             ) : (
-              <div className="app-empty">{t('Ainda nao existem lutas registradas para este atleta.')}</div>
+              <p className="lv-card lv-card--dashed rd-grad__empty">{t('Ainda nao existem lutas registradas para este atleta.')}</p>
             )}
           </section>
 
           {canSubmitVideos ? (
-            <form onSubmit={handleSubmitVideo} className="app-panel app-panel-pad">
-              <div className="flex items-center gap-3">
-                <div className="app-icon-shell">
-                  <Send size={18} />
-                </div>
-                <div>
-                  <p className="app-section-label">{t('Enviar video')}</p>
-                  <h2 className="text-xl font-bold">{t('Novo video para revisao')}</h2>
-                </div>
-              </div>
+            <form onSubmit={handleSubmitVideo} className="lv-card rd-grad__card rd-comp__form">
+              <SectionHead icon={<Send size={18} strokeWidth={2} />} label={t('Enviar video')} title={t('Novo video para revisao')} />
 
-              {feedback ? <div className="app-alert app-alert--success mt-6">{feedback}</div> : null}
-              {error ? <div className="app-alert app-alert--error mt-6">{error}</div> : null}
+              {feedback ? <div className="lv-alert rd-comp__alert-success" role="status">{feedback}</div> : null}
+              {error ? <div className="lv-alert lv-alert--danger" role="alert">{error}</div> : null}
 
-              <div className="mt-6 app-grid-2">
-                <label className="app-field md:col-span-2">
-                  <span className="app-field__label">{t('Titulo')}</span>
+              <div className="rd-comp__fields">
+                <label className="lv-field rd-comp__field--wide">
+                  <span>{t('Titulo')}</span>
                   <input
                     value={title}
                     onChange={(event) => setTitle(event.target.value)}
-                    className="app-input"
+                    className="lv-input"
                     placeholder={t('Ex.: Final da categoria adulto')}
                     required
                   />
                 </label>
 
-                <label className="app-field">
-                  <span className="app-field__label">{t('Adversario')}</span>
+                <label className="lv-field">
+                  <span>{t('Adversario')}</span>
                   <input
                     value={opponentName}
                     onChange={(event) => setOpponentName(event.target.value)}
-                    className="app-input"
+                    className="lv-input"
                     placeholder={t('Opcional')}
                   />
                 </label>
 
-                <label className="app-field">
-                  <span className="app-field__label">{t('Data da luta')}</span>
-                  <DateField value={occurredAt} onChange={setOccurredAt} />
+                <label className="lv-field">
+                  <span>{t('Data da luta')}</span>
+                  <DateField value={occurredAt} onChange={setOccurredAt} className="lv-input" />
                 </label>
 
-                <label className="app-field">
-                  <span className="app-field__label">{t('Origem')}</span>
+                <label className="lv-field">
+                  <span>{t('Origem')}</span>
                   <select
                     value={sourceMode}
                     onChange={(event) => {
@@ -383,7 +385,7 @@ const CompetitionView: React.FC<CompetitionViewProps> = ({
                       setSourceUrl('');
                       setFile(null);
                     }}
-                    className="app-select"
+                    className="lv-select"
                   >
                     <option value="link">{t('Link')}</option>
                     <option value="upload">{t('Arquivo')}</option>
@@ -391,110 +393,93 @@ const CompetitionView: React.FC<CompetitionViewProps> = ({
                 </label>
 
                 {sourceMode === 'link' ? (
-                  <label className="app-field md:col-span-2">
-                    <span className="app-field__label">{t('URL do video')}</span>
+                  <label className="lv-field rd-comp__field--wide">
+                    <span>{t('URL do video')}</span>
                     <input
                       value={sourceUrl}
                       onChange={(event) => setSourceUrl(event.target.value)}
-                      className="app-input"
+                      className="lv-input"
+                      inputMode="url"
                       placeholder={t('https://youtube.com/... ou outro link publico')}
                       required
                     />
-                    <span className="app-field__hint">{t('Links do YouTube serao exibidos no player interno. Outros links serao abertos externamente.')}</span>
+                    <span className="rd-comp__hint">{t('Links do YouTube serao exibidos no player interno. Outros links serao abertos externamente.')}</span>
                   </label>
                 ) : (
-                  <label className="app-field md:col-span-2">
-                    <span className="app-field__label">{t('Arquivo de video')}</span>
+                  <label className="lv-field rd-comp__field--wide">
+                    <span>{t('Arquivo de video')}</span>
                     <input
                       type="file"
                       accept="video/*"
                       onChange={(event) => setFile(event.target.files?.[0] ?? null)}
-                      className="app-input"
+                      className="lv-input rd-comp__file"
                       required
                     />
-                    <span className="app-field__hint">
+                    <span className="rd-comp__hint">
                       {file ? t('Arquivo pronto para envio: {name}', { name: file.name }) : t('Selecione um arquivo de video para enviar.')}
                     </span>
                   </label>
                 )}
               </div>
 
-              <button type="submit" disabled={busy} className="app-button app-button--gold mt-6">
-                <Send size={16} />
+              <button type="submit" disabled={busy} className="lv-btn lv-btn--primary lv-btn--block">
+                <Send size={16} strokeWidth={2} />
                 {busy ? t('Enviando...') : t('Enviar video')}
               </button>
             </form>
           ) : null}
 
           {canSubmitVideos ? (
-            <section className="app-panel app-panel-pad">
-              <div className="flex items-center gap-3">
-                <div className="app-icon-shell">
-                  <Video size={18} />
-                </div>
-                <div>
-                  <p className="app-section-label">{t('Meus envios')}</p>
-                  <h2 className="text-xl font-bold">{t('Solicitacoes recentes')}</h2>
-                </div>
-              </div>
+            <section className="lv-card rd-grad__card">
+              <SectionHead icon={<Video size={18} strokeWidth={2} />} label={t('Meus envios')} title={t('Solicitacoes recentes')} />
 
               {submissions.length > 0 ? (
-                <div className="mt-6 app-list">
+                <div className="lv-list">
                   {submissions.map((submission) => (
-                    <article key={submission.id} className="app-list-card">
-                      <div className="flex flex-wrap items-start justify-between gap-3">
-                        <div>
-                          <p className="text-sm font-bold">{submission.title}</p>
-                          <p className="mt-1 text-xs text-[color:var(--text-soft)]">
-                            {formatDateLabel(submission.occurredAt ?? submission.createdAt)}
-                            {submission.opponentName ? ` • vs ${submission.opponentName}` : ''}
-                          </p>
-                        </div>
-                        <span className={submissionStatusBadge(submission.status)}>{submissionStatusLabel(submission.status)}</span>
+                    <article key={submission.id} className="lv-row">
+                      <div className="lv-row__main">
+                        <p className="lv-row__title">{submission.title}</p>
+                        <span className="lv-row__meta">
+                          {formatDateLabel(submission.occurredAt ?? submission.createdAt)}
+                          {submission.opponentName ? ` • vs ${submission.opponentName}` : ''}
+                        </span>
                       </div>
+                      <span className={submissionStatusChip(submission.status)}>{submissionStatusLabel(submission.status)}</span>
                     </article>
                   ))}
                 </div>
               ) : (
-                <div className="app-empty mt-6">{t('Quando voce enviar videos, eles aparecerao aqui com o status da revisao.')}</div>
+                <p className="rd-grad__empty">{t('Quando voce enviar videos, eles aparecerao aqui com o status da revisao.')}</p>
               )}
             </section>
           ) : null}
 
-          <section className="app-panel app-panel-pad">
-            <div className="flex items-center gap-3">
-              <div className="app-icon-shell">
-                <Video size={18} />
-              </div>
-              <div>
-                <p className="app-section-label">{t('Videos')}</p>
-                <h2 className="text-xl font-bold">{t('Arquivo de videos')}</h2>
-              </div>
-            </div>
+          <section className="lv-card rd-grad__card">
+            <SectionHead icon={<Video size={18} strokeWidth={2} />} label={t('Videos')} title={t('Arquivo de videos')} />
 
             {videoLibrary.length > 0 ? (
-              <div className="mt-6 app-list">
+              <div className="rd-comp__videos">
                 {videoLibrary.map((video) => (
-                  <div key={video.id} className="app-list-card">
+                  <div key={video.id} className="rd-comp__video">
                     <AppVideoContent
                       title={video.title}
                       sourceUrl={video.url}
                       sourceKind={video.sourceKind}
                     />
-                    <div className="mt-4">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <p className="text-sm font-bold">{video.title}</p>
-                        <span className="app-badge app-badge--muted">
+                    <div className="rd-comp__video-meta">
+                      <div className="rd-comp__video-title">
+                        <p className="lv-row__title">{video.title}</p>
+                        <span className="lv-chip">
                           {video.origin === 'submission' ? t('Enviado pelo aluno') : t('Luta oficial')}
                         </span>
                       </div>
-                      <p className="mt-1 text-xs text-[color:var(--text-soft)]">{video.date}</p>
+                      <span className="lv-row__meta">{video.date}</span>
                     </div>
                   </div>
                 ))}
               </div>
             ) : (
-              <div className="app-empty mt-6">{t('Quando uma luta tiver video ou um envio do aluno for aprovado, ele aparecera aqui.')}</div>
+              <p className="rd-grad__empty">{t('Quando uma luta tiver video ou um envio do aluno for aprovado, ele aparecera aqui.')}</p>
             )}
           </section>
         </>

@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { Pencil, X } from 'lucide-react';
+import { X } from 'lucide-react';
 import { toDatetimeLocalValue } from '../broadcastFilters';
 import { t } from '../i18n';
 import type { NotificationBroadcastRecord } from '../services/firebase/models';
+import '../views/redesign/notifications.css';
 
 export interface EditBroadcastSubmit {
   title: string;
@@ -52,61 +53,60 @@ const EditBroadcastModal: React.FC<EditBroadcastModalProps> = ({ broadcast, onCl
   };
 
   return (
-    <div className="fixed inset-0 z-[90] flex items-end justify-center bg-black/60 sm:items-center broadcast-modal" onClick={onClose}>
+    <div className="lv-backdrop" onClick={onClose}>
       <form
         onSubmit={handleSubmit}
-        className="app-panel app-panel-pad app-sheet-modal w-full max-w-lg rounded-b-none sm:rounded-[1.8rem] broadcast-modal__sheet"
+        className="lv-sheet rd-compose rd-compose--sheet"
+        role="dialog"
+        aria-modal="true"
+        aria-label={t('Editar comunicado')}
         onClick={(event) => event.stopPropagation()}
       >
-        <div className="broadcast-modal__head">
-          <div className="broadcast-composer__head">
-            <div className="app-icon-shell" style={{ flexShrink: 0 }}>
-              <Pencil size={18} />
-            </div>
-            <h2 className="broadcast-composer__title">{t('Editar comunicado')}</h2>
-          </div>
-          <button type="button" onClick={onClose} className="app-button app-button--ghost app-button--icon" aria-label={t('Fechar')}>
-            <X size={18} />
+        <div className="lv-sheet__grip" aria-hidden="true" />
+        <div className="lv-sheet__head">
+          <h2 className="lv-title-lg">{t('Editar comunicado')}</h2>
+          <button type="button" onClick={onClose} className="lv-icon-btn" aria-label={t('Fechar')}>
+            <X size={20} strokeWidth={2} />
           </button>
         </div>
 
         {!isScheduled ? (
-          <p className="broadcast-composer__hint">
+          <p className="rd-compose__hint">
             {t('A mudança aparece na lista de avisos de quem recebeu. A notificação que já chegou no celular não é reenviada.')}
           </p>
         ) : null}
 
-        {error ? <div className="app-alert app-alert--error">{error}</div> : null}
+        {error ? <div className="lv-alert lv-alert--danger">{error}</div> : null}
 
-        <label className="app-field">
-          <span className="app-field__label">{t('Título')}</span>
-          <input value={title} onChange={(event) => setTitle(event.target.value)} className="app-input" maxLength={120} required />
+        <label className="lv-field">
+          <span>{t('Título')}</span>
+          <input value={title} onChange={(event) => setTitle(event.target.value)} className="lv-input" maxLength={120} required />
         </label>
 
-        <label className="app-field">
-          <span className="app-field__label">{t('Mensagem')}</span>
-          <textarea value={body} onChange={(event) => setBody(event.target.value)} className="app-textarea" maxLength={1000} required />
+        <label className="lv-field">
+          <span>{t('Mensagem')}</span>
+          <textarea value={body} onChange={(event) => setBody(event.target.value)} className="lv-textarea" maxLength={1000} required />
         </label>
 
         {isScheduled ? (
-          <label className="app-field">
-            <span className="app-field__label">{t('Enviar em')}</span>
+          <label className="lv-field">
+            <span>{t('Enviar em')}</span>
             <input
               type="datetime-local"
               value={scheduleValue}
               min={toDatetimeLocalValue(new Date())}
               onChange={(event) => setScheduleValue(event.target.value)}
-              className="app-input"
+              className="lv-input"
               required
             />
           </label>
         ) : null}
 
-        <div className="broadcast-modal__actions">
-          <button type="button" onClick={onClose} disabled={busy} className="app-button app-button--ghost">
+        <div className="rd-compose__actions">
+          <button type="button" onClick={onClose} disabled={busy} className="lv-btn lv-btn--neutral">
             {t('Cancelar')}
           </button>
-          <button type="submit" disabled={busy} className="app-button app-button--gold">
+          <button type="submit" disabled={busy} className="lv-btn lv-btn--primary">
             {busy ? t('Salvando...') : t('Salvar')}
           </button>
         </div>

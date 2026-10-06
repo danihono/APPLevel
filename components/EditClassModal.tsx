@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { X } from 'lucide-react';
+import { Check, X } from 'lucide-react';
 import DateField from './DateField';
 import TimeField from './TimeField';
 import type { FirestoreEntity } from '../services/firebase/data';
 import type { UpdateRecurringClassSeriesResult } from '../services/firebase/functions';
 import type { ClassRecord } from '../services/firebase/models';
-import { t } from '../i18n';
+import { t, createDateFormatter } from '../i18n';
+import './redesign/class-modals.css';
 
 const TATAME_OPTIONS = [
   { label: 'Tatame 1', value: 'Tatame 1' },
@@ -44,9 +45,13 @@ function toInputDateValue(date: Date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 }
 
+const headerDateFormatter = createDateFormatter({ weekday: 'short', day: '2-digit', month: 'short' });
+
 function closestDuration(ms: number): number {
   const minutes = Math.round(ms / 60000);
-  const allowed = [30, 45, 60, 90, 120];
+  // Mesmas opcoes do seletor de Duracao: antes so [30, 45, 60, 90, 120], e uma aula de
+  // 15/75/105 min virava outra duracao ao abrir a edicao, sem ninguem ter mexido.
+  const allowed = DURATION_OPTIONS.map((option) => option.value);
   return allowed.reduce((prev, curr) => (Math.abs(curr - minutes) < Math.abs(prev - minutes) ? curr : prev));
 }
 
@@ -144,120 +149,179 @@ const EditClassModal: React.FC<EditClassModalProps> = ({ lesson, professors, onC
     }
   }
 
+  const typeGroups = Array.from(new Map(TYPE_OPTIONS.map((o) => [o.group, o.group])).keys());
+  // Tatame gravado fora da lista (aula legada) continua como opcao, para nao trocar em silencio.
+  const tatameOptions = TATAME_OPTIONS.some((option) => option.value === tatame)
+    ? TATAME_OPTIONS
+    : [{ label: tatame || '—', value: tatame }, ...TATAME_OPTIONS];
+
   return (
-    <div className="fixed inset-0 z-[90] flex items-end justify-center bg-black/60 sm:items-center" onClick={onClose}>
+    <div className="lv-backdrop" onClick={onClose}>
       <div
-        className="app-panel app-panel-pad app-sheet-modal w-full max-w-2xl rounded-b-none sm:rounded-[1.8rem]"
+        className="lv-sheet rd-cm rd-cm--wide"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="rd-cm-edit-title"
         onClick={(event) => event.stopPropagation()}
       >
-        <div className="flex items-center justify-between">
-          <h2 className="text-xl font-bold">{t('Editar aula')}</h2>
-          <button type="button" onClick={onClose} className="app-button app-button--ghost app-button--icon">
-            <X size={18} />
-          </button>
+        <div className="rd-cm__top">
+          <div className="lv-sheet__grip" aria-hidden="true" />
+          <div className="rd-cm__bar">
+            <button type="button" onClick={onClose} className="lv-icon-btn" aria-label={t('Fechar')}>
+              <X size={20} strokeWidth={2} />
+            </button>
+            <span className="lv-eyebrow">{headerDateFormatter.format(startDate)} · {toHHMM(startDate)}</span>
+          </div>
+          <div className="rd-cm__title-row">
+            <h2 id="rd-cm-edit-title" className="rd-cm__title">{t('Editar aula')}</h2>
+          </div>
         </div>
 
-        <form onSubmit={(event) => void handleSubmit(event)} className="mt-6 flex flex-col gap-5">
-          {hasRecurringSeries ? (
-            <div className="app-list-card">
-              <p className="app-field__label">{t('Aplicar alteracao em')}</p>
-              <div className="mt-3 app-segment">
-                <button
-                  type="button"
-                  onClick={() => setScope('single')}
-                  className={`app-segment__button ${scope === 'single' ? 'is-active' : ''}`}
-                >
-                  {t('Somente esta aula')}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setScope('future')}
-                  className={`app-segment__button ${scope === 'future' ? 'is-active' : ''}`}
-                >
-                  {t('Esta e as proximas')}
-                </button>
+        <form onSubmit={(event) => void handleSubmit(event)} className="rd-cm__form">
+          <div className="rd-cm__body">
+            {hasRecurringSeries ? (
+              <div className="rd-cm__scope">
+                <span className="rd-cm__field-label">{t('Aplicar alteracao em')}</span>
+                <div className="lv-segmented">
+                  <button
+                    type="button"
+                    onClick={() => setScope('single')}
+                    className={scope === 'single' ? 'is-active' : ''}
+                    aria-pressed={scope === 'single'}
+                  >
+                    {t('Somente esta aula')}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setScope('future')}
+                    className={scope === 'future' ? 'is-active' : ''}
+                    aria-pressed={scope === 'future'}
+                  >
+                    {t('Esta e as proximas')}
+                  </button>
+                </div>
+                <p className="rd-cm__hint">
+                  {t('A opcao em serie atualiza apenas as aulas agendadas futuras desta recorrencia.')}
+                </p>
               </div>
-              <p className="mt-3 text-xs text-[color:var(--text-soft)]">
-                {t('A opcao em serie atualiza apenas as aulas agendadas futuras desta recorrencia.')}
-              </p>
-            </div>
-          ) : null}
+            ) : null}
 
-          <div className="app-form-grid">
-            <label className="app-field">
-              <span className="app-field__label">{t('Nome da aula')}</span>
-              <input
-                type="text"
-                value={title}
-                onChange={(event) => setTitle(event.target.value)}
-                className="app-input"
-                placeholder={t('Ex: Treino, Fundamentos, Sparring')}
-                required
-              />
-            </label>
+            <section className="rd-cm__section">
+              <h3 className="rd-cm__section-title">{t('Aula')}</h3>
 
-            <label className="app-field">
-              <span className="app-field__label">{t('Tipo')}</span>
-              <select value={tipo} onChange={(event) => setTipo(event.target.value)} className="app-input">
-                {Array.from(new Map(TYPE_OPTIONS.map((o) => [o.group, o.group])).keys()).map((group) => (
-                  <optgroup key={group} label={t(group)}>
-                    {TYPE_OPTIONS.filter((o) => o.group === group).map((option) => (
+              <label className="lv-field">
+                <span>{t('Nome da aula')}</span>
+                <input
+                  type="text"
+                  value={title}
+                  onChange={(event) => setTitle(event.target.value)}
+                  className="lv-input"
+                  placeholder={t('Ex: Treino, Fundamentos, Sparring')}
+                  required
+                />
+              </label>
+
+              <div className="lv-field" role="radiogroup" aria-label={t('Tipo')}>
+                <span>{t('Tipo')}</span>
+                <div>
+                  {typeGroups.map((group) => (
+                    <div key={group} className="rd-cm__group">
+                      <span className="rd-cm__group-label">{t(group)}</span>
+                      <div className="rd-cm__chips">
+                        {TYPE_OPTIONS.filter((o) => o.group === group).map((option) => {
+                          const isActive = tipo === option.value;
+                          return (
+                            <button
+                              key={option.value}
+                              type="button"
+                              role="radio"
+                              aria-checked={isActive}
+                              onClick={() => setTipo(option.value)}
+                              className={`lv-chip-btn rd-cm__chip ${isActive ? 'is-active' : ''}`}
+                            >
+                              {isActive ? <Check size={16} strokeWidth={2.5} aria-hidden="true" /> : null}
+                              {option.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </section>
+
+            <section className="rd-cm__section">
+              <h3 className="rd-cm__section-title">{t('Data e horário')}</h3>
+
+              <label className="lv-field">
+                <span>{t('Data')}</span>
+                <DateField value={date} onChange={setDate} className="lv-input" required />
+              </label>
+
+              <div className="rd-cm__grid2">
+                <label className="lv-field">
+                  <span>{t('Horario')}</span>
+                  <TimeField value={time} onChange={setTime} className="lv-input" required />
+                </label>
+
+                <label className="lv-field">
+                  <span>{t('Duracao')}</span>
+                  <select value={duration} onChange={(event) => setDuration(Number(event.target.value))} className="lv-select">
+                    {DURATION_OPTIONS.map((option) => (
                       <option key={option.value} value={option.value}>{option.label}</option>
                     ))}
-                  </optgroup>
-                ))}
-              </select>
-            </label>
+                  </select>
+                </label>
+              </div>
+            </section>
+
+            <section className="rd-cm__section">
+              <h3 className="rd-cm__section-title">{t('Onde e com quem')}</h3>
+
+              <label className="lv-field">
+                <span>{t('Professor')}</span>
+                <select value={professorId} onChange={(event) => handleProfessorChange(event.target.value)} className="lv-select">
+                  {professorOptions.map((professor) => (
+                    <option key={professor.id} value={professor.id}>{professor.label ?? professor.displayName}</option>
+                  ))}
+                </select>
+              </label>
+
+              <div className="lv-field" role="radiogroup" aria-label={t('Tatame')}>
+                <span>{t('Tatame')}</span>
+                <div className="rd-cm__tatames">
+                  {tatameOptions.map((option) => {
+                    const isActive = tatame === option.value;
+                    return (
+                      <button
+                        key={option.value}
+                        type="button"
+                        role="radio"
+                        aria-checked={isActive}
+                        onClick={() => setTatame(option.value)}
+                        className={`lv-chip-btn rd-cm__chip ${isActive ? 'is-active' : ''}`}
+                      >
+                        {option.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </section>
           </div>
 
-          <label className="app-field">
-            <span className="app-field__label">{t('Data')}</span>
-            <DateField value={date} onChange={setDate} required />
-          </label>
+          <div className="rd-cm__footer">
+            {error ? <p className="lv-alert lv-alert--danger" role="alert">{error}</p> : null}
 
-          <div className="app-form-grid">
-            <label className="app-field">
-              <span className="app-field__label">{t('Horario')}</span>
-              <TimeField value={time} onChange={setTime} required />
-            </label>
-
-            <label className="app-field">
-              <span className="app-field__label">{t('Duracao')}</span>
-              <select value={duration} onChange={(event) => setDuration(Number(event.target.value))} className="app-input">
-                {DURATION_OPTIONS.map((option) => (
-                  <option key={option.value} value={option.value}>{option.label}</option>
-                ))}
-              </select>
-            </label>
-          </div>
-
-          <label className="app-field">
-            <span className="app-field__label">{t('Professor')}</span>
-            <select value={professorId} onChange={(event) => handleProfessorChange(event.target.value)} className="app-input">
-              {professorOptions.map((professor) => (
-                <option key={professor.id} value={professor.id}>{professor.label ?? professor.displayName}</option>
-              ))}
-            </select>
-          </label>
-
-          <label className="app-field">
-            <span className="app-field__label">{t('Tatame')}</span>
-            <select value={tatame} onChange={(event) => setTatame(event.target.value)} className="app-input">
-              {TATAME_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>{option.label}</option>
-              ))}
-            </select>
-          </label>
-
-          {error ? <p className="text-sm text-red-400">{error}</p> : null}
-
-          <div className="flex gap-3">
-            <button type="button" onClick={onClose} disabled={submitting} className="app-button app-button--ghost flex-1">
-              {t('Cancelar')}
-            </button>
-            <button type="submit" disabled={submitting} className="app-button app-button--gold flex-1">
-              {submitting ? t('Salvando...') : scope === 'future' ? t('Salvar esta e as proximas') : t('Salvar alteracoes')}
-            </button>
+            <div className="rd-cm__actions">
+              <button type="button" onClick={onClose} disabled={submitting} className="lv-btn lv-btn--neutral">
+                {t('Cancelar')}
+              </button>
+              <button type="submit" disabled={submitting} className="lv-btn lv-btn--primary">
+                <span>{submitting ? t('Salvando...') : scope === 'future' ? t('Salvar esta e as proximas') : t('Salvar alteracoes')}</span>
+              </button>
+            </div>
           </div>
         </form>
       </div>

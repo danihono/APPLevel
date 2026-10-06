@@ -1,11 +1,14 @@
-import React, { useMemo, useState } from 'react';
-import { CalendarClock, Search, Send, Users, X } from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { CalendarClock, ChevronDown, ChevronUp, Search, Send, Users, X } from 'lucide-react';
 import { beltLabel } from '../beltCatalog';
 import {
   DEFAULT_BROADCAST_FILTERS,
+  describeBroadcastFilters,
   matchesBroadcastFilters,
   toDatetimeLocalValue,
 } from '../broadcastFilters';
+import BeltImage from './BeltImage';
+import '../views/redesign/notifications.css';
 import { getLocale, t } from '../i18n';
 import type { FirestoreEntity } from '../services/firebase/data';
 import type { SendBroadcastResult } from '../services/firebase/functions';
@@ -39,6 +42,12 @@ interface BroadcastComposerProps {
   selectedAcademyId?: string;
   onSelectAcademy?: (academyId: string) => void;
   onSend: (payload: BroadcastComposerSubmit) => Promise<SendBroadcastResult>;
+  /** Botao fechar (X) no topo, quando o compositor abre em tela cheia. */
+  onClose?: () => void;
+  /** Chamado depois de um envio bem-sucedido, com o resumo do resultado. */
+  onSent?: (summary: string, channel: NotificationChannel) => void;
+  /** Canal sugerido ao abrir (segue a aba Academia/Equipe da lista). */
+  defaultChannel?: NotificationChannel;
 }
 
 const PEOPLE_RESULTS_LIMIT = 8;
@@ -90,23 +99,34 @@ const BroadcastComposer: React.FC<BroadcastComposerProps> = ({
   selectedAcademyId = '',
   onSelectAcademy,
   onSend,
+  onClose,
+  onSent,
+  defaultChannel,
 }) => {
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
-  const [channel, setChannel] = useState<NotificationChannel>('academy');
+  const [channel, setChannel] = useState<NotificationChannel>(defaultChannel ?? 'academy');
   const [mode, setMode] = useState<RecipientMode>('group');
   const [roles, setRoles] = useState<AppRole[]>(DEFAULT_BROADCAST_FILTERS.roles ?? []);
   const [audience, setAudience] = useState<BroadcastAudience>('all');
   const [belts, setBelts] = useState<string[]>([]);
+  const [beltPicker, setBeltPicker] = useState(false);
   const [onlyActive, setOnlyActive] = useState(true);
   const [onlyCompetitors, setOnlyCompetitors] = useState(false);
   const [people, setPeople] = useState<string[]>([]);
   const [search, setSearch] = useState('');
   const [scheduleEnabled, setScheduleEnabled] = useState(false);
   const [scheduleValue, setScheduleValue] = useState('');
+  const [moreOpen, setMoreOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [feedback, setFeedback] = useState('');
+
+  useEffect(() => {
+    if (defaultChannel) {
+      setChannel(defaultChannel);
+    }
+  }, [defaultChannel]);
 
   const candidates = useMemo(
     () => academyUsers.filter((user) => user.id !== currentUserId),
@@ -155,6 +175,17 @@ const BroadcastComposer: React.FC<BroadcastComposerProps> = ({
     ? list.filter((entry) => entry !== value)
     : [...list, value]);
 
+  // "Publico" do design: Todos (sem filtro de faixa), Por faixa ou Pessoas especificas.
+  const audienceTab: 'all' | 'belts' | 'people' = mode === 'people'
+    ? 'people'
+    : (beltPicker || belts.length > 0 ? 'belts' : 'all');
+
+  // Resumo das opcoes recolhidas em "Mais opcoes".
+  const moreSummary = [
+    ...(mode === 'group' ? describeBroadcastFilters({ ...filters, belts: [] }) : []),
+    ...(scheduleEnabled ? [t('Agendar envio')] : []),
+  ].join(' · ');
+
   const resetForm = () => {
     setTitle('');
     setBody('');
@@ -184,6 +215,7 @@ const BroadcastComposer: React.FC<BroadcastComposerProps> = ({
       const parsed = scheduleValue ? new Date(scheduleValue).getTime() : Number.NaN;
       if (!Number.isFinite(parsed) || parsed <= Date.now() + 60 * 1000) {
         setError(t('Escolha um horário de envio no futuro.'));
+        setMoreOpen(true);
         return;
       }
       scheduledAt = parsed;
@@ -192,8 +224,10 @@ const BroadcastComposer: React.FC<BroadcastComposerProps> = ({
     setBusy(true);
     try {
       const result = await onSend({ title: title.trim(), body: body.trim(), channel, filters, scheduledAt });
-      setFeedback(describeResult(result));
+      const summary = describeResult(result);
+      setFeedback(summary);
       resetForm();
+      onSent?.(summary, channel);
     } catch (sendError) {
       setError(sendError instanceof Error ? sendError.message : t('Não foi possível enviar o comunicado.'));
     } finally {
@@ -202,28 +236,31 @@ const BroadcastComposer: React.FC<BroadcastComposerProps> = ({
   };
 
   return (
-    <form onSubmit={handleSubmit} className={`${className} broadcast-composer`}>
-      <div className="broadcast-composer__head">
-        <div className="app-icon-shell" style={{ flexShrink: 0 }}>
-          <Send size={18} />
-        </div>
-        <div>
-          <p className="app-section-label">{t('Comunicação')}</p>
-          <h2 className="broadcast-composer__title">{heading}</h2>
-          {description ? <p className="broadcast-composer__copy">{description}</p> : null}
-        </div>
+    <form onSubmit={handleSubmit} className={`rd-compose ${className}`.trim()}>
+      <div className="rd-compose__bar">
+        {onClose ? (
+          <button type="button" className="lv-icon-btn" onClick={onClose} aria-label={t('Fechar')}>
+            <X size={22} strokeWidth={2} />
+          </button>
+        ) : <span />}
+        <span className="lv-eyebrow">{t('Comunicação')}</span>
       </div>
 
-      {feedback ? <div className="app-alert app-alert--success">{feedback}</div> : null}
-      {error ? <div className="app-alert app-alert--error">{error}</div> : null}
+      <div className="rd-compose__head">
+        <h2 className="lv-display">{heading}</h2>
+        {description ? <p className="rd-compose__subtitle">{description}</p> : null}
+      </div>
+
+      {feedback ? <div className="lv-alert rd-compose__alert--success" role="status">{feedback}</div> : null}
+      {error ? <div className="lv-alert lv-alert--danger" role="alert">{error}</div> : null}
 
       {isSuperAdmin ? (
-        <label className="app-field">
-          <span className="app-field__label">{t('Unidade')}</span>
+        <label className="lv-field">
+          <span>{t('Unidade')}</span>
           <select
             value={selectedAcademyId}
             onChange={(event) => onSelectAcademy?.(event.target.value)}
-            className="app-select"
+            className="lv-select"
           >
             <option value="">{t('Escolha a unidade')}</option>
             {academies.map((academyOption) => (
@@ -233,152 +270,184 @@ const BroadcastComposer: React.FC<BroadcastComposerProps> = ({
         </label>
       ) : null}
 
-      <label className="app-field">
-        <span className="app-field__label">{t('Título')}</span>
-        <input value={title} onChange={(event) => setTitle(event.target.value)} className="app-input" maxLength={120} required />
+      <label className="lv-field">
+        <span>{t('Título')}</span>
+        <input
+          value={title}
+          onChange={(event) => setTitle(event.target.value)}
+          className="lv-input"
+          maxLength={120}
+          placeholder={t('Ex.: Treino especial no sábado')}
+          required
+        />
       </label>
 
-      <label className="app-field">
-        <span className="app-field__label">{t('Mensagem')}</span>
-        <textarea value={body} onChange={(event) => setBody(event.target.value)} className="app-textarea" maxLength={1000} required />
+      <label className="lv-field">
+        <span>{t('Mensagem')}</span>
+        <textarea
+          value={body}
+          onChange={(event) => setBody(event.target.value)}
+          className="lv-textarea"
+          maxLength={1000}
+          placeholder={t('Escreva o aviso para o tatame.')}
+          required
+        />
       </label>
 
-      <label className="app-field">
-        <span className="app-field__label">{t('Canal')}</span>
-        <select value={channel} onChange={(event) => setChannel(event.target.value as NotificationChannel)} className="app-select">
-          <option value="academy">{t('Academia')}</option>
-          <option value="team">{t('Equipe')}</option>
-        </select>
-      </label>
-
-      <div className="app-field">
-        <span className="app-field__label">{t('Para quem')}</span>
-        <div className="broadcast-composer__chips">
-          <button type="button" className={`app-chip ${mode === 'group' ? 'is-active' : ''}`} onClick={() => setMode('group')}>
-            {t('Por grupo')}
+      <div className="lv-field">
+        <span>{t('Canal')}</span>
+        <div className="lv-segmented" role="radiogroup" aria-label={t('Canal')}>
+          <button
+            type="button"
+            role="radio"
+            aria-checked={channel === 'academy'}
+            className={channel === 'academy' ? 'is-active' : ''}
+            onClick={() => setChannel('academy')}
+          >
+            {t('Academia')}
           </button>
-          <button type="button" className={`app-chip ${mode === 'people' ? 'is-active' : ''}`} onClick={() => setMode('people')}>
-            {t('Pessoas específicas')}
+          <button
+            type="button"
+            role="radio"
+            aria-checked={channel === 'team'}
+            className={channel === 'team' ? 'is-active' : ''}
+            onClick={() => setChannel('team')}
+          >
+            {t('Equipe')}
           </button>
         </div>
       </div>
 
-      {mode === 'group' ? (
-        <>
-          <div className="app-field">
-            <span className="app-field__label">{t('Perfil')}</span>
-            <div className="broadcast-composer__chips">
-              <button type="button" className={`app-chip ${roles.length === 0 ? 'is-active' : ''}`} onClick={() => setRoles([])}>
-                {t('Todos')}
-              </button>
-              <button type="button" className={`app-chip ${roles.includes('student') ? 'is-active' : ''}`} onClick={() => setRoles(toggleIn(roles, 'student'))}>
-                {t('Alunos')}
-              </button>
-              <button type="button" className={`app-chip ${roles.includes('professor') ? 'is-active' : ''}`} onClick={() => setRoles(toggleIn(roles, 'professor'))}>
-                {t('Professores')}
-              </button>
-            </div>
-          </div>
+      <div className="lv-field">
+        <span>{t('Público')}</span>
+        <div className="lv-segmented" role="radiogroup" aria-label={t('Para quem')}>
+          <button
+            type="button"
+            role="radio"
+            aria-checked={audienceTab === 'all'}
+            className={audienceTab === 'all' ? 'is-active' : ''}
+            onClick={() => {
+              setMode('group');
+              setBeltPicker(false);
+              setBelts([]);
+            }}
+          >
+            {t('Todos')}
+          </button>
+          <button
+            type="button"
+            role="radio"
+            aria-checked={audienceTab === 'belts'}
+            className={audienceTab === 'belts' ? 'is-active' : ''}
+            onClick={() => {
+              setMode('group');
+              setBeltPicker(true);
+            }}
+          >
+            {t('Por faixa')}
+          </button>
+          <button
+            type="button"
+            role="radio"
+            aria-checked={audienceTab === 'people'}
+            className={audienceTab === 'people' ? 'is-active' : ''}
+            onClick={() => setMode('people')}
+          >
+            {t('Pessoas')}
+          </button>
+        </div>
+      </div>
 
-          <div className="app-field">
-            <span className="app-field__label">{t('Público')}</span>
-            <div className="broadcast-composer__chips">
-              {(['all', 'adult', 'kids'] as BroadcastAudience[]).map((option) => (
-                <button
-                  key={option}
-                  type="button"
-                  className={`app-chip ${audience === option ? 'is-active' : ''}`}
-                  onClick={() => setAudience(option)}
-                >
-                  {option === 'all' ? t('Todos') : option === 'adult' ? t('Adulto') : t('Kids')}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="app-field">
-            <span className="app-field__label">{t('Faixas')}</span>
-            <div className="broadcast-composer__chips">
-              <button type="button" className={`app-chip ${belts.length === 0 ? 'is-active' : ''}`} onClick={() => setBelts([])}>
-                {t('Todas as faixas')}
+      {audienceTab === 'belts' ? (
+        <div className="lv-field">
+          <div className="rd-compose__belts" role="group" aria-label={t('Faixas')}>
+            <button
+              type="button"
+              className={`rd-compose__belt ${belts.length === 0 ? 'is-active' : ''}`}
+              aria-pressed={belts.length === 0}
+              onClick={() => setBelts([])}
+            >
+              {t('Todas as faixas')}
+            </button>
+            {beltOptions.map(([belt, count]) => (
+              <button
+                key={belt}
+                type="button"
+                className={`rd-compose__belt ${belts.includes(belt) ? 'is-active' : ''}`}
+                aria-pressed={belts.includes(belt)}
+                onClick={() => setBelts(toggleIn(belts, belt))}
+              >
+                <BeltImage belt={belt} stripes={0} hideEmptyStripes className="rd-compose__belt-mini" />
+                {beltLabel(belt)}
+                <span className="rd-compose__belt-count">({count})</span>
               </button>
-              {beltOptions.map(([belt, count]) => (
-                <button
-                  key={belt}
-                  type="button"
-                  className={`app-chip ${belts.includes(belt) ? 'is-active' : ''}`}
-                  onClick={() => setBelts(toggleIn(belts, belt))}
-                >
-                  {beltLabel(belt)} ({count})
-                </button>
-              ))}
-            </div>
+            ))}
           </div>
+          {belts.length > 0 ? (
+            <p className="rd-compose__hint">
+              {belts.length === 1
+                ? t('Vai para alunos de 1 faixa selecionada.')
+                : t('Vai para alunos de {count} faixas selecionadas.', { count: belts.length })}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
 
-          <div className="broadcast-composer__checks">
-            <label className="broadcast-composer__check">
-              <input type="checkbox" checked={onlyActive} onChange={(event) => setOnlyActive(event.target.checked)} />
-              <span>{t('Só alunos ativos')}</span>
-            </label>
-            <label className="broadcast-composer__check">
-              <input type="checkbox" checked={onlyCompetitors} onChange={(event) => setOnlyCompetitors(event.target.checked)} />
-              <span>{t('Só competidores')}</span>
-            </label>
-          </div>
-        </>
-      ) : (
-        <div className="app-field">
-          <span className="app-field__label">{t('Buscar pessoas')}</span>
-          <div className="broadcast-composer__search">
-            <Search size={16} />
+      {mode === 'people' ? (
+        <div className="lv-field">
+          <span>{t('Buscar pessoas')}</span>
+          <div className="lv-search">
+            <Search size={18} strokeWidth={2} />
             <input
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              className="app-input"
               placeholder={t('Digite o nome')}
+              aria-label={t('Buscar pessoas')}
             />
           </div>
           {peopleResults.length > 0 ? (
-            <div className="broadcast-composer__results">
+            <div className="lv-list rd-compose__results">
               {peopleResults.map((user) => (
                 <button
                   key={user.id}
                   type="button"
-                  className="broadcast-composer__result"
+                  className="lv-row lv-row--button"
                   onClick={() => {
                     setPeople([...people, user.id]);
                     setSearch('');
                   }}
                 >
-                  <span>{userName(user)}</span>
-                  <span className="broadcast-composer__result-meta">{beltLabel(user.belt)}</span>
+                  <span className="lv-row__main">
+                    <span className="lv-row__title">{userName(user)}</span>
+                    <span className="lv-row__meta">{beltLabel(user.belt)}</span>
+                  </span>
                 </button>
               ))}
             </div>
           ) : null}
           {people.length > 0 ? (
-            <div className="broadcast-composer__chips">
+            <div className="rd-compose__people">
               {people.map((userId) => (
                 <button
                   key={userId}
                   type="button"
-                  className="app-chip is-active"
+                  className="lv-chip-btn is-active"
                   onClick={() => setPeople(people.filter((entry) => entry !== userId))}
                   aria-label={t('Remover')}
                 >
                   {usersById.get(userId) ? userName(usersById.get(userId) as UserRecord) : userId}
-                  <X size={14} style={{ marginLeft: '0.35rem' }} />
+                  <X size={14} strokeWidth={2.2} />
                 </button>
               ))}
             </div>
           ) : (
-            <p className="broadcast-composer__hint">{t('Busque e toque no nome para adicionar.')}</p>
+            <p className="rd-compose__hint">{t('Busque e toque no nome para adicionar.')}</p>
           )}
         </div>
-      )}
+      ) : null}
 
-      <div className="broadcast-composer__preview">
-        <Users size={16} />
+      <p className="rd-compose__preview">
+        <Users size={16} strokeWidth={2} />
         <span>
           {recipients.length === 1
             ? t('Vai para 1 pessoa')
@@ -388,44 +457,111 @@ const BroadcastComposer: React.FC<BroadcastComposerProps> = ({
             ? t('1 com notificação no celular')
             : t('{count} com notificação no celular', { count: recipientsWithPush })}
         </span>
+      </p>
+
+      <div className="rd-compose__more">
+        <button
+          type="button"
+          className="rd-compose__more-toggle"
+          aria-expanded={moreOpen}
+          onClick={() => setMoreOpen((current) => !current)}
+        >
+          <span className="rd-compose__more-copy">
+            <span className="rd-compose__more-title">{t('Mais opções')}</span>
+            {moreSummary ? <span className="rd-compose__more-summary">{moreSummary}</span> : null}
+          </span>
+          {moreOpen ? <ChevronUp size={20} strokeWidth={2} /> : <ChevronDown size={20} strokeWidth={2} />}
+        </button>
+
+        {moreOpen ? (
+          <div className="rd-compose__more-body">
+            {mode === 'group' ? (
+              <>
+                <div className="lv-field">
+                  <span>{t('Perfil')}</span>
+                  <div className="lv-chip-row">
+                    <button type="button" className={`lv-chip-btn ${roles.length === 0 ? 'is-active' : ''}`} onClick={() => setRoles([])}>
+                      {t('Todos')}
+                    </button>
+                    <button type="button" className={`lv-chip-btn ${roles.includes('student') ? 'is-active' : ''}`} onClick={() => setRoles(toggleIn(roles, 'student'))}>
+                      {t('Alunos')}
+                    </button>
+                    <button type="button" className={`lv-chip-btn ${roles.includes('professor') ? 'is-active' : ''}`} onClick={() => setRoles(toggleIn(roles, 'professor'))}>
+                      {t('Professores')}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="lv-field">
+                  <span>{t('Categoria')}</span>
+                  <div className="lv-chip-row">
+                    {(['all', 'adult', 'kids'] as BroadcastAudience[]).map((option) => (
+                      <button
+                        key={option}
+                        type="button"
+                        className={`lv-chip-btn ${audience === option ? 'is-active' : ''}`}
+                        onClick={() => setAudience(option)}
+                      >
+                        {option === 'all' ? t('Todos') : option === 'adult' ? t('Adulto') : t('Kids')}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="rd-compose__checks">
+                  <label className="rd-compose__check">
+                    <input type="checkbox" checked={onlyActive} onChange={(event) => setOnlyActive(event.target.checked)} />
+                    <span>{t('Só alunos ativos')}</span>
+                  </label>
+                  <label className="rd-compose__check">
+                    <input type="checkbox" checked={onlyCompetitors} onChange={(event) => setOnlyCompetitors(event.target.checked)} />
+                    <span>{t('Só competidores')}</span>
+                  </label>
+                </div>
+              </>
+            ) : null}
+
+            <div className="rd-compose__checks">
+              <label className="rd-compose__check">
+                <input
+                  type="checkbox"
+                  checked={scheduleEnabled}
+                  onChange={(event) => {
+                    setScheduleEnabled(event.target.checked);
+                    if (event.target.checked && !scheduleValue) {
+                      setScheduleValue(toDatetimeLocalValue(new Date(Date.now() + 60 * 60 * 1000)));
+                    }
+                  }}
+                />
+                <span>{t('Agendar envio')}</span>
+              </label>
+            </div>
+
+            {scheduleEnabled ? (
+              <label className="lv-field">
+                <span>{t('Enviar em')}</span>
+                <input
+                  type="datetime-local"
+                  value={scheduleValue}
+                  min={toDatetimeLocalValue(new Date())}
+                  onChange={(event) => setScheduleValue(event.target.value)}
+                  className="lv-input"
+                  required
+                />
+              </label>
+            ) : null}
+          </div>
+        ) : null}
       </div>
 
-      <div className="broadcast-composer__checks">
-        <label className="broadcast-composer__check">
-          <input
-            type="checkbox"
-            checked={scheduleEnabled}
-            onChange={(event) => {
-              setScheduleEnabled(event.target.checked);
-              if (event.target.checked && !scheduleValue) {
-                setScheduleValue(toDatetimeLocalValue(new Date(Date.now() + 60 * 60 * 1000)));
-              }
-            }}
-          />
-          <span>{t('Agendar envio')}</span>
-        </label>
+      <div className="rd-compose__footer">
+        <button type="submit" disabled={busy} className="lv-btn lv-btn--primary lv-btn--block">
+          {scheduleEnabled ? <CalendarClock size={18} strokeWidth={2} /> : <Send size={18} strokeWidth={2} />}
+          {busy
+            ? t('Enviando...')
+            : scheduleEnabled ? t('Agendar aviso') : t('Enviar aviso')}
+        </button>
       </div>
-
-      {scheduleEnabled ? (
-        <label className="app-field">
-          <span className="app-field__label">{t('Enviar em')}</span>
-          <input
-            type="datetime-local"
-            value={scheduleValue}
-            min={toDatetimeLocalValue(new Date())}
-            onChange={(event) => setScheduleValue(event.target.value)}
-            className="app-input"
-            required
-          />
-        </label>
-      ) : null}
-
-      <button type="submit" disabled={busy} className="app-button app-button--gold">
-        {scheduleEnabled ? <CalendarClock size={16} /> : <Send size={16} />}
-        {busy
-          ? t('Enviando...')
-          : scheduleEnabled ? t('Agendar comunicado') : t('Enviar comunicado')}
-      </button>
     </form>
   );
 };

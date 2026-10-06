@@ -1,0 +1,1108 @@
+/* ═══ Evolucao do aluno (redesign) ═════════════════════════════════════════
+   rd-evo__*      container, bloco amarelo, calendario com aneis e linha do tempo
+   rd-grad__*     detalhes da graduacao (GraduationView, tambem usado pela equipe)
+   rd-comp__*     competicao (CompetitionView)
+   rd-celebrate__* celebracao de graduacao (tela cheia escura)
+   Tokens --lv-* de redesign.css. Superficies de marca (amarelo/preto) usam cores
+   fixas para nao inverter no tema escuro. */
+
+/* ─── Container ──────────────────────────────────────────────────────────── */
+.rd-evo {
+  width: 100%;
+  max-width: 560px;
+  margin: 0 auto;
+  padding-bottom: var(--lv-space-6);
+}
+
+.rd-evo__panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--lv-space-8);
+  min-width: 0;
+}
+
+.rd-evo__panel[hidden] {
+  display: none !important;
+}
+
+/* ─── Bloco amarelo (full-bleed no celular) ──────────────────────────────── */
+.rd-evo__hero {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--lv-space-3);
+  margin-inline: calc(50% - 50vw);
+  padding:
+    calc(env(safe-area-inset-top, 0px) + 12px)
+    max(calc(50vw - 50%), env(safe-area-inset-right, 0px))
+    var(--lv-space-6)
+    max(calc(50vw - 50%), env(safe-area-inset-left, 0px));
+  overflow: hidden;
+  background: var(--lv-yellow);
+  color: var(--lv-on-yellow);
+}
+
+.rd-evo__hero--compact {
+  padding-bottom: var(--lv-space-5);
+}
+
+.rd-evo__bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--lv-space-3);
+  min-height: 52px;
+}
+
+.rd-evo__segmented {
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
+.rd-evo__segmented > button {
+  padding: 0 18px;
+}
+
+.rd-evo__bell {
+  flex: none;
+}
+
+.rd-evo__bell .lv-badge-count {
+  box-shadow: 0 0 0 2px var(--lv-yellow);
+}
+
+.rd-evo__headline {
+  display: flex;
+  flex-direction: column;
+  margin-top: var(--lv-space-2);
+  color: var(--lv-on-yellow);
+  font-size: clamp(30px, 8.6vw, 38px);
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+}
+
+.rd-evo__exam {
+  align-self: flex-start;
+}
+
+/* Numero gigante atravessado pela faixa reta na diagonal */
+.rd-evo__stage {
+  position: relative;
+  height: clamp(150px, 46vw, 230px);
+  margin-right: calc(50% - 50vw);
+  margin-top: var(--lv-space-1);
+}
+
+.rd-evo__stage--belt-only {
+  height: clamp(110px, 32vw, 170px);
+}
+
+.rd-evo__stage--belt-only .rd-evo__belt {
+  top: 50%;
+  left: -24%;
+  width: 128%;
+}
+
+.rd-evo__giant {
+  position: absolute;
+  left: -0.04em;
+  bottom: -0.06em;
+  z-index: 2;
+  color: var(--lv-on-yellow);
+  pointer-events: none;
+}
+
+.rd-evo__belt {
+  position: absolute;
+  z-index: 1;
+  top: 58%;
+  left: -68%;
+  width: 180%;
+  transform: translateY(-50%) rotate(-12deg);
+  filter: drop-shadow(0 16px 18px rgba(26, 19, 0, 0.3));
+  pointer-events: none;
+}
+
+.rd-evo__caption {
+  position: relative;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  margin-top: -18px;
+  text-align: right;
+}
+
+.rd-evo__caption-main {
+  font-family: var(--font-display);
+  font-size: 20px;
+  line-height: 1.2;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--lv-on-yellow);
+}
+
+.rd-evo__next {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 700;
+  color: rgba(26, 19, 0, 0.78);
+}
+
+.rd-evo__next-belt {
+  width: 52px;
+  flex: none;
+}
+
+/* ─── Calendario do mes ──────────────────────────────────────────────────── */
+.rd-evo__calendar {
+  gap: var(--lv-space-4);
+}
+
+.rd-evo__cal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--lv-space-3);
+}
+
+.rd-evo__cal-head .lv-section__title {
+  font-size: 26px;
+}
+
+.rd-evo__cal-year {
+  color: var(--lv-text-soft);
+  font-weight: 600;
+}
+
+.rd-evo__cal-nav {
+  display: flex;
+  gap: var(--lv-space-2);
+}
+
+.rd-evo__legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--lv-text-muted);
+}
+
+.rd-evo__legend li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.rd-evo__legend-ring {
+  position: relative;
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+}
+
+.rd-evo__legend-ring.is-trained {
+  box-shadow: inset 0 0 0 3px var(--lv-yellow);
+}
+
+.rd-evo__legend-ring.is-partial {
+  box-shadow: inset 0 0 0 3px var(--lv-primary-soft);
+  background: conic-gradient(var(--lv-yellow) 0 50%, transparent 50% 100%);
+  -webkit-mask: radial-gradient(circle, transparent 3.5px, #000 4px);
+  mask: radial-gradient(circle, transparent 3.5px, #000 4px);
+}
+
+.rd-evo__legend-ring.is-missed {
+  border: 1.5px dashed var(--lv-text-soft);
+}
+
+.rd-evo__legend-note {
+  margin-top: calc(var(--lv-space-2) * -1);
+}
+
+.rd-evo__grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  row-gap: 2px;
+}
+
+.rd-evo__weekday {
+  padding-bottom: 2px;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+  color: var(--lv-text-soft);
+}
+
+.rd-evo__cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  min-width: 0;
+  min-height: 52px;
+  padding: 2px 0;
+  border: 0;
+  border-radius: var(--lv-r-sm);
+  background: transparent;
+  font: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.rd-evo__cell--pad {
+  cursor: default;
+}
+
+.rd-evo__cell:focus-visible {
+  outline: 2px solid var(--lv-text);
+  outline-offset: 1px;
+}
+
+.rd-evo__cell.is-selected .lv-ring-day {
+  background: var(--lv-sunken);
+}
+
+.rd-evo__dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: transparent;
+}
+
+.rd-evo__dot.is-on {
+  background: var(--lv-yellow);
+}
+
+.rd-evo__cell .lv-ring-day {
+  width: min(38px, 100%);
+}
+
+/* Detalhe do dia tocado */
+.rd-evo__day {
+  display: flex;
+  flex-direction: column;
+  gap: var(--lv-space-2);
+}
+
+.rd-evo__day-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.rd-evo__day-row {
+  min-height: 56px;
+}
+
+.rd-evo__day-mark {
+  position: relative;
+  width: 14px;
+  height: 14px;
+  flex: none;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 1.5px var(--lv-border-strong);
+}
+
+.rd-evo__day-row--counted .rd-evo__day-mark {
+  box-shadow: inset 0 0 0 3px var(--lv-yellow);
+}
+
+.rd-evo__day-row--not-counted .rd-evo__day-mark,
+.rd-evo__day-row--pending .rd-evo__day-mark {
+  box-shadow: inset 0 0 0 3px var(--lv-primary-soft);
+  background: conic-gradient(var(--lv-yellow) 0 50%, transparent 50% 100%);
+  -webkit-mask: radial-gradient(circle, transparent 3.5px, #000 4px);
+  mask: radial-gradient(circle, transparent 3.5px, #000 4px);
+}
+
+.rd-evo__day-row--missed .rd-evo__day-mark {
+  box-shadow: none;
+  border: 1.5px dashed var(--lv-text-soft);
+}
+
+.rd-evo__day-row--scheduled .rd-evo__day-mark {
+  width: 8px;
+  height: 8px;
+  margin: 3px;
+  background: var(--lv-yellow);
+  box-shadow: none;
+}
+
+.rd-evo__day-time {
+  flex: none;
+  font-size: 13px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: var(--lv-text-muted);
+}
+
+/* ─── Linha do tempo de graduacoes ───────────────────────────────────────── */
+.rd-evo__timeline-section {
+  gap: var(--lv-space-3);
+}
+
+.rd-evo__timeline-title {
+  margin: 0;
+  color: var(--lv-gold-text);
+}
+
+.rd-evo__timeline {
+  display: flex;
+  margin: 0;
+  padding: 0 0 var(--lv-space-2);
+  list-style: none;
+  overflow-x: auto;
+  scroll-snap-type: x proximity;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.rd-evo__timeline::-webkit-scrollbar {
+  display: none;
+}
+
+.rd-evo__node {
+  position: relative;
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  gap: 4px;
+  width: 148px;
+  padding-right: 28px;
+  scroll-snap-align: end;
+}
+
+.rd-evo__node:last-child {
+  width: 120px;
+  padding-right: 0;
+}
+
+/* Linha que liga uma faixa a proxima */
+.rd-evo__node:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  top: 20px;
+  left: 124px;
+  width: 20px;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--lv-border-strong);
+}
+
+.rd-evo__node-belt {
+  display: flex;
+  align-items: center;
+  width: 120px;
+  height: 42px;
+  padding: 4px 6px;
+  border: 2px solid transparent;
+  border-radius: 10px;
+}
+
+.rd-evo__node.is-current .rd-evo__node-belt {
+  border-color: var(--lv-yellow);
+  background: var(--lv-primary-soft);
+}
+
+.rd-evo__node-label {
+  margin-top: 4px;
+  font-size: 14px;
+  font-weight: 800;
+  line-height: 1.25;
+  color: var(--lv-text);
+}
+
+.rd-evo__node-date {
+  font-size: 13px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--lv-text-soft);
+}
+
+.rd-evo__node.is-current .rd-evo__node-date {
+  color: var(--lv-text);
+  font-weight: 800;
+}
+
+/* ─── Detalhes da graduacao ──────────────────────────────────────────────── */
+.rd-evo__details {
+  gap: var(--lv-space-4);
+}
+
+.rd-evo .rd-grad__grid {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+/* ═══ Graduacao (GraduationView) ══════════════════════════════════════════ */
+.rd-grad {
+  gap: var(--lv-space-4);
+}
+
+.rd-grad__grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--lv-space-4);
+}
+
+@media (min-width: 1100px) {
+  .rd-grad__grid {
+    grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
+  }
+}
+
+.rd-grad__card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--lv-space-4);
+}
+
+.rd-grad__card-head {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--lv-space-3);
+}
+
+.rd-grad__card-titles {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.rd-grad__card-titles > p {
+  margin: 0;
+}
+
+.rd-grad__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  flex: none;
+  border-radius: 12px;
+  background: var(--lv-sunken);
+  color: var(--lv-text);
+}
+
+.rd-grad__note {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.45;
+  font-weight: 600;
+  color: var(--lv-text-soft);
+}
+
+.rd-grad__current-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--lv-space-3);
+}
+
+.rd-grad__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: var(--lv-space-3);
+}
+
+.rd-grad__belt {
+  max-width: 420px;
+  margin-top: var(--lv-space-5);
+}
+
+.rd-grad__meter-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--lv-space-3);
+  font-size: 14px;
+}
+
+.rd-grad__meter-label {
+  font-weight: 800;
+}
+
+.rd-grad__meter-value {
+  font-weight: 700;
+  color: var(--lv-text-muted);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.rd-grad__meter .lv-progress {
+  margin: 8px 0 6px;
+}
+
+.rd-grad__exam {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: var(--lv-space-4);
+  border-radius: var(--lv-r-md);
+  background: var(--lv-sunken);
+  color: var(--lv-text);
+}
+
+.rd-grad__exam--hot {
+  background: var(--lv-yellow);
+  color: var(--lv-on-yellow);
+}
+
+.rd-grad__exam-label {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.72;
+}
+
+.rd-grad__exam-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 22px;
+  line-height: 1.2;
+  font-weight: 700;
+}
+
+.rd-grad__exam-text {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.45;
+  font-weight: 600;
+}
+
+.rd-grad__rule {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: var(--lv-space-3) var(--lv-space-4);
+  border: 1px solid var(--lv-border);
+  border-radius: var(--lv-r-md);
+}
+
+.rd-grad__rule-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--lv-space-3);
+}
+
+.rd-grad__rule-title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 800;
+  line-height: 1.35;
+}
+
+.rd-grad__rule-icon {
+  flex: none;
+  color: var(--lv-gold-text);
+}
+
+.rd-grad__history-row {
+  align-items: center;
+}
+
+.rd-grad__history-title {
+  font-size: 14px;
+  font-weight: 800;
+  line-height: 1.3;
+}
+
+.rd-grad__date-chip {
+  flex: none;
+}
+
+.rd-grad__empty {
+  margin: 0;
+  padding: var(--lv-space-4);
+  text-align: center;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.45;
+  color: var(--lv-text-muted);
+}
+
+/* ═══ Competicao (CompetitionView) ════════════════════════════════════════ */
+.rd-comp {
+  gap: var(--lv-space-4);
+}
+
+.rd-comp__summary-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--lv-space-3);
+}
+
+.rd-comp__summary-row .lv-chip {
+  flex: none;
+}
+
+.rd-comp__tabs {
+  display: flex;
+  gap: var(--lv-space-2);
+  margin-top: var(--lv-space-4);
+}
+
+.rd-comp__tabs .lv-chip-btn {
+  flex: 1 1 0;
+  justify-content: center;
+  min-height: 44px;
+}
+
+.rd-comp__events {
+  display: flex;
+  flex-direction: column;
+  gap: var(--lv-space-3);
+}
+
+.rd-comp__event {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--lv-space-3);
+}
+
+.rd-comp__event-main {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  min-width: 0;
+}
+
+.rd-comp__event-main .lv-title-md {
+  overflow-wrap: anywhere;
+}
+
+.rd-comp__checklist {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.rd-comp__check {
+  min-height: 52px;
+}
+
+.rd-comp__check-box {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  flex: none;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 1.5px var(--lv-border-strong);
+}
+
+.rd-comp__check.is-checked .rd-comp__check-box {
+  background: var(--lv-yellow);
+  color: var(--lv-on-yellow);
+  box-shadow: none;
+}
+
+.rd-comp__check-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--lv-text);
+}
+
+.rd-comp__check.is-checked .rd-comp__check-label {
+  color: var(--lv-text-soft);
+  text-decoration: line-through;
+}
+
+.rd-comp__alert {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--lv-space-3);
+  border-color: transparent;
+  background: var(--lv-primary-soft);
+}
+
+.rd-comp__alert .lv-label {
+  color: var(--lv-gold-text);
+}
+
+.rd-comp__alert .rd-grad__icon {
+  background: var(--lv-yellow);
+  color: var(--lv-on-yellow);
+}
+
+.rd-comp__alert .rd-grad__note {
+  color: var(--lv-text-muted);
+}
+
+.rd-comp__stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--lv-space-3);
+}
+
+.rd-comp__stat {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+}
+
+.rd-comp__stat .rd-grad__icon {
+  margin-bottom: var(--lv-space-2);
+}
+
+.rd-comp__fields {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--lv-space-4);
+}
+
+@media (min-width: 640px) {
+  .rd-comp__fields {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .rd-comp__field--wide {
+    grid-column: 1 / -1;
+  }
+}
+
+.rd-evo .rd-comp__fields {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.rd-comp__hint {
+  font-size: 12px;
+  line-height: 1.4;
+  font-weight: 600;
+  color: var(--lv-text-soft);
+}
+
+.rd-comp__file {
+  padding-top: 13px;
+  padding-bottom: 13px;
+}
+
+.rd-comp .date-field .lv-input {
+  padding-right: 3.1rem;
+}
+
+.rd-comp__alert-success {
+  background: rgba(22, 163, 74, 0.12);
+  color: var(--lv-success);
+}
+
+.rd-comp__videos {
+  display: flex;
+  flex-direction: column;
+  gap: var(--lv-space-5);
+}
+
+.rd-comp__video .app-video-frame {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  border-radius: 14px;
+  background: #000000;
+}
+
+.rd-comp__video .app-video-frame iframe,
+.rd-comp__video .app-video-frame video {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+
+.rd-comp__video-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: var(--lv-space-3);
+}
+
+.rd-comp__video-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--lv-space-2);
+  min-width: 0;
+}
+
+.rd-comp__video-title .lv-row__title {
+  margin: 0;
+  white-space: normal;
+}
+
+.rd-comp .lv-row__title {
+  margin: 0;
+}
+
+/* ═══ Celebracao de graduacao ═════════════════════════════════════════════ */
+.rd-celebrate {
+  z-index: 240;
+  overflow-x: hidden;
+}
+
+.rd-celebrate__confetti {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.rd-celebrate__confetti > i {
+  position: absolute;
+  top: -6%;
+  width: 6px;
+  height: 16px;
+  border-radius: 1px;
+  background: var(--lv-yellow);
+  opacity: 0.9;
+  transform: rotate(var(--rd-confetti-rotate, 0deg));
+  animation-name: rd-confetti-fall;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+  will-change: transform;
+}
+
+.rd-celebrate__confetti > i.is-light {
+  background: #ffffff;
+}
+
+.rd-celebrate__confetti > i.is-wide {
+  width: 16px;
+  height: 6px;
+}
+
+@keyframes rd-confetti-fall {
+  0% {
+    transform: translate3d(0, -10vh, 0) rotate(var(--rd-confetti-rotate, 0deg));
+  }
+  100% {
+    transform: translate3d(18px, 115vh, 0) rotate(calc(var(--rd-confetti-rotate, 0deg) + 540deg));
+  }
+}
+
+.rd-celebrate__inner {
+  position: relative;
+  z-index: 1;
+  gap: var(--lv-space-4);
+}
+
+.rd-celebrate__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--lv-space-3);
+}
+
+.rd-celebrate__share {
+  margin-left: auto;
+  min-height: 44px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #ffffff;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.2);
+}
+
+.rd-celebrate__media {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--lv-space-2) 0;
+}
+
+.rd-celebrate__media::before {
+  content: '';
+  position: absolute;
+  inset: 8% 14%;
+  z-index: -1;
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--rd-celebrate-glow, var(--lv-yellow)) 0%, transparent 68%);
+  opacity: 0.32;
+  filter: blur(18px);
+}
+
+.rd-celebrate__belt {
+  width: min(72%, 300px, 36vh);
+  filter: drop-shadow(0 24px 28px rgba(0, 0, 0, 0.6));
+  animation: rd-celebrate-in 700ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.rd-celebrate__image {
+  display: block;
+  width: 100%;
+  max-height: 42vh;
+  object-fit: contain;
+  border-radius: var(--lv-r-lg);
+  animation: rd-celebrate-in 700ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.rd-celebrate__fallback {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: var(--lv-space-3);
+  width: 100%;
+  color: #ffffff;
+}
+
+@keyframes rd-celebrate-in {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.94);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.rd-celebrate__body {
+  display: flex;
+  flex-direction: column;
+}
+
+.rd-celebrate__eyebrow {
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--lv-yellow);
+}
+
+.rd-celebrate__title {
+  margin: 6px 0 0;
+  font-family: var(--font-display);
+  font-size: clamp(40px, 13vw, 60px);
+  line-height: 1;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  color: #ffffff;
+}
+
+.rd-celebrate__lead {
+  margin: 10px 0 0;
+  font-family: var(--font-display);
+  font-size: 24px;
+  line-height: 1.2;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.78);
+}
+
+.rd-celebrate__details {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: var(--lv-space-5);
+  padding: 14px var(--lv-space-4);
+  border-radius: var(--lv-r-md);
+  background: rgba(255, 255, 255, 0.06);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+
+.rd-celebrate__congrats {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--lv-yellow);
+}
+
+.rd-celebrate__copy {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.45;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.78);
+}
+
+.rd-celebrate__route {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.rd-celebrate__route-belt {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.rd-celebrate__route-mini {
+  width: 48px;
+  flex: none;
+}
+
+.rd-celebrate__badge {
+  margin-left: auto;
+}
+
+.rd-celebrate__thumb {
+  display: block;
+  width: 100%;
+  max-height: 160px;
+  object-fit: cover;
+  border-radius: 12px;
+}
+
+.rd-celebrate__footer {
+  padding-top: var(--lv-space-3);
+}
+
+.rd-celebrate__ghost {
+  background: transparent;
+  color: rgba(255, 255, 255, 0.86);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.2);
+}
+
+/* ─── Telas largas ───────────────────────────────────────────────────────── */
+@media (min-width: 980px) {
+  .rd-evo__hero {
+    margin-inline: 0;
+    padding: var(--lv-space-5) var(--lv-space-6) var(--lv-space-6);
+    border-radius: var(--lv-r-xl);
+  }
+
+  .rd-evo__stage {
+    margin-right: calc(var(--lv-space-6) * -1);
+  }
+
+  .rd-evo__giant {
+    font-size: 180px;
+  }
+}
+
+/* ─── Movimento reduzido ─────────────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .rd-celebrate__confetti > i {
+    top: var(--rd-confetti-top, 10%);
+    animation: none;
+  }
+
+  .rd-celebrate__belt,
+  .rd-celebrate__image {
+    animation: none;
+  }
+}

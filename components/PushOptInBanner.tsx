@@ -7,6 +7,7 @@ import {
   type PushStatus,
 } from '../services/firebase/messaging';
 import { t } from '../i18n';
+import '../views/redesign/notifications.css';
 
 const DISMISS_KEY = 'applevel:push-optin-dismissed';
 const ENABLED_ACK_KEY = 'applevel:push-enabled-ack';
@@ -105,52 +106,47 @@ const PushOptInBanner: React.FC = () => {
   if (status === 'granted') {
     if (registration === 'ok' && !acknowledged) {
       return (
-        <div className="app-list-card">
-          <div className="flex items-start gap-3">
-            <div className="app-icon-shell" style={{ flexShrink: 0 }}>
-              <CheckCircle2 size={18} />
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-bold text-[color:var(--text-strong)]">{t('Notificações ativadas neste aparelho')}</p>
-              <p className="mt-1 text-sm text-[color:var(--text-muted)]">
-                {t('Você vai receber os avisos da academia mesmo com o app fechado.')}
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={() => {
-                writeFlag(ENABLED_ACK_KEY);
-                setAcknowledged(true);
-              }}
-              aria-label={t('Dispensar')}
-              className="app-button app-button--ghost app-button--icon"
-              style={{ flexShrink: 0 }}
-            >
-              <X size={16} />
-            </button>
+        <div className="rd-push rd-push--neutral">
+          <span className="rd-push__icon" aria-hidden="true">
+            <CheckCircle2 size={20} strokeWidth={2} />
+          </span>
+          <div className="rd-push__copy">
+            <p className="rd-push__title">{t('Notificações ativadas neste aparelho')}</p>
+            <p className="rd-push__text">
+              {t('Você vai receber os avisos da academia mesmo com o app fechado.')}
+            </p>
           </div>
+          <button
+            type="button"
+            onClick={() => {
+              writeFlag(ENABLED_ACK_KEY);
+              setAcknowledged(true);
+            }}
+            aria-label={t('Dispensar')}
+            className="lv-icon-btn rd-push__close"
+          >
+            <X size={18} strokeWidth={2} />
+          </button>
         </div>
       );
     }
 
     if (registration === 'failed') {
       return (
-        <div className="app-list-card">
-          <div className="flex items-start gap-3">
-            <div className="app-icon-shell" style={{ flexShrink: 0 }}>
-              <BellRing size={18} />
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-bold text-[color:var(--text-strong)]">{t('Não conseguimos ativar as notificações neste aparelho.')}</p>
-              <button
-                type="button"
-                onClick={() => void checkRegistration()}
-                className="app-button app-button--gold app-button--small mt-3"
-              >
-                <RefreshCw size={14} />
-                {t('Tentar novamente')}
-              </button>
-            </div>
+        <div className="rd-push">
+          <span className="rd-push__icon" aria-hidden="true">
+            <BellRing size={20} strokeWidth={2} />
+          </span>
+          <div className="rd-push__copy">
+            <p className="rd-push__title">{t('Não conseguimos ativar as notificações neste aparelho.')}</p>
+            <button
+              type="button"
+              onClick={() => void checkRegistration()}
+              className="lv-btn lv-btn--ink lv-btn--sm"
+            >
+              <RefreshCw size={15} strokeWidth={2} />
+              {t('Tentar novamente')}
+            </button>
           </div>
         </div>
       );
@@ -166,46 +162,43 @@ const PushOptInBanner: React.FC = () => {
   }
 
   return (
-    <div className="app-list-card">
-      <div className="flex items-start gap-3">
-        <div className="app-icon-shell" style={{ flexShrink: 0 }}>
-          <BellRing size={18} />
-        </div>
-        <div className="min-w-0 flex-1">
-          <p className="text-sm font-bold text-[color:var(--text-strong)]">
-            {status === 'denied' ? t('Notificações bloqueadas') : t('Receba os avisos na hora')}
-          </p>
-          <p className="mt-1 text-sm text-[color:var(--text-muted)]">
-            {status === 'denied'
-              ? t('Para receber os avisos da academia no celular, libere as notificações do LEVEL nas configurações do aparelho.')
-              : t('Ative as notificações para saber de avisos da academia, solicitações e graduações mesmo com o app fechado.')}
-          </p>
-          {error ? <p className="mt-2 text-sm text-red-400">{error}</p> : null}
-          {status === 'default' ? (
-            <button
-              type="button"
-              onClick={() => void handleEnable()}
-              disabled={busy}
-              className="app-button app-button--gold app-button--small mt-3"
-            >
-              <BellRing size={14} />
-              {busy ? t('Ativando...') : t('Ativar notificações')}
-            </button>
-          ) : null}
-        </div>
-        <button
-          type="button"
-          onClick={() => {
-            writeFlag(DISMISS_KEY);
-            setDismissed(true);
-          }}
-          aria-label={t('Dispensar')}
-          className="app-button app-button--ghost app-button--icon"
-          style={{ flexShrink: 0 }}
-        >
-          <X size={16} />
-        </button>
+    <div className="rd-push">
+      <span className="rd-push__icon" aria-hidden="true">
+        <BellRing size={20} strokeWidth={2} />
+      </span>
+      <div className="rd-push__copy">
+        <p className="rd-push__title">
+          {status === 'denied' ? t('Notificações bloqueadas') : t('Receba os avisos na hora')}
+        </p>
+        <p className="rd-push__text">
+          {status === 'denied'
+            ? t('Para receber os avisos da academia no celular, libere as notificações do LEVEL nas configurações do aparelho.')
+            : t('Ative as notificações para saber de avisos da academia, solicitações e graduações mesmo com o app fechado.')}
+        </p>
+        {error ? <p className="rd-push__error">{error}</p> : null}
+        {status === 'default' ? (
+          <button
+            type="button"
+            onClick={() => void handleEnable()}
+            disabled={busy}
+            className="lv-btn lv-btn--ink lv-btn--sm"
+          >
+            <BellRing size={15} strokeWidth={2} />
+            {busy ? t('Ativando...') : t('Ativar notificações')}
+          </button>
+        ) : null}
       </div>
+      <button
+        type="button"
+        onClick={() => {
+          writeFlag(DISMISS_KEY);
+          setDismissed(true);
+        }}
+        aria-label={t('Dispensar')}
+        className="lv-icon-btn rd-push__close"
+      >
+        <X size={18} strokeWidth={2} />
+      </button>
     </div>
   );
 };
