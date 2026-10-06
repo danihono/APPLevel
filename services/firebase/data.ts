@@ -984,3 +984,25 @@ export function subscribeToFinanceWithdrawals(
     onError,
   );
 }
+
+// Confirmacoes de ida (RSVP) do proprio aluno na academia. Alimenta o estado "Faltou" do
+// calendario da Evolucao (confirmou ida numa aula que ja passou e nao tem presenca).
+// So igualdades: nao precisa de indice composto. O mes e filtrado no cliente.
+export function subscribeToUserClassRsvps(
+  academyId: string,
+  userId: string,
+  listener: (records: Array<FirestoreEntity<ClassRsvpRecord>>) => void,
+  onError?: (error: Error) => void,
+) {
+  return onSnapshot(
+    query(
+      collection(firebaseDb, 'class_rsvps'),
+      where('academyId', '==', academyId),
+      where('userId', '==', userId),
+    ),
+    (snapshot) => {
+      listener(snapshot.docs.map((item) => mapDoc<ClassRsvpRecord>(item)));
+    },
+    onError,
+  );
+}
