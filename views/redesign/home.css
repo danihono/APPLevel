@@ -1,0 +1,436 @@
+/* ═══ Inicio do aluno (redesign) ═══════════════════════════════════════════
+   Classes rd-home__*. Tokens --lv-* de redesign.css. Superficies de marca (pilula
+   preta, card preto, botao amarelo) usam cores fixas para nao inverter no escuro. */
+
+.rd-home {
+  width: 100%;
+  max-width: 560px;
+  margin: 0 auto;
+  padding-bottom: var(--lv-space-6);
+}
+
+.rd-home__primary,
+.rd-home__secondary {
+  display: flex;
+  flex-direction: column;
+  gap: var(--lv-space-6);
+  min-width: 0;
+}
+
+/* ─── Cabecalho ──────────────────────────────────────────────────────────── */
+.rd-home__streak {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 44px;
+  padding: 0 16px 0 14px;
+  border-radius: var(--lv-r-pill);
+  background: var(--lv-black);
+  color: #ffffff;
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.rd-home__streak svg {
+  color: var(--lv-yellow);
+}
+
+html.dark .rd-home__streak {
+  background: #ffffff;
+  color: var(--lv-black);
+}
+
+html.dark .rd-home__streak svg {
+  color: var(--lv-yellow-deep);
+}
+
+.rd-home__unit {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  gap: 6px;
+  min-height: 36px;
+  max-width: 100%;
+  margin-top: calc(var(--lv-space-6) * -1 + 8px);
+  padding: 0 12px;
+  border: 0;
+  border-radius: var(--lv-r-pill);
+  background: var(--lv-sunken);
+  color: var(--lv-text-muted);
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.rd-home__unit span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+button.rd-home__unit {
+  min-height: 44px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+button.rd-home__unit:focus-visible {
+  outline: 2px solid var(--lv-text);
+  outline-offset: 2px;
+}
+
+/* ─── Faixa + treinos da semana ─────────────────────────────────────────── */
+.rd-home__hero {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  margin-top: calc(var(--lv-space-4) * -1);
+}
+
+.rd-home__belt {
+  width: 70%;
+  max-width: 340px;
+  margin-left: 12%;
+}
+
+/* Faixa sem imagem (kids/coral): barra mais baixa, centraliza e abre espaco pro numero. */
+.rd-home__belt--bar {
+  width: 62%;
+  margin: 28px 0 96px 24%;
+}
+
+.rd-home__week {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  pointer-events: none;
+}
+
+.rd-home__week-count {
+  font-family: var(--font-display);
+  font-size: clamp(64px, 19vw, 96px);
+  line-height: 0.86;
+  font-weight: 800;
+  letter-spacing: -0.05em;
+  font-variant-numeric: tabular-nums;
+  color: var(--lv-text);
+}
+
+.rd-home__week-label {
+  max-width: 7.5em;
+  font-size: 14px;
+  line-height: 1.25;
+  font-weight: 700;
+  color: var(--lv-text-muted);
+}
+
+.rd-home__belt-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--lv-space-4);
+}
+
+.rd-home__belt-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.rd-home__belt-name {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 20px;
+  line-height: 1.25;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--lv-text);
+}
+
+.rd-home__belt-copy {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.4;
+  font-weight: 500;
+  color: var(--lv-text-muted);
+}
+
+.rd-home__belt-meta {
+  margin: 2px 0 0;
+  font-size: 13px;
+  line-height: 1.4;
+  font-weight: 600;
+  color: var(--lv-text-soft);
+}
+
+.rd-home__arrow {
+  width: 52px;
+  height: 52px;
+}
+
+/* ─── Card da proxima aula (preto) ──────────────────────────────────────── */
+.rd-home__class {
+  display: flex;
+  flex-direction: column;
+  gap: var(--lv-space-3);
+  padding: var(--lv-space-5);
+}
+
+.rd-home__class-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--lv-space-3);
+}
+
+.rd-home__class-top .lv-stripes {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.rd-home__class-top .lv-stripes > i:last-child {
+  opacity: 0.35;
+}
+
+.rd-home__class-time {
+  margin: 4px 0 0;
+  font-family: var(--font-display);
+  font-size: clamp(48px, 15vw, 64px);
+  line-height: 1;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+  color: #ffffff;
+}
+
+.rd-home__class-row {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--lv-space-3);
+}
+
+.rd-home__class-type {
+  min-width: 0;
+  margin: 0;
+  font-size: 18px;
+  line-height: 1.3;
+  font-weight: 800;
+  color: #ffffff;
+}
+
+.rd-home__class-type small {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--lv-on-ink-soft);
+}
+
+.rd-home__class-who {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  flex: none;
+  max-width: 45%;
+  font-size: 14px;
+  line-height: 1.35;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.86);
+  text-align: right;
+}
+
+.rd-home__class-who span {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rd-home__class .lv-btn {
+  margin-top: var(--lv-space-2);
+  min-height: 56px;
+  font-size: 16px;
+}
+
+.rd-home__ghost-btn,
+html.dark .rd-home__ghost-btn {
+  background: transparent;
+  color: #ffffff;
+  box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, 0.32);
+}
+
+.rd-home__ghost-btn:hover:not(:disabled) {
+  box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, 0.6);
+}
+
+.rd-home__class-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--lv-space-2);
+  min-height: 56px;
+  margin-top: var(--lv-space-2);
+  border-radius: var(--lv-r-pill);
+  background: rgba(255, 255, 255, 0.08);
+  color: #ffffff;
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.rd-home__class-state--done svg {
+  color: var(--lv-yellow);
+}
+
+.rd-home__class-state--pending {
+  color: var(--lv-yellow);
+}
+
+.rd-home__empty {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--lv-space-2);
+}
+
+.rd-home__empty .lv-title-md {
+  color: var(--lv-text);
+}
+
+/* ─── Seu mes / progresso ───────────────────────────────────────────────── */
+.rd-home__progress {
+  display: flex;
+  flex-direction: column;
+  gap: var(--lv-space-4);
+}
+
+.rd-home__progress-item {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.rd-home__progress-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--lv-space-3);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--lv-text-muted);
+}
+
+.rd-home__progress-head strong {
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--lv-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.rd-home__month {
+  display: flex;
+  flex-direction: column;
+  gap: var(--lv-space-4);
+}
+
+.rd-home__month-total {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--lv-space-3);
+  padding-top: var(--lv-space-4);
+  border-top: 1px solid var(--lv-border);
+}
+
+.rd-home__month-total span {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--lv-text-muted);
+}
+
+.rd-home__month-total strong {
+  font-family: var(--font-display);
+  font-size: 32px;
+  line-height: 1;
+  font-weight: 700;
+  color: var(--lv-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.rd-home__dots {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 6px;
+  justify-items: center;
+}
+
+.rd-home__dots-head {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--lv-text-soft);
+}
+
+.rd-home__dot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  max-width: 40px;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: var(--lv-sunken);
+  color: var(--lv-text-soft);
+  font-size: 12px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.rd-home__dot.is-trained {
+  background: var(--lv-yellow);
+  color: var(--lv-on-yellow);
+  font-weight: 800;
+}
+
+.rd-home__dot.is-today {
+  box-shadow: inset 0 0 0 2px var(--lv-text);
+  color: var(--lv-text);
+}
+
+.rd-home__dot.is-today.is-trained {
+  color: var(--lv-on-yellow);
+}
+
+.rd-home__dot.is-future {
+  opacity: 0.55;
+}
+
+.rd-home__dot--pad {
+  visibility: hidden;
+}
+
+/* ─── Telas largas: duas colunas ────────────────────────────────────────── */
+@media (min-width: 1100px) {
+  .lv-screen.rd-home {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    column-gap: var(--lv-space-8);
+    row-gap: var(--lv-space-6);
+    max-width: 1080px;
+  }
+
+  .rd-home > .lv-header,
+  .rd-home > .rd-home__unit {
+    grid-column: 1 / -1;
+  }
+
+  .rd-home__unit {
+    margin-top: calc(var(--lv-space-6) * -1 + 8px);
+  }
+}

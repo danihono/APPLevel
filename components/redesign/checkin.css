@@ -1,0 +1,640 @@
+/* ═══ Check-in do aluno (tela cheia amarela) ═══════════════════════════════
+   Superficie de marca: cores FIXAS (--lv-yellow / --lv-black / --lv-on-yellow),
+   para nao inverter no tema escuro (html.dark). Prefixo: rd-checkin__*. */
+
+.rd-checkin {
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+}
+
+.rd-checkin *,
+.rd-checkin *::before,
+.rd-checkin *::after {
+  box-sizing: border-box;
+}
+
+.rd-checkin__inner {
+  gap: var(--lv-space-4);
+}
+
+/* ─── Barra: fechar + chip do horario ─────────────────────────────────────── */
+.rd-checkin__bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--lv-space-3);
+  min-height: 44px;
+}
+
+.rd-checkin__bar .lv-icon-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.rd-checkin__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 34px;
+  max-width: 70%;
+  padding: 0 14px;
+  border-radius: var(--lv-r-pill);
+  background: var(--lv-black);
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.rd-checkin__chip svg {
+  flex: none;
+  color: var(--lv-yellow);
+}
+
+/* ─── Cabecalho ───────────────────────────────────────────────────────────── */
+.rd-checkin__head {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.rd-checkin__eyebrow {
+  display: inline-block;
+  font-size: 11px;
+  line-height: 14px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(26, 19, 0, 0.72);
+}
+
+.rd-checkin__title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(40px, 12vw, 52px);
+  line-height: 1.02;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: var(--lv-on-yellow);
+  max-width: 9ch;
+}
+
+.rd-checkin__title:focus,
+.rd-checkin__oss-title:focus {
+  outline: none;
+}
+
+.rd-checkin__meta {
+  margin: 4px 0 0;
+  font-size: 15px;
+  line-height: 1.4;
+  font-weight: 700;
+  color: var(--lv-on-yellow);
+}
+
+/* ─── Camera ──────────────────────────────────────────────────────────────── */
+.rd-checkin__scan {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--lv-space-3);
+  padding-top: var(--lv-space-2);
+}
+
+.rd-checkin__viewfinder {
+  position: relative;
+  width: min(100%, 340px);
+  aspect-ratio: 1 / 1;
+  overflow: hidden;
+  border: 6px solid var(--lv-black);
+  border-radius: 32px;
+  background: var(--lv-black);
+  box-shadow: 0 18px 40px rgba(26, 19, 0, 0.28);
+}
+
+.rd-checkin__reader {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+/* html5-qrcode injeta <video> com estilo inline: forca o "cover" no quadrado. */
+.rd-checkin__reader video {
+  position: absolute !important;
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+}
+
+.rd-checkin__reader img,
+.rd-checkin__reader #qr-shaded-region {
+  display: none !important;
+}
+
+.rd-checkin__frame {
+  position: absolute;
+  inset: 14%;
+  pointer-events: none;
+}
+
+.rd-checkin__frame > i {
+  position: absolute;
+  width: 30px;
+  height: 30px;
+  border: 0 solid var(--lv-yellow);
+}
+
+.rd-checkin__frame > i:nth-child(1) { top: 0; left: 0; border-top-width: 4px; border-left-width: 4px; border-radius: 10px 0 0 0; }
+.rd-checkin__frame > i:nth-child(2) { top: 0; right: 0; border-top-width: 4px; border-right-width: 4px; border-radius: 0 10px 0 0; }
+.rd-checkin__frame > i:nth-child(3) { bottom: 0; left: 0; border-bottom-width: 4px; border-left-width: 4px; border-radius: 0 0 0 10px; }
+.rd-checkin__frame > i:nth-child(4) { bottom: 0; right: 0; border-bottom-width: 4px; border-right-width: 4px; border-radius: 0 0 10px 0; }
+
+.rd-checkin__scanline {
+  position: absolute;
+  left: 18%;
+  right: 18%;
+  top: 20%;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--lv-yellow);
+  box-shadow: 0 0 12px rgba(240, 180, 41, 0.8);
+  pointer-events: none;
+  animation: rd-checkin-scan 2.2s ease-in-out infinite alternate;
+}
+
+@keyframes rd-checkin-scan {
+  from { top: 20%; }
+  to { top: 80%; }
+}
+
+/* Sem camera: mesmo quadrado, com a mensagem */
+.rd-checkin__viewfinder--off {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--lv-space-2);
+  padding: var(--lv-space-5);
+  color: #ffffff;
+  text-align: center;
+}
+
+.rd-checkin__viewfinder--off svg {
+  color: var(--lv-yellow);
+}
+
+.rd-checkin__viewfinder--off strong {
+  font-family: var(--font-display);
+  font-size: 17px;
+  line-height: 1.3;
+}
+
+.rd-checkin__viewfinder--off span {
+  font-size: 14px;
+  line-height: 1.4;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.78);
+}
+
+.rd-checkin__viewfinder--off small {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.rd-checkin__viewfinder--off .rd-checkin__cta {
+  margin-top: var(--lv-space-2);
+  min-height: 44px;
+  background: var(--lv-yellow);
+  color: var(--lv-on-yellow);
+}
+
+.rd-checkin__scan-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--lv-on-yellow);
+  text-align: center;
+}
+
+/* ─── Botoes e campos (cores fixas) ───────────────────────────────────────── */
+.rd-checkin__cta,
+html.dark .rd-checkin__cta {
+  background: var(--lv-black);
+  color: #ffffff;
+  box-shadow: 0 10px 24px rgba(26, 19, 0, 0.22);
+}
+
+.rd-checkin__cta:hover:not(:disabled) {
+  background: #23232d;
+}
+
+.rd-checkin .lv-btn:focus-visible,
+.rd-checkin .lv-icon-btn:focus-visible,
+.rd-checkin__link:focus-visible,
+.rd-checkin__input:focus-visible {
+  outline: 2px solid var(--lv-on-yellow);
+  outline-offset: 2px;
+}
+
+.rd-checkin .lv-btn--outline-dark {
+  min-height: 48px;
+}
+
+.rd-checkin__paste {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.rd-checkin__paste-label {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(26, 19, 0, 0.72);
+}
+
+.rd-checkin__paste-row {
+  display: flex;
+  gap: var(--lv-space-2);
+}
+
+.rd-checkin__paste-row .lv-btn {
+  flex: none;
+  padding: 0 var(--lv-space-5);
+}
+
+.rd-checkin__input {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 52px;
+  padding: 0 var(--lv-space-4);
+  border: 0;
+  border-radius: var(--lv-r-md);
+  background: #ffffff;
+  box-shadow: inset 0 0 0 1.5px rgba(26, 19, 0, 0.28);
+  color: var(--lv-on-yellow);
+  font-family: var(--font-body);
+  font-size: 16px; /* evita o zoom automatico do iOS */
+  font-weight: 600;
+  outline: none;
+}
+
+.rd-checkin__input:focus {
+  box-shadow: inset 0 0 0 2px var(--lv-black);
+}
+
+.rd-checkin__link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 0 var(--lv-space-3);
+  border: 0;
+  background: none;
+  color: var(--lv-on-yellow);
+  font-family: var(--font-body);
+  font-size: 14px;
+  font-weight: 800;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.rd-checkin__link:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.rd-checkin__request {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.rd-checkin__hint {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.4;
+  font-weight: 600;
+  color: rgba(26, 19, 0, 0.72);
+  text-align: center;
+}
+
+.rd-checkin__error {
+  margin: 0;
+  padding: var(--lv-space-3) var(--lv-space-4);
+  border-radius: var(--lv-r-md);
+  background: #ffffff;
+  box-shadow: inset 0 0 0 1.5px #991b1b;
+  color: #991b1b;
+  font-size: 14px;
+  line-height: 1.45;
+  font-weight: 700;
+}
+
+/* ─── Ja registrada ───────────────────────────────────────────────────────── */
+.rd-checkin__done {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--lv-space-3);
+  padding: var(--lv-space-3) var(--lv-space-4);
+  border-radius: var(--lv-r-md);
+  background: rgba(26, 19, 0, 0.1);
+  color: var(--lv-on-yellow);
+}
+
+.rd-checkin__done strong {
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.rd-checkin__done p {
+  margin: 2px 0 0;
+  font-size: 14px;
+  line-height: 1.4;
+  font-weight: 600;
+}
+
+.rd-checkin__done-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--lv-black);
+  color: var(--lv-yellow);
+}
+
+/* ─── Confirmacao ─────────────────────────────────────────────────────────── */
+.rd-checkin__summary {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: var(--lv-space-4) var(--lv-space-5);
+  border-radius: var(--lv-r-lg);
+  background: var(--lv-black);
+  color: #ffffff;
+}
+
+.rd-checkin__summary-label {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--lv-yellow);
+}
+
+.rd-checkin__summary-title {
+  font-family: var(--font-display);
+  font-size: 20px;
+  line-height: 1.25;
+  font-weight: 700;
+}
+
+.rd-checkin__facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--lv-space-3);
+  margin: var(--lv-space-3) 0 0;
+  padding-top: var(--lv-space-3);
+  border-top: 1px solid rgba(255, 255, 255, 0.14);
+}
+
+.rd-checkin__facts > div {
+  min-width: 0;
+}
+
+.rd-checkin__facts dt {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.rd-checkin__facts dd {
+  margin: 2px 0 0;
+  font-size: 14px;
+  line-height: 1.35;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.rd-checkin__question {
+  margin: 0;
+  font-size: 16px;
+  line-height: 1.4;
+  font-weight: 700;
+  color: var(--lv-on-yellow);
+}
+
+.rd-checkin__consequence {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.4;
+  font-weight: 600;
+  color: rgba(26, 19, 0, 0.78);
+  text-align: center;
+}
+
+/* Rodape "Faltam 30 aulas pro 3º grau" com mini faixa */
+.rd-checkin__pill {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--lv-space-3);
+  min-height: 52px;
+  padding: 8px 16px;
+  border-radius: var(--lv-r-lg);
+  background: var(--lv-yellow-deep);
+  color: var(--lv-on-yellow);
+}
+
+.rd-checkin__pill-text {
+  font-size: 14px;
+  line-height: 1.3;
+  font-weight: 700;
+}
+
+.rd-checkin__pill-belt {
+  width: 92px;
+}
+
+/* ─── Sucesso ("Oss!") ────────────────────────────────────────────────────── */
+.rd-checkin__oss {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--lv-space-3);
+  margin-top: var(--lv-space-2);
+}
+
+.rd-checkin__oss-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(76px, 25vw, 120px);
+  line-height: 0.9;
+  font-weight: 800;
+  letter-spacing: -0.05em;
+  color: var(--lv-on-yellow);
+}
+
+.rd-checkin__seal {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: clamp(76px, 22vw, 96px);
+  height: clamp(76px, 22vw, 96px);
+  flex: none;
+  border-radius: 50%;
+  background: var(--lv-black);
+  color: var(--lv-yellow);
+  box-shadow: 0 0 0 5px var(--lv-yellow), 0 0 0 8px var(--lv-black);
+  animation: rd-checkin-pop 420ms cubic-bezier(0.2, 1.4, 0.4, 1) both;
+}
+
+@keyframes rd-checkin-pop {
+  from { transform: scale(0.4); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+.rd-checkin__oss-sub {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(24px, 7vw, 30px);
+  line-height: 1.15;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--lv-on-yellow);
+}
+
+.rd-checkin__divider {
+  display: flex;
+  align-items: center;
+  gap: var(--lv-space-3);
+  color: var(--lv-on-yellow);
+}
+
+.rd-checkin__divider::before,
+.rd-checkin__divider::after {
+  content: '';
+  flex: 1 1 auto;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--lv-on-yellow);
+}
+
+.rd-checkin__divider .lv-stripes {
+  padding: 3px 5px;
+  border-radius: 3px;
+  background: var(--lv-black);
+  color: #ffffff;
+}
+
+.rd-checkin__divider .lv-stripes > i {
+  height: 10px;
+}
+
+.rd-checkin__left {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.rd-checkin__left-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 4px var(--lv-space-3);
+}
+
+.rd-checkin__big {
+  font-family: var(--font-display);
+  font-size: clamp(120px, 38vw, 190px);
+  line-height: 0.82;
+  font-weight: 800;
+  letter-spacing: -0.06em;
+  font-variant-numeric: tabular-nums;
+  color: var(--lv-on-yellow);
+}
+
+.rd-checkin__big--long {
+  font-size: clamp(84px, 26vw, 150px);
+}
+
+.rd-checkin__left-caption {
+  padding-bottom: 6px;
+  font-family: var(--font-display);
+  font-size: clamp(20px, 6vw, 26px);
+  line-height: 1.1;
+  font-weight: 700;
+  color: var(--lv-on-yellow);
+  max-width: 7.5em;
+}
+
+.rd-checkin__left-closed {
+  margin: 4px 0 0;
+  font-family: var(--font-display);
+  font-size: 22px;
+  line-height: 1.25;
+  font-weight: 700;
+  color: var(--lv-on-yellow);
+}
+
+/* Faixa "sangrando" nas bordas, como no layout aprovado */
+.rd-checkin__belt {
+  position: relative;
+  margin-top: var(--lv-space-5);
+  margin-inline: calc(-1 * max(var(--lv-space-4), env(safe-area-inset-left, 0px)));
+  filter: drop-shadow(0 14px 18px rgba(26, 19, 0, 0.25));
+}
+
+@media (min-width: 560px) {
+  .rd-checkin__belt {
+    margin-inline: 0;
+  }
+}
+
+.rd-checkin__ribbon {
+  position: absolute;
+  top: -14px;
+  right: 10%;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  height: 26px;
+  padding: 0 10px;
+  border-radius: var(--lv-r-pill);
+  background: var(--lv-black);
+  color: var(--lv-yellow);
+  font-size: 12px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+/* Botao "Ver calendario" e afins sobre o amarelo */
+.rd-checkin .lv-fullscreen__footer {
+  padding-top: var(--lv-space-4);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rd-checkin__scanline,
+  .rd-checkin__seal {
+    animation: none;
+  }
+}
