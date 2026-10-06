@@ -170,11 +170,17 @@ function readParam(name: string) {
 }
 
 function writeParams(screenId: string, dark: boolean) {
+  // No link de demonstracao a pagina roda num iframe isolado, onde trocar a URL lanca erro.
+  if (isDemoBuild) return;
   const params = new URLSearchParams(window.location.search);
-  if (!isDemoBuild) params.set('preview', 'redesign');
+  params.set('preview', 'redesign');
   params.set('screen', screenId);
   if (dark) params.set('theme', 'dark'); else params.delete('theme');
-  window.history.replaceState({}, '', `${window.location.pathname}?${params.toString()}`);
+  try {
+    window.history.replaceState({}, '', `${window.location.pathname}?${params.toString()}`);
+  } catch {
+    // Sem permissao para reescrever a URL: a galeria segue funcionando.
+  }
 }
 
 const RedesignPreview: React.FC = () => {
