@@ -2875,6 +2875,14 @@ const App: React.FC = () => {
                 setStudentsFocusSection('deactivated');
                 setActiveTab('students');
               }}
+              onStartClass={async (classId) => {
+                await handleStartClass(classId);
+                setActiveTab('calendar');
+              }}
+              onOpenStudent={(studentId) => {
+                setSelectedStudentId(studentId);
+                setActiveTab('students');
+              }}
             />
           ) : (
             renderStudentHome()
@@ -3253,6 +3261,12 @@ const App: React.FC = () => {
           onRegister={handleRegisterAttendance}
           onRequestAttendance={handleSubmitAttendanceRequest}
           onClose={() => setPendingCheckin(null)}
+          onOpenCalendar={() => {
+            setPendingCheckin(null);
+            setActiveTab('calendar');
+          }}
+          onTargetChange={({ classId, token }) => setPendingCheckin({ classId, token })}
+          timeZone={resolvedAcademy.timezone}
           onFinish={() => {
             setPendingCheckin(null);
             setActiveTab('home');
