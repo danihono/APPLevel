@@ -1,0 +1,412 @@
+/* Calendario (aluno "Aulas" + professor "Calendario") — redesign LEVEL. */
+
+.rd-cal {
+  gap: var(--lv-space-4);
+}
+
+.rd-cal__hero {
+  display: flex;
+  flex-direction: column;
+  gap: var(--lv-space-3);
+}
+
+.rd-cal__chips {
+  padding-bottom: 2px;
+}
+
+.rd-cal__chip--alert {
+  box-shadow: inset 0 0 0 1.5px var(--lv-warning);
+  color: var(--lv-warning);
+}
+
+.rd-cal__chip-count {
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: var(--lv-r-pill);
+  background: var(--lv-warning);
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 20px;
+  text-align: center;
+}
+
+/* O calendario do mes (painel antigo) com o visual novo */
+.rd-cal .agenda-hero__calendar {
+  padding: var(--lv-space-4);
+  border: 1px solid var(--lv-border);
+  border-radius: var(--lv-r-lg);
+  background: var(--lv-surface);
+}
+
+.rd-cal__tatame {
+  margin-top: var(--lv-space-2);
+}
+
+.rd-cal__day {
+  min-height: 240px;
+}
+
+.rd-cal__list {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.rd-cal__divider {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  height: 14px;
+  position: relative;
+}
+
+.rd-cal__divider::before {
+  content: '';
+  position: absolute;
+  inset: 50% 0 auto;
+  height: 1px;
+  background: var(--lv-border);
+}
+
+.rd-cal__divider > i {
+  position: relative;
+  display: block;
+  width: 4px;
+  height: 8px;
+  border-radius: 1px;
+  background: var(--lv-text);
+  box-shadow: 0 0 0 3px var(--lv-surface);
+}
+
+.rd-cal__divider > i + i { box-shadow: none; }
+
+/* Aula na lista */
+.rd-cal__class {
+  display: flex;
+  align-items: center;
+  gap: var(--lv-space-3);
+  width: 100%;
+  min-height: 72px;
+  padding: var(--lv-space-3) 2px;
+  border: 0;
+  border-radius: var(--lv-r-md);
+  background: transparent;
+  color: var(--lv-text);
+  font-family: var(--font-body);
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.rd-cal__class:focus-visible {
+  outline: 2px solid var(--lv-text);
+  outline-offset: 2px;
+}
+
+.rd-cal__class-time {
+  display: flex;
+  flex-direction: column;
+  min-width: 72px;
+  font-family: var(--font-display);
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.rd-cal__class-date {
+  margin-bottom: 4px;
+  font-family: var(--font-body);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: var(--lv-text-soft);
+}
+
+.rd-cal__class.is-past .rd-cal__class-time,
+.rd-cal__class.is-past .rd-cal__class-title {
+  color: var(--lv-text-soft);
+}
+
+.rd-cal__class-main {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.rd-cal__class-title {
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.rd-cal__class-meta {
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.35;
+  color: var(--lv-text-soft);
+}
+
+.rd-cal__class-side {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  flex: none;
+}
+
+.rd-cal__class-count {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  line-height: 1;
+}
+
+.rd-cal__class-count strong {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.rd-cal__class-count small {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--lv-text-soft);
+}
+
+/* Destaque do professor: aula ativa/proxima em card preto */
+.rd-cal__class--ink {
+  margin: var(--lv-space-2) 0;
+  padding: var(--lv-space-4);
+  border-radius: var(--lv-r-xl);
+  background: var(--lv-black);
+  color: #ffffff;
+}
+
+html.dark .rd-cal__class--ink {
+  background: #000000;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12);
+}
+
+.rd-cal__class--ink .rd-cal__class-meta,
+.rd-cal__class--ink .rd-cal__class-count small,
+.rd-cal__class--ink .rd-cal__class-progress-label {
+  color: rgba(255, 255, 255, 0.68);
+}
+
+.rd-cal__class--ink .lv-chip--soon {
+  background: var(--lv-yellow);
+  color: var(--lv-on-yellow);
+}
+
+.rd-cal__class--ink .lv-chip--live {
+  color: #ffffff;
+  box-shadow: inset 0 0 0 1.5px #ffffff;
+}
+
+.rd-cal__class-progress {
+  display: flex;
+  align-items: center;
+  gap: var(--lv-space-3);
+  margin-top: 6px;
+}
+
+.rd-cal__class-progress .lv-progress {
+  flex: 1 1 auto;
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.rd-cal__class-progress-label {
+  flex: none;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.rd-cal__empty {
+  padding: var(--lv-space-8) var(--lv-space-4);
+  border: 1px dashed var(--lv-border-strong);
+  border-radius: var(--lv-r-lg);
+  color: var(--lv-text-muted);
+  font-size: 15px;
+  font-weight: 600;
+  text-align: center;
+}
+
+/* ─── Sheet de detalhe da aula ─────────────────────────────────────────── */
+.rd-cal__sheet-backdrop {
+  z-index: 65; /* abaixo do modal de encerrar (75) e do leitor de QR (80) */
+}
+
+.rd-cal__sheet {
+  display: flex;
+  flex-direction: column;
+  width: min(100%, 600px);
+  max-height: calc(100dvh - env(safe-area-inset-top, 0px) - 16px);
+  overflow: hidden;
+  border-radius: var(--lv-r-xl) var(--lv-r-xl) 0 0;
+  background: var(--lv-surface);
+  color: var(--lv-text);
+  box-shadow: 0 -16px 40px rgba(15, 18, 33, 0.18);
+}
+
+@media (min-width: 720px) {
+  .rd-cal__sheet {
+    border-radius: var(--lv-r-xl);
+  }
+}
+
+.rd-cal__sheet-scroll {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding-top: var(--lv-space-4);
+  -webkit-overflow-scrolling: touch;
+}
+
+.rd-cal__sheet .app-segment {
+  background: var(--lv-sunken);
+  border-radius: var(--lv-r-pill);
+}
+
+.rd-cal__sheet .app-segment__button.is-active {
+  background: var(--lv-black);
+  color: #ffffff;
+}
+
+html.dark .rd-cal__sheet .app-segment__button.is-active {
+  background: #ffffff;
+  color: var(--lv-black);
+}
+
+.rd-cal__sheet .attendance-row {
+  border-radius: var(--lv-r-md);
+  border: 1px solid var(--lv-border);
+  background: var(--lv-surface);
+  box-shadow: none;
+}
+
+.rd-cal__sheet .attendance-row__name {
+  font-weight: 800;
+}
+
+.rd-cal__sheet .app-panel--tint {
+  border: 0;
+  border-radius: var(--lv-r-xl);
+  background: var(--lv-yellow);
+  color: var(--lv-on-yellow);
+}
+
+.rd-cal__sheet .app-panel--tint .text-\[color\:var\(--gold-mid\)\] {
+  color: var(--lv-on-yellow);
+}
+
+.rd-cal__qr-open {
+  margin-top: var(--lv-space-3);
+}
+
+.rd-cal__sheet-footer {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--lv-space-3);
+  padding: var(--lv-space-3) var(--lv-space-5) calc(env(safe-area-inset-bottom, 0px) + var(--lv-space-3));
+  border-top: 1px solid var(--lv-border);
+  background: var(--lv-surface);
+}
+
+.rd-cal__sheet-footer .flex {
+  align-items: center;
+}
+
+.rd-cal__primary {
+  flex: 1 1 100%;
+  order: -1;
+}
+
+/* ─── QR em tela cheia ("Aponta e entra.") ─────────────────────────────── */
+.rd-cal__qr-screen {
+  z-index: 70;
+}
+
+.rd-cal__qr-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--lv-space-3);
+}
+
+.rd-cal__live-chip {
+  gap: 6px;
+}
+
+.rd-cal__qr-title {
+  margin-top: 4px;
+  color: var(--lv-on-yellow);
+}
+
+.rd-cal__qr-screen .lv-eyebrow {
+  color: rgba(26, 19, 0, 0.72);
+}
+
+.rd-cal__qr-card {
+  display: flex;
+  justify-content: center;
+  padding: var(--lv-space-6);
+  border-radius: var(--lv-r-xl);
+  background: #ffffff;
+  box-shadow: 0 20px 40px rgba(26, 19, 0, 0.18);
+}
+
+.rd-cal__qr-count {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--lv-space-3);
+  color: var(--lv-on-yellow);
+}
+
+.rd-cal__qr-count strong {
+  font-family: var(--font-display);
+  font-size: 64px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.03em;
+}
+
+.rd-cal__qr-count span {
+  max-width: 210px;
+  font-size: 17px;
+  font-weight: 800;
+  line-height: 1.25;
+}
+
+.rd-cal__qr-expire {
+  margin: 0;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 700;
+  color: rgba(26, 19, 0, 0.72);
+}
+
+.rd-cal__qr-pill {
+  margin-left: 6px;
+  padding: 3px 10px;
+  border-radius: var(--lv-r-pill);
+  background: var(--lv-yellow);
+  color: var(--lv-on-yellow);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+html.dark .rd-cal__qr-screen .lv-btn--ink {
+  background: var(--lv-black);
+  color: #ffffff;
+}

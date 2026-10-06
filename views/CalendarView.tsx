@@ -17,6 +17,9 @@ import {
   type AttendanceNonCountingReason,
 } from '../classRules';
 import AvatarWithBelt from '../components/AvatarWithBelt';
+import ScreenHeader from '../components/redesign/ScreenHeader';
+import { useRedesignShell } from '../components/redesign/ShellContext';
+import './redesign/calendar.css';
 import { getMyClassRsvp, subscribeToClassAttendances, subscribeToClassRsvps, type FirestoreEntity } from '../services/firebase/data';
 import {
   backendFunctions,
@@ -73,6 +76,8 @@ interface CalendarViewProps {
   onMarkStudentPresent?: (classId: string, targetUserId: string) => Promise<void>;
   onRemoveStudentPresent?: (classId: string, targetUserId: string) => Promise<void>;
   onOpenStudent?: (studentId: string) => void;
+  /** Aluno: abre a tela de check-in por QR (redesign). Sem ela, "Fazer check-in" abre o detalhe da aula. */
+  onStartCheckin?: (classId: string) => void;
 }
 
 type CalendarSurface = 'calendar' | 'today' | 'unfinished';
@@ -242,6 +247,22 @@ function statusBadgeClass(status: DisplayClassStatus) {
   }
 }
 
+// Chip do redesign (lista mobile): Ao vivo / Em breve / Finalizada + Cancelada / Nao finalizada.
+function redesignStatusChip(status: DisplayClassStatus): { className: string; label: string } {
+  switch (status) {
+    case 'active':
+      return { className: 'lv-chip lv-chip--live', label: t('Ao vivo') };
+    case 'finished':
+      return { className: 'lv-chip lv-chip--done', label: t('Finalizada') };
+    case 'cancelled':
+      return { className: 'lv-chip lv-chip--danger', label: t('Cancelada') };
+    case 'unfinished':
+      return { className: 'lv-chip lv-chip--warning', label: t('Não finalizada') };
+    default:
+      return { className: 'lv-chip lv-chip--soon', label: t('Em breve') };
+  }
+}
+
 function classTimeRange(lesson: FirestoreEntity<ClassRecord>) {
   const end = lesson.scheduledEnd?.toDate();
   return end
@@ -300,24 +321,32 @@ interface ClassListItemProps {
   compact?: boolean;
   isConfirmed?: boolean;
   showDate?: boolean;
+  /** Redesign: aula em destaque (ativa/proxima do dia) em card preto com barra de confirmados. */
+  highlight?: boolean;
+  /** Redesign: visao do professor (mostra numero de presencas nas finalizadas). */
+  staffView?: boolean;
 }
 
-const ClassListItem: React.FC<ClassListItemProps> = ({ lesson, onOpen, nowMs, compact = false, isConfirmed = false, showDate = false }) => {
+const ClassListItem: React.FC<ClassListItemProps> = ({ lesson, onOpen, nowMs, compact = false, isConfirmed = false, showDate = false, highlight = false, staffView = false }) => {
   const displayStatus = effectiveClassStatus(lesson, nowMs);
   const colors = statusColors(displayStatus);
 
   if (compact) {
     const professorName = lesson.professorName || t('Equipe técnica');
     const tatameName = lesson.tatame || t('Tatame principal');
+    const chip = redesignStatusChip(displayStatus);
+    const typeLabel = classTypeLabel(lesson.description);
+    const confirmed = lesson.rsvpCount ?? 0;
+    const capacity = lesson.capacity ?? 0;
+    const attendanceCount = lesson.currentAttendanceCount ?? 0;
+    const showAttendanceCount = staffView && (displayStatus === 'finished' || displayStatus === 'unfinished' || displayStatus === 'active');
 
     return (
       <button
         type="button"
         onClick={() => onOpen(lesson.id)}
-        className="calendar-mobile__class-card"
-        // Sem isto o nome acessivel do botao vira a concatenacao crua do conteudo, e o t('Vou')
-        // sozinho no fim fica indecifravel. Um rotulo explicito monta a frase na ordem que faz
-        // sentido ouvir.
+        className={`rd-cal__class ${highlight ? 'rd-cal__class--ink' : ''} ${displayStatus === 'finished' || displayStatus === 'cancelled' ? 'is-past' : ''}`.trim()}
+        // Rotulo explicito: sem ele o nome acessivel vira a concatenacao crua do conteudo.
         aria-label={[
           `Aula ${lesson.title}`,
           showDate ? `dia ${classDateParts(lesson).day}` : null,
@@ -328,50 +357,39 @@ const ClassListItem: React.FC<ClassListItemProps> = ({ lesson, onOpen, nowMs, co
           isConfirmed ? 'presença confirmada' : null,
         ].filter(Boolean).join(', ')}
       >
-        {/* A barra colorida vira reforco do chip de status, nao mais o unico portador da
-            informacao: `unfinished` (laranja) e `scheduled` (dourado) sao cores vizinhas e, com
-            0.22rem de largura, ninguem distinguia uma da outra. */}
-        <span
-          className="calendar-mobile__class-accent"
-          style={{ backgroundColor: colors.accent }}
-          aria-hidden="true"
-        />
+        <span className="rd-cal__class-time">
+          {showDate ? <span className="rd-cal__class-date">{classDateParts(lesson).day}</span> : null}
+          {formatTimeLabel(lesson.scheduledStart)}
+        </span>
 
-        <div className="calendar-mobile__class-copy">
-          <div className="calendar-mobile__class-headline">
-            <p className="calendar-mobile__class-title">{lesson.title}</p>
-            <span className={`${statusBadgeClass(displayStatus)} app-badge--compact`}>
-              {statusLabel(displayStatus)}
+        <span className="rd-cal__class-main">
+          <span className="rd-cal__class-title">{lesson.title}</span>
+          <span className="rd-cal__class-meta">
+            {[
+              typeLabel && typeLabel !== lesson.title ? typeLabel : null,
+              lesson.scheduledEnd ? t('até {time}', { time: formatTimeLabel(lesson.scheduledEnd) }) : null,
+              professorName,
+              tatameName,
+            ].filter(Boolean).join(' · ')}
+          </span>
+          {highlight && staffView && capacity > 0 ? (
+            <span className="rd-cal__class-progress">
+              <span className="lv-progress"><span style={{ width: `${Math.min(100, Math.round((confirmed / capacity) * 100))}%` }} /></span>
+              <span className="rd-cal__class-progress-label">{t('{count} de {total}', { count: confirmed, total: capacity })} {t('confirmados').toLocaleLowerCase(getLocale())}</span>
             </span>
-          </div>
+          ) : null}
+        </span>
 
-          <p className="calendar-mobile__class-time">
-            {showDate
-              ? `${classDateParts(lesson).day} • ${classTimeRange(lesson)}`
-              : classTimeRange(lesson)}
-          </p>
-
-          {/* Mesmos campos e fallbacks do card desktop (ramo abaixo), para as duas versoes da
-              tela dizerem a mesma coisa — vide a regra de paridade no CLAUDE.md. */}
-          <p className="calendar-mobile__class-meta">
-            {classTypeLabel(lesson.description) ? (
-              <span className="calendar-mobile__class-meta-item">{classTypeLabel(lesson.description)}</span>
-            ) : null}
-            <span className="calendar-mobile__class-meta-item">{professorName}</span>
-            {/* O icone separa os dois campos melhor que um "·": ele quebra junto com o tatame,
-                entao nunca sobra um separador orfao no fim da linha quando o nome do professor e
-                longo. E o mesmo MapPin da meta-row do desktop. */}
-            <span className="calendar-mobile__class-meta-item calendar-mobile__class-meta-item--place">
-              <MapPin size={13} aria-hidden="true" />
-              {tatameName}
+        <span className="rd-cal__class-side">
+          {showAttendanceCount ? (
+            <span className="rd-cal__class-count">
+              <strong>{attendanceCount}</strong>
+              <small>{t('presenças')}</small>
             </span>
-            {isConfirmed ? (
-              <span className="app-badge app-badge--success app-badge--compact">{t('Vou')}</span>
-            ) : null}
-          </p>
-        </div>
-
-        <ChevronRight size={18} className="calendar-mobile__class-arrow" aria-hidden="true" />
+          ) : null}
+          <span className={chip.className}>{chip.label}</span>
+          {isConfirmed ? <span className="lv-chip lv-chip--success">{t('Vou')}</span> : null}
+        </span>
       </button>
     );
   }
@@ -791,8 +809,10 @@ const CalendarView: React.FC<CalendarViewProps> = ({
   onMarkStudentPresent,
   onRemoveStudentPresent,
   onOpenStudent,
+  onStartCheckin,
 }) => {
   const isStaff = userRole === UserRole.PROFESSOR || userRole === UserRole.SUPERADMIN;
+  const shell = useRedesignShell();
   const isSuperAdmin = isSuperAdminProp ?? userRole === UserRole.SUPERADMIN;
   const today = useMemo(() => stripDate(new Date()), []);
   const [isCompactMonthGrid, setIsCompactMonthGrid] = useState(
@@ -808,6 +828,11 @@ const CalendarView: React.FC<CalendarViewProps> = ({
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
   const [sheetTab, setSheetTab] = useState<'detalhes' | 'agendamento' | 'historico'>('detalhes');
+  // Redesign: QR da aula em tela cheia amarela ("Aponta e entra.").
+  const [qrFullscreen, setQrFullscreen] = useState(false);
+  useEffect(() => {
+    setQrFullscreen(false);
+  }, [selectedClassId]);
   const [qrByClass, setQrByClass] = useState<Record<string, QrSessionPayload>>({});
   const [qrCountdowns, setQrCountdowns] = useState<Record<string, string>>({});
   const [qrInputByClass, setQrInputByClass] = useState<Record<string, string>>({});
@@ -1438,11 +1463,13 @@ const CalendarView: React.FC<CalendarViewProps> = ({
       } else {
         setMessageByClass((current) => ({ ...current, [classId]: t('Operação concluída.') }));
       }
+      return true;
     } catch (error) {
       setMessageByClass((current) => ({
         ...current,
         [classId]: error instanceof Error ? error.message : t('Não foi possível concluir.'),
       }));
+      return false;
     } finally {
       setBusyByClass((current) => ({ ...current, [classId]: false }));
     }
@@ -1793,25 +1820,39 @@ const CalendarView: React.FC<CalendarViewProps> = ({
     </div>
   );
 
-  const renderAgendaList = (lessons: Array<FirestoreEntity<ClassRecord>>, emptyMessage: string, showDate = false) => (
-    <div className="calendar-mobile__day-list">
-      {lessons.length > 0 ? (
-        lessons.map((lesson) => (
-          <ClassListItem
-            key={lesson.id}
-            lesson={lesson}
-            onOpen={openClassDetails}
-            nowMs={nowMs}
-            compact
-            isConfirmed={!!myRsvpByClass[lesson.id]}
-            showDate={showDate}
-          />
-        ))
-      ) : (
-        <div className="calendar-mobile__empty">{emptyMessage}</div>
-      )}
-    </div>
-  );
+  const renderAgendaList = (lessons: Array<FirestoreEntity<ClassRecord>>, emptyMessage: string, showDate = false) => {
+    // Professor: a aula ativa (ou a proxima de hoje) vira o card preto com a barra de confirmados.
+    const highlightId = isStaff && !showDate && isSelectedToday
+      ? (lessons.find((lesson) => effectiveClassStatus(lesson, nowMs) === 'active')
+        ?? lessons.find((lesson) => lesson.status === 'scheduled' && effectiveClassStatus(lesson, nowMs) === 'scheduled'))?.id
+      : undefined;
+
+    return (
+      <div className="calendar-mobile__day-list rd-cal__list">
+        {lessons.length > 0 ? (
+          lessons.map((lesson, index) => (
+            <React.Fragment key={lesson.id}>
+              {index > 0 && lesson.id !== highlightId && lessons[index - 1].id !== highlightId ? (
+                <span className="rd-cal__divider" aria-hidden="true"><i /><i /><i /><i /></span>
+              ) : null}
+              <ClassListItem
+                lesson={lesson}
+                onOpen={openClassDetails}
+                nowMs={nowMs}
+                compact
+                isConfirmed={!!myRsvpByClass[lesson.id]}
+                showDate={showDate}
+                highlight={lesson.id === highlightId}
+                staffView={isStaff}
+              />
+            </React.Fragment>
+          ))
+        ) : (
+          <div className="rd-cal__empty">{emptyMessage}</div>
+        )}
+      </div>
+    );
+  };
 
   const renderAgendaCalendarPanel = () => (
     <div className="agenda-hero__calendar" id="agenda-calendario">
@@ -1861,7 +1902,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
   // Semana compacta sempre visivel: trocar de dia dentro da semana e um toque, sem abrir nada.
   // Sair da semana e trabalho do botao "Calendario" — por isso a faixa nao tem setas.
   const renderAgendaWeekStrip = () => (
-    <nav className="agenda-week" aria-label={t('Dias da semana')}>
+    <nav className="lv-tatame rd-cal__tatame" aria-label={t('Dias da semana')}>
       {weekDays.map((day) => {
         const key = toDateKey(day);
         const dayClassCount = classesByDay.get(key)?.length ?? 0;
@@ -1883,78 +1924,113 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                 : `${dayClassCount} ${dayClassCount === 1 ? 'aula' : 'aulas'}`,
               isAttended ? 'presença registrada' : null,
             ].filter(Boolean).join(', ')}
-            className={`agenda-week__day ${isSelected ? 'is-selected' : ''} ${isToday ? 'is-today' : ''}`.trim()}
+            className={`lv-tatame__day ${isSelected ? 'is-selected' : ''} ${isToday ? 'is-today' : ''}`.trim()}
           >
-            <span className="agenda-week__label">{weekdayShortLabel(day)}</span>
-            <span className="agenda-week__number">{day.getDate()}</span>
-            {/* Mesma leitura do calendario do mes: verde = presenca registrada, dourado = tem
-                aula. O ponto fica sempre no layout (transparente quando nao ha nada) para as sete
-                celulas manterem a mesma altura. */}
-            <span
-              className={`agenda-week__dot ${isAttended ? 'is-attended' : dayClassCount > 0 ? 'is-busy' : ''}`.trim()}
-              aria-hidden="true"
-            />
+            <span className="lv-tatame__weekday">{weekdayShortLabel(day)}</span>
+            <span className="lv-tatame__date">{day.getDate()}</span>
+            {isStaff ? (
+              <span className="lv-tatame__meta">
+                {dayClassCount === 0 ? '–' : dayClassCount === 1 ? t('1 aula') : t('{count} aulas', { count: dayClassCount })}
+              </span>
+            ) : isSelected && isToday ? (
+              <span className="lv-tatame__meta">{t('Hoje')}</span>
+            ) : null}
+            {/* Mesma leitura do calendario do mes: verde = presenca registrada, dourado = tem aula. */}
+            <span className="lv-tatame__dots" aria-hidden="true">
+              {isAttended ? <i className="is-attended" /> : dayClassCount > 0 ? <i /> : null}
+            </span>
           </button>
         );
       })}
     </nav>
   );
 
+  const filterButton = (
+    <button
+      type="button"
+      onClick={() => setFiltersOpen(true)}
+      className="lv-icon-btn"
+      aria-label={t('Filtros')}
+      title={t('Filtros')}
+    >
+      <Sliders size={18} />
+      {activeFilterCount > 0 ? <span className="lv-badge-count" aria-hidden="true">{activeFilterCount}</span> : null}
+    </button>
+  );
+
+  const monthEyebrow = (
+    <button
+      type="button"
+      className="lv-eyebrow lv-eyebrow--button"
+      onClick={() => setCalendarOpen((current) => !current)}
+      aria-expanded={calendarOpen}
+      aria-controls="agenda-calendario"
+    >
+      {capitalize(monthFormatter.format(visibleMonth))}
+      <ChevronDown size={12} aria-hidden="true" className={`agenda-hero__pill-chevron ${calendarOpen ? 'is-open' : ''}`.trim()} />
+    </button>
+  );
+
   const renderAgendaHero = () => (
-    <section className="calendar-mobile__hero agenda-hero">
-      <div className="calendar-mobile__hero-head">
-        <div>
-          <p className="calendar-mobile__eyebrow">{isSelectedToday ? t('Aulas de hoje') : t('Aulas do dia')}</p>
-          <h2 className="agenda-hero__date">{selectedDayLabel}</h2>
-          <p className="agenda-hero__summary">{agendaSummaryLabel}</p>
-        </div>
+    <section className="rd-cal__hero">
+      {isStaff ? (
+        <ScreenHeader
+          eyebrow={monthEyebrow}
+          title={t('Calendário')}
+          subtitle={`${selectedDayLabel} · ${agendaSummaryLabel}`}
+          actions={(
+            <>
+              {!isSelectedToday ? (
+                <button type="button" onClick={goToToday} className="lv-btn lv-btn--neutral lv-btn--sm">{t('Hoje')}</button>
+              ) : null}
+              {filterButton}
+              <button
+                type="button"
+                onClick={() => setCreateModalOpen(true)}
+                className="lv-icon-btn lv-icon-btn--ink"
+                aria-label={t('Criar aula')}
+                title={t('Criar aula')}
+              >
+                <Plus size={20} />
+              </button>
+            </>
+          )}
+        />
+      ) : (
+        <ScreenHeader
+          eyebrow={shell.unitLabel}
+          eyebrowIsUnit
+          title={t('Bora pro tatame.')}
+          subtitle={`${selectedDayLabel} · ${agendaSummaryLabel}`}
+          actions={filterButton}
+        />
+      )}
 
-        {!isSelectedToday ? (
-          <button type="button" onClick={goToToday} className="agenda-hero__pill agenda-hero__pill--quiet">
-            {t('Hoje')}
-          </button>
-        ) : null}
-      </div>
-
-      <div className="agenda-hero__actions">
+      <div className="lv-chip-row rd-cal__chips">
         <button
           type="button"
           onClick={() => setCalendarOpen((current) => !current)}
           aria-expanded={calendarOpen}
           aria-controls="agenda-calendario"
-          className={`agenda-hero__pill ${calendarOpen ? 'is-active' : ''}`.trim()}
+          className={`lv-chip-btn ${calendarOpen ? 'is-active' : ''}`.trim()}
         >
           <CalendarDays size={16} aria-hidden="true" />
           {t('Calendário')}
-          <ChevronDown size={14} aria-hidden="true" className={`agenda-hero__pill-chevron ${calendarOpen ? 'is-open' : ''}`.trim()} />
         </button>
 
-        <button
-          type="button"
-          onClick={() => setFiltersOpen(true)}
-          className={`agenda-hero__pill ${activeFilterCount > 0 ? 'is-active' : ''}`.trim()}
-        >
-          <Sliders size={16} aria-hidden="true" />
-          {t('Filtros')}
-          {activeFilterCount > 0 ? <span className="agenda-hero__pill-count">{activeFilterCount}</span> : null}
-        </button>
+        {!isStaff && !isSelectedToday ? (
+          <button type="button" onClick={goToToday} className="lv-chip-btn">{t('Hoje')}</button>
+        ) : null}
 
         {isStaff ? (
           <button
             type="button"
             onClick={() => setSurfaceTab('unfinished')}
-            className={`agenda-hero__pill ${unfinishedClasses.length > 0 ? 'agenda-hero__pill--alert' : ''}`.trim()}
+            className={`lv-chip-btn ${unfinishedClasses.length > 0 ? 'rd-cal__chip--alert' : ''}`.trim()}
           >
             <AlertTriangle size={16} aria-hidden="true" />
             {t('Pendentes')}
-            {unfinishedClasses.length > 0 ? <span className="agenda-hero__pill-count">{unfinishedClasses.length}</span> : null}
-          </button>
-        ) : null}
-
-        {isStaff ? (
-          <button type="button" onClick={() => setCreateModalOpen(true)} className="agenda-hero__pill agenda-hero__pill--gold">
-            <Plus size={16} aria-hidden="true" />
-            {t('Criar aula')}
+            {unfinishedClasses.length > 0 ? <span className="rd-cal__chip-count">{unfinishedClasses.length}</span> : null}
           </button>
         ) : null}
       </div>
@@ -1963,21 +2039,45 @@ const CalendarView: React.FC<CalendarViewProps> = ({
     </section>
   );
 
+  // Aluno: "Fazer check-in" quando ha aula de hoje ao vivo (ativa ou no horario).
+  const checkinLesson = !isStaff && isSelectedToday
+    ? selectedDayClasses.find((lesson) => {
+      if (lesson.status === 'active') return true;
+      if (lesson.status !== 'scheduled') return false;
+      const start = lesson.scheduledStart?.toDate().getTime();
+      const end = (lesson.scheduledEnd ?? lesson.scheduledStart)?.toDate().getTime();
+      return start !== undefined && end !== undefined && nowMs >= start - 30 * 60_000 && nowMs <= end;
+    }) ?? null
+    : null;
+
   const renderMobileAgenda = () => (
-    <>
+    <div className="lv-screen rd-cal">
       {renderAgendaHero()}
 
       {renderAgendaWeekStrip()}
 
-      <section className="calendar-mobile__day-section">
+      <section className="lv-sheet-panel rd-cal__day">
         {renderAgendaList(selectedDayClasses, selectedDayEmptyMessage)}
+
+        {checkinLesson ? (
+          <div className="lv-sticky-cta">
+            <button
+              type="button"
+              className="lv-btn lv-btn--primary lv-btn--block"
+              onClick={() => (onStartCheckin ? onStartCheckin(checkinLesson.id) : openClassDetails(checkinLesson.id))}
+            >
+              <CheckCircle size={18} aria-hidden="true" />
+              {t('Fazer check-in')}
+            </button>
+          </div>
+        ) : null}
       </section>
-    </>
+    </div>
   );
 
   const renderMobilePending = () => (
-    <>
-      <section className="calendar-mobile__hero agenda-hero">
+    <div className="lv-screen rd-cal">
+      <section className="calendar-mobile__hero agenda-hero rd-cal__pending-hero">
         <div className="calendar-mobile__hero-head">
           <div>
             <p className="calendar-mobile__eyebrow">{t('Não finalizadas')}</p>
@@ -2015,7 +2115,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
 
         {renderAgendaList(unfinishedClasses, unfinishedEmptyMessage, true)}
       </section>
-    </>
+    </div>
   );
 
   return (
@@ -2245,32 +2345,18 @@ const CalendarView: React.FC<CalendarViewProps> = ({
 
       {selectedClass ? (
         <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            zIndex: 65,
-            display: 'flex',
-            alignItems: 'flex-end',
-            justifyContent: 'center',
-            background: 'rgba(0,0,0,0.55)',
-          }}
+          className="lv-backdrop rd-cal__sheet-backdrop"
           onClick={() => setSelectedClassId(null)}
         >
           <div
-            style={{
-              width: '100%',
-              maxWidth: 600,
-              maxHeight: '90vh',
-              borderRadius: '1.5rem 1.5rem 0 0',
-              display: 'flex',
-              flexDirection: 'column',
-              overflow: 'hidden',
-              background: 'var(--surface)',
-              backdropFilter: 'blur(20px)',
-            }}
+            className="rd-cal__sheet"
+            role="dialog"
+            aria-modal="true"
+            aria-label={selectedClass.title}
             onClick={(event) => event.stopPropagation()}
           >
-            <div style={{ overflowY: 'auto', flex: 1 }}>
+            <div className="rd-cal__sheet-scroll">
+              <div className="lv-sheet__grip" aria-hidden="true" />
               <ClassSessionCard lesson={selectedClass} showDate />
 
               {/* Aluno: ação principal visível imediatamente, sem scroll */}
@@ -2705,6 +2791,14 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                               {t('Expira em {time}', { time: qrCountdown })}
                             </p>
                           ) : null}
+                          <button
+                            type="button"
+                            className="lv-btn lv-btn--ink lv-btn--block rd-cal__qr-open"
+                            onClick={() => setQrFullscreen(true)}
+                          >
+                            <QrCode size={16} aria-hidden="true" />
+                            {t('Mostrar QR em tela cheia')}
+                          </button>
                         </div>
                       ) : null}
 
@@ -2785,17 +2879,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
               )}
             </div>
 
-            <div
-              style={{
-                flexShrink: 0,
-                borderTop: '1px solid rgba(255,255,255,0.08)',
-                padding: '12px 20px',
-                paddingBottom: 'calc(env(safe-area-inset-bottom, 8px) + 12px)',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 10,
-              }}
-            >
+            <div className="rd-cal__sheet-footer">
               {canManageSelected ? (
                 <>
                   {message ? <div className="app-list-card text-sm text-[color:var(--text-muted)]">{message}</div> : null}
@@ -2828,9 +2912,9 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                     {selectedClass.status === 'scheduled' ? (
                       <button
                         type="button"
-                        onClick={() => void runClassAction(selectedClass.id, () => onStartClass(selectedClass.id))}
+                        onClick={() => void runClassAction(selectedClass.id, () => onStartClass(selectedClass.id)).then((ok) => { if (ok) setQrFullscreen(true); })}
                         disabled={busy}
-                        className="app-button app-button--gold app-button--small"
+                        className="lv-btn lv-btn--primary rd-cal__primary"
                       >
                         <Play size={14} />
                         {busy ? t('Iniciando...') : t('Iniciar aula')}
@@ -2842,7 +2926,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                         type="button"
                         onClick={() => void handleStartFinishFlow(selectedClass.id)}
                         disabled={busy || finishBusy}
-                        className="app-button app-button--green app-button--small"
+                        className="lv-btn lv-btn--primary rd-cal__primary"
                       >
                         <CheckCircle size={14} />
                         {busy || finishBusy ? t('Aguarde...') : t('Finalizar aula')}
@@ -2868,6 +2952,76 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                   {t('Fechar')}
                 </button>
               )}
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {qrFullscreen && selectedClass && displayQrToken ? (
+        <div className="lv-fullscreen lv-fullscreen--yellow rd-cal__qr-screen" role="dialog" aria-modal="true" aria-labelledby="rd-cal-qr-title">
+          <div className="lv-fullscreen__inner">
+            <div className="rd-cal__qr-top">
+              <button type="button" className="lv-icon-btn lv-icon-btn--on-yellow" onClick={() => setQrFullscreen(false)} aria-label={t('Voltar')}>
+                <ChevronLeft size={22} />
+              </button>
+              {selectedClass.status === 'active' ? (
+                <span className="lv-chip lv-chip--ink rd-cal__live-chip">
+                  <span className="lv-live-dot" aria-hidden="true" />
+                  {t('Ao vivo')} · {formatTimeLabel(selectedClass.startedAt ?? selectedClass.scheduledStart)}
+                </span>
+              ) : (
+                <span className="lv-chip lv-chip--ink">{classTimeRange(selectedClass)}</span>
+              )}
+            </div>
+
+            <div>
+              <p className="lv-eyebrow">{[selectedClass.title, selectedClass.tatame || t('Tatame principal')].join(' · ')}</p>
+              <h2 id="rd-cal-qr-title" className="lv-display rd-cal__qr-title">{t('Aponta e entra.')}</h2>
+            </div>
+
+            <div className="rd-cal__qr-card">
+              <QRCodeSVG
+                value={`${window.location.origin}?checkin=${encodeURIComponent(displayQrToken)}&classId=${encodeURIComponent(selectedClass.id)}`}
+                size={260}
+                level="M"
+                style={{ width: '100%', height: 'auto', maxWidth: 300 }}
+              />
+            </div>
+
+            <div className="rd-cal__qr-count">
+              <strong>{classAttendances.length}</strong>
+              <span>
+                {selectedClassRsvpCount > 0
+                  ? t('de {total} confirmados já marcaram presença', { total: selectedClassRsvpCount })
+                  : t('presenças registradas')}
+              </span>
+            </div>
+
+            {qrCountdown && qrCountdown !== '00:00' ? (
+              <p className="rd-cal__qr-expire">{t('Expira em {time}', { time: qrCountdown })}</p>
+            ) : null}
+
+            <div className="lv-fullscreen__footer">
+              <button
+                type="button"
+                className="lv-btn lv-btn--outline-dark lv-btn--block"
+                onClick={() => void runClassAction(selectedClass.id, () => onRefreshQr(selectedClass.id))}
+                disabled={busy}
+              >
+                <RefreshCw size={16} aria-hidden="true" />
+                {busy ? t('Renovando QR...') : t('Gerar novo QR')}
+              </button>
+              <button
+                type="button"
+                className="lv-btn lv-btn--ink lv-btn--block"
+                onClick={() => {
+                  setSheetTab('agendamento');
+                  setQrFullscreen(false);
+                }}
+              >
+                {t('Lista de presença')}
+                <span className="rd-cal__qr-pill">{classAttendances.length}/{Math.max(selectedClassRsvpCount, classAttendances.length)}</span>
+              </button>
             </div>
           </div>
         </div>

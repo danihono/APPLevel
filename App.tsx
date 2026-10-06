@@ -2983,6 +2983,7 @@ const App: React.FC = () => {
             onSubmitAttendanceRequest={handleSubmitAttendanceRequest}
             onMarkStudentPresent={handleMarkStudentForClass}
             onRemoveStudentPresent={handleRemoveStudentFromClass}
+            onStartCheckin={isStaff ? undefined : openStudentCheckin}
             onOpenStudent={(studentId) => {
               setSelectedStudentId(studentId);
               setActiveTab('students');
