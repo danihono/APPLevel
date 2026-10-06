@@ -61,7 +61,7 @@ type UserSeed = {
 
 const seeds: UserSeed[] = [
   { id: 'aluno-daniel', first: 'Daniel', last: 'Honorato', belt: 'white', stripes: 2, count: 60, lastDays: 1, competitor: true, birth: '1995-04-12' },
-  { id: 'prof-murilo', first: 'Murilo', last: 'Ale', role: 'professor', belt: 'black', stripes: 2, count: 0, birth: '1988-02-01' },
+  { id: 'prof-murilo', first: 'Murilo', last: 'Ale', role: 'professor', belt: 'black', stripes: 2, count: 320, birth: '1988-02-01' },
   { id: 'prof-ricardo', first: 'Ricardo', last: 'Saldanha', role: 'professor', belt: 'black', stripes: 4, count: 0, birth: '1980-06-20' },
   { id: 'aluno-lucas', first: 'Lucas', last: 'Prado', belt: 'white', stripes: 4, count: 150, lastDays: 0, birth: '1999-01-03' },
   { id: 'aluno-marina', first: 'Marina', last: 'Couto', belt: 'blue', stripes: 3, count: 286, lastDays: 0, birth: '1997-07-07' },

@@ -229,6 +229,15 @@ const RedesignPreview: React.FC = () => {
     now,
   });
 
+  const professorAttendances = previewStudentAttendances.slice(0, 9).map((entry) => ({ ...entry, id: `prof-${entry.id}`, userId: previewProfessor.id }));
+  const professorCommitment = resolveMonthlyCommitment({
+    attendances: professorAttendances,
+    track: getUserProgressionSummary(toUiUser({ id: previewProfessor.id, user: previewProfessor, graduations: [], fights: [] }), previewAcademy.progressionRules).track,
+    classStartById,
+    timeZone: previewAcademy.timezone,
+    now,
+  });
+
   const goTab = (tab: string) => {
     const target = SCREENS.find((entry) => entry.role === screen.role && entry.tab === tab && !entry.overlay && !entry.variant)
       ?? (tab === 'graduation' ? SCREENS.find((entry) => entry.id === 'aluno-evolucao') : undefined);
@@ -319,10 +328,10 @@ const RedesignPreview: React.FC = () => {
       progressionRules={previewAcademy.progressionRules}
       profile={record}
       totalClasses={record.attendanceCount}
-      commitment={isStudentViewer ? commitment : null}
+      commitment={isStudentViewer ? commitment : professorCommitment}
       academyName={previewAcademy.name}
-      attendanceRate={isStudentViewer ? 72 : 0}
-      attendances={isStudentViewer ? previewStudentAttendances : []}
+      attendanceRate={isStudentViewer ? 72 : 58}
+      attendances={isStudentViewer ? previewStudentAttendances : professorAttendances}
       classNameById={studentClassNames}
       classStartById={studentClassStarts}
       graduations={isStudentViewer ? previewGraduations : []}

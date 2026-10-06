@@ -677,6 +677,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({
     <ScreenHeader
       eyebrow={isStaffMobileProfile ? shell.unitLabel : undefined}
       title={t('Perfil')}
+      className={isStaffMobileProfile ? '' : 'rd-profile__header--inline'}
     />
   ) : null;
 

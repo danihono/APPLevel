@@ -2719,6 +2719,19 @@ const App: React.FC = () => {
       now,
     })
     : null;
+  // Perfil do professor (redesign): o mesmo comprometimento, pelas presencas dele no tatame.
+  // Superadmin fica de fora (nao treina pela academia em foco).
+  const profileCommitment = studentCommitment ?? (
+    profile.role === 'professor' || profile.role === 'admin'
+      ? resolveMonthlyCommitment({
+        attendances,
+        track: getUserProgressionSummary(currentUser, resolvedAcademy.progressionRules).track,
+        classStartById,
+        timeZone: resolvedAcademy.timezone,
+        now,
+      })
+      : null
+  );
   const studentSourceUsers = isSuperadminNetworkView ? allUsers : academyUsers;
   const students = studentSourceUsers
     .filter((user) => user.role === 'student' && user.status !== 'suspended')
@@ -3153,7 +3166,7 @@ const App: React.FC = () => {
             progressionRules={resolvedAcademy.progressionRules}
             profile={profile}
             totalClasses={profile.attendanceCount}
-            commitment={studentCommitment}
+            commitment={profileCommitment}
             academyName={isSuperAdmin ? NETWORK_NAME : resolvedAcademy.name}
             attendanceRate={attendanceRate}
             attendances={attendances}

@@ -532,3 +532,14 @@ html.dark .rd-profile__hero {
   outline: 2px solid var(--lv-danger);
   outline-offset: 3px;
 }
+
+/* Aluno: sem eyebrow, o titulo "Perfil" e o sino ficam na mesma linha (como no design). */
+.rd-profile__header--inline {
+  flex-direction: row-reverse;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.rd-profile__header--inline .lv-header__eyebrow-slot {
+  display: none;
+}
