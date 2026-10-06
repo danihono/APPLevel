@@ -25,6 +25,15 @@ import { loginMessages } from './login';
 import { layoutMessages } from './layout';
 import { appMessages } from './app';
 import { commonMessages } from './common';
+import { rdCalendarMessages } from './rd-calendar';
+import { rdCheckinMessages } from './rd-checkin';
+import { rdClassModalsMessages } from './rd-class-modals';
+import { rdEvolutionMessages } from './rd-evolution';
+import { rdHomeMessages } from './rd-home';
+import { rdNotificationsMessages } from './rd-notifications';
+import { rdPreviewMessages } from './rd-preview';
+import { rdShellMessages } from './rd-shell';
+import { rdStaffHomeMessages } from './rd-staff-home';
 
 export const messages: MessageCatalog = {
   ...commonMessages,
@@ -53,4 +62,13 @@ export const messages: MessageCatalog = {
   ...financeMessages,
   ...reportsMessages,
   ...calendarMessages,
+  ...rdCalendarMessages,
+  ...rdCheckinMessages,
+  ...rdClassModalsMessages,
+  ...rdEvolutionMessages,
+  ...rdHomeMessages,
+  ...rdNotificationsMessages,
+  ...rdPreviewMessages,
+  ...rdShellMessages,
+  ...rdStaffHomeMessages,
 };

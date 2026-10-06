@@ -23,7 +23,7 @@ import { UserRole, type UserVideo } from '../types';
 import { getVideoSourceKindFromUrl, isHttpUrl } from '../utils';
 import { t } from '../i18n';
 
-interface CompetitionViewProps {
+export interface CompetitionViewProps {
   userRole?: UserRole;
   competitions: Array<FirestoreEntity<CompetitionRecord>>;
   fights: Array<FirestoreEntity<FightRecord>>;

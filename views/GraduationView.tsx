@@ -14,7 +14,7 @@ import type { AcademyRecord, GraduationRecord, UserRecord } from '../services/fi
 import type { User } from '../types';
 import { t, getLocale } from '../i18n';
 
-interface GraduationViewProps {
+export interface GraduationViewProps {
   user: User;
   profile: FirestoreEntity<UserRecord>;
   academy: FirestoreEntity<AcademyRecord>;

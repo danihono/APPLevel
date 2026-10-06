@@ -1,4 +1,5 @@
 import { t } from './i18n';
+import type { KidsCategory } from './types';
 export const MONTH_WEEK_HEADER = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sab', 'Dom'] as const;
 
 // `academy.timezone` alimenta Intl.DateTimeFormat. Valores fora do padrao IANA
@@ -109,4 +110,37 @@ export function buildMonthGrid(year: number, month: number): Array<Date | null> 
   }
 
   return cells;
+}
+
+// --- Tipo de turma e visibilidade (compartilhado entre Calendario, Inicio e Professor) ---
+
+export const CLASS_TYPE_LABELS: Record<string, string> = {
+  'iniciante': 'Iniciante',
+  'vida': 'Vida',
+  'sport': 'Sport',
+  'feminino': 'Feminino',
+  'competicao': 'Competição',
+  'nogi': 'No-Gi',
+  'kids-01': 'Kids 1',
+  'kids-02': 'Kids 2',
+  'kids-03': 'Kids 3',
+};
+
+// O codigo da turma vem cru de `description` ('iniciante', 'kids-01'...). Mostrar o codigo
+// para o usuario e vazamento de modelo — sempre passar por aqui.
+export function classTypeLabel(description?: string | null): string | null {
+  const code = (description ?? '').trim();
+  if (!code) {
+    return null;
+  }
+  return CLASS_TYPE_LABELS[code] ? t(CLASS_TYPE_LABELS[code]) : code;
+}
+
+export const INFANTIL_CLASS_TYPES = new Set(['kids-01', 'kids-02', 'kids-03']);
+
+export function isClassVisibleForStudent(desc: string | undefined, kidsCategory?: KidsCategory): boolean {
+  // KIDS veem qualquer aula (infantil ou adulta).
+  if (kidsCategory) return true;
+  // Adultos (inclusive iniciantes) veem todas as aulas adultas, mas nao as infantis.
+  return !INFANTIL_CLASS_TYPES.has(desc ?? '');
 }

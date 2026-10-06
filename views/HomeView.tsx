@@ -9,15 +9,29 @@ import BjjBelt from '../components/BjjBelt';
 import ProgressBar from '../components/ProgressBar';
 import { CommitmentBar } from '../components/CommitmentBar';
 import type { CommitmentResult } from '../commitmentScale';
+import type { FirestoreEntity } from '../services/firebase/data';
+import type { AttendanceRecord, AttendanceRequestRecord, ClassRecord } from '../services/firebase/models';
 import type { User } from '../types';
 import { t, getLocale } from '../i18n';
 
-interface HomeViewProps {
+export interface HomeViewProps {
   user: User;
   monthlyAttendanceCount: number;
   commitment?: CommitmentResult | null;
   attendanceDays: number[];
   progressionRules?: ProgressionRules | null;
+  /** Aulas da academia (proxima aula de hoje). */
+  classes?: Array<FirestoreEntity<ClassRecord>>;
+  /** Presencas do proprio aluno (semana, sequencia de semanas). */
+  attendances?: Array<FirestoreEntity<AttendanceRecord>>;
+  /** Solicitacoes de presenca do proprio aluno. */
+  attendanceRequests?: Array<FirestoreEntity<AttendanceRequestRecord>>;
+  /** Fuso IANA da academia. */
+  academyTimeZone?: string;
+  /** Abre a tela de check-in por QR para a aula. */
+  onStartCheckin?: (classId: string) => void;
+  onOpenEvolution?: () => void;
+  onOpenClasses?: () => void;
 }
 
 const HomeView: React.FC<HomeViewProps> = ({

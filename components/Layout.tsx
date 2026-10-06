@@ -1,6 +1,5 @@
 import React, { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Award,
   Bell,
   BookOpen,
   Building2,
@@ -11,7 +10,7 @@ import {
   DollarSign,
   Home,
   Shield,
-  Trophy,
+  TrendingUp,
   User as UserIcon,
   Users,
 } from 'lucide-react';
@@ -35,6 +34,8 @@ interface LayoutProps {
   onUnitClick?: () => void;
   isDarkMode?: boolean;
   onSetThemeMode?: (mode: 'light' | 'dark') => void;
+  /** A tela atual desenha o proprio cabecalho (redesign): esconde o header do Layout. */
+  screenOwnsHeader?: boolean;
 }
 
 interface NavItem {
@@ -81,6 +82,11 @@ const pageMeta: Record<string, { kicker: string; title: string; description: str
     kicker: 'Fight mode',
     title: 'Competição',
     description: 'Competição ficou mais editorial, com áreas claras para calendário, resultados e vídeo.',
+  },
+  evolution: {
+    kicker: 'Evolução',
+    title: 'Evolução',
+    description: 'Graduação e competição: quanto falta para o próximo grau, o mês de treinos e o histórico.',
   },
   graduation: {
     kicker: 'Graduação',
@@ -179,6 +185,7 @@ const Layout: React.FC<LayoutProps> = ({
   onUnitClick,
   isDarkMode,
   onSetThemeMode,
+  screenOwnsHeader = false,
 }) => {
   const navTrackRef = useRef<HTMLDivElement | null>(null);
   const navRefs = useRef<Record<string, HTMLButtonElement | null>>({});
@@ -245,15 +252,21 @@ const Layout: React.FC<LayoutProps> = ({
             { id: 'profile', icon: UserIcon, label: t('Perfil') },
           ]
         : [
+        // Aluno (redesign): 5 abas. Graduação + Competição viram "Evolução" e os avisos
+        // saem da barra para o sino do cabeçalho.
         { id: 'home', icon: Home, label: t('Início') },
         { id: 'calendar', icon: Calendar, label: t('Aulas') },
-        { id: 'graduation', icon: Award, label: t('Graduação') },
+        { id: 'evolution', icon: TrendingUp, label: t('Evolução') },
         { id: 'learning', icon: BookOpen, label: t('Learning') },
-        { id: 'competition', icon: Trophy, label: t('Compete') },
-        { id: 'notifications', icon: Bell, label: t('Avisos') },
         { id: 'profile', icon: UserIcon, label: t('Perfil') },
         ]
   ), [isStaff, navigationRole]);
+
+  const isStudentNav = !isStaff;
+  // 'graduation' e 'competition' continuam existindo como rotas (alias da Evolução).
+  const activeNavId = isStudentNav && (activeTab === 'graduation' || activeTab === 'competition')
+    ? 'evolution'
+    : activeTab;
 
   const currentPage = navigationRole === UserRole.SUPERADMIN
     ? (superadminPageMeta[activeTab] ?? superadminPageMeta.home)
@@ -291,6 +304,24 @@ const Layout: React.FC<LayoutProps> = ({
     </div>
   );
 
+  const renderBellButton = () => (
+    <button
+      type="button"
+      onClick={() => setActiveTab('notifications')}
+      className="lv-icon-btn"
+      aria-label={unreadNotificationsCount > 0
+        ? `${t('Avisos')} · ${t('{count} não lidas', { count: unreadNotificationsCount })}`
+        : t('Avisos')}
+    >
+      <Bell size={20} strokeWidth={2} />
+      {unreadNotificationsCount > 0 ? (
+        <span className="lv-badge-count" aria-hidden="true">
+          {unreadNotificationsCount > 9 ? '9+' : unreadNotificationsCount}
+        </span>
+      ) : null}
+    </button>
+  );
+
   const renderUnitChip = () => (
     onUnitClick ? (
       <button
@@ -313,7 +344,7 @@ const Layout: React.FC<LayoutProps> = ({
 
   useEffect(() => {
     const updateIndicator = () => {
-      const activeButton = navRefs.current[activeTab];
+      const activeButton = navRefs.current[activeNavId];
       const navTrack = navTrackRef.current;
 
       if (!activeButton || !navTrack) {
@@ -354,7 +385,7 @@ const Layout: React.FC<LayoutProps> = ({
       resizeObserver?.disconnect();
       window.removeEventListener('resize', updateIndicator);
     };
-  }, [activeTab, navItems]);
+  }, [activeNavId, navItems]);
 
   useEffect(() => {
     if (!isDesktopShell || typeof window === 'undefined') {
@@ -406,7 +437,7 @@ const Layout: React.FC<LayoutProps> = ({
       <nav className="app-sidebar__nav" aria-label={t('Navegação principal')}>
         {navItems.map((item) => {
           const Icon = item.icon;
-          const isActive = activeTab === item.id;
+          const isActive = activeNavId === item.id;
           const showNotificationBadge = item.id === 'notifications' && unreadNotificationsCount > 0;
 
           return (
@@ -438,6 +469,7 @@ const Layout: React.FC<LayoutProps> = ({
         isSuperAdmin ? 'app-shell--superadmin' : '',
         isDesktopShell ? 'app-shell--desk' : '',
         isFlatShell ? 'app-shell--flat' : '',
+        screenOwnsHeader ? 'app-shell--own-header' : '',
         sidebarCollapsed ? 'is-sidebar-collapsed' : '',
       ].filter(Boolean).join(' ')}
     >
@@ -453,7 +485,19 @@ const Layout: React.FC<LayoutProps> = ({
               >
                 <div className="app-mobile-header__bar">
                   <div className="app-mobile-header__title-copy">
-                    <span className="app-mobile-header__eyebrow">{t('Visão atual')}</span>
+                    {onUnitClick ? (
+                      <button
+                        type="button"
+                        onClick={onUnitClick}
+                        className="app-mobile-header__eyebrow app-mobile-header__eyebrow--button"
+                        aria-label={t('Trocar unidade')}
+                      >
+                        <span>{mobileUnitLabel}</span>
+                        <ChevronDown size={12} aria-hidden="true" />
+                      </button>
+                    ) : (
+                      <span className="app-mobile-header__eyebrow">{mobileUnitLabel}</span>
+                    )}
                     <p className="app-mobile-header__title">{t(currentPage.title)}</p>
                   </div>
 
@@ -472,11 +516,8 @@ const Layout: React.FC<LayoutProps> = ({
                           ))}
                         </select>
                       </div>
-                    ) : (
-                      <div className="app-mobile-header__context app-mobile-header__context--unit">
-                        {renderUnitChip()}
-                      </div>
-                    )}
+                    ) : null}
+                    {isStudentNav ? renderBellButton() : null}
                   </div>
                 </div>
               </div>
@@ -514,6 +555,13 @@ const Layout: React.FC<LayoutProps> = ({
                       {renderUnitChip()}
                     </div>
                   ) : null}
+
+                  {isStudentNav ? (
+                    <div className="app-pagebar__context app-pagebar__bell">
+                      {onUnitClick ? renderUnitChip() : null}
+                      {renderBellButton()}
+                    </div>
+                  ) : null}
                 </div>
               </div>
 
@@ -546,7 +594,7 @@ const Layout: React.FC<LayoutProps> = ({
 
             {navItems.map((item, index) => {
               const Icon = item.icon;
-              const isActive = activeTab === item.id;
+              const isActive = activeNavId === item.id;
               const showNotificationBadge = item.id === 'notifications' && unreadNotificationsCount > 0;
 
               return (

@@ -1,10 +1,11 @@
 import React, { Suspense, lazy, startTransition, useEffect, useMemo, useRef, useState } from 'react';
-import { CheckCircle, X } from 'lucide-react';
 import type { User as FirebaseUser } from 'firebase/auth';
 import type { CreateClassPayload } from './components/CreateClassModal';
 import type { DeleteClassPayload } from './components/DeleteClassModal';
 import type { EditClassPayload } from './components/EditClassModal';
 import GraduationCelebrationModal from './components/GraduationCelebrationModal';
+import CheckInScreen from './components/redesign/CheckInScreen';
+import { RedesignShellProvider, type RedesignShellValue } from './components/redesign/ShellContext';
 import { LoadingScreen } from './components/LoadingScreen';
 import Layout from './components/Layout';
 import HomeView from './views/HomeView';
@@ -13,7 +14,6 @@ import StaffDashboardView from './views/StaffDashboardView';
 import { getUserProgressionSummary, normalizeBeltId } from './beltCatalog';
 import { resolveMonthlyCommitment } from './commitmentScale';
 import {
-  nonCountingWarning,
   previewNonCountingReason,
   type AttendanceNonCountingReason,
 } from './classRules';
@@ -114,6 +114,7 @@ import { t, getLocale, isAppLanguage, useI18n } from './i18n';
 
 const CalendarView = lazy(() => import('./views/CalendarView'));
 const CompetitionView = lazy(() => import('./views/CompetitionView'));
+const EvolutionView = lazy(() => import('./views/EvolutionView'));
 const ControleTotalView = lazy(() => import('./views/ControleTotalView'));
 const GraduationView = lazy(() => import('./views/GraduationView'));
 const LearningHubView = lazy(() => import('./views/LearningHubView'));
@@ -593,14 +594,21 @@ const App: React.FC = () => {
   const [authReady, setAuthReady] = useState(false);
   const [authUser, setAuthUser] = useState<FirebaseUser | null>(null);
   const [activeTab, setActiveTab] = useState('home');
+  // Aba anterior, para o "voltar" das telas sem aba propria (Avisos do aluno, check-in).
+  const previousTabRef = useRef('home');
+  const lastTabRef = useRef('home');
+  useEffect(() => {
+    if (lastTabRef.current !== activeTab) {
+      previousTabRef.current = lastTabRef.current;
+      lastTabRef.current = activeTab;
+    }
+  }, [activeTab]);
   const [managementFocusSection, setManagementFocusSection] = useState<'master-black' | 'students' | 'overview' | null>(null);
   const [studentsFocusSection, setStudentsFocusSection] = useState<'list' | 'ranking' | 'deactivated' | null>(null);
-  const [pendingCheckin, setPendingCheckin] = useState<{ token: string; classId: string } | null>(null);
-  const [checkinStatus, setCheckinStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+  // Tela de check-in por QR: aberta pelo deep link (?checkin=<token>&classId=<id>) ou pelo
+  // botao "Fazer check-in" (Inicio / Aulas), quando o token vem da camera.
+  const [pendingCheckin, setPendingCheckin] = useState<{ token: string | null; classId: string | null } | null>(null);
   // Motivo devolvido pela Cloud Function quando a presenca foi registrada mas nao computa.
-  const [checkinNonCountingReason, setCheckinNonCountingReason] = useState<AttendanceNonCountingReason | null>(null);
-  const [checkinStep, setCheckinStep] = useState<'initial' | 'confirm'>('initial');
-  const [checkinError, setCheckinError] = useState('');
   const [themeScope, setThemeScope] = useState('guest');
   const [isDarkMode, setIsDarkMode] = useState(() => readThemePreference('guest') ?? false);
   const [profile, setProfile] = useState<FirestoreEntity<UserRecord> | null>(null);
@@ -1587,9 +1595,6 @@ const App: React.FC = () => {
     const checkinClassId = params.get('classId');
     if (!checkinToken || !checkinClassId) return;
     window.history.replaceState({}, '', window.location.pathname);
-    setCheckinStatus('idle');
-    setCheckinStep('initial');
-    setCheckinError('');
     setPendingCheckin({ token: checkinToken, classId: checkinClassId });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profile, sessionValidated]);
@@ -1705,7 +1710,7 @@ const App: React.FC = () => {
       markGraduationCelebrationsSeen([graduationCelebration.id]);
     }
     setGraduationCelebration(null);
-    setActiveTab('graduation');
+    setActiveTab('evolution');
   }
 
   async function handleCreateClass(classPayloads: CreateClassPayload[]): Promise<CreateClassScheduleBatchResult> {
@@ -2749,6 +2754,52 @@ const App: React.FC = () => {
   const focusedLearningAcademy = selectedAcademyId
     ? (allAcademies.find((entry) => entry.id === selectedAcademyId) ?? null)
     : null;
+  const openStudentCheckin = (classId: string | null) => {
+    setPendingCheckin({ token: null, classId });
+  };
+  const renderStudentHome = () => (
+    <HomeView
+      user={currentUser}
+      monthlyAttendanceCount={countedAttendanceThisMonth.length}
+      commitment={studentCommitment}
+      attendanceDays={attendanceDays}
+      progressionRules={resolvedAcademy.progressionRules}
+      classes={classes}
+      attendances={attendances}
+      attendanceRequests={studentAttendanceRequests}
+      academyTimeZone={resolvedAcademy.timezone}
+      onStartCheckin={openStudentCheckin}
+      onOpenEvolution={() => setActiveTab('evolution')}
+      onOpenClasses={() => setActiveTab('calendar')}
+    />
+  );
+  const competitionViewProps = {
+    userRole: viewUserRole,
+    competitions,
+    fights,
+    videoLibrary: currentUser.videos ?? [],
+    submissions: currentUserFightVideoSubmissions,
+    onUploadVideoAsset: handleUploadFightVideoAsset,
+    onSubmitVideoSubmission: handleSubmitFightVideoSubmission,
+  };
+  const graduationViewProps = {
+    user: currentUser,
+    profile,
+    academy: resolvedAcademy,
+    graduations,
+  };
+  const renderEvolution = (initialSegment: 'graduation' | 'competition') => (
+    <EvolutionView
+      key={initialSegment}
+      initialSegment={initialSegment}
+      graduation={graduationViewProps}
+      competition={competitionViewProps}
+      attendances={attendances}
+      attendanceRequests={studentAttendanceRequests}
+      classes={classes}
+      academyTimeZone={resolvedAcademy.timezone}
+    />
+  );
   const renderContent = () => {
     if (isFirstAcademySetup) {
       return (
@@ -2826,13 +2877,7 @@ const App: React.FC = () => {
               }}
             />
           ) : (
-            <HomeView
-              user={currentUser}
-              monthlyAttendanceCount={countedAttendanceThisMonth.length}
-              commitment={studentCommitment}
-              attendanceDays={attendanceDays}
-              progressionRules={resolvedAcademy.progressionRules}
-            />
+            renderStudentHome()
           );
       case 'controle-total':
         return isSuperadminNetworkView ? (
@@ -2852,13 +2897,7 @@ const App: React.FC = () => {
             onSelectAcademy={setSelectedAcademyId}
           />
         ) : (
-          <HomeView
-            user={currentUser}
-            monthlyAttendanceCount={countedAttendanceThisMonth.length}
-            commitment={studentCommitment}
-            attendanceDays={attendanceDays}
-            progressionRules={resolvedAcademy.progressionRules}
-          />
+          renderStudentHome()
         );
       case 'calendar': {
         const academyProfessors = academyUsers
@@ -2943,27 +2982,12 @@ const App: React.FC = () => {
           />
         );
       }
+      case 'evolution':
+        return isStaff ? <GraduationView {...graduationViewProps} /> : renderEvolution('graduation');
       case 'competition':
-        return (
-          <CompetitionView
-            userRole={viewUserRole}
-            competitions={competitions}
-            fights={fights}
-            videoLibrary={currentUser.videos ?? []}
-            submissions={currentUserFightVideoSubmissions}
-            onUploadVideoAsset={handleUploadFightVideoAsset}
-            onSubmitVideoSubmission={handleSubmitFightVideoSubmission}
-          />
-        );
+        return isStaff ? <CompetitionView {...competitionViewProps} /> : renderEvolution('competition');
       case 'graduation':
-        return (
-          <GraduationView
-            user={currentUser}
-            profile={profile}
-            academy={resolvedAcademy}
-            graduations={graduations}
-          />
-        );
+        return isStaff ? <GraduationView {...graduationViewProps} /> : renderEvolution('graduation');
       case 'students':
         return (
           <StudentsView
@@ -3159,15 +3183,31 @@ const App: React.FC = () => {
         );
       default:
         return (
-          <HomeView
-            user={currentUser}
-            monthlyAttendanceCount={countedAttendanceThisMonth.length}
-            commitment={studentCommitment}
-            attendanceDays={attendanceDays}
-            progressionRules={resolvedAcademy.progressionRules}
-          />
+          renderStudentHome()
         );
     }
+  };
+
+  // Telas redesenhadas desenham o proprio cabecalho (titulo grande, sino, voltar).
+  const ownHeaderTabs = isSuperadminNetworkView
+    ? []
+    : isStaff
+      ? ['home', 'calendar', 'notifications']
+      : ['home', 'calendar', 'evolution', 'graduation', 'competition', 'notifications'];
+  const screenOwnsHeader = !isFirstAcademySetup && ownHeaderTabs.includes(activeTab);
+  const shellValue: RedesignShellValue = {
+    role: isSuperadminNetworkView ? 'superadmin' : (isStaff ? 'staff' : 'student'),
+    unitLabel: mobileUnitLabel,
+    onUnitClick: isMultiAcademyStudent ? handleStudentRequestAcademyChange : undefined,
+    unreadCount: unreadNotificationsCount,
+    openNotifications: () => setActiveTab('notifications'),
+    goBack: () => {
+      const previous = previousTabRef.current;
+      setActiveTab(previous && previous !== activeTab ? previous : 'home');
+    },
+    navigate: setActiveTab,
+    timeZone: resolvedAcademy.timezone,
+    firstName: (profile.firstName || currentUser.name || '').trim().split(/\s+/)[0] || undefined,
   };
 
   return (
@@ -3195,156 +3235,53 @@ const App: React.FC = () => {
       ) : null}
 
       {pendingCheckin ? (
-        <div style={{
-          position: 'fixed', inset: 0, zIndex: 200,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          background: 'rgba(0,0,0,0.75)', padding: 20,
-        }}>
-          <div className="app-panel" style={{
-            width: '100%', maxWidth: 340, borderRadius: '1.8rem', padding: 28,
-            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 18,
-          }}>
-            {/* Header */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, alignSelf: 'stretch', justifyContent: 'space-between' }}>
-              <span style={{ fontWeight: 700, fontSize: '1rem' }}>{t('Confirmar presença')}</span>
-              <button
-                type="button"
-                className="app-button app-button--ghost app-button--icon"
-                style={{ width: 32, height: 32 }}
-                onClick={() => { setPendingCheckin(null); setCheckinStatus('idle'); setCheckinStep('initial'); setCheckinError(''); setCheckinNonCountingReason(null); }}
-                disabled={checkinStatus === 'loading'}
-              >
-                <X size={16} />
-              </button>
-            </div>
-
-            {/* Success */}
-            {checkinStatus === 'success' ? (
-              <>
-                <CheckCircle size={48} style={{ color: '#22c55e' }} />
-                <p style={{ fontWeight: 600, fontSize: '1rem', color: '#22c55e' }}>
-                  {checkinNonCountingReason ? t('Você está na lista!') : t('Presença confirmada!')}
-                </p>
-                {checkinNonCountingReason ? (
-                  <p className="app-alert app-alert--warning" style={{ textAlign: 'center' }}>
-                    {nonCountingWarning(checkinNonCountingReason)}
-                  </p>
-                ) : null}
-                <button
-                  type="button"
-                  className="app-button app-button--block"
-                  style={{ background: '#fff', color: '#22c55e', fontWeight: 700, border: '1.5px solid #22c55e' }}
-                  onClick={() => { setPendingCheckin(null); setCheckinStatus('idle'); setCheckinStep('initial'); setCheckinNonCountingReason(null); setActiveTab('calendar'); }}
-                >
-                  {t('Ver calendário')}
-                </button>
-              </>
-            ) : checkinStep === 'initial' ? (
-              /* Etapa 1 — pergunta */
-              <>
-                <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', textAlign: 'center', lineHeight: 1.5 }}>
-                  {t('Deseja registrar sua presença nesta aula?')}
-                </p>
-                {pendingCheckinNonCountingReason ? (
-                  <p className="app-alert app-alert--warning" style={{ textAlign: 'center' }}>
-                    {nonCountingWarning(pendingCheckinNonCountingReason)}
-                  </p>
-                ) : null}
-                {checkinError ? (
-                  <p style={{ fontSize: '0.8rem', color: '#f87171', textAlign: 'center' }}>{checkinError}</p>
-                ) : null}
-                <div style={{ display: 'flex', gap: 10, width: '100%' }}>
-                  <button
-                    type="button"
-                    className="app-button app-button--block"
-                    style={{ background: '#fff', color: '#f87171', fontWeight: 700, border: '1.5px solid #f87171' }}
-                    onClick={() => { setPendingCheckin(null); setCheckinStatus('idle'); setCheckinStep('initial'); setCheckinError(''); setCheckinNonCountingReason(null); }}
-                  >
-                    {t('Cancelar')}
-                  </button>
-                  <button
-                    type="button"
-                    className="app-button app-button--block"
-                    style={{ background: '#fff', color: '#22c55e', fontWeight: 700, border: '1.5px solid #22c55e' }}
-                    onClick={() => { setCheckinStep('confirm'); setCheckinError(''); }}
-                  >
-                    {t('Confirmar')}
-                  </button>
-                </div>
-              </>
-            ) : (
-              /* Etapa 2 — confirmação final */
-              <>
-                <p style={{ fontSize: '0.9rem', fontWeight: 600, textAlign: 'center' }}>
-                  {t('Tem certeza?')}
-                </p>
-                <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', textAlign: 'center', lineHeight: 1.5 }}>
-                  {pendingCheckinNonCountingReason
-                    ? t('Sua participação será registrada permanentemente, mas sem contar como aula.')
-                    : t('Sua presença será registrada permanentemente.')}
-                </p>
-                {checkinError ? (
-                  <p style={{ fontSize: '0.8rem', color: '#f87171', textAlign: 'center' }}>{checkinError}</p>
-                ) : null}
-                <div style={{ display: 'flex', gap: 10, width: '100%' }}>
-                  <button
-                    type="button"
-                    className="app-button app-button--block"
-                    style={{ background: '#fff', color: '#f87171', fontWeight: 700, border: '1.5px solid #f87171' }}
-                    onClick={() => { setCheckinStep('initial'); setCheckinError(''); }}
-                    disabled={checkinStatus === 'loading'}
-                  >
-                    {t('Cancelar')}
-                  </button>
-                  <button
-                    type="button"
-                    className="app-button app-button--block"
-                    style={{ background: '#fff', color: '#22c55e', fontWeight: 700, border: '1.5px solid #22c55e' }}
-                    disabled={checkinStatus === 'loading'}
-                    onClick={() => {
-                      setCheckinStatus('loading');
-                      setCheckinError('');
-                      void backendFunctions.registerAttendance({
-                        classId: pendingCheckin.classId,
-                        qrToken: pendingCheckin.token,
-                      }).then((result) => {
-                        setCheckinNonCountingReason(result.countsAsAttendance ? null : result.nonCountingReason ?? 'daily_limit');
-                        setCheckinStatus('success');
-                      }).catch((err: unknown) => {
-                        setCheckinStatus('error');
-                        setCheckinStep('initial');
-                        setCheckinError(err instanceof Error ? err.message : t('Erro ao registrar presença.'));
-                      });
-                    }}
-                  >
-                    {checkinStatus === 'loading' ? t('Registrando...') : t('Sim, confirmar')}
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
-        </div>
+        <CheckInScreen
+          lesson={pendingCheckinClass}
+          classId={pendingCheckin.classId}
+          initialToken={pendingCheckin.token}
+          user={currentUser}
+          progressionRules={resolvedAcademy.progressionRules}
+          nonCountingReason={pendingCheckinNonCountingReason}
+          alreadyCheckedIn={Boolean(
+            pendingCheckin.classId
+            && attendances.some((entry) => entry.classId === pendingCheckin.classId && entry.userId === profile.id),
+          )}
+          hasPendingRequest={Boolean(
+            pendingCheckin.classId
+            && studentAttendanceRequests.some((entry) => entry.classId === pendingCheckin.classId && entry.status === 'pending'),
+          )}
+          onRegister={handleRegisterAttendance}
+          onRequestAttendance={handleSubmitAttendanceRequest}
+          onClose={() => setPendingCheckin(null)}
+          onFinish={() => {
+            setPendingCheckin(null);
+            setActiveTab('home');
+          }}
+        />
       ) : null}
 
-      <Layout
-        activeTab={activeTab}
-        setActiveTab={setActiveTab}
-        userRole={currentUser.role}
-        unreadNotificationsCount={unreadNotificationsCount}
-        mobileUnitLabel={mobileUnitLabel}
-        superadminViewMode={superadminViewMode}
-        onSetSuperadminViewMode={handleSetSuperadminViewMode}
-        superadminAcademies={allAcademies.map((entry) => ({ id: entry.id, name: entry.name }))}
-        selectedAcademyId={selectedAcademyId}
-        onSelectAcademy={setSelectedAcademyId}
-        onUnitClick={isMultiAcademyStudent ? handleStudentRequestAcademyChange : undefined}
-        isDarkMode={isDarkMode}
-        onSetThemeMode={setThemeMode}
-      >
-        <Suspense fallback={<LoadingScreen message={t('Carregando esta area do APPLevel.')} />}>
-          {renderContent()}
-        </Suspense>
-      </Layout>
+      <RedesignShellProvider value={shellValue}>
+        <Layout
+          activeTab={activeTab}
+          setActiveTab={setActiveTab}
+          userRole={currentUser.role}
+          unreadNotificationsCount={unreadNotificationsCount}
+          mobileUnitLabel={mobileUnitLabel}
+          superadminViewMode={superadminViewMode}
+          onSetSuperadminViewMode={handleSetSuperadminViewMode}
+          superadminAcademies={allAcademies.map((entry) => ({ id: entry.id, name: entry.name }))}
+          selectedAcademyId={selectedAcademyId}
+          onSelectAcademy={setSelectedAcademyId}
+          onUnitClick={isMultiAcademyStudent ? handleStudentRequestAcademyChange : undefined}
+          isDarkMode={isDarkMode}
+          onSetThemeMode={setThemeMode}
+          screenOwnsHeader={screenOwnsHeader}
+        >
+          <Suspense fallback={<LoadingScreen message={t('Carregando esta area do APPLevel.')} />}>
+            {renderContent()}
+          </Suspense>
+        </Layout>
+      </RedesignShellProvider>
     </React.Fragment>
   );
 };

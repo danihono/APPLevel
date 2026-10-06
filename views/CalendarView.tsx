@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { AlertTriangle, CalendarDays, Camera, CheckCircle, ChevronDown, ChevronLeft, ChevronRight, MapPin, Pencil, Play, Plus, QrCode, RefreshCw, ShieldCheck, Sliders, StopCircle, Trash2, UserCheck, Users, X } from 'lucide-react';
 import QRCodeSVG from 'react-qr-code';
 import { resolveAttendanceDate } from '../attendanceUtils';
-import { buildMonthGrid, MONTH_WEEK_HEADER, sameCalendarDay, sameCalendarMonth, stripDate, toDateKey } from '../calendarUtils';
+import { buildMonthGrid, CLASS_TYPE_LABELS, classTypeLabel, isClassVisibleForStudent, MONTH_WEEK_HEADER, sameCalendarDay, sameCalendarMonth, stripDate, toDateKey } from '../calendarUtils';
 import ClassSessionCard from '../components/ClassSessionCard';
 import CreateClassModal, { type CreateClassPayload } from '../components/CreateClassModal';
 import DeleteClassModal, { type DeleteClassPayload } from '../components/DeleteClassModal';
@@ -101,28 +101,6 @@ function buildWeekDays(reference: Date): Date[] {
 
   return Array.from({ length: 7 }, (_, index) =>
     new Date(start.getFullYear(), start.getMonth(), start.getDate() + index));
-}
-
-const CLASS_TYPE_LABELS: Record<string, string> = {
-  'iniciante': 'Iniciante',
-  'vida': 'Vida',
-  'sport': 'Sport',
-  'feminino': 'Feminino',
-  'competicao': 'Competição',
-  'nogi': 'No-Gi',
-  'kids-01': 'Kids 1',
-  'kids-02': 'Kids 2',
-  'kids-03': 'Kids 3',
-};
-
-// O codigo da turma vem cru de `description` ('iniciante', 'kids-01'...). Mostrar o codigo
-// para o usuario e vazamento de modelo — sempre passar por aqui.
-function classTypeLabel(description?: string | null): string | null {
-  const code = (description ?? '').trim();
-  if (!code) {
-    return null;
-  }
-  return CLASS_TYPE_LABELS[code] ? t(CLASS_TYPE_LABELS[code]) : code;
 }
 
 function capitalize(value: string) {
@@ -742,15 +720,6 @@ const CompactMonthGrid: React.FC<Omit<MonthGridProps, 'onOpenClass' | 'nowMs'>> 
   </div>
   );
 });
-
-const INFANTIL_CLASS_TYPES = new Set(['kids-01', 'kids-02', 'kids-03']);
-
-function isClassVisibleForStudent(desc: string | undefined, kidsCategory?: KidsCategory): boolean {
-  // KIDS veem qualquer aula (infantil ou adulta).
-  if (kidsCategory) return true;
-  // Adultos (inclusive iniciantes) veem todas as aulas adultas, mas nao as infantis.
-  return !INFANTIL_CLASS_TYPES.has(desc ?? '');
-}
 
 function isKidsStudent(student: FirestoreEntity<UserRecord>): boolean {
   if (student.birthDate) return inferTrainingTypeFromBirthDate(student.birthDate) === 'Kids';
