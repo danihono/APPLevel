@@ -1184,17 +1184,16 @@ html.dark .lv-tatame__day {
   position: absolute;
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 7%;
-  padding: 4% 10%;
+  /* Sem padding/gap em %: padding percentual e relativo a LARGURA da imagem e zeraria as listras. */
+  justify-content: space-evenly;
+  padding: 0;
   pointer-events: none;
 }
 
 .lv-belt-image__tip > i {
   display: block;
-  flex: 1 1 0;
-  max-width: 14%;
-  height: 100%;
+  flex: 0 0 11%;
+  height: 84%;
   border-radius: 1px;
   background: rgba(255, 255, 255, 0.22);
 }
@@ -1207,14 +1206,11 @@ html.dark .lv-tatame__day {
 /* Na faixa amarrada a ponteira fica na ponta vertical: listras deitadas, empilhadas. */
 .lv-belt-image--amarrada .lv-belt-image__tip {
   flex-direction: column;
-  gap: 9%;
-  padding: 10% 6%;
 }
 
 .lv-belt-image--amarrada .lv-belt-image__tip > i {
-  width: 100%;
-  max-width: none;
-  max-height: 16%;
+  flex: 0 0 12%;
+  width: 84%;
   height: auto;
 }
 
@@ -1443,7 +1439,12 @@ html.dark .app-toolbar__surface {
 .app-nav-button__label {
   font-size: 11px;
   font-weight: 700;
-  letter-spacing: 0;
+  letter-spacing: -0.01em;
+}
+
+/* 6+ abas (professor): rotulo um pouco menor para "Calendário" caber sem reticencias. */
+.app-toolbar__track:has(> button:nth-of-type(6)) .app-nav-button__label {
+  font-size: 10px;
 }
 
 .app-nav-button.is-active .app-nav-button__label {

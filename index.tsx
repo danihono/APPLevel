@@ -11,12 +11,31 @@ if (!rootElement) {
 }
 
 const root = ReactDOM.createRoot(rootElement);
-root.render(
-  <React.StrictMode>
-    <LanguageProvider>
-      <ConfirmProvider>
-        <App />
-      </ConfirmProvider>
-    </LanguageProvider>
-  </React.StrictMode>
-);
+
+// Galeria do redesign (so em desenvolvimento): http://localhost:3000/?preview=redesign
+const isRedesignPreview = import.meta.env.DEV
+  && new URLSearchParams(window.location.search).get('preview') === 'redesign';
+
+if (import.meta.env.DEV && isRedesignPreview) {
+  void import('./dev/RedesignPreview').then(({ default: RedesignPreview }) => {
+    root.render(
+      <React.StrictMode>
+        <LanguageProvider>
+          <ConfirmProvider>
+            <RedesignPreview />
+          </ConfirmProvider>
+        </LanguageProvider>
+      </React.StrictMode>,
+    );
+  });
+} else {
+  root.render(
+    <React.StrictMode>
+      <LanguageProvider>
+        <ConfirmProvider>
+          <App />
+        </ConfirmProvider>
+      </LanguageProvider>
+    </React.StrictMode>
+  );
+}

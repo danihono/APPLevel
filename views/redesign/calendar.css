@@ -221,7 +221,8 @@ html.dark .rd-cal__class--ink {
 }
 
 .rd-cal__class-progress .lv-progress {
-  flex: 1 1 auto;
+  flex: 1 1 60px;
+  min-width: 60px;
   background: rgba(255, 255, 255, 0.16);
 }
 
@@ -409,4 +410,44 @@ html.dark .rd-cal__sheet .app-segment__button.is-active {
 html.dark .rd-cal__qr-screen .lv-btn--ink {
   background: var(--lv-black);
   color: #ffffff;
+}
+
+/* Linhas de presenca (confirmados / alunos) */
+.rd-cal__sheet .attendance-row {
+  display: flex;
+  align-items: center;
+  gap: var(--lv-space-3);
+  padding: var(--lv-space-3);
+}
+
+.rd-cal__sheet .attendance-row__info {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.rd-cal__sheet .attendance-row__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+  flex: none;
+}
+
+.rd-cal__row-avatar {
+  background: var(--lv-black);
+  color: var(--lv-yellow);
+}
+
+.rd-cal__row-belt {
+  width: 56px;
+  margin: 4px 0 2px;
+}
+
+.rd-cal__sheet .attendance-row {
+  flex-wrap: nowrap;
+}
+
+.rd-cal__sheet .attendance-row__actions {
+  flex-direction: column;
+  align-items: stretch;
 }

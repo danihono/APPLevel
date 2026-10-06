@@ -49,6 +49,18 @@ import { isNotificationInViewerInbox } from './notifications';
 
 export type FirestoreEntity<T> = T & { id: string };
 
+// Galeria de preview do redesign (?preview=redesign, so em desenvolvimento): troca algumas leituras
+// do Firestore por dados ficticios. Em producao `import.meta.env.DEV` e false e isto some do bundle.
+type PreviewDataOverrides = Partial<Record<string, (...args: never[]) => unknown>>;
+
+function previewOverride<T extends (...args: never[]) => unknown>(name: string): T | undefined {
+  if (!import.meta.env.DEV) {
+    return undefined;
+  }
+  const registry = (globalThis as { __LEVEL_PREVIEW_DATA__?: PreviewDataOverrides }).__LEVEL_PREVIEW_DATA__;
+  return registry?.[name] as T | undefined;
+}
+
 function normalizeUserRole<T extends { role: string }>(record: T): T {
   if (record.role !== 'admin') {
     return record;
@@ -267,6 +279,10 @@ export function subscribeToClassAttendances(
   listener: (records: Array<FirestoreEntity<AttendanceRecord>>) => void,
   onError?: (error: Error) => void,
 ) {
+  const previewImpl = previewOverride<typeof subscribeToClassAttendances>('subscribeToClassAttendances');
+  if (previewImpl) {
+    return previewImpl(...(arguments as unknown as Parameters<typeof subscribeToClassAttendances>));
+  }
   return onSnapshot(
     query(
       collection(firebaseDb, 'attendances'),
@@ -773,6 +789,10 @@ export function subscribeToClassRsvps(
   listener: (records: Array<FirestoreEntity<ClassRsvpRecord>>) => void,
   onError?: (error: Error) => void,
 ) {
+  const previewImpl = previewOverride<typeof subscribeToClassRsvps>('subscribeToClassRsvps');
+  if (previewImpl) {
+    return previewImpl(...(arguments as unknown as Parameters<typeof subscribeToClassRsvps>));
+  }
   return onSnapshot(
     query(
       collection(firebaseDb, 'class_rsvps'),
@@ -788,6 +808,10 @@ export function subscribeToClassRsvps(
 }
 
 export async function getMyClassRsvp(classId: string, userId: string): Promise<boolean> {
+  const previewImpl = previewOverride<typeof getMyClassRsvp>('getMyClassRsvp');
+  if (previewImpl) {
+    return previewImpl(classId, userId);
+  }
   const rsvpSnap = await getDoc(doc(firebaseDb, 'class_rsvps', `${classId}_${userId}`));
   return rsvpSnap.exists();
 }
@@ -994,6 +1018,10 @@ export function subscribeToUserClassRsvps(
   listener: (records: Array<FirestoreEntity<ClassRsvpRecord>>) => void,
   onError?: (error: Error) => void,
 ) {
+  const previewImpl = previewOverride<typeof subscribeToUserClassRsvps>('subscribeToUserClassRsvps');
+  if (previewImpl) {
+    return previewImpl(...(arguments as unknown as Parameters<typeof subscribeToUserClassRsvps>));
+  }
   return onSnapshot(
     query(
       collection(firebaseDb, 'class_rsvps'),

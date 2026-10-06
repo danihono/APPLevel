@@ -16,7 +16,7 @@ import {
   previewNonCountingReason,
   type AttendanceNonCountingReason,
 } from '../classRules';
-import AvatarWithBelt from '../components/AvatarWithBelt';
+import BeltImage from '../components/BeltImage';
 import ScreenHeader from '../components/redesign/ScreenHeader';
 import { useRedesignShell } from '../components/redesign/ShellContext';
 import './redesign/calendar.css';
@@ -30,7 +30,7 @@ import {
 } from '../services/firebase/functions';
 import type { AttendanceRecord, AttendanceRequestRecord, ClassRecord, ClassRsvpRecord, UserRecord } from '../services/firebase/models';
 import { formatDateLabel, formatTimeLabel } from '../services/firebase/adapters';
-import { UserRole, type BeltColor, type KidsCategory } from '../types';
+import { UserRole, type KidsCategory } from '../types';
 import { normalizePersonName } from '../utils';
 import { t, getLocale, createDateFormatter } from '../i18n';
 
@@ -2507,17 +2507,16 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                               ) : (
                                 <span style={{ width: 16, height: 16, border: '2px solid var(--border)', borderRadius: 4, flexShrink: 0, display: 'inline-block' }} />
                               )}
-                              <AvatarWithBelt
-                                avatar={photoToAvatar(entry.photoPath)}
-                                name={entry.displayName}
-                                belt={(entry.belt ?? 'white') as BeltColor}
-                                stripes={entry.stripes}
-                                size="sm"
-                              />
+                              <span className="lv-avatar rd-cal__row-avatar" aria-hidden="true">
+                                {photoToAvatar(entry.photoPath)
+                                  ? <img src={photoToAvatar(entry.photoPath)} alt="" />
+                                  : (entry.displayName || '?').trim().charAt(0).toLocaleUpperCase(getLocale())}
+                              </span>
                               <div className="attendance-row__info">
                                 <p className="attendance-row__name">
                                   {entry.displayName}
                                 </p>
+                                <BeltImage belt={entry.belt ?? 'white'} stripes={entry.stripes ?? 0} className="lv-belt-mini rd-cal__row-belt" />
                                 <p style={{ fontSize: '0.72rem', color: 'var(--text-soft)', marginTop: 2 }}>
                                   {t('Faixa {belt}', { belt: beltLabel(entry.belt) })} · {t('Grau {grade}', { grade: entry.grade })}
                                   {entry.gradeProgress ? ` · ${t('{count} aulas', { count: entry.gradeProgress })}` : ''}
@@ -2664,17 +2663,16 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                               ) : (
                                 <span style={{ width: 16, height: 16, border: '2px solid var(--border)', borderRadius: 4, flexShrink: 0, display: 'inline-block' }} />
                               )}
-                              <AvatarWithBelt
-                                avatar={photoToAvatar(student.photoPath)}
-                                name={student.displayName ?? t('Aluno')}
-                                belt={(student.belt ?? 'white') as BeltColor}
-                                stripes={student.stripes ?? 0}
-                                size="sm"
-                              />
+                              <span className="lv-avatar rd-cal__row-avatar" aria-hidden="true">
+                                {photoToAvatar(student.photoPath)
+                                  ? <img src={photoToAvatar(student.photoPath)} alt="" />
+                                  : (student.displayName || '?').trim().charAt(0).toLocaleUpperCase(getLocale())}
+                              </span>
                               <div className="attendance-row__info">
                                 <p className="attendance-row__name">
                                   {student.displayName}
                                 </p>
+                                <BeltImage belt={student.belt ?? 'white'} stripes={student.stripes ?? 0} className="lv-belt-mini rd-cal__row-belt" />
                                 <p style={{ fontSize: '0.72rem', color: 'var(--text-soft)', marginTop: 2 }}>
                                   {t('Faixa {belt}', { belt: beltLabel(student.belt) })} · {t('Grau {grade}', { grade: student.grade ?? 0 })}
                                   {gradeProgress ? ` · ${t('{count} aulas', { count: gradeProgress })}` : ''}
