@@ -1450,19 +1450,6 @@ html.dark .app-toolbar__surface {
   font-weight: 800;
 }
 
-/* Marquinha de listras (graus) acima do icone ativo */
-.app-nav-button.is-active .app-nav-button__icon::before {
-  content: '';
-  position: absolute;
-  top: -8px;
-  left: 50%;
-  width: 22px;
-  height: 4px;
-  transform: translateX(-50%);
-  background: repeating-linear-gradient(90deg, var(--lv-on-yellow) 0 3px, transparent 3px 6px);
-  border-radius: 1px;
-}
-
 /* O indicador deslizante vira a pilula amarela */
 .app-nav-indicator__glow,
 .app-nav-indicator__ring {
