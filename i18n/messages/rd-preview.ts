@@ -3,6 +3,7 @@ import type { MessageCatalog } from './types';
 // Textos do redesign (preview). Chave = texto em pt-BR. Antes de criar, procure a chave nos
 // outros arquivos do catalogo: chave duplicada entre arquivos quebra o npm run i18n:check.
 export const rdPreviewMessages: MessageCatalog = {
+  "Ver o cadastro do aluno (novo)": { en: "See the new student sign-up", es: "Ver el nuevo registro del alumno" },
   "Telas": { en: "Screens", es: "Pantallas" },
   "Demonstração do redesign": { en: "Redesign demo", es: "Demostración del rediseño" },
   "Dados fictícios. Nada é salvo.": { en: "Sample data. Nothing is saved.", es: "Datos ficticios. No se guarda nada." },

@@ -22,7 +22,7 @@ interface ScreenHeaderProps {
 }
 
 /**
- * Cabecalho padrao das telas redesenhadas: eyebrow + titulo grande em Sora, alinhados a
+ * Cabecalho padrao das telas redesenhadas: eyebrow + titulo grande (SF Pro), alinhados a
  * esquerda, com acoes redondas a direita (sino com contador para o aluno).
  */
 const ScreenHeader: React.FC<ScreenHeaderProps> = ({

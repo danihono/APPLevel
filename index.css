@@ -1,8 +1,9 @@
 :root {
   color-scheme: light;
   --app-mobile-width: 30rem;
-  --font-display: 'Sora', sans-serif;
-  --font-body: 'Manrope', sans-serif;
+  /* SF Pro (fonte do sistema Apple) no iPhone/Mac; fora da Apple, Inter (a mais parecida). */
+  --font-display: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Inter', 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-body: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Inter', 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   --bg: #f5f7fa;
   --bg-deep: #f5f7fa;
   --bg-contrast: #edf0f8;
@@ -10012,7 +10013,7 @@ html.dark .app-shell--flat .app-sidebar__button.is-active {
 .app-shell--flat .controle-total h3 {
   font-weight: 800;
 }
-/* Valores de KPI/stat: sem font-weight herdavam 400 (Sora fino) e, grandes
+/* Valores de KPI/stat: sem font-weight herdavam 400 (fino) e, grandes
    sobre branco, pareciam cinza-claro/ilegíveis. A cor já herda --text-strong;
    só o peso resolve — e assim o vermelho de alerta (.text-[color:var(--danger)])
    continua valendo. */

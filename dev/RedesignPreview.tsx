@@ -5,6 +5,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Timestamp } from 'firebase/firestore';
 import Layout from '../components/Layout';
 import CheckInScreen from '../components/redesign/CheckInScreen';
+import SignupWizard from '../components/redesign/SignupWizard';
 import { RedesignShellProvider, type RedesignShellValue } from '../components/redesign/ShellContext';
 import GraduationCelebrationModal from '../components/GraduationCelebrationModal';
 import CalendarView from '../views/CalendarView';
@@ -16,7 +17,7 @@ import NotificationsView from '../views/NotificationsView';
 import ProfileView from '../views/ProfileView';
 import StaffDashboardView from '../views/StaffDashboardView';
 import StudentsView from '../views/StudentsView';
-import { getUserProgressionSummary } from '../beltCatalog';
+import { getBeltOptions, getUserProgressionSummary, inferKidsCategoryFromBirthDate, inferTrainingTypeFromBirthDate, kidsCategoryLabel } from '../beltCatalog';
 import { resolveMonthlyCommitment } from '../commitmentScale';
 import { previewNonCountingReason } from '../classRules';
 import { toUiUser } from '../services/firebase/adapters';
@@ -139,6 +140,7 @@ interface ScreenDef {
 }
 
 const SCREENS: ScreenDef[] = [
+  { id: 'aluno-cadastro', role: 'student', tab: 'signup', label: 'Aluno · Cadastro' },
   { id: 'aluno-inicio', role: 'student', tab: 'home', label: 'Aluno · Início' },
   { id: 'aluno-aulas', role: 'student', tab: 'calendar', label: 'Aluno · Aulas' },
   { id: 'aluno-evolucao', role: 'student', tab: 'evolution', label: 'Aluno · Evolução' },
@@ -184,6 +186,100 @@ function writeParams(screenId: string, dark: boolean) {
     // Sem permissao para reescrever a URL: a galeria segue funcionando.
   }
 }
+
+// Cadastro do aluno com estado local: unidades ficticias e envio simulado (nada vai ao Firebase).
+const PreviewSignup: React.FC<{ onExit: () => void }> = ({ onExit }) => {
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [birthDate, setBirthDate] = useState('');
+  const [cpf, setCpf] = useState('');
+  const [selected, setSelected] = useState<string[]>([]);
+  const [belt, setBelt] = useState('white');
+  const [grade, setGrade] = useState(0);
+  const [isCompetitor, setIsCompetitor] = useState(false);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [sent, setSent] = useState(false);
+  const trainingType = inferTrainingTypeFromBirthDate(birthDate);
+  const kidsCategory = inferKidsCategoryFromBirthDate(birthDate);
+  const beltOptions = getBeltOptions(trainingType, kidsCategory);
+  useEffect(() => {
+    if (!beltOptions.some((option) => option.value === belt)) {
+      setBelt(beltOptions[0]?.value ?? 'white');
+      setGrade(0);
+    }
+  }, [belt, beltOptions]);
+  const academies = [
+    { academyId: ACADEMY_ID, name: previewAcademy.name },
+    { academyId: 'preview-level-taquaral', name: 'Level Taquaral Campinas' },
+    { academyId: 'preview-level-valinhos', name: 'Level Valinhos' },
+  ];
+
+  if (sent) {
+    return (
+      <div className="rd-signup">
+        <div className="rd-signup__frame">
+          <div className="rd-signup__success">
+            <div className="rd-signup__done-mark" aria-hidden="true">✓</div>
+            <h1 className="rd-signup__title rd-signup__title--center">{t('Cadastro enviado')}</h1>
+            <p className="rd-signup__lead rd-signup__lead--center">
+              {t('Cadastro enviado com sucesso. Cada unidade selecionada vai analisar sua solicitação separadamente — você receberá uma notificação assim que algum professor aprovar.')}
+            </p>
+          </div>
+          <div className="rd-signup__footer">
+            <button type="button" className="rd-signup__continue" onClick={onExit}>{t('Voltar para o login')}</button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <SignupWizard
+      firstName={firstName}
+      onFirstNameChange={setFirstName}
+      lastName={lastName}
+      onLastNameChange={setLastName}
+      birthDate={birthDate}
+      onBirthDateChange={setBirthDate}
+      cpf={cpf}
+      onCpfChange={setCpf}
+      trackLabel={trainingType === 'Kids' ? `${t('Kids')} · ${kidsCategoryLabel(kidsCategory)}` : t(trainingType)}
+      academyOptions={academies}
+      academyLoading={false}
+      selectedAcademyIds={selected}
+      onToggleAcademy={(id) => setSelected((current) => (current.includes(id) ? current.filter((entry) => entry !== id) : [...current, id]))}
+      manualAcademyId=""
+      onManualAcademyIdChange={() => undefined}
+      onRetryAcademies={() => undefined}
+      academyIdsForSubmit={selected}
+      beltOptions={beltOptions}
+      belt={belt}
+      onBeltChange={setBelt}
+      grade={grade}
+      onGradeChange={setGrade}
+      isCompetitor={isCompetitor}
+      onCompetitorChange={setIsCompetitor}
+      email={email}
+      onEmailChange={setEmail}
+      password={password}
+      onPasswordChange={setPassword}
+      passwordError={(value) => (value.length < 8
+        ? t('A senha deve ter no mínimo 8 caracteres.')
+        : !/[0-9]/.test(value) ? t('A senha deve conter pelo menos um número.') : '')}
+      busy={busy}
+      error=""
+      onSubmit={async () => {
+        setBusy(true);
+        await delay(undefined, 900);
+        setBusy(false);
+        setSent(true);
+      }}
+      onBackToLogin={onExit}
+    />
+  );
+};
 
 const RedesignPreview: React.FC = () => {
   const { language, setLanguage } = useI18n();
@@ -614,6 +710,16 @@ const RedesignPreview: React.FC = () => {
     </div>
   );
 
+  if (!isChooser && screen.tab === 'signup') {
+    return (
+      <>
+        <PreviewSignup key={screenId} onExit={() => setScreenId(CHOOSER_ID)} />
+        {galleryMenu}
+        {previewStyles}
+      </>
+    );
+  }
+
   if (isChooser) {
     return (
       <>
@@ -637,6 +743,9 @@ const RedesignPreview: React.FC = () => {
                 <span>{t('Início, calendário com QR e presença, academia, avisos, learning e perfil.')}</span>
               </button>
             </div>
+            <button type="button" className="rd-demo__signup" onClick={() => setScreenId('aluno-cadastro')}>
+              {t('Ver o cadastro do aluno (novo)')} →
+            </button>
             <p className="rd-demo__hint">{t('Dica: o botão “Telas” na lateral leva direto a qualquer tela e troca a visão a qualquer momento.')}</p>
             <div className="rd-demo__prefs">
               <button type="button" className="rd-demo__pref" onClick={() => setDark((value) => !value)}>
@@ -746,6 +855,7 @@ const previewStyles = (
     .rd-demo__choice--ink span { color: rgba(255,255,255,.72); }
     .rd-demo__choice--ink .rd-demo__choice-kicker { color: #f0b429; }
     .rd-demo__choice:focus-visible, .rd-demo__pref:focus-visible { outline: 3px solid #16161e; outline-offset: 3px; }
+    .rd-demo__signup { align-self: flex-start; padding: 10px 0; border: 0; background: transparent; color: #1a1300; font-family: var(--font-body); font-size: 15px; font-weight: 800; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
     .rd-demo__hint { margin: 4px 0 0; font-size: 13px; font-weight: 700; color: rgba(26,19,0,.72); }
     .rd-demo__prefs { display: flex; flex-wrap: wrap; gap: 8px; }
     .rd-demo__pref { padding: 8px 14px; border: 1.5px solid #1a1300; border-radius: 999px; background: transparent; color: #1a1300; font-weight: 800; font-size: 13px; cursor: pointer; }

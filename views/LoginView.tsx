@@ -1,13 +1,13 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ArrowRight, Eye, EyeOff, Lock, Mail, UserPlus } from 'lucide-react';
+import { ArrowRight, Check, Eye, EyeOff, Lock, Mail } from 'lucide-react';
 import {
   getBeltOptions,
   inferKidsCategoryFromBirthDate,
   inferTrainingTypeFromBirthDate,
   kidsCategoryLabel,
 } from '../beltCatalog';
-import DateField from '../components/DateField';
 import LanguagePicker from '../components/LanguagePicker';
+import SignupWizard from '../components/redesign/SignupWizard';
 import { requestPasswordReset } from '../services/firebase/auth';
 import { backendFunctions, isRetryableSignupAcademyFetchError } from '../services/firebase/functions';
 import { t, tKey, useI18n } from '../i18n';
@@ -272,8 +272,8 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onRequestReactivation, i
     return [...new Set(ids)];
   }, [manualAcademyId, selectedAcademyIds]);
 
-  const handleSignup = async (event: React.FormEvent) => {
-    event.preventDefault();
+  const handleSignup = async (event?: React.FormEvent) => {
+    event?.preventDefault();
     const passwordError = getSignupPasswordError(signupPassword);
 
     if (passwordError) {
@@ -487,210 +487,79 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onRequestReactivation, i
     );
   }
 
-  return (
-    <div className="app-auth-shell">
-      <div className="app-auth-grid">
-        <section className="app-panel app-auth-card">
-          <div className="app-brand">
-            <img src="/logo3.png" alt="APPLevel" className="h-20 w-20 object-contain flex-shrink-0" />
-            <div className="app-brand__text">
-              <p className="app-kicker">Applevel</p>
-              <h1 className="app-headline">
-                {mode === 'signup' ? t('Crie seu acesso como aluno.') : t('Cadastro enviado!')}
-              </h1>
+  const trackLabel = trainingType === 'Kids'
+    ? `${t('Kids')} · ${kidsCategoryLabel(inferredKidsCategory)}`
+    : t(trainingType);
+
+  if (mode === 'success') {
+    return (
+      <div className="rd-signup">
+        <div className="rd-signup__frame">
+          <div className="rd-signup__success">
+            <div className="rd-signup__done-mark" aria-hidden="true">
+              <Check size={34} strokeWidth={3} />
             </div>
+            <h1 className="rd-signup__title rd-signup__title--center">{t('Cadastro enviado')}</h1>
+            <p className="rd-signup__lead rd-signup__lead--center">
+              {t('Cadastro enviado com sucesso. Cada unidade selecionada vai analisar sua solicitação separadamente — você receberá uma notificação assim que algum professor aprovar.')}
+            </p>
           </div>
-
-          <div className="mt-6 flex items-center gap-3">
-            <div className="app-icon-shell">
-              <UserPlus size={18} />
-            </div>
-            <div>
-              <p className="app-section-label">{mode === 'signup' ? t('Cadastro do aluno') : ''}</p>
-              <h2 className="text-3xl font-bold">
-                {mode === 'signup' ? t('Solicite seu acesso') : t('Cadastro enviado')}
-              </h2>
-            </div>
+          <div className="rd-signup__footer">
+            <button
+              type="button"
+              className="rd-signup__continue"
+              onClick={() => {
+                setMode('login');
+                setSignupError('');
+              }}
+            >
+              {t('Voltar para o login')}
+            </button>
           </div>
-
-          {mode === 'signup' ? (
-            <>
-              <p className="app-note mt-4">
-                {t('Seu cadastro fica pendente até aprovação do professor da unidade.')}
-              </p>
-
-              <form className="mt-6 app-form-grid" onSubmit={handleSignup}>
-                {signupError ? (
-                  <div className="app-alert app-alert--error">{signupError}</div>
-                ) : null}
-
-                <label className="app-field">
-                  <span className="app-field__label">{t('Nome')}</span>
-                  <input value={firstName} onChange={(event) => setFirstName(event.target.value)} className="app-input" required />
-                </label>
-
-                <label className="app-field">
-                  <span className="app-field__label">{t('Sobrenome')}</span>
-                  <input value={lastName} onChange={(event) => setLastName(event.target.value)} className="app-input" required />
-                </label>
-
-                <label className="app-field">
-                  <span className="app-field__label">{t('E-mail')}</span>
-                  <input type="email" value={signupEmail} onChange={(event) => setSignupEmail(event.target.value)} className="app-input" required />
-                </label>
-
-                <label className="app-field">
-                  <span className="app-field__label">{t('Senha')}</span>
-                  <input
-                    type="password"
-                    value={signupPassword}
-                    onChange={(event) => setSignupPassword(event.target.value)}
-                    className="app-input"
-                    minLength={8}
-                    pattern="(?=.*[0-9]).{8,}"
-                    title={t('A senha deve ter no mínimo 8 caracteres e conter pelo menos um número.')}
-                    autoComplete="new-password"
-                    required
-                  />
-                  <span className="app-field__hint">{t('Use pelo menos 8 caracteres e 1 número.')}</span>
-                </label>
-
-                <label className="app-field">
-                  <span className="app-field__label">CPF</span>
-                  <input value={cpf} onChange={(event) => setCpf(event.target.value)} className="app-input" placeholder="000.000.000-00" required />
-                </label>
-
-                <label className="app-field">
-                  <span className="app-field__label">{t('Data de nascimento')}</span>
-                  <DateField value={birthDate} onChange={setBirthDate} required />
-                  <span className="app-field__hint">
-                    {t('Trilha detectada:')} {t(trainingType)}
-                    {trainingType === 'Kids' ? ` • ${kidsCategoryLabel(inferredKidsCategory)}` : ''}
-                  </span>
-                </label>
-
-                <div className="app-field">
-                  <span className="app-field__label">{t('Unidades')}</span>
-                  <span className="app-field__hint">
-                    {t('Marque uma ou mais unidades. Cada unidade vai analisar sua solicitação separadamente.')}
-                  </span>
-                  {academyLoading ? (
-                    <div className="app-note" style={{ marginTop: '0.5rem' }}>{t('Carregando unidades...')}</div>
-                  ) : academyOptions.length === 0 ? (
-                    <div className="app-note" style={{ marginTop: '0.5rem' }}>{t('Nenhuma unidade disponível no momento.')}</div>
-                  ) : (
-                    <div className="signup-units">
-                      {academyOptions.map((academyOption) => {
-                        const checked = selectedAcademyIds.includes(academyOption.academyId);
-                        return (
-                          <label
-                            key={academyOption.academyId}
-                            className={`signup-units__option${checked ? ' signup-units__option--checked' : ''}`}
-                          >
-                            <input
-                              type="checkbox"
-                              checked={checked}
-                              onChange={() => toggleAcademySelection(academyOption.academyId)}
-                            />
-                            <span className="signup-units__name">{academyOption.name}</span>
-                          </label>
-                        );
-                      })}
-                    </div>
-                  )}
-                  {selectedAcademyIds.length > 0 ? (
-                    <span className="app-field__hint" style={{ marginTop: '0.5rem' }}>
-                      {t('Solicitando entrada em {count} unidade(s).', { count: selectedAcademyIds.length })}
-                    </span>
-                  ) : null}
-                </div>
-
-                {!academyLoading && academyOptions.length === 0 ? (
-                  <label className="app-field">
-                    <span className="app-field__label">{t('Academy ID manual')}</span>
-                    <input
-                      value={manualAcademyId}
-                      onChange={(event) => setManualAcademyId(event.target.value)}
-                      className="app-input"
-                      placeholder={t('Cole aqui o Academy ID da unidade')}
-                    />
-                    <span className="app-field__hint">
-                      {t('Se a lista não carregar, você ainda pode entrar com o ID da academia manualmente.')}
-                    </span>
-                  </label>
-                ) : null}
-
-                {!academyLoading && academyOptions.length === 0 ? (
-                  <button
-                    type="button"
-                    onClick={handleRetryAcademies}
-                    className="app-button app-button--ghost app-button--block"
-                  >
-                    {t('Tentar carregar unidades novamente')}
-                  </button>
-                ) : null}
-
-                <label className="app-field">
-                  <span className="app-field__label">{t('Faixa')}</span>
-                  <select value={belt} onChange={(event) => setBelt(event.target.value)} className="app-select" required>
-                    {signupBeltOptions.map((option) => (
-                      <option key={option.value} value={option.value}>{option.label}</option>
-                    ))}
-                  </select>
-                </label>
-
-                <label className="app-field">
-                  <span className="app-field__label">{t('Grau')}</span>
-                  <input type="number" min={0} value={grade} onChange={(event) => setGrade(Number(event.target.value))} className="app-input" required />
-                </label>
-
-                <label className="app-field">
-                  <span className="app-field__label">{t('Competidor')}</span>
-                  <select value={isCompetitor ? 'yes' : 'no'} onChange={(event) => setIsCompetitor(event.target.value === 'yes')} className="app-select">
-                    <option value="no">{t('Não')}</option>
-                    <option value="yes">{t('Sim')}</option>
-                  </select>
-                </label>
-
-                <button type="submit" disabled={signupLoading || academyLoading || academyIdsForSubmit.length === 0} className="app-button app-button--gold app-button--block">
-                  {signupLoading ? t('Enviando...') : t('Enviar cadastro')}
-                </button>
-              </form>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setMode('login');
-                  setSignupError('');
-                }}
-                className="mt-6 w-full text-sm font-semibold text-[color:var(--gold-mid)]"
-              >
-                {t('Já tem login? Entrar')}
-              </button>
-            </>
-          ) : null}
-
-          {mode === 'success' ? (
-            <div className="mt-6 app-form-grid">
-              <div className="app-alert app-alert--success">
-                {t('Cadastro enviado com sucesso. Cada unidade selecionada vai analisar sua solicitação separadamente — você receberá uma notificação assim que algum professor aprovar.')}
-              </div>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setMode('login');
-                  setSignupError('');
-                }}
-                className="app-button app-button--gold app-button--block"
-              >
-                {t('Voltar para o login')}
-              </button>
-            </div>
-          ) : null}
-        </section>
+        </div>
       </div>
-    </div>
+    );
+  }
+
+  return (
+    <SignupWizard
+      firstName={firstName}
+      onFirstNameChange={setFirstName}
+      lastName={lastName}
+      onLastNameChange={setLastName}
+      birthDate={birthDate}
+      onBirthDateChange={setBirthDate}
+      cpf={cpf}
+      onCpfChange={setCpf}
+      trackLabel={trackLabel}
+      academyOptions={academyOptions}
+      academyLoading={academyLoading}
+      selectedAcademyIds={selectedAcademyIds}
+      onToggleAcademy={toggleAcademySelection}
+      manualAcademyId={manualAcademyId}
+      onManualAcademyIdChange={setManualAcademyId}
+      onRetryAcademies={handleRetryAcademies}
+      academyIdsForSubmit={academyIdsForSubmit}
+      beltOptions={signupBeltOptions}
+      belt={belt}
+      onBeltChange={setBelt}
+      grade={grade}
+      onGradeChange={setGrade}
+      isCompetitor={isCompetitor}
+      onCompetitorChange={setIsCompetitor}
+      email={signupEmail}
+      onEmailChange={setSignupEmail}
+      password={signupPassword}
+      onPasswordChange={setSignupPassword}
+      passwordError={getSignupPasswordError}
+      busy={signupLoading}
+      error={signupError}
+      onSubmit={() => handleSignup()}
+      onBackToLogin={() => {
+        setMode('login');
+        setSignupError('');
+      }}
+    />
   );
 };
 
