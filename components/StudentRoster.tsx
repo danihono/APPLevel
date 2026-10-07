@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ALL_BELTS, beltLabel, getBlackBeltProgressForUser, getGradeProgressLabel, getUserProgressionSummary, type ProgressionRules } from '../beltCatalog';
-import { BarChart3, ChevronRight, List, Search, UserX } from 'lucide-react';
+import { ALL_BELTS, beltLabel, getBeltMeta, getBlackBeltProgressForUser, getGradeProgressLabel, getUserProgressionSummary, type ProgressionRules } from '../beltCatalog';
+import { BarChart3, ChevronRight, List, Search, SlidersHorizontal, UserX, X } from 'lucide-react';
 import AvatarWithBelt from './AvatarWithBelt';
+import BeltImage from './BeltImage';
 import { CommitmentBadge } from './CommitmentBar';
 import { resolveCommitment, summarizeMonthlyAttendanceByUser, type CommitmentResult } from '../commitmentScale';
 import DateField from './DateField';
@@ -10,6 +11,7 @@ import type { FirestoreEntity } from '../services/firebase/data';
 import type { AttendanceRecord, ClassRecord, GraduationApprovalRequestRecord } from '../services/firebase/models';
 import type { BeltColor, User } from '../types';
 import { t, getLocale, createDateFormatter } from '../i18n';
+import './redesign/ranking.css';
 
 type SortMode = 'name-asc' | 'name-desc' | 'belt-desc' | 'grade-desc' | 'commitment-desc' | 'commitment-asc';
 type RosterSection = 'list' | 'ranking' | 'deactivated';
@@ -359,6 +361,7 @@ const StudentRoster: React.FC<StudentRosterProps> = ({
   const [filterStatus, setFilterStatus] = useState<StatusFilter>('active');
   const [sortMode, setSortMode] = useState<SortMode>('name-asc');
   const [rankingPeriod, setRankingPeriod] = useState<RankingPeriodPreset>('3m');
+  const [rankingFiltersOpen, setRankingFiltersOpen] = useState(false);
   const [customStartDate, setCustomStartDate] = useState(RANKING_START_DATE_INPUT);
   const [customEndDate, setCustomEndDate] = useState(toSaoPauloDateInput());
   const [internalSelectedStudentId, setInternalSelectedStudentId] = useState(selectedStudentId);
@@ -634,6 +637,381 @@ const StudentRoster: React.FC<StudentRosterProps> = ({
         onDeactivateStudent={onDeactivateStudent}
         onActivateStudent={onActivateStudent}
       />
+    );
+  }
+
+  // ─── Ranking (redesign): pódio + resumo + classificação. Mesmos dados e regras da versão anterior;
+  // Lista e Desativados continuam com o layout de antes (render abaixo).
+  if (activeSection === 'ranking' && !shouldChooseAcademyFirst) {
+    const podiumRows = rankingRows.filter((row) => row.attendanceCount > 0).slice(0, 3);
+    // Ordem visual do pódio: 2º · 1º · 3º (só os que existem).
+    const podiumSlots = [
+      podiumRows[1] ? { row: podiumRows[1], place: 2 } : null,
+      podiumRows[0] ? { row: podiumRows[0], place: 1 } : null,
+      podiumRows[2] ? { row: podiumRows[2], place: 3 } : null,
+    ].filter((slot): slot is { row: (typeof rankingRows)[number]; place: number } => slot !== null);
+    const classificationRows = rankingRows.slice(podiumRows.length);
+    const presencesLabel = (count: number) => (count === 1 ? t('presença') : t('presenças'));
+
+    const renderAvatar = (student: User, size: 'lg' | 'md') => (
+      <span
+        className={`rd-rank__avatar rd-rank__avatar--${size}`}
+        style={{ '--rd-rank-ring': getBeltMeta(student.belt).breakdownColor } as React.CSSProperties}
+      >
+        {student.avatar ? (
+          <img src={student.avatar} alt="" loading="lazy" />
+        ) : (
+          <span>{(student.name || '?').trim().charAt(0).toUpperCase() || '?'}</span>
+        )}
+      </span>
+    );
+
+    const renderMiniBelt = (student: User) => (
+      <BeltImage
+        belt={student.belt}
+        stripes={getStudentGrade(student)}
+        blackBelt={getBlackBeltProgressForUser(student)}
+        className="rd-rank__belt"
+      />
+    );
+
+    const filterCount = [
+      searchTerm.trim() !== '',
+      filterBelt !== 'ALL',
+      filterGrade !== 'ALL',
+      filterType !== 'ALL',
+      showStatusFilter && filterStatus !== 'active',
+    ].filter(Boolean).length;
+
+    return (
+      <div className="view-shell rd-rank">
+        <header className="rd-rank__header">
+          <div className="rd-rank__header-row">
+            <p className="rd-rank__eyebrow">
+              {t('Academia')}{academyName ? ` · ${academyName}` : ''}
+            </p>
+            <button
+              type="button"
+              className="rd-rank__filters-btn"
+              onClick={() => setRankingFiltersOpen(true)}
+              aria-haspopup="dialog"
+            >
+              <SlidersHorizontal size={16} />
+              {t('Filtros')}
+              {filterCount > 0 ? <span className="rd-rank__filters-count">{filterCount}</span> : null}
+            </button>
+          </div>
+          <h1 className="rd-rank__title">{t('Alunos')}</h1>
+
+          <div className="rd-rank__tabs" role="tablist" aria-label={t('Secoes de alunos')}>
+            <button type="button" role="tab" aria-selected={false} onClick={() => setActiveSection('list')} className="rd-rank__tab">
+              {t('Lista')}
+            </button>
+            <button type="button" role="tab" aria-selected className="rd-rank__tab is-active">
+              {t('Ranking')}
+            </button>
+            {canManageDeactivated ? (
+              <button type="button" role="tab" aria-selected={false} onClick={() => setActiveSection('deactivated')} className="rd-rank__tab">
+                {t('Desativados')}
+                {deactivatedStudents.length > 0 ? <span className="rd-rank__tab-count">{deactivatedStudents.length}</span> : null}
+              </button>
+            ) : null}
+          </div>
+        </header>
+
+        <section className="rd-rank__stage" aria-label={t('Ranking')}>
+          <div className="rd-rank__periods" role="group" aria-label={t('Período do ranking')}>
+            {rankingPeriodOptions.map((option) => (
+              <button
+                key={option.value}
+                type="button"
+                onClick={() => setRankingPeriod(option.value)}
+                aria-pressed={rankingPeriod === option.value}
+                className={`rd-rank__period ${rankingPeriod === option.value ? 'is-active' : ''}`.trim()}
+              >
+                {t(option.label)}
+              </button>
+            ))}
+          </div>
+
+          {rankingPeriod === 'custom' ? (
+            <div className="rd-rank__dates">
+              <label className="app-field">
+                <span className="app-field__label">{t('Inicio')}</span>
+                <DateField
+                  min={RANKING_START_DATE_INPUT}
+                  max={currentDateInput}
+                  value={customStartDate}
+                  onChange={(value) => setCustomStartDate(clampRankingStart(value))}
+                />
+              </label>
+              <label className="app-field">
+                <span className="app-field__label">{t('Fim')}</span>
+                <DateField
+                  min={clampRankingStart(customStartDate)}
+                  max={currentDateInput}
+                  value={customEndDate}
+                  onChange={setCustomEndDate}
+                />
+              </label>
+            </div>
+          ) : null}
+
+          <p className="rd-rank__note">
+            {isOfficialTotalRanking
+              ? t('Ranking oficial: usa a contagem registrada no perfil do aluno.')
+              : t('Ranking analitico: {period}. Conta presencas de aulas ja realizadas. Nao altera faixa, grau ou contagem oficial.', { period: periodRange.label })}
+          </p>
+
+          {podiumSlots.length > 0 ? (
+            <div className={`rd-rank__podium rd-rank__podium--${podiumSlots.length}`}>
+              <span className="rd-rank__confetti" aria-hidden="true">
+                <i /><i /><i /><i /><i /><i /><i /><i />
+              </span>
+              {podiumSlots.map(({ row, place }) => (
+                <button
+                  key={row.student.id}
+                  type="button"
+                  className={`rd-rank__place rd-rank__place--${place}`}
+                  onClick={() => openStudent(row.student.id)}
+                  aria-label={`${place}º · ${row.student.name} · ${formatNumber(row.attendanceCount)} ${presencesLabel(row.attendanceCount)}`}
+                >
+                  <span className="rd-rank__place-person">
+                    {renderAvatar(row.student, 'lg')}
+                    <span className="rd-rank__place-name">{row.student.name}</span>
+                    {renderMiniBelt(row.student)}
+                    <span className="rd-rank__place-count">{formatNumber(row.attendanceCount)}</span>
+                    <span className="rd-rank__place-unit">{presencesLabel(row.attendanceCount)}</span>
+                  </span>
+                  <span className="rd-rank__block" aria-hidden="true">
+                    <span>{place}</span>
+                  </span>
+                </button>
+              ))}
+            </div>
+          ) : (
+            <div className="rd-rank__stage-empty">{t('Nenhuma presenca encontrada neste periodo.')}</div>
+          )}
+        </section>
+
+        <section className="rd-rank__sheet">
+          <div className="rd-rank__kpis">
+            <article className="rd-rank__kpi">
+              <p className="rd-rank__kpi-label">{t('Alunos no filtro')}</p>
+              <p className="rd-rank__kpi-value">{formatNumber(rankingRows.length)}</p>
+              <p className="rd-rank__kpi-note">{selectedAcademyId ? academyNameById.get(selectedAcademyId) ?? t('Unidade selecionada') : (academyName ?? t('Base atual'))}</p>
+            </article>
+            <article className="rd-rank__kpi">
+              <p className="rd-rank__kpi-label">{t('Presencas')}</p>
+              <p className="rd-rank__kpi-value">{formatNumber(rankingTotalAttendances)}</p>
+              <p className="rd-rank__kpi-note">{periodRange.label}</p>
+            </article>
+            <article className="rd-rank__kpi">
+              <p className="rd-rank__kpi-label">{t('Media')}</p>
+              <p className="rd-rank__kpi-value">{formatAverage(rankingAverage)}</p>
+              <p className="rd-rank__kpi-note">{t('Presencas por aluno')}</p>
+            </article>
+            <article className="rd-rank__kpi">
+              <p className="rd-rank__kpi-label">{t('Lider')}</p>
+              <p className="rd-rank__kpi-value">{rankingLeader ? formatNumber(rankingLeader.attendanceCount) : '0'}</p>
+              <p className="rd-rank__kpi-note">{rankingLeader?.student.name ?? t('Sem presencas no periodo')}</p>
+            </article>
+          </div>
+
+          <div className="rd-rank__section-head">
+            <h2 className="rd-rank__section-title">{t('Classificação')}</h2>
+            <span className="rd-rank__section-meta">
+              {rankingRows.length === 1 ? t('1 aluno') : t('{count} alunos', { count: formatNumber(rankingRows.length) })}
+            </span>
+          </div>
+
+          {rankingRows.length === 0 ? (
+            <div className="app-empty">{emptyResultsMessage}</div>
+          ) : classificationRows.length > 0 ? (
+            <div className="rd-rank__list">
+              {classificationRows.map((row, index) => {
+                const position = podiumRows.length + index + 1;
+                const commitment = commitmentByUserId.get(row.student.id);
+                return (
+                  <button
+                    key={row.student.id}
+                    type="button"
+                    className="rd-rank__row"
+                    onClick={() => openStudent(row.student.id)}
+                  >
+                    <span className="rd-rank__position">{position}º</span>
+                    {renderAvatar(row.student, 'md')}
+                    <span className="rd-rank__row-main">
+                      <span className="rd-rank__row-name">{row.student.name}</span>
+                      <span className="rd-rank__row-meta">
+                        {academyNameById.get(row.student.branchId) ?? academyName ?? t('Academia')} / {t('Faixa {belt}', { belt: beltLabel(row.student.belt) })} / {t('Grau {grade}', { grade: getStudentGrade(row.student) })}
+                      </span>
+                      <span className="rd-rank__row-tags">
+                        {renderMiniBelt(row.student)}
+                        {commitment ? <CommitmentBadge commitment={commitment} /> : null}
+                      </span>
+                    </span>
+                    <span className="rd-rank__row-count">
+                      <strong>{formatNumber(row.attendanceCount)}</strong>
+                      <small>{presencesLabel(row.attendanceCount)}</small>
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          ) : null}
+
+          <div className="rd-rank__section-head rd-rank__section-head--stack">
+            <p className="rd-rank__section-eyebrow">{t('Top 10')}</p>
+            <h2 className="rd-rank__section-title">{t('Mais frequentes')}</h2>
+          </div>
+          {topChartRows.length > 0 ? (
+            <div className="rd-rank__bars">
+              {topChartRows.map((row, index) => (
+                <div key={row.student.id} className="rd-rank__bar-row">
+                  <div className="rd-rank__bar-head">
+                    <strong>#{index + 1} {row.student.name}</strong>
+                    <span>{formatNumber(row.attendanceCount)}</span>
+                  </div>
+                  <div className="rd-rank__bar-track">
+                    <span style={{ width: `${Math.max(8, (row.attendanceCount / maxTopAttendance) * 100)}%` }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="app-empty">{t('Nenhuma presenca encontrada neste periodo.')}</div>
+          )}
+
+          <div className="rd-rank__section-head rd-rank__section-head--stack">
+            <p className="rd-rank__section-eyebrow">{t('Faixas')}</p>
+            <h2 className="rd-rank__section-title">{t('Presencas por faixa')}</h2>
+          </div>
+          {beltBreakdown.length > 0 ? (
+            <div className="rd-rank__bars">
+              {beltBreakdown.map((row) => (
+                <div key={row.belt} className="rd-rank__bar-row">
+                  <div className="rd-rank__bar-head">
+                    <strong>
+                      <span className="rd-rank__swatch" style={{ background: getBeltMeta(row.belt).breakdownColor }} aria-hidden="true" />
+                      {beltLabel(row.belt)}
+                    </strong>
+                    <span>{t('{count} presencas', { count: formatNumber(row.attendanceCount) })}</span>
+                  </div>
+                  <div className="rd-rank__bar-track">
+                    <span style={{ width: `${row.attendanceCount > 0 ? Math.max(8, (row.attendanceCount / maxBeltAttendance) * 100) : 0}%` }} />
+                  </div>
+                  <p className="rd-rank__bar-note">{row.studentCount === 1 ? t('1 aluno') : t('{count} alunos', { count: formatNumber(row.studentCount) })}</p>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="app-empty">{t('Nenhuma faixa para os filtros atuais.')}</div>
+          )}
+        </section>
+
+        {rankingFiltersOpen ? (
+          <div className="lv-backdrop rd-rank__backdrop" onClick={() => setRankingFiltersOpen(false)}>
+            <div
+              className="lv-sheet rd-rank__filters"
+              role="dialog"
+              aria-modal="true"
+              aria-label={t('Filtros')}
+              onClick={(event) => event.stopPropagation()}
+            >
+              <div className="lv-sheet__grip" aria-hidden="true" />
+              <div className="lv-sheet__head">
+                <h2 className="rd-rank__section-title">{t('Filtros')}</h2>
+                <button type="button" className="lv-icon-btn" onClick={() => setRankingFiltersOpen(false)} aria-label={t('Fechar')}>
+                  <X size={20} />
+                </button>
+              </div>
+
+              <div className="rd-rank__filter-fields">
+                {showAcademyFilter ? (
+                  <label className="app-field">
+                    <span className="app-field__label">{t('Unidade em foco')}</span>
+                    <select value={selectedAcademyId} onChange={(event) => onSelectAcademy?.(event.target.value)} className="app-select">
+                      <option value="">{enableAcademyFilter ? t('Todas as unidades') : t('Selecione uma unidade')}</option>
+                      {academies.map((academyOption) => (
+                        <option key={academyOption.id} value={academyOption.id}>{academyOption.name}</option>
+                      ))}
+                    </select>
+                  </label>
+                ) : null}
+
+                <label className="app-field">
+                  <span className="app-field__label">{t('Buscar aluno')}</span>
+                  <div className="app-search">
+                    <Search size={18} />
+                    <input
+                      type="text"
+                      placeholder={t('Nome ou sobrenome')}
+                      value={searchTerm}
+                      onChange={(event) => setSearchTerm(event.target.value)}
+                      className="app-input pl-11"
+                    />
+                  </div>
+                </label>
+
+                <label className="app-field">
+                  <span className="app-field__label">{t('Faixa')}</span>
+                  <select value={filterBelt} onChange={(event) => setFilterBelt(event.target.value as BeltColor | 'ALL')} className="app-select">
+                    <option value="ALL">{t('Todas as faixas')}</option>
+                    {ALL_BELTS.map((belt) => (
+                      <option key={belt} value={belt}>{beltLabel(belt)}</option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="app-field">
+                  <span className="app-field__label">{t('Grau')}</span>
+                  <select value={filterGrade} onChange={(event) => setFilterGrade(event.target.value)} className="app-select">
+                    <option value="ALL">{t('Todos os graus')}</option>
+                    {gradeOptions.map((grade) => (
+                      <option key={grade} value={grade}>{grade}</option>
+                    ))}
+                  </select>
+                </label>
+
+                {showStatusFilter ? (
+                  <div className="rd-rank__chips">
+                    {STATUS_FILTER_OPTIONS.map((option) => (
+                      <button
+                        key={option.value}
+                        type="button"
+                        onClick={() => setFilterStatus(option.value)}
+                        aria-pressed={filterStatus === option.value}
+                        className={`rd-rank__chip ${filterStatus === option.value ? 'is-active' : ''}`.trim()}
+                      >
+                        {t(option.label)}
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
+
+                <div className="rd-rank__chips">
+                  {['ALL', 'Adulto', 'Kids'].map((item) => (
+                    <button
+                      key={item}
+                      type="button"
+                      onClick={() => setFilterType(item as 'ALL' | 'Adulto' | 'Kids')}
+                      aria-pressed={filterType === item}
+                      className={`rd-rank__chip ${filterType === item ? 'is-active' : ''}`.trim()}
+                    >
+                      {item === 'ALL' ? t('Todos') : t(item)}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <button type="button" className="lv-btn lv-btn--primary lv-btn--block" onClick={() => setRankingFiltersOpen(false)}>
+                {t('Ver ranking')}
+              </button>
+            </div>
+          </div>
+        ) : null}
+      </div>
     );
   }
 

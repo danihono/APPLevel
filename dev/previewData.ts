@@ -460,3 +460,30 @@ export const previewLearningProgress: Array<FirestoreEntity<LearningProgressReco
     attemptCount: 1,
   },
 ];
+
+// Aulas passadas por tras das presencas acima (ids `hist-*`). O ranking por periodo so conta
+// presenca de aula realizada, entao a demo precisa dessas aulas no calendario da academia.
+export const previewHistoryClasses: Array<FirestoreEntity<ClassRecord>> = (() => {
+  const byId = new Map<string, FirestoreEntity<ClassRecord>>();
+  [...previewAcademyAttendances, ...previewStudentAttendances].forEach((attendance) => {
+    if (byId.has(attendance.classId) || !attendance.classStartAt) return;
+    const start = attendance.classStartAt.toDate();
+    byId.set(attendance.classId, {
+      id: attendance.classId,
+      academyId: ACADEMY_ID,
+      title: 'Iniciante',
+      description: 'iniciante',
+      professorId: 'prof-murilo',
+      professorName: 'Murilo Ale',
+      tatame: 'Tatame 1',
+      status: 'finished',
+      scheduledStart: attendance.classStartAt,
+      scheduledEnd: ts(new Date(start.getTime() + 60 * 60_000)),
+      capacity: 20,
+      currentAttendanceCount: 0,
+      rsvpCount: 0,
+      checkinWindowMinutes: 15,
+    });
+  });
+  return [...byId.values()];
+})();

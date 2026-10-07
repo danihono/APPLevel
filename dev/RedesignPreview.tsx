@@ -37,6 +37,7 @@ import {
   previewFights,
   previewGraduationRequests,
   previewGraduations,
+  previewHistoryClasses,
   previewJoinRequests,
   previewLearningBlocks,
   previewLearningCourses,
@@ -134,7 +135,7 @@ interface ScreenDef {
   tab: string;
   label: string;
   overlay?: 'checkin' | 'checkin-link' | 'celebration';
-  variant?: 'black' | 'empty';
+  variant?: 'black' | 'empty' | 'ranking';
 }
 
 const SCREENS: ScreenDef[] = [
@@ -153,6 +154,7 @@ const SCREENS: ScreenDef[] = [
   { id: 'prof-inicio', role: 'staff', tab: 'home', label: 'Professor · Início' },
   { id: 'prof-calendario', role: 'staff', tab: 'calendar', label: 'Professor · Calendário (toque numa aula)' },
   { id: 'prof-academia', role: 'staff', tab: 'management', label: 'Professor · Academia' },
+  { id: 'prof-ranking', role: 'staff', tab: 'students', label: 'Professor · Ranking', variant: 'ranking' },
   { id: 'prof-aluno', role: 'staff', tab: 'students', label: 'Professor · Detalhe do aluno' },
   { id: 'prof-avisos', role: 'staff', tab: 'notifications', label: 'Professor · Avisos' },
   { id: 'prof-learning', role: 'staff', tab: 'learning', label: 'Professor · Learning' },
@@ -259,6 +261,7 @@ const RedesignPreview: React.FC = () => {
     firstName: screen.role === 'staff' ? previewProfessor.firstName : previewStudent.firstName,
   };
 
+  const rosterClasses = [...previewClasses, ...previewHistoryClasses];
   const professors = previewUsers.filter((user) => user.role === 'professor').map((user) => ({ id: user.id, displayName: user.displayName }));
   const toUi = (record: FirestoreEntity<UserRecord>) => toUiUser({ id: record.id, user: record, graduations: [], fights: [] });
   const activeStudents = previewUsers.filter((user) => user.role === 'student' && user.status !== 'suspended').map(toUi);
@@ -465,7 +468,7 @@ const RedesignPreview: React.FC = () => {
           <ManagementView
             userRole={UserRole.PROFESSOR}
             academy={previewAcademy}
-            classes={previewClasses}
+            classes={rosterClasses}
             academyUsers={previewUsers}
             academies={[previewAcademy]}
             allUsers={previewUsers}
@@ -486,18 +489,23 @@ const RedesignPreview: React.FC = () => {
       case 'students':
         return (
           <StudentsView
+            key={screen.id}
+            focusSection={screen.variant === 'ranking' ? 'ranking' : null}
             students={activeStudents}
             deactivatedStudents={suspendedStudents}
             progressionRules={previewAcademy.progressionRules}
             graduationRequests={previewGraduationRequests}
             rankingAttendances={previewAcademyAttendances}
-            classes={previewClasses}
+            classes={rosterClasses}
             academyName={previewAcademy.name}
             academies={[{ id: ACADEMY_ID, name: previewAcademy.name }]}
             selectedAcademyId={ACADEMY_ID}
             requireAcademySelection={false}
-            selectedStudentId={selectedStudentId}
-            onSelectStudent={setSelectedStudentId}
+            selectedStudentId={screen.variant === 'ranking' ? '' : selectedStudentId}
+            onSelectStudent={(studentId) => {
+              setSelectedStudentId(studentId);
+              if (studentId && screen.variant === 'ranking') setScreenId('prof-aluno');
+            }}
             onApproveGraduationRequest={saveDelay}
             onUpdateStudentBeltGrade={saveDelay}
             onSetStudentAttendanceBonus={saveDelay}

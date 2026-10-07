@@ -33,6 +33,7 @@ import { rdHomeMessages } from './rd-home';
 import { rdNotificationsMessages } from './rd-notifications';
 import { rdPreviewMessages } from './rd-preview';
 import { rdProfileMessages } from './rd-profile';
+import { rdRankingMessages } from './rd-ranking';
 import { rdShellMessages } from './rd-shell';
 import { rdStaffHomeMessages } from './rd-staff-home';
 
@@ -71,6 +72,7 @@ export const messages: MessageCatalog = {
   ...rdNotificationsMessages,
   ...rdPreviewMessages,
   ...rdProfileMessages,
+  ...rdRankingMessages,
   ...rdShellMessages,
   ...rdStaffHomeMessages,
 };
