@@ -24,7 +24,7 @@ function classesLabel(classes: number): string {
 // diferem (aula iniciante fora da faixa, 3a aula do dia) a linha explica a diferenca — senao o
 // aluno ve 6 aqui e 5 em "Total de treinos no mes" e acha que o app errou.
 function commitmentNote(commitment: CommitmentResult): string {
-  const base = t('{classes} em {month}', { classes: classesLabel(commitment.classes), month: commitment.monthLabel });
+  const base = t('{classes} nos últimos 30 dias', { classes: classesLabel(commitment.classes) });
   return commitment.countedClasses < commitment.classes
     ? `${base} · ${t('{count} contam para graduação', { count: commitment.countedClasses })}`
     : base;
@@ -33,7 +33,7 @@ function commitmentNote(commitment: CommitmentResult): string {
 export interface CommitmentBarProps {
   commitment: CommitmentResult;
   title?: string;
-  /** Linha de apoio com as aulas do mes. */
+  /** Linha de apoio com as aulas dos ultimos 30 dias. */
   showNote?: boolean;
 }
 

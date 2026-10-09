@@ -2,7 +2,12 @@ import { resolveAttendanceDate, type AttendanceDateFields, type AttendanceSchedu
 import { academyDayKey } from './dailyTrainingUtils.ts';
 import type { TrainingType } from './beltCatalog';
 
-// Comprometimento do aluno: nota de 0 a 100 pelas aulas do MES corrente, em quatro cores.
+// Comprometimento do aluno: nota de 0 a 100 pelas aulas dos ULTIMOS 30 DIAS, em quatro cores.
+//
+// Janela movel, nao mes do calendario: na virada do mes a barra nao zera — em 1o/out ela mostra
+// a mesma nota com que setembro terminou, e dai em diante cada dia sai uma aula antiga da conta e
+// entra a de hoje. Pedido do cliente: quem treinou o mes inteiro nao pode amanhecer vermelho.
+// As tabelas abaixo continuam "por mes" — 30 dias sao o mes.
 //
 // A nota e a cor saem da tabela, nunca de um limiar global sobre a nota — 80 pontos e verde no
 // adulto e amarelo no kids. Por isso `resolveCommitment` devolve as duas coisas juntas, e quem
@@ -30,27 +35,22 @@ export interface CommitmentResult {
   label: string;
   track: TrainingType;
   /**
-   * Aulas do mes: TODA aula em que o aluno esteve no tatame. E este numero que vira a nota.
-   * Vide `summarizeMonthlyAttendance` para o porque de participacao != presenca computada.
+   * Aulas dos ultimos 30 dias: TODA aula em que o aluno esteve no tatame. E este numero que vira
+   * a nota. Vide `summarizeMonthlyAttendance` para o porque de participacao != presenca computada.
    */
   classes: number;
   /** Subconjunto de `classes` que conta para a graduacao. So aparece na leitura, nao na nota. */
   countedClasses: number;
-  /** Semanas distintas do mes com treino. */
+  /** Semanas distintas da janela com treino. */
   weeksWithClasses: number;
-  /** Mes de referencia por extenso, ex.: "setembro de 2026". */
-  monthLabel: string;
 }
 
 export interface MonthlyAttendanceSummary {
-  /** Participacao: todas as aulas do mes. */
+  /** Participacao: todas as aulas da janela. */
   classes: number;
   /** As que contam para a graduacao. */
   countedClasses: number;
   weeksWithClasses: number;
-  /** Dias do mes com treino, em ordem. */
-  dayNumbers: number[];
-  monthLabel: string;
 }
 
 export interface MonthlyAttendanceInput extends AttendanceDateFields {
@@ -61,35 +61,22 @@ export interface MonthlyAttendanceInput extends AttendanceDateFields {
 
 const DEFAULT_TIMEZONE = 'America/Sao_Paulo';
 
-// Idioma da interface (o LanguageProvider mantem <html lang>). Este modulo nao importa o i18n
-// para continuar carregavel pelos testes com --experimental-strip-types.
-function uiLocale(): string {
-  const lang = typeof document !== 'undefined' ? document.documentElement.lang : '';
-  return lang === 'en' ? 'en-US' : lang === 'es' ? 'es-ES' : 'pt-BR';
+/** Tamanho da janela movel: hoje e os 29 dias anteriores. */
+export const COMMITMENT_WINDOW_DAYS = 30;
+
+// Diferenca em dias entre dois 'YYYY-MM-DD' (ja no fuso da academia). Conta sobre meia-noite UTC
+// de proposito: horario de verao nao faz um dia valer 23 ou 25 horas.
+function daysBetweenDayKeys(fromKey: string, toKey: string): number {
+  const toUtc = (key: string) =>
+    Date.UTC(Number(key.slice(0, 4)), Number(key.slice(5, 7)) - 1, Number(key.slice(8, 10)));
+  return Math.round((toUtc(toKey) - toUtc(fromKey)) / 86_400_000);
 }
 
-function monthFormatter(timeZone: string): Intl.DateTimeFormat {
-  try {
-    return new Intl.DateTimeFormat(uiLocale(), { timeZone: timeZone || DEFAULT_TIMEZONE, month: 'long', year: 'numeric' });
-  } catch {
-    return new Intl.DateTimeFormat(uiLocale(), { timeZone: DEFAULT_TIMEZONE, month: 'long', year: 'numeric' });
-  }
-}
-
-export function formatMonthLabel(date: Date, timeZone: string = DEFAULT_TIMEZONE): string {
-  return monthFormatter(timeZone).format(date);
-}
-
-/** 'YYYY-MM' no fuso da academia. */
-export function academyMonthKey(date: Date, timeZone: string = DEFAULT_TIMEZONE): string {
-  return academyDayKey(date, timeZone).slice(0, 7);
-}
-
-// "Semana" da regra das 4 aulas: blocos de dias do mes (1-7, 8-14, 15-21, 22 ate o fim).
-// Deterministico e nunca passa de 4 blocos — o que casa com o teto de "4 semanas" da tabela.
-// Semana ISO daria resultado diferente conforme o dia em que o mes comecou.
-function weekBlockOfMonth(dayOfMonth: number): number {
-  return Math.min(4, Math.floor((dayOfMonth - 1) / 7) + 1);
+// "Semana" da regra das 4 aulas: blocos de 7 dias contados de hoje para tras (0-6 dias atras,
+// 7-13, 14-20, 21-29). Nunca passa de 4 blocos — o que casa com o teto de "4 semanas" da tabela.
+// Semana ISO daria resultado diferente conforme o dia da semana em que a janela comeca.
+function weekBlockOfWindow(daysAgo: number): number {
+  return Math.min(4, Math.floor(daysAgo / 7) + 1);
 }
 
 function scoreAdult(classes: number, weeksWithClasses: number): { score: number; level: CommitmentLevel } {
@@ -130,7 +117,6 @@ export function resolveCommitment(params: {
   countedClasses?: number;
   weeksWithClasses?: number;
   track: TrainingType;
-  monthLabel?: string;
 }): CommitmentResult {
   const classes = Math.max(0, Math.floor(params.classes));
   const countedClasses = Math.min(classes, Math.max(0, Math.floor(params.countedClasses ?? classes)));
@@ -147,12 +133,12 @@ export function resolveCommitment(params: {
     classes,
     countedClasses,
     weeksWithClasses,
-    monthLabel: params.monthLabel ?? formatMonthLabel(new Date()),
   };
 }
 
 /**
- * Aulas do mes corrente de UM aluno.
+ * Aulas dos ultimos 30 dias de UM aluno (o nome ficou "Monthly": 30 dias sao o mes da tabela).
+ * A janela vai de hoje ate 29 dias atras, no fuso da academia; presenca de data futura fica de fora.
  *
  * COMPROMETIMENTO MEDE PARTICIPACAO, NAO PRESENCA COMPUTADA — a diferenca e proposital, nao um
  * bug a ser "consertado":
@@ -166,8 +152,8 @@ export function resolveCommitment(params: {
  * - A NOTA sai de `classes`. Presenca, progressao de faixa e o ranking da unidade continuam
  *   usando a regra da faixa, intocados.
  *
- * Vale a data da AULA, nao a do lancamento (`resolveAttendanceDate`): aula de agosto lancada em
- * setembro continua em agosto.
+ * Vale a data da AULA, nao a do lancamento (`resolveAttendanceDate`): aula lancada com atraso
+ * entra na janela pelo dia em que aconteceu.
  *
  * De proposito NAO exige que a aula esteja finalizada: o comprometimento do aluno nao pode
  * depender de o professor lembrar de clicar em "Finalizar" (o ranking da unidade exige, entao os
@@ -180,10 +166,8 @@ export function summarizeMonthlyAttendance(params: {
   timeZone?: string;
 }): MonthlyAttendanceSummary {
   const timeZone = params.timeZone || DEFAULT_TIMEZONE;
-  const now = params.now ?? new Date();
-  const monthKey = academyMonthKey(now, timeZone);
+  const todayKey = academyDayKey(params.now ?? new Date(), timeZone);
   const weeks = new Set<number>();
-  const days = new Set<number>();
   let classes = 0;
   let countedClasses = 0;
 
@@ -197,27 +181,23 @@ export function summarizeMonthlyAttendance(params: {
       return;
     }
 
-    const dayKey = academyDayKey(date, timeZone);
-    if (dayKey.slice(0, 7) !== monthKey) {
+    const daysAgo = daysBetweenDayKeys(academyDayKey(date, timeZone), todayKey);
+    if (daysAgo < 0 || daysAgo >= COMMITMENT_WINDOW_DAYS) {
       return;
     }
 
     // Duas aulas no mesmo dia contam duas: sao dois treinos.
-    const dayOfMonth = Number(dayKey.slice(8, 10));
     classes += 1;
     if (attendance.countsAsAttendance !== false) {
       countedClasses += 1;
     }
-    days.add(dayOfMonth);
-    weeks.add(weekBlockOfMonth(dayOfMonth));
+    weeks.add(weekBlockOfWindow(daysAgo));
   });
 
   return {
     classes,
     countedClasses,
     weeksWithClasses: weeks.size,
-    dayNumbers: [...days].sort((left, right) => left - right),
-    monthLabel: formatMonthLabel(now, timeZone),
   };
 }
 
@@ -236,7 +216,6 @@ export function resolveMonthlyCommitment(params: {
     countedClasses: summary.countedClasses,
     weeksWithClasses: summary.weeksWithClasses,
     track: params.track,
-    monthLabel: summary.monthLabel,
   });
 }
 

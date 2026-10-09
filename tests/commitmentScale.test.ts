@@ -2,8 +2,6 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
-  academyMonthKey,
-  formatMonthLabel,
   resolveCommitment,
   resolveMonthlyCommitment,
   summarizeMonthlyAttendance,
@@ -18,7 +16,11 @@ const onDay = (day: number, extra: Record<string, unknown> = {}) => ({
   ...extra,
 });
 
-const REFERENCE = new Date('2026-09-20T12:00:00Z');
+// "Hoje" = 30/09/2026: a janela de 30 dias e setembro inteiro (01/09 esta 29 dias atras).
+const REFERENCE = new Date('2026-09-30T12:00:00Z');
+
+// Presenca `daysAgo` dias antes de REFERENCE, as 19h de Sao Paulo.
+const ago = (daysAgo: number, extra: Record<string, unknown> = {}) => onDay(30 - daysAgo, extra);
 
 const adult = (classes: number, weeksWithClasses = 0) =>
   resolveCommitment({ classes, weeksWithClasses, track: 'Adulto' });
@@ -94,32 +96,32 @@ test('rotulos das cores saem como o cliente pediu', () => {
   assert.equal(adult(24).label, 'Excelente frequência');
 });
 
-test('semanas sao blocos de dias do mes (1-7, 8-14, 15-21, 22 ate o fim)', () => {
+test('semanas sao blocos de 7 dias contados de hoje para tras (0-6, 7-13, 14-20, 21-29)', () => {
   const espalhado = summarizeMonthlyAttendance({
-    attendances: [onDay(3), onDay(10), onDay(17), onDay(25)],
+    attendances: [ago(0), ago(7), ago(14), ago(21)],
     now: REFERENCE,
   });
   assert.deepEqual([espalhado.classes, espalhado.weeksWithClasses], [4, 4]);
 
   const mesmaSemana = summarizeMonthlyAttendance({
-    attendances: [onDay(1), onDay(2), onDay(3), onDay(7)],
+    attendances: [ago(0), ago(1), ago(2), ago(6)],
     now: REFERENCE,
   });
   assert.deepEqual([mesmaSemana.classes, mesmaSemana.weeksWithClasses], [4, 1]);
 
-  // Fronteiras 7/8, 14/15, 21/22 e o dia 30 ainda no quarto bloco.
-  assert.equal(summarizeMonthlyAttendance({ attendances: [onDay(7), onDay(8)], now: REFERENCE }).weeksWithClasses, 2);
-  assert.equal(summarizeMonthlyAttendance({ attendances: [onDay(14), onDay(15)], now: REFERENCE }).weeksWithClasses, 2);
-  assert.equal(summarizeMonthlyAttendance({ attendances: [onDay(21), onDay(22)], now: REFERENCE }).weeksWithClasses, 2);
-  assert.equal(summarizeMonthlyAttendance({ attendances: [onDay(22), onDay(30)], now: REFERENCE }).weeksWithClasses, 1);
+  // Fronteiras 6/7, 13/14, 20/21 e o 29o dia ainda no quarto bloco.
+  assert.equal(summarizeMonthlyAttendance({ attendances: [ago(6), ago(7)], now: REFERENCE }).weeksWithClasses, 2);
+  assert.equal(summarizeMonthlyAttendance({ attendances: [ago(13), ago(14)], now: REFERENCE }).weeksWithClasses, 2);
+  assert.equal(summarizeMonthlyAttendance({ attendances: [ago(20), ago(21)], now: REFERENCE }).weeksWithClasses, 2);
+  assert.equal(summarizeMonthlyAttendance({ attendances: [ago(21), ago(29)], now: REFERENCE }).weeksWithClasses, 1);
 });
 
-test('duas aulas no mesmo dia contam duas, mas so um dia', () => {
+test('duas aulas no mesmo dia contam duas, mas uma semana so', () => {
   const summary = summarizeMonthlyAttendance({
     attendances: [onDay(9), { classStartAt: timestamp('2026-09-09T23:30:00Z') }],
     now: REFERENCE,
   });
-  assert.deepEqual([summary.classes, summary.dayNumbers], [2, [9]]);
+  assert.deepEqual([summary.classes, summary.weeksWithClasses], [2, 1]);
 });
 
 test('aula que nao vira presenca ainda conta como treino', () => {
@@ -130,8 +132,8 @@ test('aula que nao vira presenca ainda conta como treino', () => {
     now: REFERENCE,
   });
   assert.deepEqual(
-    [summary.classes, summary.countedClasses, summary.weeksWithClasses, summary.dayNumbers],
-    [2, 1, 1, [5, 6]],
+    [summary.classes, summary.countedClasses, summary.weeksWithClasses],
+    [2, 1, 1],
   );
 });
 
@@ -156,21 +158,22 @@ test('countedClasses nunca passa de classes', () => {
   assert.equal(resolveCommitment({ classes: 5, track: 'Adulto' }).countedClasses, 5);
 });
 
-test('ignora mes vizinho e registro sem data', () => {
+test('ignora o que esta fora da janela de 30 dias, data futura e registro sem data', () => {
   const summary = summarizeMonthlyAttendance({
     attendances: [
-      onDay(5),
+      onDay(1),
+      // 30 dias antes de hoje: acabou de sair da janela.
       { classStartAt: timestamp('2026-08-31T22:00:00Z') },
       { classStartAt: timestamp('2026-10-01T22:00:00Z') },
       {},
     ],
     now: REFERENCE,
   });
-  assert.deepEqual([summary.classes, summary.weeksWithClasses, summary.dayNumbers], [1, 1, [5]]);
+  assert.deepEqual([summary.classes, summary.weeksWithClasses], [1, 1]);
 });
 
 test('vale a data da aula, nao a do lancamento', () => {
-  // Aula de agosto lancada pelo professor em setembro: nao conta para setembro.
+  // Aula de agosto lancada pelo professor em setembro: vale o dia da aula, fora da janela.
   const atrasada = summarizeMonthlyAttendance({
     attendances: [{ classId: 'c1', checkedInAt: timestamp('2026-09-15T22:00:00Z') }],
     classStartById: new Map([['c1', timestamp('2026-08-15T22:00:00Z')]]),
@@ -188,32 +191,34 @@ test('vale a data da aula, nao a do lancamento', () => {
 
   // classStartAt da propria presenca ganha do mapa de aulas (aluno de outra unidade).
   const denormalizado = summarizeMonthlyAttendance({
-    attendances: [{ classId: 'c3', classStartAt: timestamp('2026-09-04T22:00:00Z'), checkedInAt: timestamp('2026-09-20T22:00:00Z') }],
+    attendances: [{ classId: 'c3', classStartAt: timestamp('2026-08-04T22:00:00Z'), checkedInAt: timestamp('2026-09-20T22:00:00Z') }],
     classStartById: new Map(),
     now: REFERENCE,
   });
-  assert.deepEqual(denormalizado.dayNumbers, [4]);
+  assert.equal(denormalizado.classes, 0);
 });
 
-test('mes e dia saem no fuso da academia, nao no do aparelho', () => {
-  // 01/10 as 02:00Z ainda e 30/09 as 23:00 em Sao Paulo.
-  assert.equal(academyMonthKey(new Date('2026-10-01T02:00:00Z'), 'America/Sao_Paulo'), '2026-09');
-
-  const viradaDoDia = summarizeMonthlyAttendance({
-    attendances: [{ classStartAt: timestamp('2026-10-01T02:00:00Z') }],
-    now: REFERENCE,
-  });
-  assert.deepEqual([viradaDoDia.classes, viradaDoDia.dayNumbers], [1, [30]]);
+test('dia sai no fuso da academia, nao no do aparelho', () => {
+  // 01/10 as 02:00Z ainda e 30/09 as 23:00 em Sao Paulo: e hoje, nao amanha.
+  const viradaDoDia = [{ classStartAt: timestamp('2026-10-01T02:00:00Z') }];
+  assert.equal(summarizeMonthlyAttendance({ attendances: viradaDoDia, now: REFERENCE }).classes, 1);
+  // Em UTC a mesma aula ja e 01/10, data futura.
+  assert.equal(summarizeMonthlyAttendance({ attendances: viradaDoDia, now: REFERENCE, timeZone: 'UTC' }).classes, 0);
 
   // Fuso invalido cai no padrao em vez de explodir.
-  assert.equal(academyMonthKey(new Date('2026-09-20T12:00:00Z'), 'Campinas'), '2026-09');
-  assert.equal(formatMonthLabel(REFERENCE), 'setembro de 2026');
+  assert.equal(summarizeMonthlyAttendance({ attendances: viradaDoDia, now: REFERENCE, timeZone: 'Campinas' }).classes, 1);
 });
 
-test('virada do mes zera a barra', () => {
-  const setembro = [onDay(3), onDay(10), onDay(17), onDay(25)];
-  assert.equal(summarizeMonthlyAttendance({ attendances: setembro, now: new Date('2026-09-30T12:00:00Z') }).classes, 4);
-  assert.equal(summarizeMonthlyAttendance({ attendances: setembro, now: new Date('2026-10-01T12:00:00Z') }).classes, 0);
+test('virada do mes nao zera a barra', () => {
+  // 17 treinos em setembro (dias 2 a 18): 80, verde.
+  const setembro = Array.from({ length: 17 }, (_, index) => onDay(index + 2));
+  const at = (iso: string) => resolveMonthlyCommitment({ attendances: setembro, track: 'Adulto', now: new Date(iso) });
+
+  assert.deepEqual([at('2026-09-30T12:00:00Z').classes, at('2026-09-30T12:00:00Z').score], [17, 80]);
+  // 1o de outubro comeca com a mesma nota com que setembro terminou.
+  assert.deepEqual([at('2026-10-01T12:00:00Z').classes, at('2026-10-01T12:00:00Z').score, at('2026-10-01T12:00:00Z').level], [17, 80, 'verde']);
+  // No dia seguinte a aula de 02/09 completa 30 dias e sai da conta: cai aos poucos, nao de uma vez.
+  assert.deepEqual([at('2026-10-02T12:00:00Z').classes, at('2026-10-02T12:00:00Z').score], [16, 60]);
 });
 
 test('mapa por aluno filtra a unidade e separa as contagens', () => {
@@ -254,7 +259,6 @@ test('atalho ponta a ponta: as mesmas 4 aulas valem 10 no adulto e 50 no kids', 
     [adulto.track, adulto.classes, adulto.weeksWithClasses, adulto.score, adulto.level],
     ['Adulto', 4, 4, 10, 'vermelho'],
   );
-  assert.equal(adulto.monthLabel, 'setembro de 2026');
 
   const crianca = resolveMonthlyCommitment({ attendances, track: 'Kids', now: REFERENCE });
   assert.deepEqual([crianca.track, crianca.score, crianca.level], ['Kids', 50, 'amarelo']);
