@@ -202,7 +202,7 @@ const AcademyAttendancePanels: React.FC<AcademyAttendancePanelsProps> = ({
     return next;
   }, [academyId, attendances]);
 
-  // Comprometimento do mes por aluno (vide commitmentScale.ts). Sem presenca carregada o selo
+  // Comprometimento dos ultimos 30 dias por aluno (vide commitmentScale.ts). Sem presenca carregada o selo
   // nao aparece: "nao treinou" e "ainda nao chegou" dariam o mesmo vermelho.
   const hasCommitmentData = attendances.length > 0 && !attendancesError;
   const scheduledStartByClassId = useMemo(
@@ -234,7 +234,6 @@ const AcademyAttendancePanels: React.FC<AcademyAttendancePanelsProps> = ({
         countedClasses: summary?.countedClasses ?? 0,
         weeksWithClasses: summary?.weeksWithClasses ?? 0,
         track: getUserProgressionSummary(student, progressionRules).track,
-        monthLabel: summary?.monthLabel,
       }));
     });
 

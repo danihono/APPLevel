@@ -350,7 +350,7 @@ const StudentDetailView: React.FC<StudentDetailViewProps> = ({
     return result;
   }, [studentAttendances, classesById, historyPeriod, historyCustomFrom, historyCustomTo, historyClassTitle, historySortDir]);
 
-  // Comprometimento do mes (vide commitmentScale.ts). Usa o aluno PERSISTIDO, nunca o estado do
+  // Comprometimento dos ultimos 30 dias (vide commitmentScale.ts). Usa o aluno PERSISTIDO, nunca o estado do
   // formulario de graduacao: mexer no select de faixa nao pode trocar a tabela Kids/Adulto antes
   // de salvar. Enquanto as presencas nao chegam, nao mostra barra nenhuma.
   const commitment = useMemo(() => {

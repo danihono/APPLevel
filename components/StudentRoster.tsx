@@ -536,7 +536,7 @@ const StudentRoster: React.FC<StudentRosterProps> = ({
 
   const allStudents = useMemo(() => [...students, ...deactivatedStudents], [students, deactivatedStudents]);
 
-  // Comprometimento do mes (vide commitmentScale.ts). Uma passada so nas presencas e a trilha
+  // Comprometimento dos ultimos 30 dias (vide commitmentScale.ts). Uma passada so nas presencas e a trilha
   // (Kids x Adulto) resolvida aqui dentro, para nao chamar a progressao a cada render.
   //
   // Sem presenca carregada nao da para distinguir "nao treinou" de "ainda nao chegou": nesse
@@ -562,7 +562,6 @@ const StudentRoster: React.FC<StudentRosterProps> = ({
         countedClasses: summary?.countedClasses ?? 0,
         weeksWithClasses: summary?.weeksWithClasses ?? 0,
         track: getUserProgressionSummary(student, progressionRules).track,
-        monthLabel: summary?.monthLabel,
       }));
     });
 
