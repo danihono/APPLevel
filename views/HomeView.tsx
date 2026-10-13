@@ -23,6 +23,8 @@ import { CountUp } from '../components/redesign/motion';
 import MonthlyRecap from '../components/redesign/MonthlyRecap';
 import { useRedesignShell } from '../components/redesign/ShellContext';
 import {
+  MONTH_WEEK_HEADER,
+  buildMonthGrid,
   classTypeLabel,
   isClassVisibleForStudent,
   isValidTimeZone,
@@ -93,6 +95,7 @@ const HomeView: React.FC<HomeViewProps> = ({
   user,
   monthlyAttendanceCount,
   commitment = null,
+  attendanceDays,
   progressionRules,
   classes = EMPTY_CLASSES,
   attendances = EMPTY_ATTENDANCES,
@@ -327,6 +330,15 @@ const HomeView: React.FC<HomeViewProps> = ({
     );
   };
 
+  // ─── Mes (mesmo relogio do App: attendanceDays sai do mes do aparelho) ───
+  const deviceToday = new Date();
+  const monthCells = buildMonthGrid(deviceToday.getFullYear(), deviceToday.getMonth());
+  const attendedDays = new Set(attendanceDays);
+  const monthTitle = (() => {
+    const name = new Intl.DateTimeFormat(getLocale(), { month: 'long' }).format(deviceToday);
+    return name.charAt(0).toLocaleUpperCase() + name.slice(1);
+  })();
+
   return (
     <div className="lv-screen rd-home">
       <ScreenHeader eyebrow={dateEyebrow} title={greetingTitle} />
@@ -427,13 +439,38 @@ const HomeView: React.FC<HomeViewProps> = ({
           )}
         </div>
 
-        {onOpenEvolution ? (
-          <button type="button" className="lv-card rd-home__month-link" onClick={onOpenEvolution}>
-            <CalendarDays size={18} strokeWidth={2} aria-hidden="true" />
-            <span>{t('Ver meu mês')}</span>
-            <ArrowRight size={18} strokeWidth={2} aria-hidden="true" />
-          </button>
-        ) : null}
+        <section className="lv-card rd-home__month" aria-labelledby="rd-home-month-title">
+          <div className="rd-home__month-head">
+            <h2 id="rd-home-month-title" className="rd-home__month-title">{monthTitle}</h2>
+            <span className="rd-home__month-count">
+              {monthlyAttendanceCount === 1 ? t('1 treino') : t('{count} treinos', { count: monthlyAttendanceCount })}
+            </span>
+          </div>
+          <div className="rd-home__dots" role="list" aria-label={t('Mapa de presenças do mês')}>
+            {MONTH_WEEK_HEADER.map((label) => (
+              <span key={label} className="rd-home__dots-head" aria-hidden="true">{t(label)}</span>
+            ))}
+            {monthCells.map((cell, index) => {
+              if (!cell) {
+                return <span key={`pad-${index}`} className="rd-home__dot rd-home__dot--pad" aria-hidden="true" />;
+              }
+              const day = cell.getDate();
+              const trained = attendedDays.has(day);
+              const isToday = day === deviceToday.getDate();
+              const isFuture = day > deviceToday.getDate();
+              return (
+                <span
+                  key={day}
+                  role="listitem"
+                  className={`rd-home__dot${trained ? ' is-trained' : ''}${isToday ? ' is-today' : ''}${isFuture ? ' is-future' : ''}`}
+                  aria-label={trained ? `${day} · ${t('Treinou')}` : String(day)}
+                >
+                  {day}
+                </span>
+              );
+            })}
+          </div>
+        </section>
       </div>
 
       {recapOpen ? (

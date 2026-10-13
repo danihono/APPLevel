@@ -544,29 +544,27 @@ html.dark .rd-home__ghost-btn {
   color: var(--commitment-ink);
 }
 
-.rd-home__month-link {
+.rd-home__month-head {
   display: flex;
-  align-items: center;
-  gap: 10px;
-  width: 100%;
-  min-height: 52px;
-  padding: 0 16px;
-  border: 1px solid var(--lv-glass-edge);
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.rd-home__month-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
   color: var(--lv-text);
-  font: inherit;
-  font-size: 15px;
+}
+
+.rd-home__month-count {
+  font-size: 14px;
   font-weight: 700;
-  text-align: left;
-  cursor: pointer;
-}
-
-.rd-home__month-link span {
-  flex: 1;
-}
-
-.rd-home__month-link svg {
-  flex: none;
   color: var(--lv-text-soft);
+  font-variant-numeric: tabular-nums;
 }
 
 /* Celulares estreitos: dois números em cima e o comprometimento embaixo, em linha. */
