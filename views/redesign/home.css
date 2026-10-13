@@ -425,22 +425,6 @@ html.dark .rd-home__ghost-btn {
   visibility: hidden;
 }
 
-/* ─── Telas largas: duas colunas ────────────────────────────────────────── */
-@media (min-width: 1100px) {
-  .lv-screen.rd-home {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    column-gap: var(--lv-space-8);
-    row-gap: var(--lv-space-6);
-    max-width: 1080px;
-  }
-
-  .rd-home > .lv-header,
-  .rd-home > .rd-home__chips {
-    grid-column: 1 / -1;
-  }
-}
-
 /* ─── LEVEL vivo · chamada da retrospectiva do mês ─────────────────────── */
 .rd-home__recap {
   display: flex;
@@ -484,4 +468,116 @@ html.dark .rd-home__ghost-btn {
   font-size: 15px;
   font-weight: 700;
   line-height: 1.25;
+}
+
+/* ─── Início "faixa primeiro, limpo": meta do grau, 3 números, atalho do mês ─── */
+.rd-home__belt-goal {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 2px;
+}
+
+.rd-home__belt-goal .rd-home__belt-progress {
+  margin-top: 0;
+}
+
+.rd-home__belt-goal-text {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--lv-text);
+}
+
+.rd-home__stats {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.4fr);
+  gap: 8px;
+}
+
+.rd-home__stat {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 6px;
+  min-width: 0;
+  padding: 12px 11px;
+}
+
+.rd-home__stat-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  line-height: 1.25;
+  font-weight: 600;
+  color: var(--lv-text-soft);
+}
+
+.rd-home__stat-label svg {
+  flex: none;
+  color: var(--lv-yellow);
+}
+
+.rd-home__stat-value {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  font-family: var(--font-display);
+  font-size: 28px;
+  line-height: 1;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  color: var(--lv-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.rd-home__stat-value small {
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0;
+  color: var(--lv-text-soft);
+}
+
+.rd-home__stat-value--commit {
+  color: var(--commitment-ink);
+}
+
+.rd-home__month-link {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 52px;
+  padding: 0 16px;
+  border: 1px solid var(--lv-glass-edge);
+  color: var(--lv-text);
+  font: inherit;
+  font-size: 15px;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+}
+
+.rd-home__month-link span {
+  flex: 1;
+}
+
+.rd-home__month-link svg {
+  flex: none;
+  color: var(--lv-text-soft);
+}
+
+/* Celulares estreitos: dois números em cima e o comprometimento embaixo, em linha. */
+@media (max-width: 374px) {
+  .rd-home__stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .rd-home__stat:last-child {
+    grid-column: 1 / -1;
+    flex-direction: row;
+    align-items: center;
+  }
 }

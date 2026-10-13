@@ -51,4 +51,10 @@ export const rdVivoMessages: MessageCatalog = {
   "Últimos a entrar": { en: "Latest check-ins", es: "Últimos en entrar" },
   "Recebido em {date}.": { en: "Received on {date}.", es: "Recibido el {date}." },
   "Seu {month} na LEVEL está pronto.": { en: "Your {month} at LEVEL is ready.", es: "Tu {month} en LEVEL está listo." },
+  "Falta 1 aula para o {degree}º grau": { en: "1 class left for degree {degree}", es: "Falta 1 clase para el {degree}º grado" },
+  "Faltam {count} aulas para o {degree}º grau": { en: "{count} classes left for degree {degree}", es: "Faltan {count} clases para el {degree}º grado" },
+  "semana": { en: "week", es: "semana" },
+  "semanas": { en: "weeks", es: "semanas" },
+  "Treinos no mês": { en: "Workouts this month", es: "Entrenos del mes" },
+  "Ver meu mês": { en: "See my month", es: "Ver mi mes" },
 };

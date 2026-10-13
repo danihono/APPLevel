@@ -17,14 +17,12 @@ import {
 } from '../beltCatalog';
 import BeltImage from '../components/BeltImage';
 import { hasBeltImage } from '../beltImages';
-import { CommitmentBar, commitmentLevelClass } from '../components/CommitmentBar';
+import { commitmentLevelClass } from '../components/CommitmentBar';
 import ScreenHeader from '../components/redesign/ScreenHeader';
 import { CountUp } from '../components/redesign/motion';
 import MonthlyRecap from '../components/redesign/MonthlyRecap';
 import { useRedesignShell } from '../components/redesign/ShellContext';
 import {
-  MONTH_WEEK_HEADER,
-  buildMonthGrid,
   classTypeLabel,
   isClassVisibleForStudent,
   isValidTimeZone,
@@ -95,7 +93,6 @@ const HomeView: React.FC<HomeViewProps> = ({
   user,
   monthlyAttendanceCount,
   commitment = null,
-  attendanceDays,
   progressionRules,
   classes = EMPTY_CLASSES,
   attendances = EMPTY_ATTENDANCES,
@@ -160,7 +157,6 @@ const HomeView: React.FC<HomeViewProps> = ({
   const greeting = nowHour < 12 ? t('Bom dia') : nowHour < 18 ? t('Boa tarde') : t('Boa noite');
   const firstName = (user.name || '').trim().split(/\s+/)[0];
   const greetingTitle = firstName ? `${greeting}, ${firstName}.` : `${greeting}.`;
-  const streakLabel = weekStreak === 1 ? t('1 semana') : t('{count} semanas', { count: weekStreak });
   const streakAria = weekStreak === 1
     ? t('1 semana seguida com treino')
     : t('{count} semanas seguidas com treino', { count: weekStreak });
@@ -205,6 +201,16 @@ const HomeView: React.FC<HomeViewProps> = ({
     : (Number.isNaN(lastGraduationDate.getTime())
       ? null
       : t('Última graduação em {date}.', { date: lastGraduationDate.toLocaleDateString(getLocale()) }));
+
+  // Meta embaixo da barra: "Faltam N aulas para o Xº grau".
+  const beltGoal = (() => {
+    if (blackBeltProgress || progression.stripeRemaining == null) return null;
+    const degree = progression.currentStripes + 1;
+    if (progression.stripeRemaining <= 0) return t('Ciclo fechado: aguarde a avaliação do professor.');
+    return progression.stripeRemaining === 1
+      ? t('Falta 1 aula para o {degree}º grau', { degree })
+      : t('Faltam {count} aulas para o {degree}º grau', { count: progression.stripeRemaining, degree });
+  })();
 
   // Sem imagem 3D (kids, combinadas, coral/vermelha) a faixa vira uma barra baixa.
   const beltHasImage = hasBeltImage(user.belt) && (!blackBeltProgress || blackBeltProgress.style === 'preta');
@@ -321,48 +327,13 @@ const HomeView: React.FC<HomeViewProps> = ({
     );
   };
 
-  // ─── Mes ─────────────────────────────────────────────────────────────────
-  // Mesmo relogio do App (attendanceDays sai do mes do aparelho).
-  const deviceToday = new Date();
-  const monthCells = buildMonthGrid(deviceToday.getFullYear(), deviceToday.getMonth());
-  const attendedDays = new Set(attendanceDays);
-
-  const renderProgress = (label: string, current: number, total: number) => {
-    const safeTotal = total <= 0 ? 1 : total;
-    const percentage = Math.min((current / safeTotal) * 100, 100);
-    return (
-      <div className="rd-home__progress-item">
-        <div className="rd-home__progress-head">
-          <span>{label}</span>
-          <strong>{t('{current} de {total} aulas', { current, total })}</strong>
-        </div>
-        <div
-          className="lv-progress"
-          role="progressbar"
-          aria-label={label}
-          aria-valuemin={0}
-          aria-valuemax={total}
-          aria-valuenow={Math.min(current, total)}
-        >
-          <span style={{ width: `${percentage}%` }} />
-        </div>
-      </div>
-    );
-  };
-
   return (
     <div className="lv-screen rd-home">
       <ScreenHeader eyebrow={dateEyebrow} title={greetingTitle} />
 
-      <div className="rd-home__chips">
-        {weekStreak > 0 ? (
-          <span className="rd-home__chip" role="img" aria-label={streakAria}>
-            <Flame size={15} strokeWidth={2.2} aria-hidden="true" />
-            <span aria-hidden="true">{streakLabel}</span>
-          </span>
-        ) : null}
-        {shell.unitLabel ? (
-          shell.onUnitClick ? (
+      {shell.unitLabel ? (
+        <div className="rd-home__chips">
+          {shell.onUnitClick ? (
             <button type="button" className="rd-home__chip rd-home__chip--button" onClick={shell.onUnitClick} aria-label={`${t('Trocar unidade')}: ${shell.unitLabel}`}>
               <MapPin size={14} strokeWidth={2} aria-hidden="true" />
               <span>{shell.unitLabel}</span>
@@ -373,9 +344,9 @@ const HomeView: React.FC<HomeViewProps> = ({
               <MapPin size={14} strokeWidth={2} aria-hidden="true" />
               <span>{shell.unitLabel}</span>
             </span>
-          )
-        ) : null}
-      </div>
+          )}
+        </div>
+      ) : null}
 
       <div className="rd-home__primary lv-cascade">
         {showRecapCard ? (
@@ -404,7 +375,7 @@ const HomeView: React.FC<HomeViewProps> = ({
             <div className="rd-home__belt-info">
               <p className="rd-home__belt-name">{beltName}</p>
               <p className="rd-home__belt-copy">{beltCopy}</p>
-              {beltMeta ? <p className="rd-home__belt-meta">{beltMeta}</p> : null}
+              {blackBeltProgress && beltMeta ? <p className="rd-home__belt-meta">{beltMeta}</p> : null}
             </div>
             {onOpenEvolution ? (
               <button type="button" className="lv-icon-btn rd-home__arrow" onClick={onOpenEvolution} aria-label={t('Ver evolução')}>
@@ -414,38 +385,55 @@ const HomeView: React.FC<HomeViewProps> = ({
           </div>
 
           {!blackBeltProgress && progression.stripeCycleTotal > 0 ? (
-            <div
-              className="lv-progress rd-home__belt-progress"
-              role="progressbar"
-              aria-label={t('Próximo grau')}
-              aria-valuemin={0}
-              aria-valuemax={progression.stripeCycleTotal}
-              aria-valuenow={Math.min(progression.stripeCycleProgress, progression.stripeCycleTotal)}
-            >
-              <span style={{ width: `${Math.min(100, (progression.stripeCycleProgress / progression.stripeCycleTotal) * 100)}%` }} />
+            <div className="rd-home__belt-goal">
+              <div
+                className="lv-progress rd-home__belt-progress"
+                role="progressbar"
+                aria-label={t('Próximo grau')}
+                aria-valuemin={0}
+                aria-valuemax={progression.stripeCycleTotal}
+                aria-valuenow={Math.min(progression.stripeCycleProgress, progression.stripeCycleTotal)}
+              >
+                <span style={{ width: `${Math.min(100, (progression.stripeCycleProgress / progression.stripeCycleTotal) * 100)}%` }} />
+              </div>
+              {beltGoal ? <p className="rd-home__belt-goal-text">{beltGoal}</p> : null}
             </div>
           ) : null}
         </section>
 
-        <div className="rd-home__tiles">
-          <div className="lv-card rd-home__tile">
-            <span className="rd-home__tile-label">{t('Treinos na semana')}</span>
-            <strong className="rd-home__tile-value"><CountUp value={weekTrainings} /></strong>
+        {renderNextClass()}
+
+        <div className="rd-home__stats">
+          <div className="lv-card rd-home__stat">
+            <span className="rd-home__stat-label">{t('Treinos na semana')}</span>
+            <strong className="rd-home__stat-value"><CountUp value={weekTrainings} /></strong>
+          </div>
+          <div className="lv-card rd-home__stat" role="group" aria-label={streakAria}>
+            <span className="rd-home__stat-label"><Flame size={13} strokeWidth={2.2} aria-hidden="true" />{t('Sequência')}</span>
+            <strong className="rd-home__stat-value">
+              <CountUp value={weekStreak} /><small>{weekStreak === 1 ? t('semana') : t('semanas')}</small>
+            </strong>
           </div>
           {commitment ? (
-            <div className={`lv-card rd-home__tile commitment ${commitmentLevelClass(commitment.level)}`}>
-              <span className="rd-home__tile-label">{t('Comprometimento')}</span>
-              <strong className="rd-home__tile-value rd-home__tile-value--commit"><CountUp value={commitment.score} /></strong>
+            <div className={`lv-card rd-home__stat commitment ${commitmentLevelClass(commitment.level)}`}>
+              <span className="rd-home__stat-label">{t('Comprometimento')}</span>
+              <strong className="rd-home__stat-value rd-home__stat-value--commit"><CountUp value={commitment.score} /></strong>
             </div>
           ) : (
-            <div className="lv-card rd-home__tile">
-              <span className="rd-home__tile-label">{t('Total de treinos no mês')}</span>
-              <strong className="rd-home__tile-value"><CountUp value={monthlyAttendanceCount} /></strong>
+            <div className="lv-card rd-home__stat">
+              <span className="rd-home__stat-label">{t('Treinos no mês')}</span>
+              <strong className="rd-home__stat-value"><CountUp value={monthlyAttendanceCount} /></strong>
             </div>
           )}
         </div>
 
-        {renderNextClass()}
+        {onOpenEvolution ? (
+          <button type="button" className="lv-card rd-home__month-link" onClick={onOpenEvolution}>
+            <CalendarDays size={18} strokeWidth={2} aria-hidden="true" />
+            <span>{t('Ver meu mês')}</span>
+            <ArrowRight size={18} strokeWidth={2} aria-hidden="true" />
+          </button>
+        ) : null}
       </div>
 
       {recapOpen ? (
@@ -462,65 +450,6 @@ const HomeView: React.FC<HomeViewProps> = ({
         />
       ) : null}
 
-      <div className="rd-home__secondary">
-        {!blackBeltProgress ? (
-          <section className="lv-section">
-            <div className="lv-section__head">
-              <h2 className="lv-section__title">{t('Progresso de faixa e grau')}</h2>
-              <span className="lv-label">{t('Minha jornada')}</span>
-            </div>
-            <div className="lv-card rd-home__progress">
-              {renderProgress(t('Próximo grau'), progression.stripeCycleProgress, progression.stripeCycleTotal)}
-              {renderProgress(t('Próxima faixa'), progression.beltProgress, progression.beltTotal)}
-            </div>
-          </section>
-        ) : null}
-
-        <section className="lv-section">
-          <div className="lv-section__head">
-            <h2 className="lv-section__title">{t('Seu mês')}</h2>
-            <span className="lv-label">{t('Frequência mensal')}</span>
-          </div>
-
-          {commitment ? (
-            <div className="lv-card">
-              <CommitmentBar commitment={commitment} title={t('Comprometimento')} />
-            </div>
-          ) : null}
-
-          <div className="lv-card rd-home__month">
-            <span className="lv-label">{t('Mapa de presenças do mês')}</span>
-            <div className="rd-home__dots" role="list" aria-label={t('Mapa de presenças do mês')}>
-              {MONTH_WEEK_HEADER.map((label) => (
-                <span key={label} className="rd-home__dots-head" aria-hidden="true">{t(label)}</span>
-              ))}
-              {monthCells.map((cell, index) => {
-                if (!cell) {
-                  return <span key={`pad-${index}`} className="rd-home__dot rd-home__dot--pad" aria-hidden="true" />;
-                }
-                const day = cell.getDate();
-                const trained = attendedDays.has(day);
-                const isToday = day === deviceToday.getDate();
-                const isFuture = day > deviceToday.getDate();
-                return (
-                  <span
-                    key={day}
-                    role="listitem"
-                    className={`rd-home__dot${trained ? ' is-trained' : ''}${isToday ? ' is-today' : ''}${isFuture ? ' is-future' : ''}`}
-                    aria-label={trained ? `${day} · ${t('Treinou')}` : String(day)}
-                  >
-                    {day}
-                  </span>
-                );
-              })}
-            </div>
-            <div className="rd-home__month-total">
-              <span>{t('Total de treinos no mês')}</span>
-              <strong>{monthlyAttendanceCount}</strong>
-            </div>
-          </div>
-        </section>
-      </div>
     </div>
   );
 };
