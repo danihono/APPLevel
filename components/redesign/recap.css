@@ -1,0 +1,279 @@
+/* Retrospectiva do mês — tela cheia no formato dos Stories. */
+
+.rd-recap {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: flex;
+  flex-direction: column;
+  padding: calc(env(safe-area-inset-top, 0px) + 12px) max(20px, env(safe-area-inset-right, 0px))
+    calc(env(safe-area-inset-bottom, 0px) + 20px) max(20px, env(safe-area-inset-left, 0px));
+  font-family: var(--font-body);
+  outline: none;
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+  transition: background-color 350ms ease, color 350ms ease;
+}
+
+.rd-recap *,
+.rd-recap *::before,
+.rd-recap *::after { box-sizing: border-box; }
+
+.rd-recap--yellow { background: var(--lv-yellow); color: #1a1300; }
+.rd-recap--ink { background: #121218; color: #f5f5f7; }
+.rd-recap--glass {
+  background:
+    radial-gradient(36rem 26rem at 100% -4rem, var(--lv-glow-a), transparent 62%),
+    radial-gradient(30rem 26rem at -6rem 80%, var(--lv-glow-b), transparent 62%),
+    var(--lv-canvas);
+  color: var(--lv-text);
+}
+
+.rd-recap__bars {
+  display: flex;
+  gap: 4px;
+  max-width: 560px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+.rd-recap__bars > span {
+  flex: 1;
+  height: 3px;
+  overflow: hidden;
+  border-radius: 3px;
+  background: color-mix(in srgb, currentColor 25%, transparent);
+}
+
+.rd-recap__bars > span > i {
+  display: block;
+  width: 0;
+  height: 100%;
+  background: currentColor;
+}
+
+.rd-recap__bars > span.is-done > i { width: 100%; }
+.rd-recap__bars > span.is-run > i { animation: rd-recap-bar linear both; }
+
+@keyframes rd-recap-bar { to { width: 100%; } }
+
+.rd-recap__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  max-width: 560px;
+  width: 100%;
+  margin: 10px auto 0;
+}
+
+.rd-recap__who {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.rd-recap__close {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border: 0;
+  border-radius: 50%;
+  background: color-mix(in srgb, currentColor 12%, transparent);
+  color: inherit;
+  cursor: pointer;
+}
+
+.rd-recap__slide {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 14px;
+  width: 100%;
+  max-width: 560px;
+  min-height: 0;
+  margin: 0 auto;
+  padding-top: 40px;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .rd-recap__slide > * { animation: lv-rise 600ms cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+  .rd-recap__slide > :nth-child(2) { animation-delay: 110ms; }
+  .rd-recap__slide > :nth-child(3) { animation-delay: 220ms; }
+  .rd-recap__slide > :nth-child(4) { animation-delay: 330ms; }
+  .rd-recap__slide > :nth-child(n + 5) { animation-delay: 440ms; }
+}
+
+.rd-recap__kicker {
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.72;
+}
+
+.rd-recap__title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(36px, 10vw, 52px);
+  font-weight: 800;
+  letter-spacing: -0.045em;
+  line-height: 1.02;
+  text-wrap: balance;
+}
+
+.rd-recap__giant {
+  font-family: var(--font-display);
+  font-size: clamp(110px, 34vw, 170px);
+  font-weight: 800;
+  letter-spacing: -0.07em;
+  line-height: 0.9;
+  color: var(--lv-yellow);
+  font-variant-numeric: tabular-nums;
+}
+
+.rd-recap__text {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1.35;
+  opacity: 0.88;
+}
+
+.rd-recap__text--soft { font-size: 15px; opacity: 0.62; }
+
+.rd-recap__badge {
+  align-self: flex-start;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: rgba(240, 180, 41, 0.18);
+  color: var(--lv-yellow);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.rd-recap__belt {
+  width: min(78%, 320px);
+  margin: auto auto 0;
+  filter: drop-shadow(0 18px 24px rgba(0, 0, 0, 0.25));
+}
+
+.rd-recap__belt--straight { width: min(92%, 420px); }
+
+.rd-recap__days {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  align-items: end;
+  gap: 8px;
+  height: 160px;
+  margin-top: auto;
+}
+
+.rd-recap__days > div {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  height: 100%;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--lv-text-soft);
+}
+
+.rd-recap__days span {
+  width: 100%;
+  border-radius: 8px;
+  background: var(--lv-glass-fill);
+  transform-origin: bottom;
+}
+
+.rd-recap__days > .is-top { color: var(--lv-text); }
+.rd-recap__days > .is-top span { background: var(--lv-yellow); }
+
+@media (prefers-reduced-motion: no-preference) {
+  .rd-recap__days span {
+    animation: rd-recap-bar-up 800ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+    animation-delay: calc(var(--k, 0) * 70ms + 400ms);
+  }
+  .rd-recap__flame { animation: rd-recap-flicker 1.6s ease-in-out 0.7s infinite; }
+}
+
+@keyframes rd-recap-bar-up { from { transform: scaleY(0); } }
+@keyframes rd-recap-flicker {
+  0%, 100% { transform: scale(1) rotate(0); }
+  50% { transform: scale(1.07) rotate(-3deg); }
+}
+
+.rd-recap__flame { color: var(--lv-yellow); fill: var(--lv-yellow); }
+
+.rd-recap__weeks {
+  display: flex;
+  gap: 6px;
+  margin-top: auto;
+}
+
+.rd-recap__weeks > i {
+  flex: 1;
+  height: 30px;
+  border-radius: 9px;
+  background: var(--lv-yellow);
+}
+
+.rd-recap__summary {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px 10px;
+  padding: 18px;
+  border: 1px solid var(--lv-glass-edge);
+  border-radius: var(--lv-r-xl);
+  background: var(--lv-glass);
+  -webkit-backdrop-filter: var(--lv-glass-blur);
+  backdrop-filter: var(--lv-glass-blur);
+  box-shadow: var(--lv-glass-shadow);
+}
+
+.rd-recap__summary > div { display: flex; flex-direction: column; gap: 2px; }
+.rd-recap__summary span { font-size: 13px; color: var(--lv-text-muted); }
+.rd-recap__summary strong {
+  font-family: var(--font-display);
+  font-size: 32px;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  font-variant-numeric: tabular-nums;
+}
+
+.rd-recap__mark {
+  grid-column: 1 / -1;
+  margin: 0;
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: 0.28em;
+}
+
+.rd-recap__mark i { font-style: normal; color: var(--lv-yellow); }
+
+.rd-recap__actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: auto;
+}
+
+.rd-recap__ghost {
+  background: var(--lv-glass-strong);
+  color: var(--lv-text);
+  box-shadow: inset 0 0 0 1px var(--lv-glass-edge);
+}
+
+.rd-recap__note {
+  margin: 0;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--lv-text-muted);
+}
+
+.rd-recap__title,
+.rd-recap__text,
+.rd-recap__kicker { color: inherit; }

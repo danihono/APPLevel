@@ -30,6 +30,7 @@ import { rdCheckinMessages } from './rd-checkin';
 import { rdClassModalsMessages } from './rd-class-modals';
 import { rdEvolutionMessages } from './rd-evolution';
 import { rdHomeMessages } from './rd-home';
+import { rdVivoMessages } from './rd-vivo';
 import { rdNotificationsMessages } from './rd-notifications';
 import { rdPreviewMessages } from './rd-preview';
 import { rdProfileMessages } from './rd-profile';
@@ -70,6 +71,7 @@ export const messages: MessageCatalog = {
   ...rdClassModalsMessages,
   ...rdEvolutionMessages,
   ...rdHomeMessages,
+  ...rdVivoMessages,
   ...rdNotificationsMessages,
   ...rdPreviewMessages,
   ...rdProfileMessages,

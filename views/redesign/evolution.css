@@ -1091,3 +1091,100 @@
     animation: none;
   }
 }
+
+/* ─── LEVEL vivo · cartão de graduação para os Stories ─────────────────── */
+.rd-celebrate__story {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--lv-space-4);
+}
+
+.rd-celebrate__card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: min(240px, 66%);
+  aspect-ratio: 9 / 16;
+  overflow: hidden;
+  padding: 16px 14px;
+  border-radius: 24px;
+  background:
+    radial-gradient(120% 70% at 90% 0%, var(--rd-card-glow, rgba(240, 180, 41, 0.55)), transparent 62%),
+    radial-gradient(90% 55% at 0% 100%, rgba(240, 180, 41, 0.42), transparent 62%),
+    #0e0e13;
+  color: #ffffff;
+  box-shadow: 0 24px 50px rgba(0, 0, 0, 0.55), inset 0 0 0 1px rgba(255, 255, 255, 0.14);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .rd-celebrate__card { animation: rd-card-in 900ms cubic-bezier(0.2, 0.9, 0.25, 1.15) 250ms both; }
+}
+
+@keyframes rd-card-in {
+  from { opacity: 0; transform: translateY(36px) scale(0.86) rotate(-4deg); }
+  to { opacity: 1; transform: none; }
+}
+
+.rd-celebrate__card-mark {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.28em;
+}
+
+.rd-celebrate__card-mark i { font-style: normal; color: var(--lv-yellow); }
+
+.rd-celebrate__card-belt {
+  flex: 1 1 auto;
+  width: 100%;
+  min-height: 0;
+  margin: 6px 0;
+  object-fit: contain;
+}
+
+.rd-celebrate__card-kicker {
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--lv-yellow);
+}
+
+.rd-celebrate__card-title {
+  font-family: var(--font-display);
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  line-height: 1.05;
+}
+
+.rd-celebrate__card-name {
+  margin-top: 2px;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.rd-celebrate__card-meta {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.rd-celebrate__story-actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--lv-space-2);
+  width: 100%;
+}
+
+.rd-celebrate__share-note {
+  margin: 0;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.78);
+}
+
+.rd-celebrate__light {
+  background: #ffffff;
+  color: #121218;
+}

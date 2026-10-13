@@ -168,7 +168,18 @@ export const previewClasses: Array<FirestoreEntity<ClassRecord>> = classSeeds.ma
 });
 
 // Presencas do Daniel: varias semanas seguidas, algumas no mes atual, uma que nao conta.
-const danielDays = [-1, -3, -5, -8, -10, -12, -15, -17, -22, -24, -29, -31, -36];
+const recentDanielDays = [-1, -3, -5, -8, -10, -12, -15, -17, -22, -24, -29, -31, -36];
+// Historico do ano (mapa de treinos): tercas e quintas, alguns sabados, com semanas de folga.
+// Uma semana inteira de folga logo antes do historico recente (sequencia atual de ~6 semanas).
+const historyDanielDays = Array.from({ length: 240 }, (_, index) => -49 - index).filter((offset) => {
+  const date = dayAt(offset, 19);
+  const weekday = date.getDay();
+  const monday = new Date(date.getFullYear(), date.getMonth(), date.getDate() - ((weekday + 6) % 7));
+  const week = Math.floor(monday.getTime() / (7 * 24 * 60 * 60 * 1000));
+  if (week % 9 === 4 || week % 13 === 7) return false;
+  return weekday === 2 || weekday === 4 || (weekday === 6 && week % 2 === 0);
+});
+const danielDays = [...recentDanielDays, ...historyDanielDays];
 export const previewStudentAttendances: Array<FirestoreEntity<AttendanceRecord>> = danielDays.map((offset, index) => {
   const start = dayAt(offset, 19);
   return {

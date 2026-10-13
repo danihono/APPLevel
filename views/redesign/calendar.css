@@ -536,3 +536,124 @@ html.dark .rd-cal__class--ink {
   border-top-color: var(--lv-glass-hair);
   background: transparent;
 }
+
+/* ─── LEVEL vivo · QR ao vivo: respira, luz de leitura, numero que pula, quem entrou ─── */
+.rd-cal__qr-card {
+  position: relative;
+  overflow: hidden;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .rd-cal__qr-card {
+    animation: rd-qr-breathe 2.8s ease-in-out infinite;
+  }
+  .rd-cal__qr-card::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: -40%;
+    height: 40%;
+    background: linear-gradient(180deg, transparent, rgba(240, 180, 41, 0.38), transparent);
+    animation: rd-qr-scan 2.6s ease-in-out infinite;
+    pointer-events: none;
+  }
+}
+
+@keyframes rd-qr-breathe {
+  0%, 100% { box-shadow: 0 20px 40px rgba(26, 19, 0, 0.18), 0 0 0 0 rgba(255, 255, 255, 0.7); }
+  50% { box-shadow: 0 20px 40px rgba(26, 19, 0, 0.18), 0 0 0 12px rgba(255, 255, 255, 0); }
+}
+
+@keyframes rd-qr-scan {
+  from { top: -40%; }
+  to { top: 100%; }
+}
+
+.rd-cal__qr-count strong {
+  display: inline-block;
+  font-variant-numeric: tabular-nums;
+}
+
+.rd-cal__qr-bar {
+  height: 8px;
+  overflow: hidden;
+  border-radius: var(--lv-r-pill);
+  background: rgba(26, 19, 0, 0.14);
+}
+
+.rd-cal__qr-bar > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--lv-black);
+  transition: width 600ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.rd-cal__qr-arrivals {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.rd-cal__qr-arrival {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.55);
+  color: var(--lv-on-yellow);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.rd-cal__qr-arrival-avatar {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--lv-black);
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.rd-cal__qr-arrival-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rd-cal__qr-arrival small {
+  font-size: 12px;
+  font-weight: 600;
+  opacity: 0.65;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .rd-cal__qr-arrival {
+    animation: rd-qr-arrive 500ms cubic-bezier(0.2, 0.9, 0.3, 1.2) both;
+  }
+}
+
+@keyframes rd-qr-arrive {
+  from { opacity: 0; transform: translateY(-12px) scale(0.96); }
+  to { opacity: 1; transform: none; }
+}
+
+/* LEVEL vivo · estado vazio ilustrado ocupa o lugar do quadro tracejado. */
+.rd-cal__empty.lv-empty {
+  padding: 22px 18px 20px;
+  border: 1px solid var(--lv-glass-edge);
+  border-radius: var(--lv-r-xl);
+  font-size: inherit;
+  font-weight: inherit;
+}

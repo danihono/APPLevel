@@ -440,3 +440,48 @@ html.dark .rd-home__ghost-btn {
     grid-column: 1 / -1;
   }
 }
+
+/* ─── LEVEL vivo · chamada da retrospectiva do mês ─────────────────────── */
+.rd-home__recap {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 14px 16px;
+  border: 1px solid var(--lv-glass-edge);
+  color: var(--lv-text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.rd-home__recap-icon {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 14px;
+  background: var(--lv-yellow);
+  color: var(--lv-on-yellow);
+}
+
+.rd-home__recap-text {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.rd-home__recap-kicker {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--lv-text-soft);
+}
+
+.rd-home__recap-text strong {
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.25;
+}

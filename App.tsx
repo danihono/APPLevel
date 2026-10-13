@@ -735,6 +735,14 @@ const App: React.FC = () => {
     document.documentElement.dataset.theme = isDarkMode ? 'dark' : 'light';
   }, [isDarkMode]);
 
+  // Brilho do fundo na cor da faixa (redesign.css: html[data-lv-belt]). Branca e kids usam o amarelo padrão.
+  useEffect(() => {
+    const glowByBelt: Record<string, string> = { blue: 'azul', purple: 'roxa', brown: 'marrom', black: 'preta' };
+    const glow = profile?.belt ? glowByBelt[normalizeBeltId(profile.belt)] : undefined;
+    if (glow) document.documentElement.dataset.lvBelt = glow;
+    else delete document.documentElement.dataset.lvBelt;
+  }, [profile?.belt]);
+
   useEffect(() => {
     const nextScope = authUser?.uid ?? 'guest';
     if (themeScope === nextScope) {

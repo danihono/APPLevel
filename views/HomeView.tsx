@@ -7,6 +7,7 @@ import {
   Clock,
   Flame,
   MapPin,
+  Sparkles,
 } from 'lucide-react';
 import {
   beltLabel,
@@ -18,6 +19,8 @@ import BeltImage from '../components/BeltImage';
 import { hasBeltImage } from '../beltImages';
 import { CommitmentBar, commitmentLevelClass } from '../components/CommitmentBar';
 import ScreenHeader from '../components/redesign/ScreenHeader';
+import { CountUp } from '../components/redesign/motion';
+import MonthlyRecap from '../components/redesign/MonthlyRecap';
 import { useRedesignShell } from '../components/redesign/ShellContext';
 import {
   MONTH_WEEK_HEADER,
@@ -27,12 +30,14 @@ import {
   isValidTimeZone,
 } from '../calendarUtils';
 import type { CommitmentResult } from '../commitmentScale';
+import { academyDayKey } from '../dailyTrainingUtils';
 import type { FirestoreEntity } from '../services/firebase/data';
 import type { AttendanceRecord, AttendanceRequestRecord, ClassRecord } from '../services/firebase/models';
 import {
   academyDayOffset,
   academyHour,
   classEndDate,
+  computeMonthRecap,
   computeWeekTrainings,
   computeWeeklyStreak,
   isClassLive,
@@ -133,6 +138,16 @@ const HomeView: React.FC<HomeViewProps> = ({
     [classes, now, timeZone, user.kidsCategory],
   );
 
+  // Retrospectiva do mes anterior: aparece no Inicio nos primeiros 15 dias do mes.
+  const monthRecap = useMemo(
+    () => computeMonthRecap(attendances, classes, timeZone, now),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [attendances, classes, timeZone, todayKey],
+  );
+  const [recapOpen, setRecapOpen] = useState(false);
+  const dayOfMonth = Number(academyDayKey(now, timeZone).slice(8, 10));
+  const showRecapCard = monthRecap.count > 0 && dayOfMonth <= 15;
+
   const attendedClassIds = useMemo(() => new Set(attendances.map((entry) => entry.classId)), [attendances]);
   const pendingClassIds = useMemo(
     () => new Set(attendanceRequests.filter((entry) => entry.status === 'pending').map((entry) => entry.classId)),
@@ -193,6 +208,20 @@ const HomeView: React.FC<HomeViewProps> = ({
 
   // Sem imagem 3D (kids, combinadas, coral/vermelha) a faixa vira uma barra baixa.
   const beltHasImage = hasBeltImage(user.belt) && (!blackBeltProgress || blackBeltProgress.style === 'preta');
+
+  // ─── Retrospectiva ────────────────────────────────────────────────────────
+  const recapMonthName = (() => {
+    const [year, month] = monthRecap.monthKey.split('-').map(Number);
+    return new Intl.DateTimeFormat(getLocale(), { month: 'long' }).format(new Date(year, month - 1, 15));
+  })();
+  const recapAchievement = (() => {
+    if (Number.isNaN(lastGraduationDate.getTime())) return null;
+    if (academyDayKey(lastGraduationDate, timeZone).slice(0, 7) !== monthRecap.monthKey) return null;
+    return {
+      title: beltName,
+      detail: t('Recebido em {date}.', { date: lastGraduationDate.toLocaleDateString(getLocale()) }),
+    };
+  })();
 
   // ─── Proxima aula ─────────────────────────────────────────────────────────
   const renderNextClass = () => {
@@ -348,7 +377,17 @@ const HomeView: React.FC<HomeViewProps> = ({
         ) : null}
       </div>
 
-      <div className="rd-home__primary">
+      <div className="rd-home__primary lv-cascade">
+        {showRecapCard ? (
+          <button type="button" className="lv-card rd-home__recap" onClick={() => setRecapOpen(true)}>
+            <span className="rd-home__recap-icon" aria-hidden="true"><Sparkles size={20} strokeWidth={2} /></span>
+            <span className="rd-home__recap-text">
+              <span className="rd-home__recap-kicker">{t('Retrospectiva')}</span>
+              <strong>{t('Seu {month} na LEVEL está pronto.', { month: recapMonthName })}</strong>
+            </span>
+            <ArrowRight size={18} strokeWidth={2} aria-hidden="true" />
+          </button>
+        ) : null}
         <section className="lv-card rd-home__belt-card" aria-label={beltName}>
           <div className={`rd-home__belt${beltHasImage ? '' : ' rd-home__belt--bar'}`}>
             <BeltImage
@@ -391,23 +430,37 @@ const HomeView: React.FC<HomeViewProps> = ({
         <div className="rd-home__tiles">
           <div className="lv-card rd-home__tile">
             <span className="rd-home__tile-label">{t('Treinos na semana')}</span>
-            <strong className="rd-home__tile-value">{weekTrainings}</strong>
+            <strong className="rd-home__tile-value"><CountUp value={weekTrainings} /></strong>
           </div>
           {commitment ? (
             <div className={`lv-card rd-home__tile commitment ${commitmentLevelClass(commitment.level)}`}>
               <span className="rd-home__tile-label">{t('Comprometimento')}</span>
-              <strong className="rd-home__tile-value rd-home__tile-value--commit">{commitment.score}</strong>
+              <strong className="rd-home__tile-value rd-home__tile-value--commit"><CountUp value={commitment.score} /></strong>
             </div>
           ) : (
             <div className="lv-card rd-home__tile">
               <span className="rd-home__tile-label">{t('Total de treinos no mês')}</span>
-              <strong className="rd-home__tile-value">{monthlyAttendanceCount}</strong>
+              <strong className="rd-home__tile-value"><CountUp value={monthlyAttendanceCount} /></strong>
             </div>
           )}
         </div>
 
         {renderNextClass()}
       </div>
+
+      {recapOpen ? (
+        <MonthlyRecap
+          recap={monthRecap}
+          streak={weekStreak}
+          name={user.name || ''}
+          unitLabel={shell.unitLabel}
+          belt={user.belt}
+          stripes={blackBeltProgress ? blackBeltProgress.degree : progression.currentStripes}
+          maxStripes={blackBeltProgress ? undefined : progression.currentRule.maxStripes}
+          achievement={recapAchievement}
+          onClose={() => setRecapOpen(false)}
+        />
+      ) : null}
 
       <div className="rd-home__secondary">
         {!blackBeltProgress ? (

@@ -3,6 +3,7 @@ import test from 'node:test';
 import {
   academyDayOffset,
   academyHour,
+  computeMonthRecap,
   computeWeekTrainings,
   computeWeeklyStreak,
   isClassLive,
@@ -126,4 +127,36 @@ test('aula ao vivo, deslocamento de dias e hora no fuso da academia', () => {
   assert.equal(academyHour(at('2026-10-06T22:00:00Z'), TZ), 19);
   assert.equal(academyHour(at('2026-10-06T03:00:00Z'), TZ), 0);
   assert.equal(academyHour(at('2026-10-06T22:00:00Z'), 'fuso-invalido'), 19);
+});
+
+test('retrospectiva: mes anterior no fuso da academia, so o que conta', () => {
+  const classes = [
+    { id: 'tue', scheduledStart: at('2026-09-01T22:00:00Z'), scheduledEnd: at('2026-09-01T23:30:00Z') }, // ter 19h SP
+    { id: 'tue2', scheduledStart: at('2026-09-08T22:00:00Z') }, // ter 19h SP, sem fim (1h)
+    { id: 'sat', scheduledStart: at('2026-09-12T13:00:00Z') }, // sab 10h SP
+  ];
+  const records = [
+    presence('tue', '2026-09-01T22:00:00Z'),
+    presence('tue2', '2026-09-08T22:00:00Z'),
+    presence('sat', '2026-09-12T13:00:00Z'),
+    presence('x', '2026-09-15T22:00:00Z', { countsAsAttendance: false }),
+    presence('aug', '2026-08-20T22:00:00Z'),
+    presence('oct', '2026-10-02T22:00:00Z'),
+  ];
+  const recap = computeMonthRecap(records, classes, TZ, now);
+  assert.equal(recap.monthKey, '2026-09');
+  assert.equal(recap.previousMonthKey, '2026-08');
+  assert.equal(recap.count, 3);
+  assert.equal(recap.previousCount, 1);
+  assert.equal(recap.hours, 4); // 1h30 + 1h + 1h (sem fim) arredondado
+  assert.equal(recap.favoriteWeekday, 1); // terca
+  assert.equal(recap.favoriteTime, '19:00');
+  assert.equal(recap.activeWeeks, 2);
+});
+
+test('retrospectiva de janeiro olha dezembro do ano anterior', () => {
+  const recap = computeMonthRecap([presence('d', '2025-12-10T22:00:00Z')], null, TZ, new Date('2026-01-05T15:00:00Z'));
+  assert.equal(recap.monthKey, '2025-12');
+  assert.equal(recap.count, 1);
+  assert.equal(recap.favoriteWeekday, 2); // quarta
 });

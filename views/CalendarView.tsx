@@ -33,6 +33,8 @@ import { formatDateLabel, formatTimeLabel } from '../services/firebase/adapters'
 import { UserRole, type KidsCategory } from '../types';
 import { normalizePersonName } from '../utils';
 import { t, getLocale, createDateFormatter } from '../i18n';
+import { hapticConfirm } from '../services/haptics';
+import EmptyState from '../components/redesign/EmptyState';
 
 // photoPath so e uma URL exibivel quando comeca com http (ver adapters.ts).
 const photoToAvatar = (p?: string) => (p && p.startsWith('http') ? p : undefined);
@@ -1405,6 +1407,16 @@ const CalendarView: React.FC<CalendarViewProps> = ({
       );
   }, [attendanceByUserId, classAttendances, classRsvps, progressionRules, rsvpByUserId, studentById]);
 
+  // QR ao vivo: os ultimos que entraram (mais recente primeiro).
+  const recentArrivals = useMemo(() => {
+    const nameFor = (userId: string) => confirmedRoster.find((entry) => entry.userId === userId)?.displayName ?? t('Aluno');
+    return [...classAttendances]
+      .map((entry) => ({ entry, at: (entry.checkedInAt ?? entry.createdAt)?.toMillis() ?? 0 }))
+      .sort((left, right) => right.at - left.at)
+      .slice(0, 3)
+      .map(({ entry, at }) => ({ id: entry.id, name: nameFor(entry.userId), at }));
+  }, [classAttendances, confirmedRoster]);
+
   const pendingPresencaStudents = useMemo(() => {
     return [...academyStudents]
       .filter((student) => !rsvpByUserId.has(student.id) && !attendanceByUserId.has(student.id))
@@ -1501,6 +1513,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
     try {
       const result = await backendFunctions.toggleClassRsvp({ classId });
       setMyRsvpByClass((current) => ({ ...current, [classId]: result.rsvped }));
+      hapticConfirm();
     } catch (error) {
       setMessageByClass((current) => ({
         ...current,
@@ -1517,6 +1530,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
     setBusyByClass((prev) => ({ ...prev, [busyKey]: true }));
     try {
       await backendFunctions.toggleClassRsvp({ classId, targetUserId: studentId });
+      hapticConfirm();
     } catch (error) {
       const msg = error instanceof Error ? error.message : t('Erro ao atualizar confirmação.');
       setStudentErrorById((prev) => ({ ...prev, [studentId]: msg }));
@@ -1531,6 +1545,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
     setBusyByClass((prev) => ({ ...prev, [busyKey]: true }));
     try {
       await onMarkStudentPresent?.(classId, studentId);
+      hapticConfirm();
     } catch (error) {
       const msg = error instanceof Error ? error.message : t('Erro ao marcar presença.');
       setStudentErrorById((prev) => ({ ...prev, [studentId]: msg }));
@@ -1851,7 +1866,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
             </React.Fragment>
           ))
         ) : (
-          <div className="rd-cal__empty">{emptyMessage}</div>
+          <EmptyState art="rest" className="rd-cal__empty" title={t('Dia livre no tatame.')} text={emptyMessage} />
         )}
       </div>
     );
@@ -2493,9 +2508,11 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                           {t('Carregando confirmados...')}
                         </div>
                       ) : confirmedRoster.length === 0 ? (
-                        <div style={{ textAlign: 'center', padding: '12px 0', color: 'var(--text-soft)', fontSize: '0.85rem' }}>
-                          {t('Nenhum aluno confirmado nesta aula')}
-                        </div>
+                        <EmptyState
+                          art="belt"
+                          title={t('Ninguém marcou presença ainda.')}
+                          text={t('Nenhum aluno confirmado nesta aula')}
+                        />
                       ) : (
                         confirmedRoster.map((entry) => {
                           const record = entry.record;
@@ -2990,13 +3007,31 @@ const CalendarView: React.FC<CalendarViewProps> = ({
             </div>
 
             <div className="rd-cal__qr-count">
-              <strong>{classAttendances.length}</strong>
+              <strong key={classAttendances.length} className="lv-bump">{classAttendances.length}</strong>
               <span>
                 {selectedClassRsvpCount > 0
                   ? t('de {total} confirmados já marcaram presença', { total: selectedClassRsvpCount })
                   : t('presenças registradas')}
               </span>
             </div>
+
+            {selectedClassRsvpCount > 0 ? (
+              <div className="rd-cal__qr-bar" aria-hidden="true">
+                <span style={{ width: `${Math.min(100, (classAttendances.length / selectedClassRsvpCount) * 100)}%` }} />
+              </div>
+            ) : null}
+
+            {recentArrivals.length > 0 ? (
+              <ul className="rd-cal__qr-arrivals" aria-live="polite" aria-label={t('Últimos a entrar')}>
+                {recentArrivals.map((arrival) => (
+                  <li key={arrival.id} className="rd-cal__qr-arrival">
+                    <span className="rd-cal__qr-arrival-avatar" aria-hidden="true">{arrival.name.trim().charAt(0).toLocaleUpperCase()}</span>
+                    <span className="rd-cal__qr-arrival-name">{arrival.name}</span>
+                    {arrival.at ? <small>{formatTimeLabel(new Date(arrival.at))}</small> : null}
+                  </li>
+                ))}
+              </ul>
+            ) : null}
 
             {qrCountdown && qrCountdown !== '00:00' ? (
               <p className="rd-cal__qr-expire">{t('Expira em {time}', { time: qrCountdown })}</p>

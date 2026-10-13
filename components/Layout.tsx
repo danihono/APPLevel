@@ -1,4 +1,5 @@
 import React, { Fragment, useEffect, useMemo, useRef, useState } from 'react';
+import { hapticTap } from '../services/haptics';
 import {
   Bell,
   BookOpen,
@@ -445,7 +446,7 @@ const Layout: React.FC<LayoutProps> = ({
             <button
               key={item.id}
               type="button"
-              onClick={() => setActiveTab(item.id)}
+              onClick={() => { if (item.id !== activeTab) hapticTap(); setActiveTab(item.id); }}
               className={`app-sidebar__button ${isActive ? 'is-active' : ''}`}
               aria-label={item.label}
               aria-current={isActive ? 'page' : undefined}
@@ -606,7 +607,7 @@ const Layout: React.FC<LayoutProps> = ({
                       navRefs.current[item.id] = element;
                     }}
                     type="button"
-                    onClick={() => setActiveTab(item.id)}
+                    onClick={() => { if (item.id !== activeTab) hapticTap(); setActiveTab(item.id); }}
                     className={`app-nav-button ${isActive ? 'is-active' : ''}`}
                     aria-label={item.label}
                     aria-current={isActive ? 'page' : undefined}

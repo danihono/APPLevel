@@ -209,3 +209,113 @@ export function nextClassForStudent<T extends TrainingClass, K = string>(
 
   return candidates[0]?.lesson ?? null;
 }
+
+// ─── Retrospectiva do mes ───────────────────────────────────────────────────
+
+export interface MonthRecap {
+  /** Mes da retrospectiva ('YYYY-MM'): o mes anterior ao de `now`, no fuso da academia. */
+  monthKey: string;
+  /** Mes antes dele ('YYYY-MM'), para comparar. */
+  previousMonthKey: string;
+  /** Treinos que contam no mes. */
+  count: number;
+  /** Treinos que contam no mes anterior. */
+  previousCount: number;
+  /** Horas de tatame (duracao das aulas; 1h quando a aula nao tem fim). */
+  hours: number;
+  /** Treinos por dia da semana (0 = segunda ... 6 = domingo). */
+  weekdayCounts: number[];
+  /** Dia da semana com mais treinos (0 = segunda), ou null sem treinos. */
+  favoriteWeekday: number | null;
+  /** Horario de inicio mais frequente ('HH:MM'), ou null. */
+  favoriteTime: string | null;
+  /** Semanas (segunda a domingo) do mes com pelo menos um treino. */
+  activeWeeks: number;
+}
+
+function monthKeyShift(monthKey: string, delta: number): string {
+  const [year, month] = monthKey.split('-').map(Number);
+  const date = new Date(Date.UTC(year, month - 1 + delta, 1));
+  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}`;
+}
+
+function academyClock(date: Date, timeZone: string): string {
+  const format = (zone: string) => new Intl.DateTimeFormat('en-GB', {
+    timeZone: zone, hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+  }).format(date);
+  try {
+    return format(timeZone || 'America/Sao_Paulo');
+  } catch {
+    return format('America/Sao_Paulo');
+  }
+}
+
+/**
+ * Numeros da retrospectiva do mes anterior: so presencas que contam, no fuso da academia.
+ * `classes` serve para achar o inicio e o fim de cada aula (horas no tatame, horario favorito).
+ */
+export function computeMonthRecap(
+  attendances: ReadonlyArray<TrainingAttendance>,
+  classes: ReadonlyArray<Pick<TrainingClass, 'id' | 'scheduledStart' | 'scheduledEnd'>> | null | undefined,
+  timeZone: string,
+  now: Date,
+): MonthRecap {
+  const monthKey = monthKeyShift(academyDayKey(now, timeZone).slice(0, 7), -1);
+  const previousMonthKey = monthKeyShift(monthKey, -1);
+  const classById = new Map((classes ?? []).map((lesson) => [lesson.id, lesson]));
+  const weekdayCounts = [0, 0, 0, 0, 0, 0, 0];
+  const timeCounts = new Map<string, number>();
+  const weeks = new Set<string>();
+  let count = 0;
+  let previousCount = 0;
+  let durationMs = 0;
+
+  for (const attendance of attendances) {
+    if (attendance.countsAsAttendance === false) continue;
+    const lesson = classById.get(attendance.classId);
+    const date = resolveAttendanceDate(attendance, lesson?.scheduledStart);
+    if (!date) continue;
+    const dayKey = academyDayKey(date, timeZone);
+    const key = dayKey.slice(0, 7);
+    if (key === previousMonthKey) {
+      previousCount += 1;
+      continue;
+    }
+    if (key !== monthKey) continue;
+    count += 1;
+    const weekday = (dayKeyToUtcNoon(dayKey).getUTCDay() + 6) % 7;
+    weekdayCounts[weekday] += 1;
+    weeks.add(weekStartKey(dayKey));
+    const start = toDate(lesson?.scheduledStart) ?? date;
+    const clock = academyClock(start, timeZone);
+    timeCounts.set(clock, (timeCounts.get(clock) ?? 0) + 1);
+    const end = lesson ? toDate(lesson.scheduledEnd) : null;
+    const length = end && end.getTime() > start.getTime() ? end.getTime() - start.getTime() : DEFAULT_CLASS_DURATION_MS;
+    durationMs += Math.min(length, 4 * 60 * 60 * 1000);
+  }
+
+  let favoriteWeekday: number | null = null;
+  weekdayCounts.forEach((value, index) => {
+    if (value > 0 && (favoriteWeekday === null || value > weekdayCounts[favoriteWeekday])) favoriteWeekday = index;
+  });
+  let favoriteTime: string | null = null;
+  let favoriteTimeCount = 0;
+  timeCounts.forEach((value, clock) => {
+    if (value > favoriteTimeCount || (value === favoriteTimeCount && favoriteTime !== null && clock < favoriteTime)) {
+      favoriteTime = clock;
+      favoriteTimeCount = value;
+    }
+  });
+
+  return {
+    monthKey,
+    previousMonthKey,
+    count,
+    previousCount,
+    hours: Math.round(durationMs / (60 * 60 * 1000)),
+    weekdayCounts,
+    favoriteWeekday,
+    favoriteTime,
+    activeWeeks: weeks.size,
+  };
+}

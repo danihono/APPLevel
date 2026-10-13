@@ -309,6 +309,15 @@ const RedesignPreview: React.FC = () => {
       ? { ...previewStudent, belt: 'black', stripes: 3, grade: 3, attendanceCount: 900, lastGraduationDateOverride: ts(new Date(2015, 2, 1)) }
       : previewStudent
   ), [screen.variant]);
+  // Brilho do fundo na cor da faixa de quem esta usando (mesma regra do App).
+  useEffect(() => {
+    const glowByBelt: Record<string, string> = { blue: 'azul', purple: 'roxa', brown: 'marrom', black: 'preta' };
+    const belt = isChooser ? undefined : screen.role === 'student' ? studentRecord.belt : previewProfessor.belt;
+    const glow = belt ? glowByBelt[belt] : undefined;
+    if (glow) document.documentElement.dataset.lvBelt = glow;
+    else delete document.documentElement.dataset.lvBelt;
+  }, [isChooser, screen.role, studentRecord.belt]);
+
   const student = useMemo(() => toUiUser({ id: studentRecord.id, user: studentRecord, graduations: previewGraduations, fights: previewFights }), [studentRecord]);
   const professor = useMemo(() => toUiUser({ id: previewProfessor.id, user: previewProfessor, graduations: [], fights: [] }), []);
 

@@ -16,6 +16,7 @@ import type { ClassRecord } from '../../services/firebase/models';
 import type { User } from '../../types';
 import { getLocale, t } from '../../i18n';
 import BeltImage from '../BeltImage';
+import { hapticConfirm, hapticError, hapticSuccess } from '../../services/haptics';
 import './checkin.css';
 
 export interface CheckInScreenProps {
@@ -418,7 +419,9 @@ const CheckInScreen: React.FC<CheckInScreenProps> = ({
       const reason = await onRegister(effectiveClassId, token);
       setResult({ reason, summary });
       setStep('success');
+      hapticSuccess();
     } catch (err) {
+      hapticError();
       setError(err instanceof Error && err.message ? err.message : t('Erro ao registrar presença.'));
     } finally {
       setRegistering(false);
@@ -434,6 +437,7 @@ const CheckInScreen: React.FC<CheckInScreenProps> = ({
     try {
       await onRequestAttendance(effectiveClassId);
       setRequestState('sent');
+      hapticConfirm();
     } catch (err) {
       setRequestState('idle');
       setRequestError(err instanceof Error && err.message ? err.message : t('Não foi possível enviar a solicitação.'));

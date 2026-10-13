@@ -16,6 +16,8 @@ import { academyDayKey } from '../dailyTrainingUtils';
 import { nonCountingReasonLabel } from '../classRules';
 import BeltImage from '../components/BeltImage';
 import { useRedesignShell } from '../components/redesign/ShellContext';
+import { CountUp } from '../components/redesign/motion';
+import YearHeatmap from '../components/redesign/YearHeatmap';
 import { t, createDateFormatter } from '../i18n';
 import GraduationView, { useGraduationProgression, type GraduationViewProps } from './GraduationView';
 import CompetitionView, { type CompetitionViewProps } from './CompetitionView';
@@ -364,6 +366,16 @@ const EvolutionView: React.FC<EvolutionViewProps> = ({
   // nowMs fica de fora de proposito: o mapa so e refeito quando os dados mudam.
   [attendances, attendanceRequests, classes, rsvps, timeZone, kidsCategory, fallbackClassTitle]);
 
+  // Treinos que contam por dia (mapa do ano).
+  const countsByDay = useMemo(() => {
+    const counts = new Map<string, number>();
+    dayMap.forEach((info, key) => {
+      const counted = info.entries.filter((entry) => entry.kind === 'counted').length;
+      if (counted > 0) counts.set(key, counted);
+    });
+    return counts;
+  }, [dayMap]);
+
   const monthCells = useMemo(() => buildMonthGrid(view.year, view.month), [view.month, view.year]);
   // 1/1/2024 foi segunda-feira: a grade comeca na segunda (buildMonthGrid).
   const weekdayLabels = Array.from({ length: 7 }, (_, index) => weekdayFormatter.format(new Date(2024, 0, 1 + index)));
@@ -518,7 +530,8 @@ const EvolutionView: React.FC<EvolutionViewProps> = ({
                 <circle className="rd-evo__ring-track" cx="60" cy="60" r={RING_RADIUS} />
                 {ringFraction !== null && ringFraction > 0 ? (
                   <circle
-                    className="rd-evo__ring-fill"
+                    className="rd-evo__ring-fill lv-ring-fill"
+                    style={{ ['--lv-ring-length' as string]: ringLength }}
                     cx="60"
                     cy="60"
                     r={RING_RADIUS}
@@ -528,7 +541,11 @@ const EvolutionView: React.FC<EvolutionViewProps> = ({
                 ) : null}
               </svg>
               <div className="rd-evo__ring-center" aria-hidden="true">
-                {hero.giant !== null ? <span className="rd-evo__giant">{hero.giant}</span> : null}
+                {hero.giant !== null ? (
+                  <span className="rd-evo__giant">
+                    {/^\d+$/.test(hero.giant) ? <CountUp value={Number(hero.giant)} durationMs={1200} /> : hero.giant}
+                  </span>
+                ) : null}
                 <span className="rd-evo__ring-caption">{hero.caption}</span>
               </div>
             </div>
@@ -640,6 +657,8 @@ const EvolutionView: React.FC<EvolutionViewProps> = ({
             {t('Presença: você treinou mas a aula não computou, ou a presença aguarda aprovação.')}
           </p>
         </section>
+
+        <YearHeatmap countsByDay={countsByDay} todayKey={todayKey} />
 
         <section className="lv-section rd-evo__timeline-section" aria-labelledby="rd-evo-timeline">
           <h2 id="rd-evo-timeline" className="lv-label rd-evo__timeline-title">{t('Graduações')}</h2>

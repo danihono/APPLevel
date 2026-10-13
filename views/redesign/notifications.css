@@ -970,3 +970,8 @@ html.dark .rd-notices__whistle-cord {
 .rd-compose-screen .rd-compose {
   flex: 1 1 auto;
 }
+
+/* LEVEL vivo · o apito flutua devagar no estado vazio. */
+@media (prefers-reduced-motion: no-preference) {
+  .rd-notices__whistle { animation: lv-float 4.5s ease-in-out infinite; }
+}

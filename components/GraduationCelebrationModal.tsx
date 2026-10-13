@@ -1,17 +1,20 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ArrowRight, Award, Share, X } from 'lucide-react';
+import { ArrowRight, Award, Download, Share, X } from 'lucide-react';
 import {
   beltLabel,
   getBeltMeta,
   normalizeBeltId,
 } from '../beltCatalog';
-import { hasBeltImage } from '../beltImages';
+import { getBeltImage, hasBeltImage } from '../beltImages';
 import type { FirestoreEntity } from '../services/firebase/data';
 import type { GraduationRecord } from '../services/firebase/models';
 import BeltImage from './BeltImage';
 import { t, getLocale } from '../i18n';
 import '../views/redesign/evolution.css';
 import { publicAsset } from '../publicAsset';
+import { hapticSuccess } from '../services/haptics';
+import { shareImage } from '../services/shareImage';
+import { beltGlow, renderGraduationCard } from '../services/storyCards';
 
 interface GraduationCelebrationModalProps {
   graduation: FirestoreEntity<GraduationRecord>;
@@ -66,6 +69,10 @@ const GraduationCelebrationModal: React.FC<GraduationCelebrationModalProps> = ({
   }, [imageBasePath]);
 
   useEffect(() => {
+    hapticSuccess();
+  }, []);
+
+  useEffect(() => {
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
 
@@ -90,15 +97,41 @@ const GraduationCelebrationModal: React.FC<GraduationCelebrationModalProps> = ({
     ? `${t('Faixa {belt}', { belt: newBeltName })}.`
     : `${t('{degree}º Grau', { degree: graduation.newStripes })}.`;
 
-  const canShare = typeof navigator !== 'undefined' && typeof navigator.share === 'function';
-  const handleShare = async () => {
+  // Cartão no formato dos Stories (imagem gerada no aparelho).
+  const cardTitle = title.replace(/\.$/, '');
+  const cardKicker = t('OSS! Nova graduação');
+  const glow = beltGlow(newBelt);
+  const [shareState, setShareState] = useState<'idle' | 'busy'>('idle');
+  const [shareMessage, setShareMessage] = useState('');
+  const handleShare = async (saveOnly = false) => {
+    if (shareState === 'busy') return;
+    setShareState('busy');
+    setShareMessage('');
     const text = beltChanged || graduation.newStripes <= 0
       ? t('Oss! Conquistei a faixa {belt} no Jiu-Jitsu.', { belt: newBeltName })
       : t('Oss! Conquistei o {degree}º grau na faixa {belt}.', { degree: graduation.newStripes, belt: newBeltName });
     try {
-      await navigator.share({ title: t('OSS! Nova graduação'), text });
+      const blob = await renderGraduationCard({
+        title: cardTitle,
+        kicker: cardKicker,
+        name: studentName.trim() || firstName,
+        details: promotedAtLabel ? [promotedAtLabel] : [],
+        beltSrc: getBeltImage(newBelt, 'amarrada')?.src ?? null,
+        glow,
+      });
+      const result = await shareImage({
+        blob,
+        fileName: `level-graduacao-${newBelt}.png`,
+        title: cardKicker,
+        text,
+        saveOnly,
+      });
+      if (result === 'downloaded') setShareMessage(t('Imagem salva.'));
+      if (result === 'unavailable') setShareMessage(t('Não foi possível compartilhar agora.'));
     } catch {
-      // Compartilhamento cancelado ou indisponivel: nada a fazer.
+      setShareMessage(t('Não foi possível compartilhar agora.'));
+    } finally {
+      setShareState('idle');
     }
   };
 
@@ -147,12 +180,10 @@ const GraduationCelebrationModal: React.FC<GraduationCelebrationModalProps> = ({
           >
             <X size={20} strokeWidth={2} />
           </button>
-          {canShare ? (
-            <button type="button" className="lv-btn lv-btn--sm rd-celebrate__share" onClick={() => { void handleShare(); }}>
-              <Share size={16} strokeWidth={2} />
-              {t('Compartilhar')}
-            </button>
-          ) : null}
+          <button type="button" className="lv-btn lv-btn--sm rd-celebrate__share" onClick={() => { void handleShare(); }} disabled={shareState === 'busy'}>
+            <Share size={16} strokeWidth={2} />
+            {t('Compartilhar')}
+          </button>
         </div>
 
         <div className="rd-celebrate__media">
@@ -222,10 +253,44 @@ const GraduationCelebrationModal: React.FC<GraduationCelebrationModalProps> = ({
           </div>
         </div>
 
+        <div className="rd-celebrate__story">
+          <div className="rd-celebrate__card" style={{ '--rd-card-glow': glow } as React.CSSProperties} aria-hidden="true">
+            <span className="rd-celebrate__card-mark">LEVEL<i>.</i></span>
+            {hasTiedBelt ? (
+              <BeltImage belt={newBelt} stripes={graduation.newStripes} variant="amarrada" className="rd-celebrate__card-belt" />
+            ) : <span className="rd-celebrate__card-belt" />}
+            <span className="rd-celebrate__card-kicker">{cardKicker}</span>
+            <strong className="rd-celebrate__card-title">{cardTitle}</strong>
+            <span className="rd-celebrate__card-name">{studentName}</span>
+            {promotedAtLabel ? <span className="rd-celebrate__card-meta">{promotedAtLabel}</span> : null}
+          </div>
+          <div className="rd-celebrate__story-actions">
+            <button
+              type="button"
+              className="lv-btn lv-btn--primary lv-btn--block"
+              onClick={() => { void handleShare(); }}
+              disabled={shareState === 'busy'}
+            >
+              <Share size={18} strokeWidth={2} aria-hidden="true" />
+              {shareState === 'busy' ? t('Gerando imagem...') : t('Compartilhar nos Stories')}
+            </button>
+            <button
+              type="button"
+              className="lv-btn lv-btn--block rd-celebrate__ghost"
+              onClick={() => { void handleShare(true); }}
+              disabled={shareState === 'busy'}
+            >
+              <Download size={18} strokeWidth={2} aria-hidden="true" />
+              {t('Salvar imagem')}
+            </button>
+            {shareMessage ? <p className="rd-celebrate__share-note" role="status">{shareMessage}</p> : null}
+          </div>
+        </div>
+
         <div className="lv-fullscreen__footer rd-celebrate__footer">
           <button
             type="button"
-            className="lv-btn lv-btn--primary lv-btn--block"
+            className="lv-btn lv-btn--block rd-celebrate__light"
             onClick={onOpenGraduation}
             autoFocus
           >
