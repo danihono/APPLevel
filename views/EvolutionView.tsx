@@ -326,6 +326,19 @@ const EvolutionView: React.FC<EvolutionViewProps> = ({
     && Boolean(progression.nextBelt)
     && progression.beltTotal > 0
     && progression.beltRemaining !== null;
+  // Anel de progresso (vidro): fracao do ciclo atual (grau ou faixa); sem ciclo, anel cheio ou vazio.
+  const ringFraction = (() => {
+    if (blackBelt) return blackBelt.nextDegree == null || (blackBelt.yearsToNextDegree ?? 1) <= 0 ? 1 : null;
+    if (progression.stripeRemaining !== null && progression.stripeCycleTotal > 0) {
+      return Math.min(1, progression.stripeCycleProgress / progression.stripeCycleTotal);
+    }
+    if (progression.beltRemaining !== null && progression.beltTotal > 0) {
+      return Math.min(1, progression.beltProgress / progression.beltTotal);
+    }
+    return hero.giant === '0' ? 1 : null;
+  })();
+  const RING_RADIUS = 52;
+  const ringLength = 2 * Math.PI * RING_RADIUS;
   const heroStripes = blackBelt ? blackBelt.degree : profile.stripes;
   const heroSlots = Math.max(progression.currentRule?.maxStripes ?? 0, profile.stripes ?? 0);
 
@@ -454,30 +467,11 @@ const EvolutionView: React.FC<EvolutionViewProps> = ({
     <div className="lv-screen rd-evo">
       <section className={`rd-evo__hero ${segment === 'competition' ? 'rd-evo__hero--compact' : ''}`}>
         <div className="rd-evo__bar">
-          <div className="lv-segmented lv-segmented--on-yellow rd-evo__segmented" role="tablist" aria-label={t('Evolução')}>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={segment === 'graduation'}
-              className={segment === 'graduation' ? 'is-active' : ''}
-              onClick={() => setSegment('graduation')}
-            >
-              {t('Graduação')}
-            </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={segment === 'competition'}
-              className={segment === 'competition' ? 'is-active' : ''}
-              onClick={() => setSegment('competition')}
-            >
-              {t('Competição')}
-            </button>
-          </div>
+          <h1 className="lv-display rd-evo__title">{t('Evolução')}</h1>
           {bellVisible ? (
             <button
               type="button"
-              className="lv-icon-btn lv-icon-btn--ink rd-evo__bell"
+              className="lv-icon-btn rd-evo__bell"
               onClick={shell.openNotifications}
               aria-label={shell.unreadCount > 0
                 ? `${t('Avisos')} · ${t('{count} não lidas', { count: shell.unreadCount })}`
@@ -491,39 +485,72 @@ const EvolutionView: React.FC<EvolutionViewProps> = ({
           ) : null}
         </div>
 
+        <div className="lv-segmented rd-evo__segmented" role="tablist" aria-label={t('Evolução')}>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={segment === 'graduation'}
+            className={segment === 'graduation' ? 'is-active' : ''}
+            onClick={() => setSegment('graduation')}
+          >
+            {t('Graduação')}
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={segment === 'competition'}
+            className={segment === 'competition' ? 'is-active' : ''}
+            onClick={() => setSegment('competition')}
+          >
+            {t('Competição')}
+          </button>
+        </div>
+
         {segment === 'graduation' ? (
-          <>
-            <h1 className="lv-display rd-evo__headline">
+          <div className="lv-card rd-evo__card">
+            <p className="rd-evo__headline">
               {hero.headline.map((line) => <span key={line}>{line}</span>)}
-            </h1>
-            {examWindow ? <span className="lv-chip lv-chip--ink rd-evo__exam">{t('Janela de exame')}</span> : null}
+            </p>
+            {examWindow ? <span className="lv-chip lv-chip--gold rd-evo__exam">{t('Janela de exame')}</span> : null}
 
-            <div className={`rd-evo__stage ${hero.giant === null ? 'rd-evo__stage--belt-only' : ''}`} role="img" aria-label={hero.aria}>
-              <div className="rd-evo__belt" aria-hidden="true">
-                <BeltImage
-                  belt={progression.currentBelt}
-                  stripes={heroStripes}
-                  maxStripes={blackBelt ? undefined : heroSlots}
-                  blackBelt={blackBelt}
-                />
+            <div className="rd-evo__ring" role="img" aria-label={hero.aria}>
+              <svg viewBox="0 0 120 120" aria-hidden="true">
+                <circle className="rd-evo__ring-track" cx="60" cy="60" r={RING_RADIUS} />
+                {ringFraction !== null && ringFraction > 0 ? (
+                  <circle
+                    className="rd-evo__ring-fill"
+                    cx="60"
+                    cy="60"
+                    r={RING_RADIUS}
+                    strokeDasharray={ringLength}
+                    strokeDashoffset={ringLength * (1 - ringFraction)}
+                  />
+                ) : null}
+              </svg>
+              <div className="rd-evo__ring-center" aria-hidden="true">
+                {hero.giant !== null ? <span className="rd-evo__giant">{hero.giant}</span> : null}
+                <span className="rd-evo__ring-caption">{hero.caption}</span>
               </div>
-              {hero.giant !== null ? <span className="lv-giant rd-evo__giant" aria-hidden="true">{hero.giant}</span> : null}
             </div>
 
-            <div className="rd-evo__caption">
-              <strong className="rd-evo__caption-main">{hero.caption}</strong>
-              {showNextBelt && progression.nextBelt ? (
-                <span className="rd-evo__next">
-                  <BeltImage belt={progression.nextBelt} stripes={0} hideEmptyStripes className="rd-evo__next-belt" />
-                  {t('Faixa {belt} em {count}', { belt: beltLabel(progression.nextBelt), count: progression.beltRemaining ?? 0 })}
-                </span>
-              ) : null}
-              {hero.foot ? <span className="rd-evo__next">{hero.foot}</span> : null}
+            <div className="rd-evo__belt" aria-hidden="true">
+              <BeltImage
+                belt={progression.currentBelt}
+                stripes={heroStripes}
+                maxStripes={blackBelt ? undefined : heroSlots}
+                blackBelt={blackBelt}
+              />
             </div>
-          </>
-        ) : (
-          <h1 className="lv-display rd-evo__headline">{t('Competição')}</h1>
-        )}
+
+            {showNextBelt && progression.nextBelt ? (
+              <span className="rd-evo__next">
+                <BeltImage belt={progression.nextBelt} stripes={0} hideEmptyStripes className="rd-evo__next-belt" />
+                {t('Faixa {belt} em {count}', { belt: beltLabel(progression.nextBelt), count: progression.beltRemaining ?? 0 })}
+              </span>
+            ) : null}
+            {hero.foot ? <span className="rd-evo__next">{hero.foot}</span> : null}
+          </div>
+        ) : null}
       </section>
 
       <div className="rd-evo__panel" hidden={segment !== 'graduation'} role="tabpanel">

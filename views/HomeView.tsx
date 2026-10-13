@@ -16,7 +16,7 @@ import {
 } from '../beltCatalog';
 import BeltImage from '../components/BeltImage';
 import { hasBeltImage } from '../beltImages';
-import { CommitmentBar } from '../components/CommitmentBar';
+import { CommitmentBar, commitmentLevelClass } from '../components/CommitmentBar';
 import ScreenHeader from '../components/redesign/ScreenHeader';
 import { useRedesignShell } from '../components/redesign/ShellContext';
 import {
@@ -141,6 +141,10 @@ const HomeView: React.FC<HomeViewProps> = ({
 
   // ─── Cabecalho ────────────────────────────────────────────────────────────
   const dateEyebrow = formatWithoutDots(now, timeZone, { weekday: 'short', day: 'numeric', month: 'long' });
+  const nowHour = academyHour(now, timeZone);
+  const greeting = nowHour < 12 ? t('Bom dia') : nowHour < 18 ? t('Boa tarde') : t('Boa noite');
+  const firstName = (user.name || '').trim().split(/\s+/)[0];
+  const greetingTitle = firstName ? `${greeting}, ${firstName}.` : `${greeting}.`;
   const streakLabel = weekStreak === 1 ? t('1 semana') : t('{count} semanas', { count: weekStreak });
   const streakAria = weekStreak === 1
     ? t('1 semana seguida com treino')
@@ -319,34 +323,33 @@ const HomeView: React.FC<HomeViewProps> = ({
 
   return (
     <div className="lv-screen rd-home">
-      <ScreenHeader
-        eyebrow={dateEyebrow}
-        title={t('Sua semana até aqui.')}
-        actions={weekStreak > 0 ? (
-          <span className="rd-home__streak" role="img" aria-label={streakAria}>
-            <Flame size={18} strokeWidth={2} aria-hidden="true" />
+      <ScreenHeader eyebrow={dateEyebrow} title={greetingTitle} />
+
+      <div className="rd-home__chips">
+        {weekStreak > 0 ? (
+          <span className="rd-home__chip" role="img" aria-label={streakAria}>
+            <Flame size={15} strokeWidth={2.2} aria-hidden="true" />
             <span aria-hidden="true">{streakLabel}</span>
           </span>
         ) : null}
-      />
-
-      {shell.unitLabel ? (
-        shell.onUnitClick ? (
-          <button type="button" className="rd-home__unit" onClick={shell.onUnitClick} aria-label={`${t('Trocar unidade')}: ${shell.unitLabel}`}>
-            <MapPin size={14} strokeWidth={2} aria-hidden="true" />
-            <span>{shell.unitLabel}</span>
-            <ChevronDown size={14} strokeWidth={2} aria-hidden="true" />
-          </button>
-        ) : (
-          <span className="rd-home__unit">
-            <MapPin size={14} strokeWidth={2} aria-hidden="true" />
-            <span>{shell.unitLabel}</span>
-          </span>
-        )
-      ) : null}
+        {shell.unitLabel ? (
+          shell.onUnitClick ? (
+            <button type="button" className="rd-home__chip rd-home__chip--button" onClick={shell.onUnitClick} aria-label={`${t('Trocar unidade')}: ${shell.unitLabel}`}>
+              <MapPin size={14} strokeWidth={2} aria-hidden="true" />
+              <span>{shell.unitLabel}</span>
+              <ChevronDown size={14} strokeWidth={2} aria-hidden="true" />
+            </button>
+          ) : (
+            <span className="rd-home__chip">
+              <MapPin size={14} strokeWidth={2} aria-hidden="true" />
+              <span>{shell.unitLabel}</span>
+            </span>
+          )
+        ) : null}
+      </div>
 
       <div className="rd-home__primary">
-        <div className="rd-home__hero">
+        <section className="lv-card rd-home__belt-card" aria-label={beltName}>
           <div className={`rd-home__belt${beltHasImage ? '' : ' rd-home__belt--bar'}`}>
             <BeltImage
               belt={user.belt}
@@ -357,25 +360,50 @@ const HomeView: React.FC<HomeViewProps> = ({
               alt={beltName}
             />
           </div>
-          <div className="rd-home__week">
-            <span className="rd-home__week-count">{weekTrainings}</span>
-            <span className="rd-home__week-label">
-              {weekTrainings === 1 ? t('treino costurado') : t('treinos costurados')}
-            </span>
-          </div>
-        </div>
 
-        <div className="rd-home__belt-row">
-          <div className="rd-home__belt-info">
-            <p className="rd-home__belt-name">{beltName}</p>
-            <p className="rd-home__belt-copy">{beltCopy}</p>
-            {beltMeta ? <p className="rd-home__belt-meta">{beltMeta}</p> : null}
+          <div className="rd-home__belt-row">
+            <div className="rd-home__belt-info">
+              <p className="rd-home__belt-name">{beltName}</p>
+              <p className="rd-home__belt-copy">{beltCopy}</p>
+              {beltMeta ? <p className="rd-home__belt-meta">{beltMeta}</p> : null}
+            </div>
+            {onOpenEvolution ? (
+              <button type="button" className="lv-icon-btn rd-home__arrow" onClick={onOpenEvolution} aria-label={t('Ver evolução')}>
+                <ArrowRight size={20} strokeWidth={2} />
+              </button>
+            ) : null}
           </div>
-          {onOpenEvolution ? (
-            <button type="button" className="lv-icon-btn rd-home__arrow" onClick={onOpenEvolution} aria-label={t('Ver evolução')}>
-              <ArrowRight size={22} strokeWidth={2} />
-            </button>
+
+          {!blackBeltProgress && progression.stripeCycleTotal > 0 ? (
+            <div
+              className="lv-progress rd-home__belt-progress"
+              role="progressbar"
+              aria-label={t('Próximo grau')}
+              aria-valuemin={0}
+              aria-valuemax={progression.stripeCycleTotal}
+              aria-valuenow={Math.min(progression.stripeCycleProgress, progression.stripeCycleTotal)}
+            >
+              <span style={{ width: `${Math.min(100, (progression.stripeCycleProgress / progression.stripeCycleTotal) * 100)}%` }} />
+            </div>
           ) : null}
+        </section>
+
+        <div className="rd-home__tiles">
+          <div className="lv-card rd-home__tile">
+            <span className="rd-home__tile-label">{t('Treinos na semana')}</span>
+            <strong className="rd-home__tile-value">{weekTrainings}</strong>
+          </div>
+          {commitment ? (
+            <div className={`lv-card rd-home__tile commitment ${commitmentLevelClass(commitment.level)}`}>
+              <span className="rd-home__tile-label">{t('Comprometimento')}</span>
+              <strong className="rd-home__tile-value rd-home__tile-value--commit">{commitment.score}</strong>
+            </div>
+          ) : (
+            <div className="lv-card rd-home__tile">
+              <span className="rd-home__tile-label">{t('Total de treinos no mês')}</span>
+              <strong className="rd-home__tile-value">{monthlyAttendanceCount}</strong>
+            </div>
+          )}
         </div>
 
         {renderNextClass()}

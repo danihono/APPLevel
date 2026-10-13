@@ -451,3 +451,88 @@ html.dark .rd-cal__qr-screen .lv-btn--ink {
   flex-direction: column;
   align-items: stretch;
 }
+
+/* ═══ Vidro (direcao "Apple") ═══════════════════════════════════════════════ */
+.rd-cal__list {
+  padding: 2px 16px;
+  border: 1px solid var(--lv-glass-edge);
+  border-radius: var(--lv-r-xl);
+  background: var(--lv-glass);
+  -webkit-backdrop-filter: var(--lv-glass-blur);
+  backdrop-filter: var(--lv-glass-blur);
+  box-shadow: var(--lv-glass-shadow);
+}
+
+/* Divisor vira linha fina (sai a marquinha de listras). */
+.rd-cal__divider {
+  height: 1px;
+}
+
+.rd-cal__divider::before {
+  inset: 0;
+  background: var(--lv-glass-hair);
+}
+
+.rd-cal__divider > i {
+  display: none;
+}
+
+.rd-cal__class-time {
+  font-size: 21px;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  min-width: 64px;
+}
+
+.rd-cal__class-title {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.rd-cal__class-meta {
+  font-size: 13px;
+  font-weight: 500;
+}
+
+/* Aula em destaque (professor): vidro mais opaco, barra amarela. */
+.rd-cal__class--ink,
+html.dark .rd-cal__class--ink {
+  margin: 6px -8px;
+  padding: 14px 16px;
+  border-radius: 20px;
+  background: var(--lv-glass-strong);
+  color: var(--lv-text);
+  box-shadow: inset 0 0 0 1px var(--lv-glass-edge), 0 6px 18px rgba(15, 18, 33, 0.08);
+}
+
+.rd-cal__class--ink .rd-cal__class-meta,
+.rd-cal__class--ink .rd-cal__class-count small,
+.rd-cal__class--ink .rd-cal__class-progress-label {
+  color: var(--lv-text-soft);
+}
+
+.rd-cal__class--ink .lv-chip--live {
+  color: var(--lv-text);
+  box-shadow: inset 0 0 0 1.5px var(--lv-text);
+}
+
+.rd-cal__class-progress .lv-progress {
+  background: var(--lv-glass-fill);
+}
+
+.rd-cal__empty {
+  border-color: var(--lv-glass-edge);
+  background: var(--lv-glass);
+}
+
+/* Sheet da aula: vidro quase opaco. */
+.rd-cal__sheet {
+  background: var(--lv-glass-strong);
+  -webkit-backdrop-filter: var(--lv-glass-blur);
+  backdrop-filter: var(--lv-glass-blur);
+}
+
+.rd-cal__sheet-footer {
+  border-top-color: var(--lv-glass-hair);
+  background: transparent;
+}

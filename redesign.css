@@ -1526,3 +1526,278 @@ html.dark .app-sidebar__collapse {
     transition: none;
   }
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   LEVEL EM VIDRO — direcao "Apple" aprovada na simulacao (scratchpad/glass).
+   Fundo claro com dois brilhos suaves, cartoes de vidro fosco, amarelo so no
+   essencial (aba ativa, progresso, check-in, dia escolhido) e titulos grandes.
+   Esta camada vem por ultimo de proposito: sobrescreve os blocos acima.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+:root {
+  --lv-canvas: #f4f2ee;
+  --lv-glass: rgba(255, 255, 255, 0.62);
+  --lv-glass-strong: rgba(255, 255, 255, 0.84);
+  --lv-glass-edge: rgba(255, 255, 255, 0.9);
+  --lv-glass-hair: rgba(18, 18, 24, 0.08);
+  --lv-glass-fill: rgba(18, 18, 24, 0.06);
+  --lv-glass-shadow: 0 10px 30px rgba(30, 30, 50, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.55);
+  --lv-glass-blur: blur(22px) saturate(180%);
+  --lv-glow-a: rgba(240, 180, 41, 0.34);
+  --lv-glow-b: rgba(122, 140, 190, 0.24);
+}
+
+html.dark {
+  --lv-canvas: #08080b;
+  --lv-glass: rgba(40, 40, 48, 0.55);
+  --lv-glass-strong: rgba(56, 56, 66, 0.78);
+  --lv-glass-edge: rgba(255, 255, 255, 0.12);
+  --lv-glass-hair: rgba(255, 255, 255, 0.08);
+  --lv-glass-fill: rgba(255, 255, 255, 0.08);
+  --lv-glass-shadow: 0 10px 30px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  --lv-glow-a: rgba(240, 180, 41, 0.22);
+  --lv-glow-b: rgba(80, 96, 160, 0.3);
+}
+
+/* Fundo: dois brilhos desfocados atras de tudo (o vidro precisa de algo para "borrar"). */
+body,
+html.dark body {
+  background:
+    radial-gradient(42rem 30rem at 100% -6rem, var(--lv-glow-a), transparent 62%),
+    radial-gradient(36rem 30rem at -8rem 70%, var(--lv-glow-b), transparent 62%),
+    var(--lv-canvas);
+  background-attachment: fixed;
+}
+
+/* Superficies de vidro */
+.lv-glass,
+.lv-card:not(.lv-card--ink):not(.lv-card--yellow):not(.lv-card--dashed),
+.lv-list,
+.lv-icon-btn:not(.lv-icon-btn--ink):not(.lv-icon-btn--on-yellow):not(.lv-icon-btn--on-dark),
+.lv-segmented {
+  background: var(--lv-glass);
+  -webkit-backdrop-filter: var(--lv-glass-blur);
+  backdrop-filter: var(--lv-glass-blur);
+  border-color: var(--lv-glass-edge);
+  box-shadow: var(--lv-glass-shadow);
+}
+
+.lv-glass {
+  border: 1px solid var(--lv-glass-edge);
+  border-radius: var(--lv-r-xl);
+}
+
+.lv-card:not(.lv-card--ink):not(.lv-card--yellow) {
+  border-radius: var(--lv-r-xl);
+}
+
+.lv-list {
+  border-radius: var(--lv-r-xl);
+}
+
+.lv-list > .lv-row + .lv-row,
+.lv-list > * + .lv-row {
+  border-top-color: var(--lv-glass-hair);
+}
+
+.lv-icon-btn:not(.lv-icon-btn--ink):not(.lv-icon-btn--on-yellow):not(.lv-icon-btn--on-dark) {
+  border: 1px solid var(--lv-glass-edge);
+}
+
+/* Cartao preto vira vidro (texto escuro); o amarelo fica so no botao de acao. */
+.lv-card--ink {
+  border: 1px solid var(--lv-glass-edge);
+  background: var(--lv-glass);
+  -webkit-backdrop-filter: var(--lv-glass-blur);
+  backdrop-filter: var(--lv-glass-blur);
+  box-shadow: var(--lv-glass-shadow);
+  color: var(--lv-text);
+}
+
+html.dark .lv-card--ink {
+  background: var(--lv-glass);
+  border-color: var(--lv-glass-edge);
+}
+
+.lv-card--ink .lv-eyebrow { color: var(--lv-text-soft); }
+.lv-card--ink .lv-soft,
+.lv-card--ink .lv-muted { color: var(--lv-text-soft); }
+.lv-card--ink .lv-progress { background: var(--lv-glass-fill); }
+
+/* Segmented: pilula de vidro mais opaca no item ativo (como no iOS). */
+.lv-segmented {
+  border: 1px solid var(--lv-glass-edge);
+}
+
+.lv-segmented > button {
+  font-weight: 700;
+}
+
+.lv-segmented > button.is-active,
+html.dark .lv-segmented > button.is-active {
+  background: var(--lv-glass-strong);
+  color: var(--lv-text);
+  box-shadow: 0 2px 10px rgba(15, 18, 33, 0.1);
+}
+
+.lv-segmented--yellow > button.is-active,
+html.dark .lv-segmented--yellow > button.is-active {
+  background: var(--lv-yellow);
+  color: var(--lv-on-yellow);
+}
+
+/* Chips neutros e progresso */
+.lv-chip {
+  background: var(--lv-glass-fill);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: none;
+  font-size: 12px;
+}
+
+.lv-progress {
+  height: 6px;
+  background: var(--lv-glass-fill);
+}
+
+/* Titulos no tamanho "Large Title" */
+.lv-display {
+  font-size: 32px;
+  letter-spacing: -0.035em;
+}
+
+/* Botao principal em capsula (amarelo continua sendo o CTA). */
+.lv-btn {
+  font-weight: 700;
+}
+
+/* ─── Semana (era o "tatame"): faixa de vidro, dia escolhido em amarelo ──── */
+.lv-tatame,
+html.dark .lv-tatame {
+  margin-inline: 0;
+  padding: 8px;
+  gap: 4px;
+  border: 1px solid var(--lv-glass-edge);
+  border-radius: var(--lv-r-xl);
+  background: var(--lv-glass);
+  -webkit-backdrop-filter: var(--lv-glass-blur);
+  backdrop-filter: var(--lv-glass-blur);
+  box-shadow: var(--lv-glass-shadow);
+}
+
+.lv-tatame__day,
+html.dark .lv-tatame__day {
+  min-height: 0;
+  padding: 7px 2px 6px;
+  border-radius: 18px;
+  background: transparent;
+  box-shadow: none;
+}
+
+.lv-tatame__weekday {
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.lv-tatame__date {
+  font-size: 19px;
+  font-weight: 700;
+}
+
+.lv-tatame__day.is-selected,
+html.dark .lv-tatame__day.is-selected {
+  transform: none;
+  background: var(--lv-yellow);
+  box-shadow: 0 6px 16px rgba(240, 180, 41, 0.35);
+}
+
+/* A lista do dia nao "sobe" mais num painel branco: fica no vidro. */
+.lv-sheet-panel {
+  margin: 0;
+  padding: 4px 0 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+/* Bottom sheets ficam quase opacos (leitura de formulario). */
+.lv-sheet {
+  background: var(--lv-glass-strong);
+  -webkit-backdrop-filter: var(--lv-glass-blur);
+  backdrop-filter: var(--lv-glass-blur);
+}
+
+.lv-backdrop {
+  background: rgba(10, 10, 12, 0.32);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+}
+
+/* ─── Tab bar: capsula de vidro; aba ativa em vidro com icone amarelo ────── */
+.app-toolbar__surface,
+html.dark .app-toolbar__surface {
+  border-radius: 30px;
+  border: 1px solid var(--lv-glass-edge);
+  background: var(--lv-glass);
+  -webkit-backdrop-filter: var(--lv-glass-blur);
+  backdrop-filter: var(--lv-glass-blur);
+  box-shadow: 0 14px 36px rgba(20, 20, 40, 0.14), inset 0 1px 0 rgba(255, 255, 255, 0.5);
+}
+
+html.dark .app-toolbar__surface {
+  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.app-nav-button {
+  border-radius: 24px;
+}
+
+.app-nav-button__label {
+  font-weight: 600;
+}
+
+.app-nav-button.is-active {
+  color: var(--lv-text);
+}
+
+.app-nav-button.is-active svg {
+  color: var(--lv-yellow-deep);
+}
+
+html.dark .app-nav-button.is-active svg {
+  color: var(--lv-yellow);
+}
+
+.app-nav-button.is-active .app-nav-button__label {
+  font-weight: 700;
+}
+
+.app-nav-indicator__clip {
+  border-radius: 24px;
+}
+
+.app-nav-indicator__plate,
+html.dark .app-nav-indicator__plate {
+  border-radius: 24px;
+  background: var(--lv-glass-strong);
+  box-shadow: inset 0 0 0 1px var(--lv-glass-edge), 0 2px 10px rgba(15, 18, 33, 0.08);
+}
+
+.app-notification-dot {
+  box-shadow: 0 0 0 2px var(--lv-canvas);
+}
+
+/* Paineis antigos (telas que so herdam o tema) tambem ganham o vidro. */
+.app-panel,
+html.dark .app-panel {
+  background: var(--lv-glass);
+  -webkit-backdrop-filter: var(--lv-glass-blur);
+  backdrop-filter: var(--lv-glass-blur);
+  border-color: var(--lv-glass-edge);
+  box-shadow: var(--lv-glass-shadow);
+}
+
+/* Sem suporte a backdrop-filter: vidro fica quase opaco para manter a leitura. */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  :root { --lv-glass: rgba(255, 255, 255, 0.92); --lv-glass-strong: #ffffff; }
+  html.dark { --lv-glass: rgba(36, 36, 44, 0.95); --lv-glass-strong: #34343e; }
+}

@@ -3,6 +3,7 @@ import type { MessageCatalog } from './types';
 // Textos do redesign (home). Chave = texto em pt-BR. Antes de criar, procure a chave nos
 // outros arquivos do catalogo: chave duplicada entre arquivos quebra o npm run i18n:check.
 export const rdHomeMessages: MessageCatalog = {
+  "Treinos na semana": { en: "Workouts this week", es: "Entrenos de la semana" },
   "Sua semana até aqui.": { en: "Your week so far.", es: "Tu semana hasta ahora." },
   "1 semana": { en: "1 week", es: "1 semana" },
   "{count} semanas": { en: "{count} weeks", es: "{count} semanas" },
