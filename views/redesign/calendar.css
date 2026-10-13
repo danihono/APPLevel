@@ -277,14 +277,10 @@ html.dark .rd-cal__class--ink {
   border-radius: var(--lv-r-pill);
 }
 
-.rd-cal__sheet .app-segment__button.is-active {
-  background: var(--lv-black);
-  color: #ffffff;
-}
-
+.rd-cal__sheet .app-segment__button.is-active,
 html.dark .rd-cal__sheet .app-segment__button.is-active {
-  background: #ffffff;
-  color: var(--lv-black);
+  background: var(--lv-yellow);
+  color: var(--lv-on-yellow);
 }
 
 .rd-cal__sheet .attendance-row {

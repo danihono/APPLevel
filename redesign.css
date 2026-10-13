@@ -1624,7 +1624,8 @@ html.dark .lv-card--ink {
 .lv-card--ink .lv-muted { color: var(--lv-text-soft); }
 .lv-card--ink .lv-progress { background: var(--lv-glass-fill); }
 
-/* Segmented: pilula de vidro mais opaca no item ativo (como no iOS). */
+/* Segmented: trilho de vidro, item ativo em amarelo (pedido do Daniel: a aba escolhida tem que
+   se destacar das outras). */
 .lv-segmented {
   border: 1px solid var(--lv-glass-edge);
 }
@@ -1635,9 +1636,9 @@ html.dark .lv-card--ink {
 
 .lv-segmented > button.is-active,
 html.dark .lv-segmented > button.is-active {
-  background: var(--lv-glass-strong);
-  color: var(--lv-text);
-  box-shadow: 0 2px 10px rgba(15, 18, 33, 0.1);
+  background: var(--lv-yellow);
+  color: var(--lv-on-yellow);
+  box-shadow: 0 4px 14px rgba(240, 180, 41, 0.35);
 }
 
 .lv-segmented--yellow > button.is-active,

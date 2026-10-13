@@ -828,9 +828,9 @@ html.dark .rd-rank__stage {
 
 .rd-rank__tab.is-active,
 html.dark .rd-rank__tab.is-active {
-  background: var(--lv-glass-strong);
-  color: var(--lv-text);
-  box-shadow: 0 2px 10px rgba(15, 18, 33, 0.1);
+  background: var(--lv-yellow);
+  color: var(--lv-on-yellow);
+  box-shadow: 0 4px 14px rgba(240, 180, 41, 0.35);
 }
 
 .rd-rank__filters-btn {
