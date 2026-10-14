@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ArrowRight, CalendarCheck, ChevronRight, Play, Radio, X } from 'lucide-react';
+import { ArrowRight, CalendarCheck, Cake, ChevronRight, MessageCircle, Play, Radio, X } from 'lucide-react';
 import './redesign/staff-home.css';
 import { formatTimeLabel } from '../services/firebase/adapters';
 import { subscribeToClassRsvps, type FirestoreEntity } from '../services/firebase/data';
@@ -23,6 +23,7 @@ import {
 } from '../beltCatalog';
 import { classTypeLabel } from '../calendarUtils';
 import BeltImage from '../components/BeltImage';
+import { buildWhatsAppLink } from '../contactLinks';
 import ScreenHeader from '../components/redesign/ScreenHeader';
 import { useRedesignShell } from '../components/redesign/ShellContext';
 import type { User } from '../types';
@@ -61,6 +62,12 @@ const INACTIVE_MINIMUM_DAYS = 30;
 const SOON_WINDOW_MS = 60 * 60 * 1000;
 const CONFIRMED_PREVIEW_SIZE = 4;
 const NEAR_GRADUATION_SIZE = 5;
+// "Sumidos": sem treinar ha esse tempo (so quem ja treinou alguma vez).
+const MISSING_MINIMUM_DAYS = 14;
+const MISSING_PREVIEW_SIZE = 5;
+// Aniversariantes: hoje e os proximos dias.
+const BIRTHDAY_WINDOW_DAYS = 7;
+const weekdayShortFormatter = createDateFormatter({ weekday: 'short', day: '2-digit', month: '2-digit' });
 
 const shortDateFormatter = createDateFormatter({ day: '2-digit', month: '2-digit' });
 
@@ -139,6 +146,16 @@ function firstNameOf(value?: string | null) {
 
 function initialOf(value?: string | null) {
   return (value ?? '').trim().charAt(0).toUpperCase() || '?';
+}
+
+// Foto (quando photoPath ja e URL exibivel) ou a inicial do nome.
+function renderPersonAvatar(name?: string | null, photoPath?: string | null) {
+  const photo = photoPath && photoPath.startsWith('http') ? photoPath : null;
+  return (
+    <span className="rd-staff__person-avatar" aria-hidden="true">
+      {photo ? <img src={photo} alt="" /> : initialOf(name)}
+    </span>
+  );
 }
 
 // "Felipe", "Felipe e Marina", "Felipe, Marina e mais 1".
@@ -344,6 +361,37 @@ const StaffDashboardView: React.FC<StaffDashboardViewProps> = ({
       return referenceMs > 0 && referenceMs < limitMs;
     }).length;
   }, [activeStudents, nowMs]);
+
+  // Sumidos: ativos que ja treinaram mas nao aparecem ha MISSING_MINIMUM_DAYS dias. Mais recentes primeiro
+  // (sao os mais faceis de trazer de volta).
+  const missingStudents = useMemo(() => {
+    const limitMs = nowMs - MISSING_MINIMUM_DAYS * 86_400_000;
+    return activeStudents
+      .map((student) => ({ student, lastMs: student.lastAttendanceAt?.toMillis() ?? 0 }))
+      .filter((row) => row.lastMs > 0 && row.lastMs < limitMs)
+      .map((row) => ({ ...row, days: Math.floor((nowMs - row.lastMs) / 86_400_000) }))
+      .sort((left, right) => left.days - right.days);
+  }, [activeStudents, nowMs]);
+  const [showAllMissing, setShowAllMissing] = useState(false);
+
+  // Aniversariantes de hoje ate BIRTHDAY_WINDOW_DAYS dias (alunos e equipe da unidade).
+  const birthdays = useMemo(() => {
+    const today = new Date(nowMs);
+    today.setHours(0, 0, 0, 0);
+    const rows: Array<{ person: FirestoreEntity<UserRecord>; date: Date; inDays: number; age: number | null }> = [];
+    academyUsers.forEach((person) => {
+      if (person.status === 'suspended' || !person.birthDate) return;
+      const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(person.birthDate);
+      if (!match) return;
+      const [, year, month, day] = match.map(Number);
+      let next = new Date(today.getFullYear(), month - 1, day);
+      if (next < today) next = new Date(today.getFullYear() + 1, month - 1, day);
+      const inDays = Math.round((next.getTime() - today.getTime()) / 86_400_000);
+      if (inDays > BIRTHDAY_WINDOW_DAYS) return;
+      rows.push({ person, date: next, inDays, age: year > 1900 ? next.getFullYear() - year : null });
+    });
+    return rows.sort((left, right) => left.inDays - right.inDays);
+  }, [academyUsers, nowMs]);
 
   const actionState = useMemo(
     () => ({ joinRequests, attendanceRequests, graduationRequests, fightVideoSubmissions }),
@@ -856,6 +904,87 @@ const StaffDashboardView: React.FC<StaffDashboardViewProps> = ({
         </div>
 
         <div className="rd-staff__col">
+          {/* ─── Sumidos ──────────────────────────────────────────────────── */}
+          {missingStudents.length > 0 ? (
+            <section className="lv-section rd-staff__section">
+              <div className="lv-section__head">
+                <h2 className="lv-section__title">{t('Sumidos há {days}+ dias', { days: MISSING_MINIMUM_DAYS })}</h2>
+                <span className="lv-label">{missingStudents.length}</span>
+              </div>
+              <div className="lv-list rd-staff__people">
+                {(showAllMissing ? missingStudents : missingStudents.slice(0, MISSING_PREVIEW_SIZE)).map(({ student, days }) => {
+                  const firstName = firstNameOf(student.displayName);
+                  const whatsApp = buildWhatsAppLink(
+                    student.phone,
+                    t('E aí, {name}! Sentimos sua falta no tatame. Bora voltar a treinar essa semana?', { name: firstName }),
+                  );
+                  return (
+                    <div key={student.id} className="rd-staff__person">
+                      {renderPersonAvatar(student.displayName, student.photoPath)}
+                      <button
+                        type="button"
+                        className="rd-staff__person-copy"
+                        onClick={onOpenStudent ? () => onOpenStudent(student.id) : onNavigateToStudents}
+                        disabled={!onOpenStudent && !onNavigateToStudents}
+                      >
+                        <span className="rd-staff__person-name">{student.displayName}</span>
+                        <span className="rd-staff__person-line">{t('Não treina há {days} dias', { days })}</span>
+                      </button>
+                      {whatsApp ? (
+                        <a className="rd-staff__wa" href={whatsApp} target="_blank" rel="noreferrer" aria-label={t('Enviar WhatsApp para {name}', { name: student.displayName })}>
+                          <MessageCircle size={16} strokeWidth={2} aria-hidden="true" />
+                          WhatsApp
+                        </a>
+                      ) : <span className="rd-staff__person-nophone">{t('Sem telefone')}</span>}
+                    </div>
+                  );
+                })}
+              </div>
+              {missingStudents.length > MISSING_PREVIEW_SIZE ? (
+                <button type="button" className="lv-link rd-staff__more" onClick={() => setShowAllMissing((value) => !value)}>
+                  {showAllMissing ? t('Mostrar menos') : t('Ver todos ({count})', { count: missingStudents.length })}
+                </button>
+              ) : null}
+            </section>
+          ) : null}
+
+          {/* ─── Aniversariantes ─────────────────────────────────────────── */}
+          {birthdays.length > 0 ? (
+            <section className="lv-section rd-staff__section">
+              <div className="lv-section__head">
+                <h2 className="lv-section__title">{t('Aniversariantes da semana')}</h2>
+              </div>
+              <div className="lv-list rd-staff__people">
+                {birthdays.map(({ person, date, inDays, age }) => {
+                  const firstName = firstNameOf(person.displayName);
+                  const whatsApp = buildWhatsAppLink(
+                    person.phone,
+                    t('Parabéns, {name}! Feliz aniversário, muita saúde e muito treino. Oss!', { name: firstName }),
+                  );
+                  const when = inDays === 0 ? t('Hoje') : inDays === 1 ? t('Amanhã') : weekdayShortFormatter.format(date).replace(/\./g, '');
+                  return (
+                    <div key={person.id} className={`rd-staff__person ${inDays === 0 ? 'is-today' : ''}`.trim()}>
+                      {renderPersonAvatar(person.displayName, person.photoPath)}
+                      <div className="rd-staff__person-copy">
+                        <span className="rd-staff__person-name">{person.displayName}</span>
+                        <span className="rd-staff__person-line">
+                          <Cake size={13} strokeWidth={2} aria-hidden="true" />
+                          {age != null ? `${when} · ${t('{age} anos', { age })}` : when}
+                        </span>
+                      </div>
+                      {whatsApp ? (
+                        <a className="rd-staff__wa" href={whatsApp} target="_blank" rel="noreferrer" aria-label={t('Mandar parabéns para {name}', { name: person.displayName })}>
+                          <MessageCircle size={16} strokeWidth={2} aria-hidden="true" />
+                          {t('Parabéns')}
+                        </a>
+                      ) : <span className="rd-staff__person-nophone">{t('Sem telefone')}</span>}
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+          ) : null}
+
           {/* ─── Perto de graduar ───────────────────────────────────────── */}
           {nearGraduation.length > 0 ? (
             <section className="lv-section rd-staff__section">

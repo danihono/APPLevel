@@ -7,7 +7,7 @@ import ClassSessionCard from '../components/ClassSessionCard';
 import CreateClassModal, { type CreateClassPayload } from '../components/CreateClassModal';
 import DeleteClassModal, { type DeleteClassPayload } from '../components/DeleteClassModal';
 import EditClassModal, { type EditClassPayload } from '../components/EditClassModal';
-import { beltLabel, getGradeProgressLabel, inferTrainingTypeFromBirthDate, type ProgressionRules } from '../beltCatalog';
+import { beltLabel, getGradeProgressLabel, getUserProgressionSummary, inferTrainingTypeFromBirthDate, isBlackBelt, type ProgressionRules } from '../beltCatalog';
 import {
   nonCountingWarning,
   isBeginnerClassType,
@@ -329,6 +329,21 @@ interface ClassListItemProps {
   staffView?: boolean;
 }
 
+interface FinishSummary {
+  title: string;
+  timeLabel: string;
+  present: number;
+  confirmed: number;
+  missed: string[];
+  newcomers: string[];
+  near: Array<{ name: string; line: string; remaining: number }>;
+}
+
+// Aluno com ate esse numero de presencas no total conta como "primeiras aulas" no resumo.
+const NEWCOMER_MAX_ATTENDANCES = 3;
+// No resumo, "perto de graduar" = faltam ate isso de aulas.
+const NEAR_GRADUATION_MAX_REMAINING = 3;
+
 const ClassListItem: React.FC<ClassListItemProps> = ({ lesson, onOpen, nowMs, compact = false, isConfirmed = false, showDate = false, highlight = false, staffView = false }) => {
   const displayStatus = effectiveClassStatus(lesson, nowMs);
   const colors = statusColors(displayStatus);
@@ -391,6 +406,12 @@ const ClassListItem: React.FC<ClassListItemProps> = ({ lesson, onOpen, nowMs, co
           ) : null}
           <span className={chip.className}>{chip.label}</span>
           {isConfirmed ? <span className="lv-chip lv-chip--success">{t('Vou')}</span> : null}
+          {!staffView && confirmed > 0 && (displayStatus === 'scheduled' || displayStatus === 'active') ? (
+            <span className="rd-cal__class-goers">
+              <Users size={12} strokeWidth={2.2} aria-hidden="true" />
+              {confirmed === 1 ? t('1 vai') : t('{count} vão', { count: confirmed })}
+            </span>
+          ) : null}
         </span>
       </button>
     );
@@ -844,6 +865,8 @@ const CalendarView: React.FC<CalendarViewProps> = ({
   const [messageByClass, setMessageByClass] = useState<Record<string, string>>({});
   const [busyByClass, setBusyByClass] = useState<Record<string, boolean>>({});
   const [finishConfirmClassId, setFinishConfirmClassId] = useState<string | null>(null);
+  // Resumo mostrado logo depois de finalizar a aula.
+  const [finishSummary, setFinishSummary] = useState<FinishSummary | null>(null);
   const [finishQrData, setFinishQrData] = useState<QrSessionPayload | null>(null);
   const [finishBusy, setFinishBusy] = useState(false);
   const [finishCountdown, setFinishCountdown] = useState('');
@@ -1573,6 +1596,57 @@ const CalendarView: React.FC<CalendarViewProps> = ({
     }
   }
 
+  function buildFinishSummary(classId: string): FinishSummary | null {
+    if (!selectedClass || selectedClass.id !== classId) return null;
+    const presentIds = Array.from(new Set(classAttendances.map((entry) => entry.userId)));
+    const presentSet = new Set(presentIds);
+    const nameOf = (userId: string) => confirmedRoster.find((entry) => entry.userId === userId)?.displayName
+      ?? studentById.get(userId)?.displayName
+      ?? t('Aluno');
+    const missed = classRsvps.filter((entry) => !presentSet.has(entry.userId)).map((entry) => entry.userDisplayName || nameOf(entry.userId));
+    const newcomers = presentIds
+      .filter((userId) => {
+        const student = studentById.get(userId);
+        return Boolean(student) && (student!.attendanceCount ?? 0) <= NEWCOMER_MAX_ATTENDANCES;
+      })
+      .map(nameOf);
+    const near: FinishSummary['near'] = [];
+    presentIds.forEach((userId) => {
+      const student = studentById.get(userId);
+      if (!student || isBlackBelt(student.belt)) return;
+      const progression = getUserProgressionSummary(student, progressionRules);
+      if (progression.stripeRemaining != null && progression.stripeRemaining <= NEAR_GRADUATION_MAX_REMAINING) {
+        const degree = progression.currentStripes + 1;
+        near.push({
+          name: nameOf(userId),
+          line: progression.stripeRemaining <= 0
+            ? t('Pronto para o {degree}º grau', { degree })
+            : progression.stripeRemaining === 1
+              ? t('Falta 1 aula para o {degree}º grau', { degree })
+              : t('Faltam {count} aulas para o {degree}º grau', { count: progression.stripeRemaining, degree }),
+          remaining: progression.stripeRemaining,
+        });
+      } else if (progression.beltRemaining != null && progression.nextBelt && progression.beltRemaining <= NEAR_GRADUATION_MAX_REMAINING) {
+        near.push({
+          name: nameOf(userId),
+          line: progression.beltRemaining <= 0
+            ? t('Pronto para a Faixa {belt}', { belt: beltLabel(progression.nextBelt) })
+            : t('Faixa {belt} em {count}', { belt: beltLabel(progression.nextBelt), count: progression.beltRemaining }),
+          remaining: progression.beltRemaining,
+        });
+      }
+    });
+    return {
+      title: selectedClass.title,
+      timeLabel: classTimeRange(selectedClass),
+      present: presentIds.length,
+      confirmed: classRsvps.length,
+      missed,
+      newcomers,
+      near: near.sort((left, right) => left.remaining - right.remaining),
+    };
+  }
+
   async function handleConfirmFinish() {
     if (!finishConfirmClassId) {
       return;
@@ -1580,7 +1654,9 @@ const CalendarView: React.FC<CalendarViewProps> = ({
 
     setFinishBusy(true);
     try {
+      const summary = buildFinishSummary(finishConfirmClassId);
       await onFinishClass(finishConfirmClassId);
+      if (summary) setFinishSummary(summary);
       setQrByClass((current) => {
         const next = { ...current };
         delete next[finishConfirmClassId];
@@ -3060,6 +3136,57 @@ const CalendarView: React.FC<CalendarViewProps> = ({
               </button>
             </div>
           </div>
+        </div>
+      ) : null}
+
+      {finishSummary ? (
+        <div className="rd-cal__summary-backdrop" role="presentation" onClick={() => setFinishSummary(null)}>
+          <section
+            className="lv-card rd-cal__summary"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="rd-cal-summary-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <span className="rd-cal__summary-kicker"><CheckCircle size={16} strokeWidth={2.2} aria-hidden="true" />{t('Aula finalizada')}</span>
+            <h2 id="rd-cal-summary-title" className="rd-cal__summary-title">{finishSummary.title}</h2>
+            <p className="rd-cal__summary-time">{finishSummary.timeLabel}</p>
+
+            <div className="rd-cal__summary-stats">
+              <div><strong>{finishSummary.present}</strong><span>{t('presentes')}</span></div>
+              <div><strong>{finishSummary.confirmed}</strong><span>{t('confirmados').toLocaleLowerCase(getLocale())}</span></div>
+              <div><strong>{finishSummary.missed.length}</strong><span>{t('faltaram')}</span></div>
+            </div>
+
+            {finishSummary.newcomers.length > 0 ? (
+              <div className="rd-cal__summary-group">
+                <p className="rd-cal__summary-label">{t('Primeiras aulas')}</p>
+                <p className="rd-cal__summary-names">{finishSummary.newcomers.join(', ')}</p>
+              </div>
+            ) : null}
+
+            {finishSummary.missed.length > 0 ? (
+              <div className="rd-cal__summary-group">
+                <p className="rd-cal__summary-label">{t('Confirmaram e faltaram')}</p>
+                <p className="rd-cal__summary-names">{finishSummary.missed.join(', ')}</p>
+              </div>
+            ) : null}
+
+            {finishSummary.near.length > 0 ? (
+              <div className="rd-cal__summary-group">
+                <p className="rd-cal__summary-label">{t('Perto de graduar')}</p>
+                <ul className="rd-cal__summary-near">
+                  {finishSummary.near.map((row) => (
+                    <li key={row.name}><strong>{row.name}</strong><span>{row.line}</span></li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+
+            <button type="button" className="lv-btn lv-btn--primary lv-btn--block" onClick={() => setFinishSummary(null)} autoFocus>
+              {t('Fechar')}
+            </button>
+          </section>
         </div>
       ) : null}
 

@@ -22,7 +22,7 @@ import { resolveMonthlyCommitment } from '../commitmentScale';
 import { previewNonCountingReason } from '../classRules';
 import { toUiUser } from '../services/firebase/adapters';
 import type { FirestoreEntity } from '../services/firebase/data';
-import type { AttendanceRecord, ClassRsvpRecord, UserRecord } from '../services/firebase/models';
+import type { AttendanceRecord, ClassRecord, ClassRsvpRecord, UserRecord } from '../services/firebase/models';
 import { UserRole } from '../types';
 import { SUPPORTED_LANGUAGES, t, useI18n } from '../i18n';
 import { publicAsset } from '../publicAsset';
@@ -291,6 +291,12 @@ const RedesignPreview: React.FC = () => {
   const [menuOpen, setMenuOpen] = useState(false);
   const [overlayClosed, setOverlayClosed] = useState(false);
   const [selectedStudentId, setSelectedStudentId] = useState('aluno-marina');
+  // Demo: iniciar/finalizar aula muda o status localmente (para testar "Finalizar aula" e o resumo).
+  const [classStatusById, setClassStatusById] = useState<Record<string, ClassRecord['status']>>({});
+  const staffClasses = useMemo(
+    () => previewClasses.map((lesson) => (classStatusById[lesson.id] ? { ...lesson, status: classStatusById[lesson.id] } : lesson)),
+    [classStatusById],
+  );
   const isChooser = screenId === CHOOSER_ID;
   const screen = SCREENS.find((entry) => entry.id === screenId) ?? SCREENS[0];
 
@@ -516,6 +522,7 @@ const RedesignPreview: React.FC = () => {
               attendances={previewStudentAttendances}
               attendanceRequests={[]}
               academyTimeZone={previewAcademy.timezone}
+              academyId={previewAcademy.id}
               onStartCheckin={() => setScreenId('aluno-checkin')}
               onOpenEvolution={() => goTab('evolution')}
               onOpenClasses={() => goTab('calendar')}
@@ -532,7 +539,7 @@ const RedesignPreview: React.FC = () => {
             currentUserId={professor.id}
             currentUserName={professor.name}
             professors={professors}
-            classes={previewClasses}
+            classes={staffClasses}
             attendances={[]}
             attendanceRequests={previewAttendanceRequests}
             academyStudents={previewUsers.filter((user) => user.role === 'student')}
@@ -540,14 +547,21 @@ const RedesignPreview: React.FC = () => {
             onCreateClass={async () => delay({ requestedCount: 1, createdCount: 1, skippedCount: 0, skipped: [] }) as never}
             onEditClass={async () => delay({ requestedCount: 1, updatedCount: 1, skippedCount: 0, skipped: [] }) as never}
             onDeleteClass={async () => delay({ requestedCount: 1, deletedCount: 1, skippedCount: 0, skipped: [] }) as never}
-            onStartClass={async (classId) => delay({
-              classId,
-              academyId: ACADEMY_ID,
-              expiresAt: new Date(Date.now() + 3_600_000).toISOString(),
-              qrValue: 'preview',
-              qrToken: 'preview-token-123',
-            })}
-            onFinishClass={async () => { await delay(undefined); }}
+            onStartClass={async (classId) => {
+              const session = await delay({
+                classId,
+                academyId: ACADEMY_ID,
+                expiresAt: new Date(Date.now() + 3_600_000).toISOString(),
+                qrValue: 'preview',
+                qrToken: 'preview-token-123',
+              });
+              setClassStatusById((current) => ({ ...current, [classId]: 'active' }));
+              return session;
+            }}
+            onFinishClass={async (classId) => {
+              await delay(undefined);
+              setClassStatusById((current) => ({ ...current, [classId]: 'finished' }));
+            }}
             onRefreshQr={async (classId) => delay({
               classId,
               academyId: ACADEMY_ID,

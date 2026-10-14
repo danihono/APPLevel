@@ -579,3 +579,49 @@ html.dark .rd-home__ghost-btn {
     align-items: center;
   }
 }
+
+/* ─── Quem vai na aula ─────────────────────────────────────────────────── */
+.rd-home__goers {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.rd-home__goers-faces {
+  display: flex;
+  flex: none;
+}
+
+.rd-home__goer {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  margin-left: -8px;
+  border-radius: 50%;
+  background: var(--lv-glass-strong);
+  box-shadow: 0 0 0 2px var(--lv-canvas), inset 0 0 0 1px var(--lv-glass-hair);
+  color: var(--lv-text);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.rd-home__goer:first-child {
+  margin-left: 0;
+}
+
+.rd-home__goer.is-me {
+  background: var(--lv-yellow);
+  color: var(--lv-on-yellow);
+}
+
+.rd-home__goers-text {
+  min-width: 0;
+  overflow: hidden;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--lv-text-muted);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}

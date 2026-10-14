@@ -7,6 +7,7 @@ import { stripDate } from '../calendarUtils';
 import type { FirestoreEntity } from '../services/firebase/data';
 import type { AttendanceRecord, ClassRecord, UserRecord } from '../services/firebase/models';
 import { t, getLocale, createDateFormatter } from '../i18n';
+import { buildTelLink, buildWhatsAppLink } from '../contactLinks';
 
 export type AttendanceRankingPeriod = '30d' | '3m' | 'total';
 
@@ -52,31 +53,6 @@ function studentRankLabel(student: FirestoreEntity<UserRecord>) {
   return `${beltLabel(student.belt)} · ${t('{degree}º Grau', { degree: gradeValue })}`;
 }
 
-function onlyDigits(value?: string | null) {
-  return (value ?? '').replace(/\D/g, '');
-}
-
-// Telefones sao digitados livremente ('(19) 99999-0000', '19999990000'). Para o link a gente
-// so precisa dos digitos; numeros brasileiros (10 ou 11 digitos) ganham o DDI 55.
-function toInternationalDigits(phone?: string | null): string {
-  const digits = onlyDigits(phone);
-
-  if (digits.length < 10) {
-    return '';
-  }
-
-  return digits.length <= 11 ? `55${digits}` : digits;
-}
-
-function buildTelLink(phone?: string | null): string {
-  const digits = toInternationalDigits(phone);
-  return digits ? `tel:+${digits}` : '';
-}
-
-function buildWhatsAppLink(phone?: string | null): string {
-  const digits = toInternationalDigits(phone);
-  return digits ? `https://wa.me/${digits}` : '';
-}
 
 function getAttendanceMillis(attendance: FirestoreEntity<AttendanceRecord>): number {
   return attendance.checkedInAt?.toMillis() ?? attendance.createdAt?.toMillis() ?? 0;

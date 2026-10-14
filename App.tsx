@@ -2790,6 +2790,7 @@ const App: React.FC = () => {
       attendances={attendances}
       attendanceRequests={studentAttendanceRequests}
       academyTimeZone={resolvedAcademy.timezone}
+      academyId={resolvedAcademy.id}
       onStartCheckin={openStudentCheckin}
       onOpenEvolution={() => setActiveTab('evolution')}
       onOpenClasses={() => setActiveTab('calendar')}

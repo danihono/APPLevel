@@ -820,3 +820,110 @@ html.dark .rd-staff__cta .lv-btn--primary {
   background: #ffffff;
   color: var(--lv-black);
 }
+
+/* ─── Sumidos e aniversariantes ─────────────────────────────────────────── */
+.rd-staff__people {
+  overflow: hidden;
+}
+
+.rd-staff__person {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 14px;
+}
+
+.rd-staff__person + .rd-staff__person {
+  border-top: 1px solid var(--lv-glass-hair);
+}
+
+.rd-staff__person-avatar {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  overflow: hidden;
+  border-radius: 50%;
+  background: var(--lv-glass-fill);
+  color: var(--lv-text);
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.rd-staff__person-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.rd-staff__person.is-today .rd-staff__person-avatar {
+  background: var(--lv-yellow);
+  color: var(--lv-on-yellow);
+  box-shadow: 0 0 0 3px rgba(240, 180, 41, 0.3);
+}
+
+.rd-staff__person-copy {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+
+button.rd-staff__person-copy:not(:disabled) {
+  cursor: pointer;
+}
+
+.rd-staff__person-name {
+  overflow: hidden;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--lv-text);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.rd-staff__person-line {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 13px;
+  color: var(--lv-text-soft);
+}
+
+.rd-staff__wa {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 0 12px;
+  border-radius: var(--lv-r-pill);
+  background: #25d366;
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.rd-staff__wa:active {
+  transform: scale(0.96);
+}
+
+.rd-staff__person-nophone {
+  flex: none;
+  font-size: 12px;
+  color: var(--lv-text-soft);
+}
+
+.rd-staff__more {
+  align-self: flex-start;
+  margin-top: 8px;
+}

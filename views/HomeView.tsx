@@ -31,8 +31,8 @@ import {
 } from '../calendarUtils';
 import type { CommitmentResult } from '../commitmentScale';
 import { academyDayKey } from '../dailyTrainingUtils';
-import type { FirestoreEntity } from '../services/firebase/data';
-import type { AttendanceRecord, AttendanceRequestRecord, ClassRecord } from '../services/firebase/models';
+import { subscribeToClassRsvps, type FirestoreEntity } from '../services/firebase/data';
+import type { AttendanceRecord, AttendanceRequestRecord, ClassRecord, ClassRsvpRecord } from '../services/firebase/models';
 import {
   academyDayOffset,
   academyHour,
@@ -61,6 +61,8 @@ export interface HomeViewProps {
   attendanceRequests?: Array<FirestoreEntity<AttendanceRequestRecord>>;
   /** Fuso IANA da academia. */
   academyTimeZone?: string;
+  /** Academia do aluno (lista de quem vai na proxima aula). */
+  academyId?: string;
   /** Abre a tela de check-in por QR para a aula. */
   onStartCheckin?: (classId: string) => void;
   onOpenEvolution?: () => void;
@@ -101,6 +103,7 @@ const HomeView: React.FC<HomeViewProps> = ({
   attendances = EMPTY_ATTENDANCES,
   attendanceRequests = EMPTY_REQUESTS,
   academyTimeZone,
+  academyId,
   onStartCheckin,
   onOpenEvolution,
   onOpenClasses,
@@ -147,6 +150,17 @@ const HomeView: React.FC<HomeViewProps> = ({
   const [recapOpen, setRecapOpen] = useState(false);
   const dayOfMonth = Number(academyDayKey(now, timeZone).slice(8, 10));
   const showRecapCard = monthRecap.count > 0 && dayOfMonth <= 15;
+
+  // Quem vai na proxima aula (lista de confirmados: qualquer aluno da academia pode ler).
+  const [goers, setGoers] = useState<Array<FirestoreEntity<ClassRsvpRecord>>>([]);
+  const nextClassId = nextClass?.id ?? null;
+  useEffect(() => {
+    if (!nextClassId || !academyId) {
+      setGoers([]);
+      return undefined;
+    }
+    return subscribeToClassRsvps(nextClassId, academyId, setGoers, () => setGoers([]));
+  }, [nextClassId, academyId]);
 
   const attendedClassIds = useMemo(() => new Set(attendances.map((entry) => entry.classId)), [attendances]);
   const pendingClassIds = useMemo(
@@ -231,6 +245,36 @@ const HomeView: React.FC<HomeViewProps> = ({
       detail: t('Recebido em {date}.', { date: lastGraduationDate.toLocaleDateString(getLocale()) }),
     };
   })();
+
+  // ─── Quem vai ─────────────────────────────────────────────────────────────
+  const renderGoers = () => {
+    if (goers.length === 0) return null;
+    const firstName = (name: string) => (name || '').trim().split(/\s+/)[0] || t('Aluno');
+    const mine = goers.find((entry) => entry.userId === user.id);
+    const others = goers.filter((entry) => entry.userId !== user.id);
+    const names = [...(mine ? [t('Você')] : []), ...others.map((entry) => firstName(entry.userDisplayName))];
+    const rest = names.length - 2;
+    const text = names.length === 1
+      ? (mine ? t('Você vai') : t('{name} vai', { name: names[0] }))
+      : names.length === 2
+        ? t('{a} e {b} vão', { a: names[0], b: names[1] })
+        : rest === 1
+          ? t('{a}, {b} e mais 1 vão', { a: names[0], b: names[1] })
+          : t('{a}, {b} e mais {count} vão', { a: names[0], b: names[1], count: rest });
+    const shown = [...(mine ? [mine] : []), ...others].slice(0, 4);
+    return (
+      <div className="rd-home__goers">
+        <span className="rd-home__goers-faces" aria-hidden="true">
+          {shown.map((entry) => (
+            <span key={entry.id} className={`rd-home__goer${entry.userId === user.id ? ' is-me' : ''}`}>
+              {(entry.userDisplayName || '?').trim().charAt(0).toLocaleUpperCase()}
+            </span>
+          ))}
+        </span>
+        <span className="rd-home__goers-text">{text}</span>
+      </div>
+    );
+  };
 
   // ─── Proxima aula ─────────────────────────────────────────────────────────
   const renderNextClass = () => {
@@ -325,6 +369,7 @@ const HomeView: React.FC<HomeViewProps> = ({
             <span>{nextClass.tatame || t('Tatame principal')}</span>
           </div>
         </div>
+        {renderGoers()}
         {action}
       </section>
     );

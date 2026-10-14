@@ -59,18 +59,26 @@ type UserSeed = {
   birth?: string;
 };
 
+// Aniversario daqui a `inDays` dias (aparece em "Aniversariantes da semana").
+const birthIn = (year: number, inDays: number) => {
+  const date = dayAt(inDays, 12);
+  return `${year}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+};
+
 const seeds: UserSeed[] = [
   { id: 'aluno-daniel', first: 'Daniel', last: 'Honorato', belt: 'white', stripes: 2, count: 60, lastDays: 1, competitor: true, birth: '1995-04-12' },
   { id: 'prof-murilo', first: 'Murilo', last: 'Ale', role: 'professor', belt: 'black', stripes: 2, count: 320, birth: '1988-02-01' },
   { id: 'prof-ricardo', first: 'Ricardo', last: 'Saldanha', role: 'professor', belt: 'black', stripes: 4, count: 0, birth: '1980-06-20' },
   { id: 'aluno-lucas', first: 'Lucas', last: 'Prado', belt: 'white', stripes: 4, count: 150, lastDays: 0, birth: '1999-01-03' },
   { id: 'aluno-marina', first: 'Marina', last: 'Couto', belt: 'blue', stripes: 3, count: 286, lastDays: 0, birth: '1997-07-07' },
-  { id: 'aluno-felipe', first: 'Felipe', last: 'Ramos', belt: 'white', stripes: 3, count: 115, lastDays: 1, birth: '2001-11-11' },
+  { id: 'aluno-felipe', first: 'Felipe', last: 'Ramos', belt: 'white', stripes: 3, count: 115, lastDays: 1, birth: birthIn(2001, 3) },
   { id: 'aluno-beatriz', first: 'Beatriz', last: 'Lima', belt: 'purple', stripes: 1, count: 420, lastDays: 5, birth: '1993-09-09' },
   { id: 'aluno-joao', first: 'João', last: 'Teixeira', belt: 'brown', stripes: 2, count: 610, lastDays: 4, birth: '1987-03-30' },
-  { id: 'aluno-carla', first: 'Carla', last: 'Mendes', belt: 'blue', stripes: 0, count: 160, lastDays: 2, birth: '1998-05-15' },
+  { id: 'aluno-carla', first: 'Carla', last: 'Mendes', belt: 'blue', stripes: 0, count: 160, lastDays: 2, birth: birthIn(1998, 0) },
   { id: 'aluno-ana', first: 'Ana', last: 'Ribeiro', belt: 'white', stripes: 1, count: 34, lastDays: 3, birth: '2002-02-22' },
   { id: 'aluno-pedro', first: 'Pedro', last: 'Alves', belt: 'white', stripes: 0, count: 6, lastDays: 40, birth: '2000-08-08' },
+  { id: 'aluno-rafael', first: 'Rafael', last: 'Souza', belt: 'white', stripes: 2, count: 48, lastDays: 16, birth: '1996-12-01' },
+  { id: 'aluno-gabi', first: 'Gabi', last: 'Rocha', belt: 'blue', stripes: 1, count: 130, lastDays: 22, birth: '1999-06-18' },
   { id: 'aluno-bia-kids', first: 'Bia', last: 'Souza', belt: 'yellow-white', stripes: 1, count: 40, lastDays: 2, birth: '2016-04-04' },
   { id: 'aluno-sumido', first: 'Caio', last: 'Martins', belt: 'blue', stripes: 1, count: 200, status: 'suspended', lastDays: 90, birth: '1994-10-10' },
 ];
