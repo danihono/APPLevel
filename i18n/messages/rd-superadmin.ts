@@ -87,4 +87,5 @@ export const rdSuperadminMessages: MessageCatalog = {
   "1 unidade pede atenção.": { en: "1 unit needs attention.", es: "1 unidad pide atención." },
   "{count} unidades pedem atenção.": { en: "{count} units need attention.", es: "{count} unidades piden atención." },
   "Estável": { en: "Stable", es: "Estable" },
+  "Visão do superadmin": { en: "Superadmin view", es: "Vista del superadmin" },
 };

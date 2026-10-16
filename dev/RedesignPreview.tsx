@@ -201,9 +201,56 @@ const CHOOSER_ID = 'escolha';
 const noopAsync = async () => undefined;
 const delay = <T,>(value: T, ms = 700) => new Promise<T>((resolve) => { window.setTimeout(() => resolve(value), ms); });
 
+// Visao do superadmin no celular: o link abre a versao de COMPUTADOR reduzida (gire o aparelho e use
+// zoom). Para isso o app roda dentro de um iframe de 1440px (onde as regras de tela larga valem) e a
+// pagina de fora so escala esse quadro. O iframe recebe a tela e o tema por esta variavel.
+interface EmbedConfig { screen: string; dark: boolean }
+const embedConfig = (globalThis as { __LEVEL_EMBED__?: EmbedConfig }).__LEVEL_EMBED__;
+const DESKTOP_WIDTH = 1440;
+
 function readParam(name: string) {
+  if (embedConfig) {
+    if (name === 'screen') return embedConfig.screen;
+    if (name === 'theme') return embedConfig.dark ? 'dark' : null;
+  }
   return new URLSearchParams(window.location.search).get(name);
 }
+
+function buildEmbedDocument(screenId: string, dark: boolean) {
+  const assets = [...document.querySelectorAll('link[rel="stylesheet"], script[src], style')].map((node) => node.outerHTML).join('');
+  const config = JSON.stringify({ screen: screenId, dark }).replace(/</g, '\\u003c');
+  return `<!doctype html><html${dark ? ' class="dark"' : ''}><head><meta charset="utf-8"><meta name="viewport" content="width=${DESKTOP_WIDTH}">${assets}<script>window.__LEVEL_EMBED__=${config}</script></head><body class="bg-white dark:bg-dark text-gray-900 dark:text-gray-100"><div id="root"></div></body></html>`;
+}
+
+const DesktopFrame: React.FC<{ screenId: string; dark: boolean }> = ({ screenId, dark }) => {
+  const [viewport, setViewport] = useState(() => document.documentElement.clientWidth);
+  const [contentHeight, setContentHeight] = useState(1600);
+  const doc = useMemo(() => buildEmbedDocument(screenId, dark), [screenId, dark]);
+  useEffect(() => {
+    const onResize = () => setViewport(document.documentElement.clientWidth);
+    const onMessage = (event: MessageEvent) => {
+      const height = (event.data as { lvEmbedHeight?: number } | null)?.lvEmbedHeight;
+      if (typeof height === 'number' && height > 200) setContentHeight(Math.ceil(height));
+    };
+    window.addEventListener('resize', onResize);
+    window.addEventListener('message', onMessage);
+    return () => {
+      window.removeEventListener('resize', onResize);
+      window.removeEventListener('message', onMessage);
+    };
+  }, []);
+  const scale = Math.min(1, viewport / DESKTOP_WIDTH);
+  return (
+    <div style={{ width: '100%', height: contentHeight * scale, overflow: 'hidden' }}>
+      <iframe
+        key={`${screenId}-${dark}`}
+        title={t('Visão do superadmin')}
+        srcDoc={doc}
+        style={{ width: DESKTOP_WIDTH, height: contentHeight, border: 0, transform: `scale(${scale})`, transformOrigin: '0 0', display: 'block' }}
+      />
+    </div>
+  );
+};
 
 function writeParams(screenId: string, dark: boolean) {
   // No link de demonstracao a pagina roda num iframe isolado, onde trocar a URL lanca erro.
@@ -333,6 +380,15 @@ const RedesignPreview: React.FC = () => {
     [classStatusById],
   );
   const isChooser = screenId === CHOOSER_ID;
+  // Dentro do iframe de computador: avisa a pagina de fora quanto o conteudo mede (ela dimensiona o quadro).
+  useEffect(() => {
+    if (!embedConfig) return undefined;
+    const report = () => window.parent.postMessage({ lvEmbedHeight: document.documentElement.scrollHeight }, '*');
+    report();
+    const observer = new ResizeObserver(report);
+    observer.observe(document.body);
+    return () => observer.disconnect();
+  }, []);
   const screen = SCREENS.find((entry) => entry.id === screenId) ?? SCREENS[0];
 
   useEffect(() => {
@@ -873,6 +929,17 @@ const RedesignPreview: React.FC = () => {
     </div>
   );
 
+  const useDesktopFrame = !embedConfig && !isChooser && screen.role === 'superadmin' && document.documentElement.clientWidth < 980;
+  if (useDesktopFrame) {
+    return (
+      <>
+        <DesktopFrame screenId={screenId} dark={dark} />
+        {galleryMenu}
+        {previewStyles}
+      </>
+    );
+  }
+
   if (!isChooser && screen.tab === 'signup') {
     return (
       <>
@@ -992,7 +1059,7 @@ const RedesignPreview: React.FC = () => {
         />
       ) : null}
 
-      {galleryMenu}
+      {embedConfig ? null : galleryMenu}
       {previewStyles}
     </RedesignShellProvider>
   );
