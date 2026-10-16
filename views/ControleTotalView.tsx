@@ -39,6 +39,8 @@ import {
   type ReportBlock,
 } from '../services/reports/reportData';
 import { t, getLocale } from '../i18n';
+import { PendingBars, RevenueExpenseChart, type MonthFlow, type PendingRow } from '../components/redesign/ControleTotalCharts';
+import '../components/redesign/controle-total.css';
 
 type ControleTab = 'dashboard' | 'catalog' | 'list' | 'stock' | 'vales' | 'reports';
 type CatalogMode = 'product' | 'service';
@@ -499,6 +501,46 @@ const ControleTotalView: React.FC<ControleTotalViewProps> = ({
       topCustomers: [...customerTotals.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5),
     };
   }, [dashboardAcademyId, dashboardEnd, dashboardStart, expenses, products, revenues, saleItems, sales, withdrawals]);
+
+  // Receita x despesa dos ultimos 6 meses (respeita a filial escolhida no dashboard).
+  const monthlyFlow = useMemo<MonthFlow[]>(() => {
+    const base = new Date();
+    const months = Array.from({ length: 6 }, (_, index) => {
+      const date = new Date(base.getFullYear(), base.getMonth() - 5 + index, 1);
+      return { key: `${date.getFullYear()}-${date.getMonth()}`, label: date.toLocaleDateString(getLocale(), { month: 'short' }).replace('.', ''), revenue: 0, expense: 0 };
+    });
+    const byKey = new Map(months.map((entry) => [entry.key, entry]));
+    const keyOf = (value: Date | null) => (value ? `${value.getFullYear()}-${value.getMonth()}` : '');
+    revenues.forEach((revenue) => {
+      if (revenue.status !== 'received' || (dashboardAcademyId && revenue.academyId !== dashboardAcademyId)) return;
+      const bucket = byKey.get(keyOf(toDate(revenue.receivedAt ?? revenue.createdAt)));
+      if (bucket) bucket.revenue += revenue.amount;
+    });
+    expenses.forEach((expense) => {
+      if (dashboardAcademyId && expense.academyId !== dashboardAcademyId) return;
+      const bucket = byKey.get(keyOf(toDate(expense.paidAt ?? expense.dueDate ?? expense.createdAt)));
+      if (bucket) bucket.expense += expense.amount;
+    });
+    return months;
+  }, [dashboardAcademyId, expenses, revenues]);
+
+  // Quanto do vendido na filial ainda nao foi recebido (no periodo do dashboard).
+  const pendingByAcademy = useMemo<PendingRow[]>(() => {
+    const totals = new Map<string, { sold: number; open: number }>();
+    sales.forEach((sale) => {
+      if (sale.paymentStatus === 'cancelled' || sale.academyId === LEVEL_CATALOG_ID) return;
+      if (dashboardAcademyId && sale.academyId !== dashboardAcademyId) return;
+      if (!isWithin(toDate(sale.saleDate ?? sale.createdAt), dashboardStart, dashboardEnd)) return;
+      const current = totals.get(sale.academyId) ?? { sold: 0, open: 0 };
+      current.sold += sale.total;
+      current.open += sale.balanceDue;
+      totals.set(sale.academyId, current);
+    });
+    return [...totals.entries()]
+      .map(([id, value]) => ({ id, name: academyName(academies, id), percent: value.sold > 0 ? Math.round((value.open / value.sold) * 100) : 0, amount: value.open }))
+      .sort((left, right) => right.percent - left.percent)
+      .slice(0, 8);
+  }, [academies, dashboardAcademyId, dashboardEnd, dashboardStart, sales]);
 
   const filteredProducts = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
@@ -1072,6 +1114,20 @@ const ControleTotalView: React.FC<ControleTotalViewProps> = ({
                 </div>
               </article>
             ))}
+          </section>
+
+          <section className="controle-total__dashboard-grid controle-total__dashboard-grid--charts">
+            <article className="app-panel app-panel-pad">
+              <h3>{t('Receita x despesa')}</h3>
+              <p className="ct-x-sub">{t('Últimos 6 meses')}</p>
+              <RevenueExpenseChart data={monthlyFlow} formatCurrency={formatCurrency} />
+              <div className="ct-x-legend"><span><i className="is-revenue" />{t('Receita')}</span><span><i className="is-expense" />{t('Despesa')}</span></div>
+            </article>
+            <article className="app-panel app-panel-pad">
+              <h3>{t('Pendente por filial')}</h3>
+              <p className="ct-x-sub">{t('% do vendido que ainda não foi recebido')}</p>
+              <PendingBars rows={pendingByAcademy} formatCurrency={formatCurrency} />
+            </article>
           </section>
 
           <section className="controle-total__dashboard-grid">

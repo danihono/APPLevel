@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { calculateRecentParticipation, PARTICIPATION_WINDOW_MS } from '../attendanceUtils';
 import { subscribeToRecentParticipation } from '../services/firebase/data';
 import { getBeltMeta } from '../beltCatalog';
@@ -16,7 +16,10 @@ import {
   CalendarDays,
   Clock3,
   Filter,
+  Maximize2,
+  Minimize2,
   ShieldCheck,
+  SlidersHorizontal,
   TrendingUp,
   Users,
 } from 'lucide-react';
@@ -31,6 +34,25 @@ import type {
 import DailyTrainingChart, { useDailyTraining } from '../components/DailyTrainingTable';
 import InstructorEditModal from '../components/InstructorEditModal';
 import { t, getLocale } from '../i18n';
+import { buildWhatsAppLink } from '../contactLinks';
+import { useRedesignShell } from '../components/redesign/ShellContext';
+import {
+  SaAchievements,
+  SaCustomizeDrawer,
+  SaFocusSpotlight,
+  SaInsight,
+  SaRadar,
+  SaSidePanel,
+  SaStudentHealth,
+  formatCount,
+  richText,
+  type Achievement,
+  type CustomizeBlock,
+  type EventRow,
+  type HealthPerson,
+  type RadarRow,
+} from '../components/redesign/SuperadminCentralBlocks';
+import '../components/redesign/superadmin-central.css';
 
 interface SuperadminDashboardViewProps {
   academies: Array<FirestoreEntity<AcademyRecord>>;
@@ -1176,6 +1198,169 @@ const SuperadminDashboardView: React.FC<SuperadminDashboardViewProps> = ({
       tone: academyRow.attentionReasons.length > 0 ? 'is-warn' : 'is-ok',
     }));
 
+  // ─── Redesign: blocos novos (dados reais que a Central ja carrega) ─────────
+  const shell = useRedesignShell();
+  const [customizeOpen, setCustomizeOpen] = useState(false);
+  const [tvMode, setTvMode] = useState(false);
+  const [blocksVisible, setBlocksVisible] = useState<Record<string, boolean>>(() => {
+    try {
+      return JSON.parse(window.localStorage.getItem('lv-sa-blocks') ?? '{}') as Record<string, boolean>;
+    } catch {
+      return {};
+    }
+  });
+  const isBlockOn = (key: string) => blocksVisible[key] !== false;
+  const updateBlocks = useCallback((next: Record<string, boolean>) => {
+    setBlocksVisible(next);
+    try {
+      window.localStorage.setItem('lv-sa-blocks', JSON.stringify(next));
+    } catch {
+      // Sem armazenamento (janela privada): a escolha vale so ate recarregar.
+    }
+  }, []);
+  const [compareSort, setCompareSort] = useState<{ key: 'name' | 'students' | 'attendance' | 'participation'; dir: 1 | -1 }>({ key: 'students', dir: -1 });
+
+  useEffect(() => {
+    document.body.classList.toggle('sa-tv', tvMode);
+    return () => document.body.classList.remove('sa-tv');
+  }, [tvMode]);
+  useEffect(() => {
+    if (!tvMode) return undefined;
+    const onChange = () => { if (!document.fullscreenElement) setTvMode(false); };
+    const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape') setTvMode(false); };
+    document.addEventListener('fullscreenchange', onChange);
+    window.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('fullscreenchange', onChange);
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [tvMode]);
+  const toggleTv = () => {
+    if (!tvMode) {
+      try {
+        void document.documentElement.requestFullscreen?.()?.catch(() => undefined);
+      } catch {
+        // Sem tela cheia: o modo TV segue em janela.
+      }
+      setTvMode(true);
+      return;
+    }
+    try {
+      if (document.fullscreenElement) void document.exitFullscreen();
+    } catch {
+      // Ignorar.
+    }
+    setTvMode(false);
+  };
+
+  const radarRows = useMemo<RadarRow[]>(() => filteredRows
+    .filter((row) => row.attentionReasons.length > 0)
+    .map((row) => ({
+      id: row.id,
+      name: row.name,
+      reasons: row.attentionReasons,
+      severity: (row.leaderCount === 0 || row.status !== 'active' || row.attentionReasons.length > 1 ? 'high' : 'mid') as RadarRow['severity'],
+    }))
+    .sort((left, right) => (left.severity === right.severity ? right.reasons.length - left.reasons.length : left.severity === 'high' ? -1 : 1)),
+  [filteredRows]);
+
+  const studentHealth = useMemo(() => {
+    const academyNameById = new Map(academies.map((entry) => [entry.id, entry.name]));
+    let active = 0;
+    let risk = 0;
+    let inactive = 0;
+    const away: Array<HealthPerson & { sortDays: number }> = [];
+    filteredUsers.forEach((user) => {
+      if (user.role !== 'student' || user.status !== 'active') return;
+      const days = getDaysSince(safeToDate(user.lastAttendanceAt) ?? null);
+      if (days === null || days > 30) {
+        inactive += 1;
+        return;
+      }
+      if (days >= 14) {
+        risk += 1;
+        away.push({
+          id: user.id,
+          name: user.displayName,
+          academyName: academyNameById.get(user.academyId) ?? '',
+          days,
+          sortDays: days,
+          whatsappHref: buildWhatsAppLink(
+            user.phone,
+            t('E aí, {name}! Sentimos sua falta no tatame. Bora voltar a treinar essa semana?', { name: user.firstName || user.displayName }),
+          ) || undefined,
+        });
+        return;
+      }
+      active += 1;
+    });
+    away.sort((left, right) => right.sortDays - left.sortDays);
+    return { active, risk, inactive, people: away.slice(0, 4) as HealthPerson[] };
+  }, [academies, filteredUsers]);
+
+  const achievements = useMemo<Achievement[]>(() => {
+    const blackBelts = filteredActiveUsers.filter((user) => normalizeBelt(user.belt) === 'preta').length;
+    const totalAttendances = filteredUsers.reduce((sum, user) => sum + (user.attendanceCount ?? 0), 0);
+    return [
+      { key: 'students-500', label: t('500 alunos ativos'), icon: 'users', cur: globalStudents, goal: 500 },
+      { key: 'students-1000', label: t('1.000 alunos ativos'), icon: 'users', cur: globalStudents, goal: 1000 },
+      { key: 'academies-5', label: t('5 academias'), icon: 'building', cur: totalAcademies, goal: 5 },
+      { key: 'academies-10', label: t('10 academias'), icon: 'building', cur: totalAcademies, goal: 10 },
+      { key: 'black-50', label: t('50 faixas pretas'), icon: 'award', cur: blackBelts, goal: 50 },
+      { key: 'attendances-100k', label: t('100 mil presenças'), icon: 'flame', cur: totalAttendances, goal: 100000 },
+    ];
+  }, [filteredActiveUsers, filteredUsers, globalStudents, totalAcademies]);
+
+  const upcomingEvents = useMemo<EventRow[]>(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const academyNameById = new Map(academies.map((entry) => [entry.id, entry.name]));
+    return competitions
+      .filter((entry) => entry.status === 'published')
+      .map((entry) => ({ entry, date: safeToDate(entry.startDate) }))
+      .filter((item): item is { entry: FirestoreEntity<CompetitionRecord>; date: Date } => Boolean(item.date) && (item.date as Date).getTime() >= today.getTime())
+      .sort((left, right) => left.date.getTime() - right.date.getTime())
+      .slice(0, 4)
+      .map(({ entry, date }) => ({ id: entry.id, name: entry.name, academyName: academyNameById.get(entry.academyId) ?? '', date }));
+  }, [academies, competitions]);
+
+  const compareRows = useMemo(() => {
+    const { key, dir } = compareSort;
+    return [...filteredRows].sort((left, right) => {
+      if (key === 'name') return left.name.localeCompare(right.name) * dir;
+      if (key === 'attendance') return (left.averageAttendance - right.averageAttendance) * dir;
+      if (key === 'participation') {
+        const a = participationByAcademy.get(left.id)?.percentage ?? 0;
+        const b = participationByAcademy.get(right.id)?.percentage ?? 0;
+        return (a - b) * dir;
+      }
+      return (left.activeStudents - right.activeStudents) * dir;
+    });
+  }, [compareSort, filteredRows, participationByAcademy]);
+
+  const participationTotals = useMemo(() => {
+    let participating = 0;
+    let active = 0;
+    participationByAcademy.forEach((entry) => {
+      participating += entry.participatingStudents;
+      active += entry.activeStudents;
+    });
+    return { participating, active, percentage: active > 0 ? Math.round((participating / active) * 100) : 0 };
+  }, [participationByAcademy]);
+
+  const customizeBlocks: CustomizeBlock[] = [
+    { key: 'insight', label: t('Resumo da rede'), hint: t('Texto com o retrato do momento') },
+    { key: 'radar', label: t('Radar de atenção'), hint: t('Unidades que pedem ação, com o motivo') },
+    { key: 'activity', label: t('Atividades recentes'), hint: t('Última atividade de cada unidade') },
+    { key: 'health', label: t('Saúde da rede'), hint: t('Academias ativas, inativas e em atenção') },
+    { key: 'belts', label: t('Distribuição por faixa'), hint: t('Alunos ativos por faixa') },
+    { key: 'students', label: t('Saúde dos alunos'), hint: t('Ativos, em risco e quem mais sumiu') },
+    { key: 'ranking', label: t('Ranking de academias'), hint: t('Pódio por presença média') },
+    { key: 'achievements', label: t('Conquistas da rede'), hint: t('Marcos alcançados, com confete') },
+    { key: 'compare', label: t('Comparar academias'), hint: t('Tabela ordenável com participação') },
+    { key: 'side', label: t('Painel lateral'), hint: t('Ações rápidas, calendário e eventos') },
+  ];
+
   if (editingInstructor) {
     return (
       <InstructorEditModal
@@ -1454,19 +1639,22 @@ const SuperadminDashboardView: React.FC<SuperadminDashboardViewProps> = ({
       </div>
 
       {/* ── DESKTOP LAYOUT ── escondido no mobile via CSS */}
-      <div className="superadmin-desktop">
-        <header className="sa-desk-header">
-          <div className="sa-desk-header__copy">
-            <h1 className="sa-desk-header__title">{t('Visão geral')}</h1>
-            <p className="sa-desk-header__subtitle">
-              {t('Acompanhe o desempenho da sua rede em tempo real.')}
-            </p>
-          </div>
+      <div className="superadmin-desktop sa-x">
+        <header className="sa-desk-header sa-x-toolbar">
+          <p className="sa-x-toolbar__lead">
+            <strong>{t('Visão geral')}</strong> · {t('Acompanhe o desempenho da sua rede em tempo real.')}
+          </p>
           <div className="sa-desk-header__actions">
             <div className="sa-date-pill">
               <CalendarDays size={16} />
               <span>{monthRangeLabel}</span>
             </div>
+            <button type="button" className="sa-x-iconbtn" onClick={() => setCustomizeOpen(true)} aria-label={t('Personalizar painel')} title={t('Personalizar painel')}>
+              <SlidersHorizontal size={18} aria-hidden="true" />
+            </button>
+            <button type="button" className="sa-x-iconbtn" onClick={toggleTv} aria-label={tvMode ? t('Sair do modo TV') : t('Modo TV')} title={tvMode ? t('Sair do modo TV') : t('Modo TV')}>
+              {tvMode ? <Minimize2 size={18} aria-hidden="true" /> : <Maximize2 size={18} aria-hidden="true" />}
+            </button>
             {focusAcademyRow ? (
               <button type="button" onClick={onClearFocus} className="sa-clear-focus">
                 {t('Ver rede inteira')}
@@ -1475,195 +1663,294 @@ const SuperadminDashboardView: React.FC<SuperadminDashboardViewProps> = ({
           </div>
         </header>
 
-        <div className="sa-kpi-row">
-          {desktopKpis.map((kpi) => {
-            const KpiIcon = kpi.icon;
-            return (
-              <article key={kpi.key} className="sa-kpi-card">
+        <div className="sa-x-page">
+          <div className="sa-x-main">
+            {isBlockOn('insight') ? (
+              <div className="sa-x-notv">
+                <SaInsight onRadar={radarRows.length ? () => document.getElementById('sa-radar')?.scrollIntoView({ behavior: 'smooth', block: 'center' }) : undefined}>
+                  {totalAcademies === 0
+                    ? t('Nenhuma academia neste recorte. Ajuste os filtros para ver o panorama da rede.')
+                    : (
+                      <>
+                        {richText(t('Sua rede tem {active} de {total} academias ativas, com {students} alunos ativos.'), {
+                          active: formatCount(activeAcademies),
+                          total: formatCount(totalAcademies),
+                          students: formatCount(globalStudents),
+                        })}{' '}
+                        {participationRecords !== null && !participationError && participationTotals.active > 0 ? (
+                          <>{richText(t('Nos últimos 3 dias, {percent} deles treinaram.'), { percent: `${participationTotals.percentage}%` })}{' '}</>
+                        ) : null}
+                        <b>
+                          {academiesInAttention === 0
+                            ? t('Nenhuma unidade pede atenção.')
+                            : academiesInAttention === 1
+                              ? t('1 unidade pede atenção.')
+                              : t('{count} unidades pedem atenção.', { count: formatNumber(academiesInAttention) })}
+                        </b>
+                      </>
+                    )}
+                </SaInsight>
+              </div>
+            ) : null}
+
+            <div className="sa-kpi-row">
+              {desktopKpis.map((kpi) => {
+                const KpiIcon = kpi.icon;
+                return (
+                  <article key={kpi.key} className="sa-kpi-card">
+                    <span className="sa-kpi-card__icon">
+                      <KpiIcon size={20} />
+                    </span>
+                    <div className="sa-kpi-card__body">
+                      <p className="sa-kpi-card__label">{kpi.label}</p>
+                      <p className="sa-kpi-card__value">{kpi.value}</p>
+                      <p className="sa-kpi-card__note">{kpi.note}</p>
+                    </div>
+                  </article>
+                );
+              })}
+              <article className={`sa-kpi-card sa-kpi-card--alert ${academiesInAttention > 0 ? 'is-active' : ''}`}>
                 <span className="sa-kpi-card__icon">
-                  <KpiIcon size={20} />
+                  <AlertTriangle size={20} />
                 </span>
                 <div className="sa-kpi-card__body">
-                  <p className="sa-kpi-card__label">{kpi.label}</p>
-                  <p className="sa-kpi-card__value">{kpi.value}</p>
-                  <p className="sa-kpi-card__note">{kpi.note}</p>
+                  <p className="sa-kpi-card__label">{t('Atenção')}</p>
+                  <p className="sa-kpi-card__value">{formatNumber(academiesInAttention)}</p>
+                  <p className="sa-kpi-card__note">{t('Requerem atenção')}</p>
                 </div>
               </article>
-            );
-          })}
-          <article className={`sa-kpi-card sa-kpi-card--alert ${academiesInAttention > 0 ? 'is-active' : ''}`}>
-            <span className="sa-kpi-card__icon">
-              <AlertTriangle size={20} />
-            </span>
-            <div className="sa-kpi-card__body">
-              <p className="sa-kpi-card__label">{t('Atenção')}</p>
-              <p className="sa-kpi-card__value">{formatNumber(academiesInAttention)}</p>
-              <p className="sa-kpi-card__note">{t('Requerem atenção')}</p>
             </div>
-          </article>
-        </div>
 
-        <div className="sa-row sa-row--triple">
-          <article className="sa-card">
-            <div className="sa-card__head">
-              <h3 className="sa-card__title">{t('Saúde da rede')}</h3>
-            </div>
-            <div className="sa-health">
-              <div className="sa-donut" style={{ background: healthRingGradient }}>
-                <div className="sa-donut__core">
-                  <strong>{activeShare}%</strong>
-                  <span>{academiesInAttention > 0 ? t('Em atenção') : t('Saudável')}</span>
-                </div>
+            <div className="sa-x-row sa-x-row--chart">
+              <DailyTrainingChart data={dailyTraining} />
+              <div className="sa-x-notv">
+                <SaFocusSpotlight
+                  focus={focusAcademyRow ? {
+                    id: focusAcademyRow.id,
+                    name: focusAcademyRow.name,
+                    initials: focusAcademyRow.name.replace(/^level\s+/i, '').split(' ').slice(0, 2).map((part) => part[0]).join('').toUpperCase(),
+                    subtitle: focusAcademyRow.lastActivityLabel,
+                    stats: [
+                      { label: t('Alunos ativos'), value: formatNumber(focusActiveStudents) },
+                      { label: t('Lideranças'), value: formatNumber(focusLeaders) },
+                      { label: t('Aulas ao vivo'), value: formatNumber(focusActiveClasses) },
+                      { label: t('Presença média'), value: formatNumber(focusAcademyRow.averageAttendance) },
+                    ],
+                  } : null}
+                  choices={[...filteredRows].sort((left, right) => right.activeStudents - left.activeStudents).map((row) => ({ id: row.id, name: row.name, students: row.activeStudents }))}
+                  onPick={onEnterAcademy}
+                  onClear={onClearFocus}
+                />
               </div>
-              <ul className="sa-legend">
-                {healthLegend.map((item) => (
-                  <li key={item.key} className="sa-legend__item">
-                    <span className="sa-legend__dot" style={{ background: item.color }} />
-                    <div className="sa-legend__copy">
-                      <span className="sa-legend__label">{item.label}</span>
-                      <span className="sa-legend__detail">{item.detail}</span>
-                    </div>
-                    <strong className="sa-legend__value">{item.share}%</strong>
-                  </li>
-                ))}
-              </ul>
             </div>
-          </article>
 
-          <article className="sa-card">
-            <div className="sa-card__head">
-              <h3 className="sa-card__title">{t('Distribuição por faixa')}</h3>
-            </div>
-            <div className="sa-health">
-              <div className="sa-donut" style={{ background: beltRingGradient }}>
-                <div className="sa-donut__core">
-                  <strong>{formatNumber(activeStudentBase)}</strong>
-                  <span>{t('Alunos')}</span>
-                </div>
+            {isBlockOn('radar') ? (
+              <div className="sa-x-notv">
+                <SaRadar rows={radarRows} sectionId="sa-radar" onOpen={onEnterAcademy} />
               </div>
-              <ul className="sa-legend sa-legend--compact">
-                {beltBreakdown.map((entry) => (
-                  <li key={entry.key} className="sa-legend__item">
-                    <span className="sa-legend__dot" style={{ background: entry.color }} />
-                    <span className="sa-legend__label">{entry.label}</span>
-                    <span className="sa-legend__inline">
-                      {formatNumber(entry.total)} ({entry.share}%)
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </article>
+            ) : null}
 
-          <article className="sa-card">
-            <div className="sa-card__head">
-              <h3 className="sa-card__title">{t('Desempenho das academias')}</h3>
-            </div>
-            <p className="sa-participation-note">
-              {t('Últimas 72 horas. Cada aluno ativo com presença conta uma vez.')}
-            </p>
-            {participationError && <p role="alert" className="sa-participation-note">
-              {t('Não foi possível carregar a participação. Tente recarregar a página.')}
-            </p>}
-            {performanceRows.length > 0 ? (
-              <table className="sa-table">
-                <thead>
-                  <tr>
-                    <th>{t('Academia')}</th>
-                    <th>{t('Alunos ativos')}</th>
-                    <th>{t('Participação nos últimos 3 dias')}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {performanceRows.map((row) => {
-                    const participation = participationByAcademy.get(row.id)!;
-                    const ready = participationRecords !== null && !participationError;
-                    return (
-                    <tr
-                      key={row.id}
-                      role="button"
-                      tabIndex={0}
-                      onClick={() => onEnterAcademy(row.id)}
-                      onKeyDown={(event) => event.key === 'Enter' && onEnterAcademy(row.id)}
-                    >
-                      <td className="sa-table__name">{row.name}</td>
-                      <td>{formatNumber(row.activeStudents)}</td>
-                      <td>
-                        <div className="sa-participation">
-                          <strong>{!ready ? (participationError ? t('Indisponível') : t('Carregando…'))
-                            : row.activeStudents === 0 ? '—' : `${participation.percentage}%`}</strong>
-                          {ready && <span>
-                            {row.activeStudents === 0 ? t('Sem alunos ativos')
-                              : t('{count} de {total} alunos ativos treinaram', { count: formatNumber(participation.participatingStudents), total: formatNumber(row.activeStudents) })}
-                          </span>}
-                        </div>
-                      </td>
-                    </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            ) : (
-              <div className="app-empty">{t('Nenhuma academia disponível neste recorte.')}</div>
-            )}
-          </article>
-        </div>
-
-        <div className="sa-row sa-row--triple">
-          <DailyTrainingChart data={dailyTraining} />
-          <article className="sa-card">
-            <div className="sa-card__head">
-              <h3 className="sa-card__title">{t('Ranking de academias')}</h3>
-            </div>
-            {podiumOrder.length > 0 ? (
-              <div className="sa-podium">
-                {podiumOrder.map((item) => (
-                  <div
-                    key={item.id}
-                    className={`sa-podium__card sa-podium__card--rank-${item.rank}`}
-                    role="button"
-                    tabIndex={0}
-                    onClick={() => onEnterAcademy(item.id)}
-                    onKeyDown={(event) => event.key === 'Enter' && onEnterAcademy(item.id)}
-                  >
-                    <span className="sa-podium__rank">{item.rank}</span>
-                    <p className="sa-podium__name">{item.name}</p>
-                    <p className="sa-podium__metric">{formatNumber(item.averageAttendance)}</p>
-                    <p className="sa-podium__metric-label">{t('Presença média')}</p>
-                    <p className="sa-podium__students">{formatNumber(item.activeStudents)}</p>
-                    <p className="sa-podium__students-label">{t('Alunos ativos')}</p>
+            <div className="sa-x-row sa-x-row--even">
+              {isBlockOn('activity') ? (
+                <article className="sa-card">
+                  <div className="sa-card__head">
+                    <h3 className="sa-card__title">{t('Atividades recentes')}</h3>
                   </div>
-                ))}
-              </div>
-            ) : (
-              <div className="app-empty">{t('Sem academias suficientes para o ranking.')}</div>
-            )}
-          </article>
+                  {recentActivities.length > 0 ? (
+                    <ul className="sa-activity-list">
+                      {recentActivities.map((item) => (
+                        <li key={item.id} className="sa-activity-item">
+                          <span className={`sa-activity-item__icon ${item.tone}`}>
+                            <Activity size={15} />
+                          </span>
+                          <div className="sa-activity-item__copy">
+                            <p className="sa-activity-item__title">{item.title}</p>
+                            <p className="sa-activity-item__desc">{item.desc}</p>
+                          </div>
+                          <span className="sa-activity-item__time">{item.time}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <div className="app-empty">{t('Nenhuma atividade recente registrada.')}</div>
+                  )}
+                </article>
+              ) : null}
 
-          <article className="sa-card">
-            <div className="sa-card__head">
-              <h3 className="sa-card__title">{t('Atividades recentes')}</h3>
-            </div>
-            {recentActivities.length > 0 ? (
-              <ul className="sa-activity-list">
-                {recentActivities.map((item) => (
-                  <li key={item.id} className="sa-activity-item">
-                    <span className={`sa-activity-item__icon ${item.tone}`}>
-                      <Activity size={15} />
-                    </span>
-                    <div className="sa-activity-item__copy">
-                      <p className="sa-activity-item__title">{item.title}</p>
-                      <p className="sa-activity-item__desc">{item.desc}</p>
+              {isBlockOn('health') ? (
+                <article className="sa-card sa-x-notv">
+                  <div className="sa-card__head">
+                    <h3 className="sa-card__title">{t('Saúde da rede')}</h3>
+                  </div>
+                  <div className="sa-health">
+                    <div className="sa-donut" style={{ background: healthRingGradient }}>
+                      <div className="sa-donut__core">
+                        <strong>{activeShare}%</strong>
+                        <span>{academiesInAttention > 0 ? t('Em atenção') : t('Saudável')}</span>
+                      </div>
                     </div>
-                    <span className="sa-activity-item__time">{item.time}</span>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <div className="app-empty">{t('Nenhuma atividade recente registrada.')}</div>
-            )}
-          </article>
-        </div>
+                    <ul className="sa-legend">
+                      {healthLegend.map((item) => (
+                        <li key={item.key} className="sa-legend__item">
+                          <span className="sa-legend__dot" style={{ background: item.color }} />
+                          <div className="sa-legend__copy">
+                            <span className="sa-legend__label">{item.label}</span>
+                            <span className="sa-legend__detail">{item.detail}</span>
+                          </div>
+                          <strong className="sa-legend__value">{item.share}%</strong>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </article>
+              ) : null}
+            </div>
+
+            <div className="sa-x-row sa-x-row--even sa-x-notv">
+              {isBlockOn('belts') ? (
+                <article className="sa-card">
+                  <div className="sa-card__head">
+                    <h3 className="sa-card__title">{t('Distribuição por faixa')}</h3>
+                  </div>
+                  <div className="sa-health">
+                    <div className="sa-donut" style={{ background: beltRingGradient }}>
+                      <div className="sa-donut__core">
+                        <strong>{formatNumber(activeStudentBase)}</strong>
+                        <span>{t('Alunos')}</span>
+                      </div>
+                    </div>
+                    <ul className="sa-legend sa-legend--compact">
+                      {beltBreakdown.map((entry) => (
+                        <li key={entry.key} className="sa-legend__item">
+                          <span className="sa-legend__dot" style={{ background: entry.color }} />
+                          <span className="sa-legend__label">{entry.label}</span>
+                          <span className="sa-legend__inline">
+                            {formatNumber(entry.total)} ({entry.share}%)
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </article>
+              ) : null}
+
+              {isBlockOn('students') ? (
+                <SaStudentHealth active={studentHealth.active} risk={studentHealth.risk} inactive={studentHealth.inactive} people={studentHealth.people} />
+              ) : null}
+            </div>
+
+            <div className="sa-x-row sa-x-row--even">
+              {isBlockOn('ranking') ? (
+                <article className="sa-card">
+                  <div className="sa-card__head">
+                    <h3 className="sa-card__title">{t('Ranking de academias')}</h3>
+                  </div>
+                  {podiumOrder.length > 0 ? (
+                    <div className="sa-podium">
+                      {podiumOrder.map((item) => (
+                        <div
+                          key={item.id}
+                          className={`sa-podium__card sa-podium__card--rank-${item.rank}`}
+                          role="button"
+                          tabIndex={0}
+                          onClick={() => onEnterAcademy(item.id)}
+                          onKeyDown={(event) => event.key === 'Enter' && onEnterAcademy(item.id)}
+                        >
+                          <span className="sa-podium__rank">{item.rank}</span>
+                          <p className="sa-podium__name">{item.name}</p>
+                          <p className="sa-podium__metric">{formatNumber(item.averageAttendance)}</p>
+                          <p className="sa-podium__metric-label">{t('Presença média')}</p>
+                          <p className="sa-podium__students">{formatNumber(item.activeStudents)}</p>
+                          <p className="sa-podium__students-label">{t('Alunos ativos')}</p>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="app-empty">{t('Sem academias suficientes para o ranking.')}</div>
+                  )}
+                </article>
+              ) : null}
+
+              {isBlockOn('achievements') ? (
+                <div className="sa-x-notv"><SaAchievements items={achievements} /></div>
+              ) : null}
+            </div>
+
+            {isBlockOn('compare') ? (
+              <article className="sa-card sa-x-notv">
+                <div className="sa-card__head">
+                  <h3 className="sa-card__title">{t('Comparar academias')}</h3>
+                </div>
+                <p className="sa-participation-note">
+                  {t('Últimas 72 horas. Cada aluno ativo com presença conta uma vez.')}
+                </p>
+                {participationError && <p role="alert" className="sa-participation-note">
+                  {t('Não foi possível carregar a participação. Tente recarregar a página.')}
+                </p>}
+                {compareRows.length > 0 ? (
+                  <div className="sa-x-tablewrap">
+                    <table className="sa-table sa-x-table">
+                      <thead>
+                        <tr>
+                          {([
+                            ['name', t('Academia')],
+                            ['students', t('Alunos ativos')],
+                            ['attendance', t('Presença média')],
+                            ['participation', t('Participação nos últimos 3 dias')],
+                          ] as const).map(([key, label]) => (
+                            <th key={key} aria-sort={compareSort.key === key ? (compareSort.dir === 1 ? 'ascending' : 'descending') : 'none'}>
+                              <button
+                                type="button"
+                                className="sa-x-sort"
+                                onClick={() => setCompareSort((current) => ({ key, dir: current.key === key ? (current.dir === 1 ? -1 : 1) : (key === 'name' ? 1 : -1) }))}
+                              >
+                                {label}
+                              </button>
+                            </th>
+                          ))}
+                          <th>{t('Status')}</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {compareRows.map((row) => {
+                          const participation = participationByAcademy.get(row.id)!;
+                          const ready = participationRecords !== null && !participationError;
+                          return (
+                            <tr
+                              key={row.id}
+                              role="button"
+                              tabIndex={0}
+                              onClick={() => onEnterAcademy(row.id)}
+                              onKeyDown={(event) => event.key === 'Enter' && onEnterAcademy(row.id)}
+                            >
+                              <td className="sa-table__name">{row.name}</td>
+                              <td>{formatNumber(row.activeStudents)}</td>
+                              <td>{formatNumber(row.averageAttendance)}</td>
+                              <td>
+                                <div className="sa-participation">
+                                  <strong>{!ready ? (participationError ? t('Indisponível') : t('Carregando…'))
+                                    : row.activeStudents === 0 ? '—' : `${participation.percentage}%`}</strong>
+                                  {ready && row.activeStudents > 0 ? (
+                                    <span className="sa-x-meter"><i style={{ width: `${participation.percentage}%` }} /></span>
+                                  ) : null}
+                                </div>
+                              </td>
+                              <td>
+                                <span className={`sa-x-pill ${row.attentionReasons.length > 0 ? 'is-warn' : 'is-good'}`}>
+                                  {row.attentionReasons.length > 0 ? t('Atenção') : t('Estável')}
+                                </span>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <div className="app-empty">{t('Nenhuma academia disponível neste recorte.')}</div>
+                )}
+              </article>
+            ) : null}
 
         {focusAcademyRow ? (
           <article className="sa-card sa-card--focus">
@@ -1982,7 +2269,30 @@ const SuperadminDashboardView: React.FC<SuperadminDashboardViewProps> = ({
             </div>
           </>
         ) : null}
+          </div>
+
+          {isBlockOn('side') ? (
+            <div className="sa-x-sidewrap sa-x-notv">
+              <SaSidePanel
+                userName={shell.firstName}
+                onNewAcademy={() => shell.navigate('management')}
+                onNewNotice={() => shell.navigate('notifications')}
+                onReport={() => shell.navigate('controle-total')}
+                events={upcomingEvents}
+              />
+            </div>
+          ) : null}
+        </div>
       </div>
+
+      <SaCustomizeDrawer
+        open={customizeOpen}
+        blocks={customizeBlocks}
+        visible={blocksVisible}
+        onToggle={(key) => updateBlocks({ ...blocksVisible, [key]: blocksVisible[key] === false })}
+        onAll={(on) => updateBlocks(Object.fromEntries(customizeBlocks.map((block) => [block.key, on])))}
+        onClose={() => setCustomizeOpen(false)}
+      />
 
     </div>
   );

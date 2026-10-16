@@ -9,15 +9,25 @@ import {
   ChevronLeft,
   ChevronRight,
   DollarSign,
+  FileDown,
   Home,
+  Moon,
+  Plus,
+  Repeat,
+  Search,
+  Send,
   Shield,
+  Sun,
   TrendingUp,
   User as UserIcon,
   Users,
 } from 'lucide-react';
+import SuperadminPalette, { type PaletteItem } from './redesign/SuperadminPalette';
+import { useRedesignShell } from './redesign/ShellContext';
 import { UserRole } from '../types';
-import { t } from '../i18n';
+import { getLocale, t } from '../i18n';
 import { publicAsset } from '../publicAsset';
+import './redesign/superadmin-shell.css';
 
 type SuperadminViewMode = 'superadmin' | 'professor';
 
@@ -38,6 +48,9 @@ interface LayoutProps {
   onSetThemeMode?: (mode: 'light' | 'dark') => void;
   /** A tela atual desenha o proprio cabecalho (redesign): esconde o header do Layout. */
   screenOwnsHeader?: boolean;
+  /** Pessoas da rede para a busca (Ctrl K) do superadmin. */
+  paletteUsers?: Array<{ id: string; name: string; role: string; academyId: string; academyName: string }>;
+  onOpenPerson?: (person: { id: string; academyId: string }) => void;
 }
 
 interface NavItem {
@@ -188,7 +201,11 @@ const Layout: React.FC<LayoutProps> = ({
   isDarkMode,
   onSetThemeMode,
   screenOwnsHeader = false,
+  paletteUsers = [],
+  onOpenPerson,
 }) => {
+  const shell = useRedesignShell();
+  const [paletteOpen, setPaletteOpen] = useState(false);
   const navTrackRef = useRef<HTMLDivElement | null>(null);
   const navRefs = useRef<Record<string, HTMLButtonElement | null>>({});
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => {
@@ -279,6 +296,65 @@ const Layout: React.FC<LayoutProps> = ({
   const canToggleVision = isSuperAdmin && Boolean(onSetSuperadminViewMode);
   const showSuperadminAcademyPicker = canToggleVision && !isProfessorVision && Boolean(onSelectAcademy);
   const professorVisionDisabled = superadminAcademies.length === 0;
+
+  const greeting = (() => {
+    const hour = new Date().getHours();
+    return hour < 12 ? t('Bom dia') : hour < 18 ? t('Boa tarde') : t('Boa noite');
+  })();
+  const superadminPageTitle = activeTab === 'home' && shell.firstName
+    ? `${greeting}, ${shell.firstName}`
+    : t(currentPage.title);
+  const todayLabel = new Date().toLocaleDateString(getLocale(), { weekday: 'long', day: 'numeric', month: 'long' });
+  const superadminEyebrow = activeTab === 'home'
+    ? todayLabel.charAt(0).toUpperCase() + todayLabel.slice(1)
+    : t(currentPage.kicker);
+  const paletteEnabled = isSuperAdmin && !isProfessorVision;
+
+  const paletteItems = useMemo<PaletteItem[]>(() => {
+    if (!paletteEnabled) return [];
+    const actions = t('Ações');
+    const goTo = t('Ir para');
+    const items: PaletteItem[] = [
+      { id: 'act-academy', group: actions, label: t('Nova academia'), hint: t('Criar uma unidade na rede'), icon: <Plus size={17} />, run: () => setActiveTab('management') },
+      { id: 'act-notice', group: actions, label: t('Novo aviso'), hint: t('Comunicar a rede inteira ou segmentar'), icon: <Send size={17} />, run: () => setActiveTab('notifications') },
+      { id: 'act-report', group: actions, label: t('Gerar relatório'), hint: t('Excel ou PDF do Controle Total'), icon: <FileDown size={17} />, run: () => setActiveTab('controle-total') },
+      { id: 'act-vision', group: actions, label: t('Trocar para a visão Professor'), hint: t('Ver o app como um professor'), icon: <Repeat size={17} />, run: () => onSetSuperadminViewMode?.('professor') },
+    ];
+    if (onSetThemeMode) {
+      items.push({ id: 'act-theme', group: actions, label: isDarkMode ? t('Tema claro') : t('Tema escuro'), hint: t('Alternar o tema'), icon: isDarkMode ? <Sun size={17} /> : <Moon size={17} />, run: () => onSetThemeMode(isDarkMode ? 'light' : 'dark') });
+    }
+    navItems.forEach((item) => {
+      const Icon = item.icon;
+      items.push({ id: `nav-${item.id}`, group: goTo, label: item.label, icon: <Icon size={17} />, run: () => setActiveTab(item.id) });
+    });
+    superadminAcademies.forEach((entry) => {
+      items.push({ id: `academy-${entry.id}`, group: t('Academias'), label: entry.name, hint: t('Colocar em foco na Central'), icon: <Building2 size={17} />, run: () => { onSelectAcademy?.(entry.id); setActiveTab('home'); } });
+    });
+    paletteUsers.forEach((person) => {
+      items.push({ id: `person-${person.id}`, group: t('Pessoas'), onlyOnSearch: true, label: person.name, hint: `${person.role} · ${person.academyName}`, icon: <UserIcon size={17} />, run: () => onOpenPerson?.(person) });
+    });
+    return items;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [paletteEnabled, navItems, superadminAcademies, paletteUsers, isDarkMode, onSetThemeMode, onSetSuperadminViewMode, onSelectAcademy, onOpenPerson, setActiveTab]);
+
+  useEffect(() => {
+    if (!paletteEnabled) return undefined;
+    const onKey = (event: KeyboardEvent) => {
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') {
+        event.preventDefault();
+        setPaletteOpen((open) => !open);
+        return;
+      }
+      const target = event.target as HTMLElement | null;
+      const typing = target && /^(INPUT|SELECT|TEXTAREA)$/.test(target.tagName);
+      if (event.key === '/' && !typing && !event.ctrlKey && !event.metaKey && !event.altKey) {
+        event.preventDefault();
+        setPaletteOpen(true);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [paletteEnabled]);
 
   const renderVisionSwitch = () => (
     <div className="app-vision-switch" role="group" aria-label={t('Trocar visão')}>
@@ -414,7 +490,11 @@ const Layout: React.FC<LayoutProps> = ({
     <aside className={`app-sidebar app-panel ${sidebarCollapsed ? 'app-sidebar--collapsed' : ''}`}>
       <div className="app-sidebar__header">
         <div className="app-sidebar__brand">
-          <img src={publicAsset('logo3.png')} alt="APPLevel" className="h-20 w-20 object-contain flex-shrink-0" />
+          {isSuperAdmin ? (
+            <span className="app-sidebar__mark" aria-hidden="true">L</span>
+          ) : (
+            <img src={publicAsset('logo3.png')} alt="APPLevel" className="h-20 w-20 object-contain flex-shrink-0" />
+          )}
           <div className="app-sidebar__brand-copy" aria-hidden={sidebarCollapsed}>
             <p className="app-kicker">{t('Plataforma APPLevel')}</p>
             <h2 className="app-sidebar__title">{sidebarIdentity.title}</h2>
@@ -528,7 +608,22 @@ const Layout: React.FC<LayoutProps> = ({
                 className={`app-pagebar ${isSuperAdmin ? 'app-topbar-panel--superadmin' : ''} ${canToggleVision ? 'app-pagebar--with-vision-switch' : ''}`.trim()}
               >
                 <div className="app-pagebar__row">
-                  <h1 className="app-pagebar__title">{t(currentPage.title)}</h1>
+                  {isSuperAdmin ? (
+                    <div className="app-pagebar__title app-pagebar__title--sa">
+                      <span className="app-pagebar__eyebrow">{superadminEyebrow}</span>
+                      <h1>{superadminPageTitle}</h1>
+                    </div>
+                  ) : (
+                    <h1 className="app-pagebar__title">{t(currentPage.title)}</h1>
+                  )}
+
+                  {paletteEnabled ? (
+                    <button type="button" className="sa-search" onClick={() => setPaletteOpen(true)} aria-label={t('Buscar academia, aluno ou ação')}>
+                      <Search size={17} aria-hidden="true" />
+                      <span>{t('Buscar academia, aluno, ação…')}</span>
+                      <kbd>{/Mac|iPhone|iPad/.test(typeof navigator === 'undefined' ? '' : navigator.platform) ? '⌘ K' : 'Ctrl K'}</kbd>
+                    </button>
+                  ) : null}
 
                   {showSuperadminAcademyPicker ? (
                     <div className="app-pagebar__context">
@@ -550,6 +645,18 @@ const Layout: React.FC<LayoutProps> = ({
                     <div className="app-pagebar__vision">
                       {renderVisionSwitch()}
                     </div>
+                  ) : null}
+
+                  {isSuperAdmin && onSetThemeMode ? (
+                    <button
+                      type="button"
+                      className="sa-theme-btn"
+                      onClick={() => onSetThemeMode(isDarkMode ? 'light' : 'dark')}
+                      aria-label={isDarkMode ? t('Tema claro') : t('Tema escuro')}
+                      title={isDarkMode ? t('Tema claro') : t('Tema escuro')}
+                    >
+                      {isDarkMode ? <Sun size={18} /> : <Moon size={18} />}
+                    </button>
                   ) : null}
 
                   {!isSuperAdmin && isDesktopShell ? (
@@ -627,6 +734,7 @@ const Layout: React.FC<LayoutProps> = ({
           </div>
         </div>
       </nav>
+      {paletteEnabled ? <SuperadminPalette open={paletteOpen} items={paletteItems} onClose={() => setPaletteOpen(false)} /> : null}
     </div>
   );
 };

@@ -164,6 +164,8 @@ export function subscribeToDailyTraining(
   listener: (snapshot: DailyTrainingSnapshot | null) => void,
   onError: (error: Error) => void,
 ) {
+  const previewImpl = previewOverride<typeof subscribeToDailyTraining>('subscribeToDailyTraining');
+  if (previewImpl) return previewImpl(startDate, listener, onError);
   let generation = 0;
   let attendanceUnsubscribers: Array<() => void> = [];
   const unsubscribeClasses = onSnapshot(
@@ -308,6 +310,8 @@ export function subscribeToRecentParticipation(
   listener: (records: Array<FirestoreEntity<AttendanceRecord>>) => void,
   onError: (error: Error) => void,
 ) {
+  const previewImpl = previewOverride<typeof subscribeToRecentParticipation>('subscribeToRecentParticipation');
+  if (previewImpl) return previewImpl(startDate, listener, onError);
   const fields = ['classStartAt', 'checkedInAt', 'createdAt'] as const;
   const snapshots = new Map<string, Array<FirestoreEntity<AttendanceRecord>>>();
   let failed = false;

@@ -1,0 +1,353 @@
+/* Superadmin em vidro: menu lateral, cabecalho, busca (Ctrl K) e superficies das telas da rede.
+   Escopo: .app-shell--superadmin. Vem depois do index.css, entao usa seletores mais especificos
+   para vencer o tema "flat" (cartoes solidos, menu escuro) que o superadmin tinha. */
+
+/* ───────── Paleta de busca ───────── */
+.sa-palette__scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 12vh 1rem 1rem;
+  background: rgba(8, 8, 12, 0.42);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+}
+
+.sa-palette {
+  width: min(620px, 100%);
+  overflow: hidden;
+  border: 1px solid var(--lv-glass-edge);
+  border-radius: 26px;
+  background: var(--lv-glass-strong);
+  -webkit-backdrop-filter: var(--lv-glass-blur);
+  backdrop-filter: var(--lv-glass-blur);
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.35);
+  color: var(--lv-text);
+  font-family: var(--font-body);
+}
+
+.sa-palette__input {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 58px;
+  padding: 0 18px;
+  border-bottom: 1px solid var(--lv-glass-hair);
+  color: var(--lv-text-soft);
+}
+
+.sa-palette__input input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--lv-text);
+  font: 500 16px var(--font-body);
+}
+
+.sa-palette__input kbd,
+.sa-search kbd {
+  padding: 3px 8px;
+  border-radius: 8px;
+  background: var(--lv-glass-fill);
+  color: var(--lv-text-soft);
+  font: 700 11.5px var(--font-body);
+}
+
+.sa-palette__list {
+  max-height: min(52vh, 420px);
+  overflow: auto;
+  padding: 8px;
+}
+
+.sa-palette__group {
+  margin: 0;
+  padding: 10px 12px 4px;
+  color: var(--lv-text-soft);
+  font-size: 11.5px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.sa-palette__item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 10px 12px;
+  border: 0;
+  border-radius: 14px;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.sa-palette__item[aria-selected='true'] { background: var(--lv-glass-fill); }
+
+.sa-palette__icon {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 34px;
+  height: 34px;
+  border-radius: 12px;
+  background: var(--lv-glass-fill);
+}
+
+.sa-palette__item[aria-selected='true'] .sa-palette__icon {
+  background: var(--lv-yellow);
+  color: var(--lv-on-yellow);
+}
+
+.sa-palette__copy { display: flex; flex-direction: column; min-width: 0; }
+.sa-palette__copy strong { font-size: 14.5px; font-weight: 600; }
+.sa-palette__copy small { color: var(--lv-text-soft); font-size: 12px; }
+
+.sa-palette__empty {
+  display: grid;
+  gap: 4px;
+  padding: 26px 10px;
+  text-align: center;
+  color: var(--lv-text-soft);
+}
+
+.sa-palette__empty strong { color: var(--lv-text); font-size: 15px; }
+
+.sa-palette__foot {
+  display: flex;
+  gap: 14px;
+  padding: 10px 18px;
+  border-top: 1px solid var(--lv-glass-hair);
+  color: var(--lv-text-soft);
+  font-size: 12px;
+}
+
+/* ───────── Cabecalho (desktop e celular) ───────── */
+.app-shell--superadmin .app-pagebar__title--sa { min-height: 0; padding: 0; }
+.app-shell--superadmin .app-pagebar__title--sa h1 {
+  margin: 2px 0 0;
+  font-family: var(--font-display);
+  font-size: clamp(1.7rem, 1.25rem + 1.2vw, 2.4rem);
+  font-weight: 800;
+  letter-spacing: -0.035em;
+  line-height: 1.05;
+}
+
+.app-pagebar__eyebrow {
+  display: block;
+  color: var(--lv-text-soft);
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.app-shell--superadmin .app-pagebar,
+.app-shell--superadmin .app-topbar-panel--superadmin {
+  border-bottom: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.sa-search {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 18rem;
+  height: 2.9rem;
+  padding: 0 0.5rem 0 1rem;
+  border: 1px solid var(--lv-glass-edge);
+  border-radius: 999px;
+  background: var(--lv-glass);
+  -webkit-backdrop-filter: var(--lv-glass-blur);
+  backdrop-filter: var(--lv-glass-blur);
+  box-shadow: var(--lv-glass-shadow);
+  color: var(--lv-text-soft);
+  font: 500 0.88rem var(--font-body);
+  cursor: pointer;
+}
+
+.sa-search span { flex: 1; text-align: left; }
+
+.sa-theme-btn {
+  display: inline-grid;
+  place-items: center;
+  width: 2.9rem;
+  height: 2.9rem;
+  border: 1px solid var(--lv-glass-edge);
+  border-radius: 50%;
+  background: var(--lv-glass);
+  -webkit-backdrop-filter: var(--lv-glass-blur);
+  backdrop-filter: var(--lv-glass-blur);
+  box-shadow: var(--lv-glass-shadow);
+  color: var(--lv-text);
+  cursor: pointer;
+}
+
+.app-shell--superadmin .app-pagebar__select,
+.app-shell--superadmin .app-vision-switch {
+  border: 1px solid var(--lv-glass-edge);
+  background: var(--lv-glass);
+  -webkit-backdrop-filter: var(--lv-glass-blur);
+  backdrop-filter: var(--lv-glass-blur);
+  box-shadow: var(--lv-glass-shadow);
+  border-radius: 999px;
+}
+
+.app-shell--superadmin .app-vision-switch__button.is-active {
+  background: var(--lv-yellow);
+  color: var(--lv-on-yellow);
+}
+
+.app-shell--superadmin .app-pagebar__select { min-height: 2.9rem; padding-inline: 1rem; font-weight: 600; }
+
+@media (max-width: 979px) {
+  .sa-search { display: none; }
+}
+
+/* ───────── Menu lateral em vidro (desktop) ───────── */
+@media (min-width: 980px) {
+  .app-shell.app-shell--superadmin {
+    --superadmin-sidebar-width: 16rem;
+    --superadmin-sidebar-collapsed-width: 5.9rem;
+    --superadmin-sidebar-gap: 1.75rem;
+    background: transparent;
+  }
+
+  html.dark .app-shell.app-shell--superadmin.app-shell--flat.app-shell--desk,
+  .app-shell.app-shell--superadmin.app-shell--flat.app-shell--desk { background: transparent; }
+
+  .app-shell--superadmin.app-shell--desk .app-sidebar.app-panel {
+    --text-strong: var(--lv-text);
+    --text-muted: var(--lv-text-muted);
+    --text-soft: var(--lv-text-soft);
+    --border: var(--lv-glass-hair);
+    --border-strong: var(--lv-glass-edge);
+    --surface-pressed: var(--lv-glass-fill);
+    top: 0.875rem;
+    left: 0.875rem;
+    bottom: 0.875rem;
+    min-height: 0;
+    padding: 1.1rem 0.8rem;
+    border: 1px solid var(--lv-glass-edge);
+    border-radius: 2rem;
+    background: var(--lv-glass);
+    -webkit-backdrop-filter: var(--lv-glass-blur);
+    backdrop-filter: var(--lv-glass-blur);
+    box-shadow: var(--lv-glass-shadow);
+  }
+
+  .app-shell--superadmin .app-sidebar__header { align-items: center; }
+  .app-shell--superadmin .app-sidebar__brand { align-items: center; gap: 0.75rem; }
+
+  .app-sidebar__mark {
+    display: grid;
+    place-items: center;
+    flex: none;
+    width: 2.9rem;
+    height: 2.9rem;
+    border-radius: 1rem;
+    background: var(--lv-yellow);
+    color: var(--lv-on-yellow);
+    font: 800 1.4rem var(--font-display);
+    letter-spacing: -0.04em;
+    box-shadow: 0 8px 20px rgba(240, 180, 41, 0.4);
+  }
+
+  .app-shell--superadmin .app-sidebar .app-kicker { display: none; }
+
+  .app-shell--superadmin .app-sidebar__title {
+    margin: 0;
+    color: var(--lv-text);
+    font-family: var(--font-display);
+    font-size: 1.1rem;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+  }
+
+  .app-shell--superadmin .app-sidebar__brand-copy p { margin: 0.15rem 0 0; font-size: 0.72rem; color: var(--lv-text-soft); }
+
+  .app-shell--superadmin .app-sidebar__collapse {
+    width: 2.4rem;
+    height: 2.4rem;
+    border: 0;
+    border-radius: 50%;
+    background: var(--lv-glass-fill);
+    color: var(--lv-text-muted);
+  }
+
+  .app-shell--superadmin .app-sidebar__nav { gap: 0.3rem; margin-top: 1.1rem; }
+
+  .app-shell--superadmin .app-sidebar__button,
+  .app-shell--superadmin.app-shell--flat .app-sidebar__button {
+    min-height: 3rem;
+    padding: 0 0.9rem;
+    gap: 0.8rem;
+    border: 0;
+    border-radius: 1.1rem;
+    background: transparent;
+    box-shadow: none;
+    color: var(--lv-text-muted);
+    font-weight: 600;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+
+  .app-shell--superadmin .app-sidebar__button:hover,
+  .app-shell--superadmin .app-sidebar__button:focus-visible {
+    transform: none;
+    border: 0;
+    background: var(--lv-glass-fill);
+    color: var(--lv-text);
+  }
+
+  .app-shell--superadmin .app-sidebar__button.is-active,
+  html.dark .app-shell--superadmin .app-sidebar__button.is-active {
+    border: 0;
+    background: var(--lv-yellow);
+    box-shadow: 0 8px 20px rgba(240, 180, 41, 0.38);
+    color: var(--lv-on-yellow);
+  }
+
+  .app-shell--superadmin .app-sidebar__icon,
+  .app-shell--superadmin.app-shell--flat .app-sidebar__icon {
+    width: 1.6rem;
+    height: 1.6rem;
+    border-radius: 0;
+    background: transparent;
+    color: inherit;
+  }
+
+  .app-shell--superadmin .app-sidebar__label {
+    letter-spacing: 0;
+    font-weight: 600;
+    font-size: 0.93rem;
+  }
+
+  .app-shell--superadmin.is-sidebar-collapsed .app-sidebar.app-panel { padding-inline: 0.55rem; }
+  .app-shell--superadmin .app-sidebar--collapsed .app-sidebar__button { padding-inline: 0; }
+}
+
+/* ───────── Telas internas (Gestao, Alunos, Comunicacao...): paineis em vidro ───────── */
+.app-shell--superadmin .app-panel,
+.app-shell--superadmin .app-panel--hero {
+  border: 1px solid var(--lv-glass-edge);
+  background: var(--lv-glass);
+  -webkit-backdrop-filter: var(--lv-glass-blur);
+  backdrop-filter: var(--lv-glass-blur);
+  box-shadow: var(--lv-glass-shadow);
+  border-radius: var(--lv-r-xl);
+}
+
+.app-shell--superadmin .app-segment {
+  border-radius: 999px;
+  background: var(--lv-glass-fill);
+  border: 1px solid var(--lv-glass-edge);
+}
+
+.app-shell--superadmin .app-segment__button { border-radius: 999px; }
+.app-shell--superadmin .app-segment__button.is-active { background: var(--lv-yellow); color: var(--lv-on-yellow); box-shadow: none; }

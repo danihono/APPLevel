@@ -2563,6 +2563,20 @@ const App: React.FC = () => {
   };
   const isSuperadminProfessorView = isSuperAdmin && superadminViewMode === 'professor';
   const isSuperadminNetworkView = isSuperAdmin && superadminViewMode !== 'professor';
+  // Busca (Ctrl K) do superadmin: so monta a lista quando a visao da rede esta ativa.
+  const paletteUsers = useMemo(() => {
+    if (!isSuperadminNetworkView) return undefined;
+    const academyNameById = new Map(allAcademies.map((entry) => [entry.id, entry.name]));
+    return allUsers
+      .filter((entry) => entry.status !== 'invited')
+      .map((entry) => ({
+        id: entry.id,
+        name: entry.displayName,
+        role: entry.role === 'student' ? t('Aluno') : entry.role === 'superadmin' ? t('Superadmin') : t('Professor'),
+        academyId: entry.academyId,
+        academyName: academyNameById.get(entry.academyId) ?? '',
+      }));
+  }, [allAcademies, allUsers, isSuperadminNetworkView]);
   const viewUserRole = isSuperadminProfessorView ? UserRole.PROFESSOR : currentUser.role;
   const actingUser = isSuperadminProfessorView
     ? { ...currentUser, role: UserRole.PROFESSOR }
@@ -3314,6 +3328,12 @@ const App: React.FC = () => {
           isDarkMode={isDarkMode}
           onSetThemeMode={setThemeMode}
           screenOwnsHeader={screenOwnsHeader}
+          paletteUsers={paletteUsers}
+          onOpenPerson={(person) => {
+            setSelectedAcademyId(person.academyId);
+            setSelectedStudentId(person.id);
+            setActiveTab('students');
+          }}
         >
           <Suspense fallback={<LoadingScreen message={t('Carregando esta area do APPLevel.')} />}>
             {renderContent()}

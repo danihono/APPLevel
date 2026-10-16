@@ -17,12 +17,15 @@ import NotificationsView from '../views/NotificationsView';
 import ProfileView from '../views/ProfileView';
 import StaffDashboardView from '../views/StaffDashboardView';
 import StudentsView from '../views/StudentsView';
+import SuperadminDashboardView from '../views/SuperadminDashboardView';
+import ControleTotalView from '../views/ControleTotalView';
 import { getBeltOptions, getUserProgressionSummary, inferKidsCategoryFromBirthDate, inferTrainingTypeFromBirthDate, kidsCategoryLabel } from '../beltCatalog';
 import { resolveMonthlyCommitment } from '../commitmentScale';
 import { previewNonCountingReason } from '../classRules';
 import { toUiUser } from '../services/firebase/adapters';
 import type { FirestoreEntity } from '../services/firebase/data';
 import type { AttendanceRecord, ClassRecord, ClassRsvpRecord, UserRecord } from '../services/firebase/models';
+import type { FocusPeriodPreset } from '../calendarUtils';
 import { UserRole } from '../types';
 import { SUPPORTED_LANGUAGES, t, useI18n } from '../i18n';
 import { publicAsset } from '../publicAsset';
@@ -52,6 +55,18 @@ import {
   previewStudentAttendances,
   previewUsers,
 } from './previewData';
+import {
+  saAcademies,
+  saAttendancesFor,
+  saClassesFor,
+  saCompetitions,
+  saDailyTrainingSnapshot,
+  saFinance,
+  saProducts,
+  saRecentParticipation,
+  saServices,
+  saUsers,
+} from './previewSuperadmin';
 
 // ─── Leituras do Firestore trocadas por dados ficticios ─────────────────────
 const studentIds = previewUsers.filter((user) => user.role === 'student' && user.status === 'active').map((user) => user.id);
@@ -96,6 +111,16 @@ const pastClassIds = previewClasses
   .map((lesson) => lesson.id);
 
 (globalThis as { __LEVEL_PREVIEW_DATA__?: Record<string, unknown> }).__LEVEL_PREVIEW_DATA__ = {
+  // Central do superadmin: participacao das ultimas 72h em toda a rede.
+  subscribeToRecentParticipation: (_startDate: Date, listener: (records: unknown[]) => void) => {
+    listener(saRecentParticipation());
+    return () => undefined;
+  },
+  // Alunos por dia (rede toda, ultimos 7 dias): aulas finalizadas e presencas de todas as academias.
+  subscribeToDailyTraining: (startDate: Date, listener: (snapshot: unknown) => void) => {
+    listener(saDailyTrainingSnapshot(startDate));
+    return () => undefined;
+  },
   subscribeToClassAttendances: (classId: string, _academyId: string, listener: (records: unknown[]) => void) => {
     listener(mockClassAttendances(classId));
     return () => undefined;
@@ -128,7 +153,7 @@ const pastClassIds = previewClasses
 const isDemoBuild = import.meta.env.VITE_DEMO_PREVIEW === 'true';
 
 // ─── Telas ──────────────────────────────────────────────────────────────────
-type PreviewRole = 'student' | 'staff';
+type PreviewRole = 'student' | 'staff' | 'superadmin';
 
 interface ScreenDef {
   id: string;
@@ -161,6 +186,13 @@ const SCREENS: ScreenDef[] = [
   { id: 'prof-avisos', role: 'staff', tab: 'notifications', label: 'Professor · Avisos' },
   { id: 'prof-learning', role: 'staff', tab: 'learning', label: 'Professor · Learning' },
   { id: 'prof-perfil', role: 'staff', tab: 'profile', label: 'Professor · Perfil' },
+  { id: 'sa-central', role: 'superadmin', tab: 'home', label: 'Superadmin · Central' },
+  { id: 'sa-controle', role: 'superadmin', tab: 'controle-total', label: 'Superadmin · Controle Total' },
+  { id: 'sa-comunicacao', role: 'superadmin', tab: 'notifications', label: 'Superadmin · Comunicação' },
+  { id: 'sa-alunos', role: 'superadmin', tab: 'students', label: 'Superadmin · Alunos' },
+  { id: 'sa-gestao', role: 'superadmin', tab: 'management', label: 'Superadmin · Gestão' },
+  { id: 'sa-learning', role: 'superadmin', tab: 'learning', label: 'Superadmin · Learning' },
+  { id: 'sa-perfil', role: 'superadmin', tab: 'profile', label: 'Superadmin · Perfil' },
 ];
 
 // Tela inicial: escolher a visao (aluno ou professor).
@@ -291,6 +323,9 @@ const RedesignPreview: React.FC = () => {
   const [menuOpen, setMenuOpen] = useState(false);
   const [overlayClosed, setOverlayClosed] = useState(false);
   const [selectedStudentId, setSelectedStudentId] = useState('aluno-marina');
+  // Superadmin: unidade em foco ('' = rede inteira) e periodo das estatisticas.
+  const [saAcademyId, setSaAcademyId] = useState('');
+  const [saFocusPeriod, setSaFocusPeriod] = useState<FocusPeriodPreset>('3m');
   // Demo: iniciar/finalizar aula muda o status localmente (para testar "Finalizar aula" e o resumo).
   const [classStatusById, setClassStatusById] = useState<Record<string, ClassRecord['status']>>({});
   const staffClasses = useMemo(
@@ -363,13 +398,13 @@ const RedesignPreview: React.FC = () => {
 
   const shell: RedesignShellValue = {
     role: screen.role,
-    unitLabel: previewAcademy.name,
+    unitLabel: screen.role === 'superadmin' ? (saAcademies.find((entry) => entry.id === saAcademyId)?.name ?? 'Toda a rede') : previewAcademy.name,
     unreadCount: screen.role === 'student' && screen.variant !== 'empty' ? 1 : 0,
     openNotifications: () => goTab('notifications'),
     goBack: () => goTab('home'),
     navigate: goTab,
     timeZone: previewAcademy.timezone,
-    firstName: screen.role === 'staff' ? previewProfessor.firstName : previewStudent.firstName,
+    firstName: screen.role === 'student' ? previewStudent.firstName : screen.role === 'staff' ? previewProfessor.firstName : 'Daniel',
   };
 
   const rosterClasses = [...previewClasses, ...previewHistoryClasses];
@@ -526,6 +561,111 @@ const RedesignPreview: React.FC = () => {
               onStartCheckin={() => setScreenId('aluno-checkin')}
               onOpenEvolution={() => goTab('evolution')}
               onOpenClasses={() => goTab('calendar')}
+            />
+          );
+      }
+    }
+
+    if (screen.role === 'superadmin') {
+      const focusAcademy = saAcademies.find((entry) => entry.id === saAcademyId) ?? null;
+      const focusUsers = saUsers.filter((entry) => entry.academyId === saAcademyId);
+      const focusClasses = saClassesFor(saAcademyId);
+      const focusAttendances = saAttendancesFor(saAcademyId);
+      const academyName = focusAcademy?.name ?? 'Toda a rede LEVEL';
+      switch (screen.tab) {
+        case 'controle-total':
+          return (
+            <ControleTotalView
+              academies={saAcademies}
+              users={saUsers}
+              products={saProducts}
+              services={saServices}
+              sales={saFinance.sales}
+              saleItems={saFinance.saleItems}
+              payments={saFinance.payments}
+              revenues={saFinance.revenues}
+              expenses={saFinance.expenses}
+              inventoryMovements={saFinance.inventoryMovements}
+              withdrawals={saFinance.withdrawals}
+              selectedAcademyId={saAcademyId}
+              onSelectAcademy={setSaAcademyId}
+            />
+          );
+        case 'notifications':
+          return renderNotifications(UserRole.SUPERADMIN, professor.id, previewNotifications);
+        case 'learning':
+          return renderLearning(UserRole.SUPERADMIN, previewProfessor);
+        case 'profile':
+          return renderProfile(professor, previewProfessor, false);
+        case 'management':
+          return (
+            <ManagementView
+              userRole={UserRole.SUPERADMIN}
+              academy={focusAcademy ?? saAcademies[0]}
+              classes={focusClasses}
+              academyUsers={focusUsers}
+              academies={saAcademies}
+              allUsers={saUsers}
+              rankingAttendances={focusAttendances}
+              studentVideoLibraryById={new Map()}
+              selectedAcademyId={saAcademyId}
+              onSelectAcademy={setSaAcademyId}
+              onUpdateAcademy={saveDelay}
+              onCreateAcademy={async () => delay({ academyId: ACADEMY_ID })}
+              onCreateUser={saveDelay}
+              onUpdateStudentBeltGrade={saveDelay}
+              onSetStudentAttendanceBonus={saveDelay}
+              onAdminUpdateStudentProfile={saveDelay}
+              onAdminUpdateStudentTimeline={saveDelay}
+              onAdminUpdateStudentPhoto={saveDelay}
+              onUpdateInstructor={saveDelay}
+            />
+          );
+        case 'students':
+          return (
+            <StudentsView
+              key={`sa-students-${saAcademyId}`}
+              students={focusUsers.filter((user) => user.role === 'student' && user.status !== 'suspended').map(toUi)}
+              deactivatedStudents={focusUsers.filter((user) => user.role === 'student' && user.status === 'suspended').map(toUi)}
+              progressionRules={previewAcademy.progressionRules}
+              graduationRequests={[]}
+              rankingAttendances={focusAttendances}
+              classes={focusClasses}
+              academyName={academyName}
+              academies={saAcademies.map((entry) => ({ id: entry.id, name: entry.name }))}
+              selectedAcademyId={saAcademyId}
+              onSelectAcademy={setSaAcademyId}
+              enableAcademyFilter
+              requireAcademySelection={false}
+              selectedStudentId=""
+              onSelectStudent={() => undefined}
+              onApproveGraduationRequest={saveDelay}
+              onUpdateStudentBeltGrade={saveDelay}
+              onSetStudentAttendanceBonus={saveDelay}
+              onAdminUpdateStudentProfile={saveDelay}
+              onAdminUpdateStudentTimeline={saveDelay}
+              onAdminUpdateStudentPhoto={saveDelay}
+              onDeactivateStudent={saveDelay}
+              onActivateStudent={saveDelay}
+              viewerRole="superadmin"
+            />
+          );
+        default:
+          return (
+            <SuperadminDashboardView
+              academies={saAcademies}
+              allUsers={saUsers}
+              academy={focusAcademy}
+              academyUsers={focusUsers}
+              classes={focusClasses}
+              attendances={focusAttendances}
+              focusPeriod={saFocusPeriod}
+              onFocusPeriodChange={setSaFocusPeriod}
+              competitions={saCompetitions}
+              selectedAcademyId={saAcademyId}
+              onEnterAcademy={setSaAcademyId}
+              onClearFocus={() => setSaAcademyId('')}
+              onUpdateInstructor={saveDelay}
             />
           );
       }
@@ -703,11 +843,11 @@ const RedesignPreview: React.FC = () => {
             className="rd-preview__item rd-preview__item--switch"
             onClick={() => { setScreenId(CHOOSER_ID); setMenuOpen(false); }}
           >
-            {t('Trocar visão (aluno / professor)')}
+            {t('Trocar visão (aluno / professor / superadmin)')}
           </button>
-          {(['student', 'staff'] as PreviewRole[]).map((role) => (
+          {(['student', 'staff', 'superadmin'] as PreviewRole[]).map((role) => (
             <div key={role} className="rd-preview__group">
-              <p className="rd-preview__group-title">{role === 'student' ? t('Aluno') : t('Professor')}</p>
+              <p className="rd-preview__group-title">{role === 'student' ? t('Aluno') : role === 'staff' ? t('Professor') : t('Superadmin')}</p>
               {SCREENS.filter((entry) => entry.role === role).map((entry) => (
                 <button
                   key={entry.id}
@@ -715,7 +855,7 @@ const RedesignPreview: React.FC = () => {
                   className={`rd-preview__item ${!isChooser && entry.id === screen.id ? 'is-active' : ''}`.trim()}
                   onClick={() => { setScreenId(entry.id); setMenuOpen(false); }}
                 >
-                  {t(entry.label.replace(/^(Aluno|Professor) · /, ''))}
+                  {t(entry.label.replace(/^(Aluno|Professor|Superadmin) · /, ''))}
                 </button>
               ))}
             </div>
@@ -765,6 +905,11 @@ const RedesignPreview: React.FC = () => {
                 <strong>{t('Ver como professor')}</strong>
                 <span>{t('Início, calendário com QR e presença, academia, avisos, learning e perfil.')}</span>
               </button>
+              <button type="button" className="rd-demo__choice rd-demo__choice--glass" onClick={() => setScreenId('sa-central')}>
+                <span className="rd-demo__choice-kicker">{t('Superadmin')}</span>
+                <strong>{t('Ver como superadmin')}</strong>
+                <span>{t('Visão da rede no computador: central, controle total, comunicação, alunos, gestão, learning e perfil.')}</span>
+              </button>
             </div>
             <button type="button" className="rd-demo__signup" onClick={() => setScreenId('aluno-cadastro')}>
               {t('Ver o cadastro do aluno (novo)')} →
@@ -797,11 +942,18 @@ const RedesignPreview: React.FC = () => {
       <Layout
         activeTab={screen.tab}
         setActiveTab={goTab}
-        userRole={screen.role === 'staff' ? UserRole.PROFESSOR : UserRole.ALUNO}
+        userRole={screen.role === 'superadmin' ? UserRole.SUPERADMIN : screen.role === 'staff' ? UserRole.PROFESSOR : UserRole.ALUNO}
+        superadminViewMode={screen.role === 'superadmin' ? 'superadmin' : null}
+        onSetSuperadminViewMode={screen.role === 'superadmin' ? () => setScreenId('prof-inicio') : undefined}
+        superadminAcademies={screen.role === 'superadmin' ? saAcademies.map((entry) => ({ id: entry.id, name: entry.name })) : undefined}
+        selectedAcademyId={screen.role === 'superadmin' ? saAcademyId : undefined}
+        paletteUsers={screen.role === 'superadmin' ? saUsers.slice(0, 400).map((user) => ({ id: user.id, name: user.displayName, role: user.role === 'student' ? t('Aluno') : t('Professor'), academyId: user.academyId, academyName: saAcademies.find((entry) => entry.id === user.academyId)?.name ?? '' })) : undefined}
+        onOpenPerson={screen.role === 'superadmin' ? (person) => { setSaAcademyId(person.academyId); setScreenId('sa-alunos'); } : undefined}
+        onSelectAcademy={screen.role === 'superadmin' ? setSaAcademyId : undefined}
         unreadNotificationsCount={shell.unreadCount}
-        mobileUnitLabel={previewAcademy.name}
+        mobileUnitLabel={screen.role === 'superadmin' ? (saAcademies.find((entry) => entry.id === saAcademyId)?.name ?? 'Toda a rede') : previewAcademy.name}
         isDarkMode={dark}
-        screenOwnsHeader={ownsHeader}
+        screenOwnsHeader={screen.role !== 'superadmin' && ownsHeader}
       >
         {renderScreen()}
       </Layout>
@@ -875,6 +1027,7 @@ const previewStyles = (
     .rd-demo__choice span { font-size: 14px; font-weight: 600; line-height: 1.4; color: #4a5266; }
     .rd-demo__choice .rd-demo__choice-kicker { font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: #8a5a00; }
     .rd-demo__choice--ink { background: #16161e; color: #ffffff; }
+    .rd-demo__choice--glass { background: rgba(255,255,255,.55); box-shadow: inset 0 0 0 1.5px #1a1300; }
     .rd-demo__choice--ink span { color: rgba(255,255,255,.72); }
     .rd-demo__choice--ink .rd-demo__choice-kicker { color: #f0b429; }
     .rd-demo__choice:focus-visible, .rd-demo__pref:focus-visible { outline: 3px solid #16161e; outline-offset: 3px; }

@@ -38,6 +38,7 @@ import { rdRankingMessages } from './rd-ranking';
 import { rdSignupMessages } from './rd-signup';
 import { rdShellMessages } from './rd-shell';
 import { rdStaffHomeMessages } from './rd-staff-home';
+import { rdSuperadminMessages } from './rd-superadmin';
 
 export const messages: MessageCatalog = {
   ...commonMessages,
@@ -79,4 +80,5 @@ export const messages: MessageCatalog = {
   ...rdSignupMessages,
   ...rdShellMessages,
   ...rdStaffHomeMessages,
+  ...rdSuperadminMessages,
 };
