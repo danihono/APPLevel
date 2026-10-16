@@ -9,6 +9,8 @@ import DeleteClassModal, { type DeleteClassPayload } from '../components/DeleteC
 import EditClassModal, { type EditClassPayload } from '../components/EditClassModal';
 import { beltLabel, getGradeProgressLabel, inferTrainingTypeFromBirthDate, type ProgressionRules } from '../beltCatalog';
 import {
+  beginnerOnlyClassWarning,
+  canJoinClass,
   nonCountingWarning,
   isBeginnerClassType,
   isEligibleForBeginnerClass,
@@ -1331,6 +1333,20 @@ const CalendarView: React.FC<CalendarViewProps> = ({
     [classAttendances],
   );
   const selectedClassIsBeginner = isBeginnerClassType(selectedClass?.description);
+  // Iniciante fora da LEVEL Iniciante: o backend recusa o check-in, entao nem oferecemos.
+  const selectedClassBlocksMe = !!selectedClass && !canJoinClass(selectedClass.description, {
+    role: userRole,
+    belt: currentUserBelt,
+    stripes: currentUserStripes,
+    kidsCategory: currentUserKidsCategory,
+  });
+  const isStudentBlockedFromSelectedClass = (student?: FirestoreEntity<UserRecord>) =>
+    !!selectedClass && !!student && !canJoinClass(selectedClass.description, {
+      role: student.role,
+      belt: student.belt,
+      stripes: student.stripes,
+      kidsCategory: student.kidsCategory,
+    });
   const selectedClassNonCountingReason = useMemo(
     () =>
       selectedClass
@@ -2337,7 +2353,11 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                           <span style={{ fontSize: '0.75rem', color: 'var(--text-soft)' }}>{t('no mes atual')}</span>
                         </div>
                       ) : null}
-                      {selectedClassNonCountingReason ? (
+                      {selectedClassBlocksMe ? (
+                        <p className="app-alert app-alert--warning">
+                          {beginnerOnlyClassWarning()}
+                        </p>
+                      ) : selectedClassNonCountingReason ? (
                         <p className="app-alert app-alert--warning">
                           {nonCountingWarning(selectedClassNonCountingReason)}
                         </p>
@@ -2351,7 +2371,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                             setQrInputByClass((current) => ({ ...current, [selectedClass.id]: event.target.value }))
                           }
                           placeholder={t('Cole aqui o token do QR')}
-                          disabled={!selectedClassCanUseQr || busy}
+                          disabled={!selectedClassCanUseQr || busy || selectedClassBlocksMe}
                           className="app-input"
                           style={{ flex: 1 }}
                         />
@@ -2361,7 +2381,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                             setScannerClassId(selectedClass.id);
                             setScannerOpen(true);
                           }}
-                          disabled={!selectedClassCanUseQr || busy}
+                          disabled={!selectedClassCanUseQr || busy || selectedClassBlocksMe}
                           className="app-button app-button--ghost app-button--icon"
                           title={t('Escanear QR com camera')}
                           style={{ width: 42, height: 42, flexShrink: 0 }}
@@ -2374,7 +2394,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                         onClick={() =>
                           void runClassAction(selectedClass.id, () => onRegisterAttendance(selectedClass.id, qrInputByClass[selectedClass.id]))
                         }
-                        disabled={!selectedClassCanUseQr || busy}
+                        disabled={!selectedClassCanUseQr || busy || selectedClassBlocksMe}
                         className="app-button app-button--gold app-button--block"
                       >
                         <ShieldCheck size={14} />
@@ -2383,7 +2403,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                       <button
                         type="button"
                         onClick={() => void runClassAction(selectedClass.id, () => onSubmitAttendanceRequest(selectedClass.id))}
-                        disabled={selectedClass.status !== 'active' || busy || !!pendingRequest}
+                        disabled={selectedClass.status !== 'active' || busy || !!pendingRequest || selectedClassBlocksMe}
                         className="app-button app-button--ghost app-button--block"
                       >
                         <CheckCircle size={14} />
@@ -2445,6 +2465,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                           const removeBusy = !!busyByClass[`remove_${entry.userId}`];
                           const rsvpBusy = !!busyByClass[`rsvp_${entry.userId}`];
                           const studentError = studentErrorById[entry.userId] ?? '';
+                          const blockedFromClass = isStudentBlockedFromSelectedClass(studentById.get(entry.userId));
                           return (
                             <div key={entry.userId} className="app-list-card attendance-row">
                               {record ? (
@@ -2470,6 +2491,13 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                                 {record ? (
                                   <p style={{ fontSize: '0.72rem', color: 'var(--text-soft)', marginTop: 2 }}>
                                     {record.checkedInAt ? formatTimeLabel(record.checkedInAt) : '-'} · {methodLabel(record.checkInMethod)}
+                                  </p>
+                                ) : blockedFromClass ? (
+                                  <p
+                                    style={{ fontSize: '0.72rem', color: 'var(--danger)', marginTop: 2 }}
+                                    title={beginnerOnlyClassWarning()}
+                                  >
+                                    {t('Iniciante: só aula LEVEL Iniciante')}
                                   </p>
                                 ) : (
                                   <p style={{ fontSize: '0.72rem', color: 'var(--text-soft)', marginTop: 2 }}>{t('Confirmou · não marcado')}</p>
@@ -2502,7 +2530,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                                 ) : (
                                   <button
                                     type="button"
-                                    disabled={markBusy || selectedClass.status === 'cancelled'}
+                                    disabled={markBusy || selectedClass.status === 'cancelled' || blockedFromClass}
                                     onClick={() => void handleMarkStudentPresent(selectedClass.id, entry.userId)}
                                     className="app-button app-button--gold app-button--small"
                                     style={{ fontSize: '0.7rem', padding: '4px 10px' }}
@@ -2602,6 +2630,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                           const rsvpBusy = !!busyByClass[`rsvp_${student.id}`];
                           const studentError = studentErrorById[student.id] ?? '';
                           const gradeProgress = getGradeProgressLabel(student, progressionRules);
+                          const blockedFromClass = isStudentBlockedFromSelectedClass(student);
                           return (
                             <div key={student.id} className="app-list-card attendance-row">
                               {record ? (
@@ -2634,6 +2663,13 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                                             : ''
                                         }`
                                       : ''}
+                                  </p>
+                                ) : blockedFromClass ? (
+                                  <p
+                                    style={{ fontSize: '0.72rem', color: 'var(--danger)', marginTop: 2 }}
+                                    title={beginnerOnlyClassWarning()}
+                                  >
+                                    {t('Iniciante: só aula LEVEL Iniciante')}
                                   </p>
                                 ) : selectedClassIsBeginner && !isEligibleForBeginnerClass(student.belt, student.stripes) ? (
                                   <p
@@ -2681,7 +2717,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                                 ) : (
                                   <button
                                     type="button"
-                                    disabled={markBusy || selectedClass.status === 'cancelled'}
+                                    disabled={markBusy || selectedClass.status === 'cancelled' || blockedFromClass}
                                     onClick={() => void handleMarkStudentPresent(selectedClass.id, student.id)}
                                     className="app-button app-button--gold app-button--small"
                                     style={{ fontSize: '0.7rem', padding: '4px 10px' }}

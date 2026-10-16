@@ -8,6 +8,7 @@ import {
   COLLECTIONS,
   UserDoc,
 } from '../domain/models';
+import { assertCondition } from '../lib/errors';
 import { db } from '../lib/firebase';
 import { isValidTimeZone } from '../lib/payload';
 import { normalizeBeltId } from './progression';
@@ -20,9 +21,12 @@ import { normalizeBeltId } from './progression';
 //    mas a presenca nao conta como aula.
 // 2. No maximo 2 presencas computadas por dia. Fez 3 aulas, recebe 2.
 //
-// Em nenhum dos casos o check-in e recusado: a presenca e gravada com
+// Nesses dois casos o check-in nao e recusado: a presenca e gravada com
 // `countsAsAttendance: false` + `nonCountingReason`, que todos os contadores ja respeitam
 // (services/userState.ts, modules/auth.ts, StudentRoster, StudentDetailView...).
+//
+// 3. Aluno iniciante (adulto, faixa branca ate 2 graus) so treina na LEVEL Iniciante. Em
+//    qualquer outra turma o check-in e RECUSADO — por QR, manual, solicitacao ou aprovacao.
 
 export const BEGINNER_CLASS_TYPE = 'iniciante';
 export const MAX_COUNTED_ATTENDANCES_PER_DAY = 2;
@@ -36,6 +40,26 @@ export function isBeginnerClass(classData: Pick<ClassDoc, 'description'>): boole
 
 export function isEligibleForBeginnerClass(user: Pick<UserDoc, 'belt' | 'stripes'>): boolean {
   return normalizeBeltId(user.belt) === 'white' && Math.max(0, Math.floor(user.stripes ?? 0)) <= 2;
+}
+
+export const BEGINNER_ONLY_CLASS_MESSAGE =
+  'Aluno iniciante (faixa branca até 2 graus) só pode fazer check-in na aula LEVEL Iniciante.';
+
+// Aluno kids fica de fora: criancas de faixa branca treinam nas turmas Kids. Professor e
+// superadmin tambem — a regra e sobre o aluno.
+export function isRestrictedBeginner(user: Pick<UserDoc, 'role' | 'belt' | 'stripes' | 'kidsCategory'>): boolean {
+  return user.role === 'student' && !user.kidsCategory && isEligibleForBeginnerClass(user);
+}
+
+export function assertBeginnerCanJoinClass(
+  classData: Pick<ClassDoc, 'description'>,
+  user: Pick<UserDoc, 'role' | 'belt' | 'stripes' | 'kidsCategory'>,
+): void {
+  assertCondition(
+    isBeginnerClass(classData) || !isRestrictedBeginner(user),
+    'failed-precondition',
+    BEGINNER_ONLY_CLASS_MESSAGE,
+  );
 }
 
 // Dia da aula no fuso da academia. 'en-CA' formata como YYYY-MM-DD, que ordena

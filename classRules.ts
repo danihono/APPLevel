@@ -1,5 +1,5 @@
 import { normalizeBeltId } from './beltCatalog';
-import { BeltColor } from './types';
+import { BeltColor, KidsCategory } from './types';
 import { t } from './i18n';
 
 // Espelho, no frontend, das regras de presenca do backend
@@ -24,6 +24,31 @@ export function isBeginnerClassType(description?: string | null): boolean {
 export function isEligibleForBeginnerClass(belt?: string | null, stripes?: number | null): boolean {
   return normalizeBeltId(belt ?? undefined) === BeltColor.BRANCA
     && Math.max(0, Math.floor(stripes ?? 0)) <= MAX_BEGINNER_STRIPES;
+}
+
+// Aluno iniciante (adulto, faixa branca ate 2 graus) so faz check-in na LEVEL Iniciante; em
+// qualquer outra turma o backend RECUSA a presenca. Kids, professor e superadmin ficam de fora.
+export function isRestrictedBeginner(params: {
+  role?: string | null;
+  belt?: string | null;
+  stripes?: number | null;
+  kidsCategory?: KidsCategory | null;
+}): boolean {
+  return params.role === 'student'
+    && !params.kidsCategory
+    && isEligibleForBeginnerClass(params.belt, params.stripes);
+}
+
+export function canJoinClass(
+  classDescription: string | null | undefined,
+  user: Parameters<typeof isRestrictedBeginner>[0],
+): boolean {
+  return isBeginnerClassType(classDescription) || !isRestrictedBeginner(user);
+}
+
+/** Aviso (traduzido) do bloqueio — mesmo texto do erro da Cloud Function. */
+export function beginnerOnlyClassWarning(): string {
+  return t('Aluno iniciante (faixa branca até 2 graus) só pode fazer check-in na aula LEVEL Iniciante.');
 }
 
 export function nonCountingReasonLabel(reason?: AttendanceNonCountingReason | null): string | null {

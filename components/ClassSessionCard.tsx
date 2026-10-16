@@ -36,26 +36,26 @@ function toRules(lesson: FirestoreEntity<ClassRecord>) {
   const desc = lesson.description ?? '';
   const source = `${lesson.title} ${desc}`.toLowerCase();
   const sex = source.includes('femin') ? t('Feminino') : source.includes('masc') ? t('Masculino') : t('Misto');
-  const isSportVida = desc === 'sport' || desc === 'vida';
-  // A regra da iniciante e a unica que o backend aplica de verdade (classRules.ts), entao ela
-  // sai do CODIGO da turma, nao de um `includes` no titulo. As demais continuam informativas.
+  // Regras que o backend aplica de verdade (classRules.ts) saem do CODIGO da turma, nao de um
+  // `includes` no titulo: a LEVEL Iniciante e para branca ate 2 graus, e o iniciante adulto so
+  // pode fazer check-in nela — toda outra turma adulta exige mais de 2 graus.
   const isBeginner = isBeginnerClassType(desc);
-  const belt = source.includes('advanced') || source.includes('avanc')
+  const isKids = INFANTIL_TYPES.has(desc) || source.includes('kids');
+  const isAdvanced = source.includes('advanced') || source.includes('avanc');
+  const belt = isAdvanced
     ? t('Azul+')
-    : source.includes('kids')
+    : isKids
       ? t('Kids')
       : isBeginner
         ? t('Branca')
-        : isSportVida
-          ? t('Branca+')
-          : t('Livre');
-  const grade = source.includes('advanced') || source.includes('avanc')
+        : t('Branca+');
+  const grade = isAdvanced
     ? t('Intermediário/Avançado')
-    : isBeginner
-      ? t('até {count}° grau', { count: MAX_BEGINNER_STRIPES })
-      : isSportVida
-        ? `> ${MAX_BEGINNER_STRIPES}° grau`
-        : t('Todos os graus');
+    : isKids
+      ? t('Todos os graus')
+      : isBeginner
+        ? t('até {count}° grau', { count: MAX_BEGINNER_STRIPES })
+        : `> ${MAX_BEGINNER_STRIPES}° grau`;
 
   return { sex, belt, grade };
 }

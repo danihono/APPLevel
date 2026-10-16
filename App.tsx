@@ -13,6 +13,8 @@ import StaffDashboardView from './views/StaffDashboardView';
 import { getUserProgressionSummary, normalizeBeltId } from './beltCatalog';
 import { resolveMonthlyCommitment } from './commitmentScale';
 import {
+  beginnerOnlyClassWarning,
+  canJoinClass,
   nonCountingWarning,
   previewNonCountingReason,
   type AttendanceNonCountingReason,
@@ -2534,6 +2536,13 @@ const App: React.FC = () => {
         attendances: attendances.filter((entry) => entry.userId === profile.id),
       })
     : null;
+  // Iniciante so entra na LEVEL Iniciante: o backend recusaria, entao nem deixamos confirmar.
+  const pendingCheckinBlocked = !!pendingCheckinClass && !canJoinClass(pendingCheckinClass.description, {
+    role: profile.role,
+    belt: profile.belt,
+    stripes: profile.stripes,
+    kidsCategory: profile.kidsCategory,
+  });
   const isSuperAdmin = profile.role === 'superadmin';
   const handleSetSuperadminViewMode = (nextMode: SuperadminViewMode) => {
     if (nextMode === 'professor' && allAcademies.length === 0) {
@@ -3245,7 +3254,11 @@ const App: React.FC = () => {
                 <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', textAlign: 'center', lineHeight: 1.5 }}>
                   {t('Deseja registrar sua presença nesta aula?')}
                 </p>
-                {pendingCheckinNonCountingReason ? (
+                {pendingCheckinBlocked ? (
+                  <p className="app-alert app-alert--warning" style={{ textAlign: 'center' }}>
+                    {beginnerOnlyClassWarning()}
+                  </p>
+                ) : pendingCheckinNonCountingReason ? (
                   <p className="app-alert app-alert--warning" style={{ textAlign: 'center' }}>
                     {nonCountingWarning(pendingCheckinNonCountingReason)}
                   </p>
@@ -3267,6 +3280,7 @@ const App: React.FC = () => {
                     className="app-button app-button--block"
                     style={{ background: '#fff', color: '#22c55e', fontWeight: 700, border: '1.5px solid #22c55e' }}
                     onClick={() => { setCheckinStep('confirm'); setCheckinError(''); }}
+                    disabled={pendingCheckinBlocked}
                   >
                     {t('Confirmar')}
                   </button>
