@@ -738,7 +738,6 @@ const StaffDashboardView: React.FC<StaffDashboardViewProps> = ({
           type="button"
           className="rd-staff__next-who"
           onClick={() => setSelectedClassId(lesson.id)}
-          aria-label={rsvpCount > 0 ? t('Ver os {count} confirmados', { count: rsvpCount }) : t('Ver detalhes da aula')}
         >
           {stack.length > 0 ? (
             <span className="rd-staff__stack" aria-hidden="true">
@@ -768,6 +767,9 @@ const StaffDashboardView: React.FC<StaffDashboardViewProps> = ({
             <span className={`rd-staff__next-attendance${attendanceCount > 0 ? ' is-on' : ''}`}>
               {formatAttendanceLabel(attendanceCount)}
             </span>
+          </span>
+          <span className="lv-sr-only">
+            {rsvpCount > 0 ? t('Ver os {count} confirmados', { count: rsvpCount }) : t('Ver detalhes da aula')}
           </span>
           <ChevronRight size={18} strokeWidth={2} className="rd-staff__next-who-chevron" aria-hidden="true" />
         </button>
@@ -858,8 +860,11 @@ const StaffDashboardView: React.FC<StaffDashboardViewProps> = ({
     </button>
   );
 
-  // Lista: os NEAR_GRADUATION_SIZE mais perto; "Ver todos" abre tambem quem ja esta pronto alem deles.
-  const expandedNear = nearGraduation.filter((row, index) => index < NEAR_GRADUATION_SIZE || row.remaining <= 0);
+  // Lista: os NEAR_GRADUATION_SIZE mais perto; "Ver todos" abre tambem quem ja esta pronto ou tem
+  // aprovacao sugerida alem deles (os mesmos que os numeros do topo contam).
+  const expandedNear = nearGraduation.filter((row, index) => (
+    index < NEAR_GRADUATION_SIZE || row.remaining <= 0 || row.suggested
+  ));
   const visibleNear = showAllNear ? expandedNear : expandedNear.slice(0, NEAR_GRADUATION_SIZE);
   const idleLabel = idleStudentsCount === 1 ? t('1 inativo') : t('{count} inativos', { count: idleStudentsCount });
   const deactivatedLabel = inactiveStudents.length === 1
@@ -897,7 +902,7 @@ const StaffDashboardView: React.FC<StaffDashboardViewProps> = ({
                         : t('{count} de {total} alunos', { count: trainedRecently, total: activeStudents.length })}
                     </strong>
                     {' '}
-                    <span>{t('treinaram nos últimos 7 dias')}</span>
+                    <span>{trainedRecently === 1 ? t('treinou nos últimos 7 dias') : t('treinaram nos últimos 7 dias')}</span>
                   </>
                 )}
               </p>
@@ -922,7 +927,7 @@ const StaffDashboardView: React.FC<StaffDashboardViewProps> = ({
             </div>
 
             <p className="rd-staff__pulse-foot">
-              <span><strong><CountUp value={weekPulse.today} /></strong> {t('check-ins hoje')}</span>
+              <span><strong><CountUp value={weekPulse.today} /></strong> {weekPulse.today === 1 ? t('check-in hoje') : t('check-ins hoje')}</span>
               <span><strong><CountUp value={weekPulse.week} /></strong> {t('na semana')}</span>
               {weekPulse.occupancy != null ? (
                 <span><strong><CountUp value={weekPulse.occupancy} suffix="%" /></strong> {t('de lotação')}</span>
@@ -936,12 +941,12 @@ const StaffDashboardView: React.FC<StaffDashboardViewProps> = ({
               {onNavigateToStudents ? (
                 <button type="button" className="rd-staff__tile-main" onClick={onNavigateToStudents}>
                   <span className="rd-staff__tile-value"><CountUp value={activeStudents.length} /></span>
-                  <span className="rd-staff__tile-label">{t('ativos')}</span>
+                  <span className="rd-staff__tile-label">{activeStudents.length === 1 ? t('ativo') : t('ativos')}</span>
                 </button>
               ) : (
                 <div className="rd-staff__tile-main">
                   <span className="rd-staff__tile-value"><CountUp value={activeStudents.length} /></span>
-                  <span className="rd-staff__tile-label">{t('ativos')}</span>
+                  <span className="rd-staff__tile-label">{activeStudents.length === 1 ? t('ativo') : t('ativos')}</span>
                 </div>
               )}
               <span className="rd-staff__tile-links">
@@ -969,14 +974,14 @@ const StaffDashboardView: React.FC<StaffDashboardViewProps> = ({
 
             <TileButton
               value={missingStudents.length}
-              label={t('sumidos')}
+              label={missingStudents.length === 1 ? t('sumido') : t('sumidos')}
               note={t('{days}+ dias', { days: MISSING_MINIMUM_DAYS })}
               onClick={missingStudents.length > 0 ? () => scrollToSection(missingRef) : undefined}
             />
 
             <TileButton
               value={readyCount}
-              label={t('prontos p/ graduar')}
+              label={readyCount === 1 ? t('pronto p/ graduar') : t('prontos p/ graduar')}
               note={suggestedCount > 0
                 ? (suggestedCount === 1
                   ? t('1 aprovação sugerida')

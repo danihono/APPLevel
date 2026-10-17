@@ -644,11 +644,12 @@ button.rd-staff__person-copy:not(:disabled) {
 }
 
 .rd-staff__ring line {
-  stroke: var(--lv-glass-fill);
+  stroke: rgba(18, 18, 24, 0.14);
   stroke-linecap: round;
 }
 
-html.dark .rd-staff__ring line {
+html.dark .rd-staff__ring line,
+html.dark .rd-staff__ring-empty {
   stroke: rgba(255, 255, 255, 0.16);
 }
 
@@ -665,7 +666,7 @@ html.dark .rd-staff__ring line.is-on {
 
 .rd-staff__ring-empty {
   fill: none;
-  stroke: var(--lv-glass-fill);
+  stroke: rgba(18, 18, 24, 0.16);
   stroke-width: 6;
   stroke-dasharray: 3 6;
 }
@@ -744,7 +745,7 @@ html.dark .rd-staff__ring line.is-on {
 
 .rd-staff__bar.is-future .rd-staff__bar-col {
   height: 18px;
-  border: 1.5px dashed var(--lv-glass-hair);
+  border: 1.5px dashed rgba(18, 18, 24, 0.2);
   background: transparent;
   animation: none;
 }
@@ -857,14 +858,17 @@ button.rd-staff__tile-main {
 }
 
 .rd-staff__tile-link {
-  padding: 2px 0;
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 0;
   border: 0;
   background: none;
   color: inherit;
   font: inherit;
   text-align: left;
   text-decoration: underline;
-  text-decoration-color: var(--lv-glass-hair);
+  text-decoration-color: var(--lv-border-strong);
   text-underline-offset: 3px;
   cursor: pointer;
 }
@@ -1125,6 +1129,7 @@ button.rd-staff__team {
 @media (prefers-reduced-motion: reduce) {
   .rd-staff__resolve-dot,
   .rd-staff__ring line.is-on,
+  html.dark .rd-staff__ring line.is-on,
   .rd-staff__bar-col {
     animation: none;
   }
