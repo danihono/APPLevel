@@ -17,11 +17,6 @@
   box-shadow: 0 18px 36px rgba(15, 18, 33, 0.18);
 }
 
-html.dark .rd-profile__hero {
-  background: #000000;
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12);
-}
-
 .rd-profile__hero-top {
   display: flex;
   align-items: center;
@@ -545,14 +540,10 @@ html.dark .rd-profile__hero {
 }
 
 /* ═══ Vidro (direcao "Apple") ═══════════════════════════════════════════════ */
+/* Fundo, borda e sombra do cartao vem de .lv-glass-hero (redesign.css). */
 .rd-profile__hero,
 html.dark .rd-profile__hero {
   align-items: center;
-  border: 1px solid var(--lv-glass-edge);
-  background: var(--lv-glass);
-  -webkit-backdrop-filter: var(--lv-glass-blur);
-  backdrop-filter: var(--lv-glass-blur);
-  box-shadow: var(--lv-glass-shadow);
   color: var(--lv-text);
   text-align: center;
 }

@@ -1571,7 +1571,7 @@ html.dark body {
 
 /* Superficies de vidro */
 .lv-glass,
-.lv-card:not(.lv-card--ink):not(.lv-card--yellow):not(.lv-card--dashed),
+.lv-card:not(.lv-card--ink):not(.lv-card--yellow):not(.lv-card--dashed):not(.lv-glass-hero),
 .lv-list,
 .lv-icon-btn:not(.lv-icon-btn--ink):not(.lv-icon-btn--on-yellow):not(.lv-icon-btn--on-dark),
 .lv-segmented {
@@ -1795,6 +1795,114 @@ html.dark .app-panel {
   backdrop-filter: var(--lv-glass-blur);
   border-color: var(--lv-glass-edge);
   box-shadow: var(--lv-glass-shadow);
+}
+
+/* Vidro em destaque ("vidro classico" escolhido na simulacao scratchpad/hero-glass): so nos
+   cartoes principais (Pulso da academia e cartao do Perfil). Vidro prateado em degrade, brilho
+   no canto de cima, borda com reflexo e uma faixa de luz que passa uma vez ao abrir.
+   Classe dobrada para vencer os estilos de cartao de cada tela, carregados depois deste arquivo. */
+:root {
+  --lv-hero-a: rgba(255, 255, 255, 0.95);
+  --lv-hero-b: rgba(236, 239, 246, 0.62);
+  --lv-hero-c: rgba(214, 220, 232, 0.55);
+  --lv-hero-edge-a: rgba(255, 255, 255, 0.98);
+  --lv-hero-edge-b: rgba(18, 18, 24, 0.1);
+  --lv-hero-edge-c: rgba(255, 255, 255, 0.6);
+  --lv-hero-sheen: rgba(255, 255, 255, 0.65);
+}
+
+html.dark {
+  --lv-hero-a: rgba(70, 72, 84, 0.7);
+  --lv-hero-b: rgba(36, 36, 44, 0.55);
+  --lv-hero-c: rgba(22, 22, 28, 0.6);
+  --lv-hero-edge-a: rgba(255, 255, 255, 0.42);
+  --lv-hero-edge-c: rgba(255, 255, 255, 0.25);
+  --lv-hero-sheen: rgba(255, 255, 255, 0.18);
+}
+
+.lv-glass-hero.lv-glass-hero {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border: 1px solid transparent;
+  background: linear-gradient(160deg, var(--lv-hero-a) 0%, var(--lv-hero-b) 60%, var(--lv-hero-c) 100%);
+  -webkit-backdrop-filter: var(--lv-glass-blur);
+  backdrop-filter: var(--lv-glass-blur);
+  box-shadow:
+    0 24px 48px -20px rgba(20, 20, 40, 0.28),
+    0 2px 8px rgba(0, 0, 0, 0.05),
+    inset 0 1px 0 rgba(255, 255, 255, 0.75),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.04);
+}
+
+.lv-glass-hero.lv-glass-hero > :not(.lv-glass-hero__sheen) {
+  position: relative;
+  z-index: 1;
+}
+
+/* Brilho de luz no canto de cima */
+.lv-glass-hero.lv-glass-hero::before {
+  content: "";
+  position: absolute;
+  z-index: 0;
+  top: -25%;
+  left: -15%;
+  width: 70%;
+  height: 60%;
+  background: radial-gradient(closest-side, rgba(255, 255, 255, 0.75), transparent);
+  opacity: 0.7;
+  filter: blur(6px);
+  pointer-events: none;
+}
+
+/* No escuro, brilho mais fraco para nao apagar o texto pequeno do topo. */
+html.dark .lv-glass-hero.lv-glass-hero::before {
+  opacity: 0.32;
+}
+
+/* Borda de vidro com reflexo */
+.lv-glass-hero.lv-glass-hero::after {
+  content: "";
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+  padding: 1.4px;
+  border-radius: inherit;
+  background: linear-gradient(140deg, var(--lv-hero-edge-a) 0%, var(--lv-hero-edge-b) 38%, var(--lv-hero-edge-b) 62%, var(--lv-hero-edge-c) 100%);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+/* Faixa de luz que passa uma vez quando o cartao aparece */
+.lv-glass-hero__sheen {
+  position: absolute;
+  z-index: 3;
+  inset: 0;
+  overflow: hidden;
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+.lv-glass-hero__sheen::before {
+  content: "";
+  position: absolute;
+  top: -20%;
+  bottom: -20%;
+  left: 0;
+  width: 45%;
+  background: linear-gradient(100deg, transparent 0%, var(--lv-hero-sheen) 50%, transparent 100%);
+  transform: translateX(-130%) skewX(-12deg);
+  animation: lv-hero-sheen 1.3s 0.35s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+
+@keyframes lv-hero-sheen {
+  to { transform: translateX(330%) skewX(-12deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lv-glass-hero__sheen::before { animation: none; opacity: 0; }
 }
 
 /* Sem suporte a backdrop-filter: vidro fica quase opaco para manter a leitura. */

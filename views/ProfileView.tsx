@@ -439,7 +439,8 @@ const ProfileView: React.FC<ProfileViewProps> = ({
   );
 
   const renderHero = (staff: boolean) => (
-    <section className="rd-profile__hero">
+    <section className="rd-profile__hero lv-glass-hero">
+      <span className="lv-glass-hero__sheen" aria-hidden="true" />
       <div className="rd-profile__hero-top">
         <span className="rd-profile__eyebrow">
           {staff ? `LEVEL · ${roleLabel(profile.role)}` : t('LEVEL · Atleta')}

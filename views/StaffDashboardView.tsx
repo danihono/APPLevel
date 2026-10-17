@@ -882,7 +882,8 @@ const StaffDashboardView: React.FC<StaffDashboardViewProps> = ({
       <div className="rd-staff__grid">
         <div className="rd-staff__col">
           {/* ─── Pulso da academia ─────────────────────────────────────── */}
-          <section className="lv-card rd-staff__pulse" aria-label={t('Pulso da academia')}>
+          <section className="lv-card lv-glass-hero rd-staff__pulse" aria-label={t('Pulso da academia')}>
+            <span className="lv-glass-hero__sheen" aria-hidden="true" />
             <div className="rd-staff__pulse-top">
               <TickRing
                 total={activeStudents.length}
