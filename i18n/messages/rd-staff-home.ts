@@ -3,8 +3,6 @@ import type { MessageCatalog } from './types';
 // Textos do redesign (staff-home). Chave = texto em pt-BR. Antes de criar, procure a chave nos
 // outros arquivos do catalogo: chave duplicada entre arquivos quebra o npm run i18n:check.
 export const rdStaffHomeMessages: MessageCatalog = {
-  "pendência aguardando ação": { en: "item awaiting action", es: "pendiente esperando acción" },
-  "pendências aguardando ação": { en: "items awaiting action", es: "pendientes esperando acción" },
   "Solicitações de presença": { en: "Attendance requests", es: "Solicitudes de asistencia" },
   "Pedido de entrada": { en: "Join request", es: "Solicitud de ingreso" },
   "Pedidos de entrada": { en: "Join requests", es: "Solicitudes de ingreso" },
@@ -37,6 +35,27 @@ export const rdStaffHomeMessages: MessageCatalog = {
   "aula para a Faixa {belt}": { en: "class to the {belt} belt", es: "clase para el cinturón {belt}" },
   "aulas para a Faixa {belt}": { en: "classes to the {belt} belt", es: "clases para el cinturón {belt}" },
   "Abrir aula ao vivo": { en: "Open live class", es: "Abrir clase en vivo" },
-  "Iniciar aula · {title} {time}": { en: "Start class · {title} {time}", es: "Iniciar clase · {title} {time}" },
   "Não foi possível iniciar a aula.": { en: "Could not start the class.", es: "No fue posible iniciar la clase." },
+  // Pulso da academia (topo do Inicio)
+  "Pulso da academia": { en: "Academy pulse", es: "Pulso de la academia" },
+  "{count} de {total} alunos": { en: "{count} of {total} students", es: "{count} de {total} alumnos" },
+  "{count} de 1 aluno": { en: "{count} of 1 student", es: "{count} de 1 alumno" },
+  "treinaram nos últimos 7 dias": { en: "trained in the last 7 days", es: "entrenaron en los últimos 7 días" },
+  "{percent}% dos alunos ativos treinaram nos últimos 7 dias": { en: "{percent}% of active students trained in the last 7 days", es: "{percent}% de los alumnos activos entrenaron en los últimos 7 días" },
+  "Nenhum aluno ativo ainda.": { en: "No active students yet.", es: "Aún no hay alumnos activos." },
+  "Check-ins por dia nesta semana": { en: "Check-ins per day this week", es: "Check-ins por día esta semana" },
+  "check-ins hoje": { en: "check-ins today", es: "check-ins hoy" },
+  "na semana": { en: "this week", es: "en la semana" },
+  "de lotação": { en: "capacity used", es: "de ocupación" },
+  "ativos": { en: "active", es: "activos" },
+  "sumidos": { en: "missing", es: "ausentes" },
+  "prontos p/ graduar": { en: "ready to promote", es: "listos p/ graduar" },
+  "{days}+ dias": { en: "{days}+ days", es: "{days}+ días" },
+  "1 inativo": { en: "1 inactive", es: "1 inactivo" },
+  "1 desativado": { en: "1 deactivated", es: "1 desactivado" },
+  "1 aprovação sugerida": { en: "1 approval suggested", es: "1 aprobación sugerida" },
+  "{count} aprovações sugeridas": { en: "{count} approvals suggested", es: "{count} aprobaciones sugeridas" },
+  "1 p/ resolver": { en: "1 to handle", es: "1 por resolver" },
+  "{count} p/ resolver": { en: "{count} to handle", es: "{count} por resolver" },
+  "Para resolver": { en: "To handle", es: "Por resolver" },
 };

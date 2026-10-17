@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { ArrowRight, CalendarCheck, Cake, ChevronRight, MessageCircle, Play, Radio, X } from 'lucide-react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { CalendarCheck, Cake, ChevronRight, MessageCircle, Play, Radio, Users, X } from 'lucide-react';
 import './redesign/staff-home.css';
 import { formatTimeLabel } from '../services/firebase/adapters';
 import { subscribeToClassRsvps, type FirestoreEntity } from '../services/firebase/data';
@@ -25,6 +25,7 @@ import { classTypeLabel } from '../calendarUtils';
 import BeltImage from '../components/BeltImage';
 import { buildWhatsAppLink } from '../contactLinks';
 import ScreenHeader from '../components/redesign/ScreenHeader';
+import { CountUp, prefersReducedMotion } from '../components/redesign/motion';
 import { useRedesignShell } from '../components/redesign/ShellContext';
 import type { User } from '../types';
 import { createDateFormatter, t } from '../i18n';
@@ -60,7 +61,6 @@ interface StaffDashboardViewProps {
 const INACTIVE_MINIMUM_DAYS = 30;
 // "Em breve": aula agendada que comeca dentro dessa janela (ou ja passou do horario de inicio).
 const SOON_WINDOW_MS = 60 * 60 * 1000;
-const CONFIRMED_PREVIEW_SIZE = 4;
 const NEAR_GRADUATION_SIZE = 5;
 // "Sumidos": sem treinar ha esse tempo (so quem ja treinou alguma vez).
 const MISSING_MINIMUM_DAYS = 14;
@@ -68,6 +68,13 @@ const MISSING_PREVIEW_SIZE = 5;
 // Aniversariantes: hoje e os proximos dias.
 const BIRTHDAY_WINDOW_DAYS = 7;
 const weekdayShortFormatter = createDateFormatter({ weekday: 'short', day: '2-digit', month: '2-digit' });
+// Pulso da academia: janela de "treinaram" e limite de tracinhos do anel (1 por aluno ate esse total).
+const PULSE_WINDOW_DAYS = 7;
+const MAX_RING_TICKS = 36;
+const PULSE_BAR_MAX_HEIGHT = 34;
+const STACK_PREVIEW_SIZE = 5;
+const weekdayNarrowFormatter = createDateFormatter({ weekday: 'narrow' });
+const weekdayLongFormatter = createDateFormatter({ weekday: 'long' });
 
 const shortDateFormatter = createDateFormatter({ day: '2-digit', month: '2-digit' });
 
@@ -240,6 +247,12 @@ function lessonMetaParts(lesson: FirestoreEntity<ClassRecord>) {
     lesson.professorName || t('Equipe técnica'),
     lesson.tatame || null,
   ].filter(Boolean).join(' · ');
+}
+
+interface PulseDay {
+  date: Date;
+  count: number;
+  state: 'past' | 'today' | 'future';
 }
 
 interface NearGraduationRow {
@@ -500,18 +513,81 @@ const StaffDashboardView: React.FC<StaffDashboardViewProps> = ({
       }
     });
 
-    return rows
-      .sort((left, right) => (
-        left.remaining - right.remaining
-        || Number(right.suggested) - Number(left.suggested)
-        || left.student.displayName.localeCompare(right.student.displayName)
-      ))
-      .slice(0, NEAR_GRADUATION_SIZE);
+    return rows.sort((left, right) => (
+      left.remaining - right.remaining
+      || Number(right.suggested) - Number(left.suggested)
+      || left.student.displayName.localeCompare(right.student.displayName)
+    ));
   }, [academy.progressionRules, activeStudents, graduationRequests]);
+  const [showAllNear, setShowAllNear] = useState(false);
+  const readyCount = useMemo(() => nearGraduation.filter((row) => row.remaining <= 0).length, [nearGraduation]);
+  const suggestedCount = useMemo(() => nearGraduation.filter((row) => row.suggested).length, [nearGraduation]);
 
-  // CTA fixo: aula ao vivo -> abrir; aula agendada de hoje "em breve" ou ja no horario -> iniciar.
-  const liveClass = featuredStatus === 'live' ? featuredClass : null;
-  const startableClass = featuredStatus === 'soon' ? featuredClass : null;
+  // Pulso: alunos ativos que treinaram nos ultimos PULSE_WINDOW_DAYS dias.
+  const trainedRecently = useMemo(() => {
+    const limitMs = nowMs - PULSE_WINDOW_DAYS * 86_400_000;
+    return activeStudents.filter((student) => (student.lastAttendanceAt?.toMillis() ?? 0) >= limitMs).length;
+  }, [activeStudents, nowMs]);
+  const trainedPercent = activeStudents.length > 0 ? Math.round((trainedRecently / activeStudents.length) * 100) : 0;
+
+  // Check-ins da semana (seg-dom): soma das presencas registradas em cada aula. Dias que ainda nao
+  // chegaram ficam tracejados. Lotacao = check-ins / vagas das aulas da semana que ja comecaram.
+  const weekPulse = useMemo(() => {
+    const today = new Date(todayKey);
+    const monday = new Date(today.getFullYear(), today.getMonth(), today.getDate() - ((today.getDay() + 6) % 7));
+    const days: PulseDay[] = Array.from({ length: 7 }, (_, index) => {
+      const date = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + index);
+      return {
+        date,
+        count: 0,
+        state: isSameDay(date, today) ? 'today' : date < today ? 'past' : 'future',
+      };
+    });
+    const weekEndMs = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + 7).getTime();
+    let seatsUsed = 0;
+    let seats = 0;
+    classes.forEach((lesson) => {
+      const start = lesson.scheduledStart?.toDate();
+      if (!start || lesson.status === 'cancelled') {
+        return;
+      }
+      const startMs = start.getTime();
+      if (startMs < monday.getTime() || startMs >= weekEndMs) {
+        return;
+      }
+      const dayStart = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+      const index = Math.round((dayStart.getTime() - monday.getTime()) / 86_400_000);
+      const count = lesson.currentAttendanceCount ?? 0;
+      if (days[index]) {
+        days[index].count += count;
+      }
+      if (startMs <= nowMs && (lesson.capacity ?? 0) > 0) {
+        seatsUsed += count;
+        seats += lesson.capacity ?? 0;
+      }
+    });
+    return {
+      days,
+      today: days.find((day) => day.state === 'today')?.count ?? 0,
+      week: days.reduce((total, day) => total + day.count, 0),
+      occupancy: seats > 0 ? Math.min(100, Math.round((seatsUsed / seats) * 100)) : null,
+    };
+  }, [classes, nowMs, todayKey]);
+  const pulseBarMax = Math.max(1, ...weekPulse.days.map((day) => day.count));
+  const pulseBarsLabel = `${t('Check-ins por dia nesta semana')}: ${weekPulse.days
+    .filter((day) => day.state !== 'future')
+    .map((day) => `${weekdayLongFormatter.format(day.date)} ${day.count}`)
+    .join(', ')}`;
+
+  const resolveRef = useRef<HTMLElement>(null);
+  const missingRef = useRef<HTMLElement>(null);
+  const nearRef = useRef<HTMLElement>(null);
+  const scrollToSection = (ref: React.RefObject<HTMLElement | null>) => {
+    ref.current?.scrollIntoView({ behavior: prefersReducedMotion() ? 'auto' : 'smooth', block: 'start' });
+  };
+
+  // Botao do cartao da aula: ao vivo -> abrir; proxima aula agendada de hoje -> iniciar (como no Calendario).
+  const startableClass = featuredStatus === 'soon' || featuredStatus === 'scheduled' ? featuredClass : null;
 
   const handleStartClass = async () => {
     if (!startableClass) {
@@ -641,6 +717,11 @@ const StaffDashboardView: React.FC<StaffDashboardViewProps> = ({
     const capacity = lesson.capacity ?? 0;
     const percent = capacity > 0 ? Math.min(100, Math.round((rsvpCount / capacity) * 100)) : 0;
     const endLabel = lesson.scheduledEnd ? formatTimeLabel(lesson.scheduledEnd) : '';
+    const attendanceCount = lesson.currentAttendanceCount ?? 0;
+    const stack = featuredRsvps.slice(0, STACK_PREVIEW_SIZE);
+    const extra = rsvpCount - stack.length;
+    const isLive = status === 'live';
+    const canStart = lesson.id === startableClass?.id && Boolean(onStartClass || onNavigateToClasses);
 
     return (
       <article className="lv-card rd-staff__next">
@@ -653,14 +734,44 @@ const StaffDashboardView: React.FC<StaffDashboardViewProps> = ({
         </div>
         <p className="rd-staff__next-meta">{lessonMetaParts(lesson)}</p>
 
-        <div className="rd-staff__next-counts">
-          <p className="rd-staff__next-confirmed">
-            {capacity > 0
-              ? t('{count} de {capacity} confirmaram', { count: rsvpCount, capacity })
-              : formatConfirmedLabel(rsvpCount)}
-          </p>
-          <p className="rd-staff__next-attendance">{formatAttendanceLabel(lesson.currentAttendanceCount ?? 0)}</p>
-        </div>
+        <button
+          type="button"
+          className="rd-staff__next-who"
+          onClick={() => setSelectedClassId(lesson.id)}
+          aria-label={rsvpCount > 0 ? t('Ver os {count} confirmados', { count: rsvpCount }) : t('Ver detalhes da aula')}
+        >
+          {stack.length > 0 ? (
+            <span className="rd-staff__stack" aria-hidden="true">
+              {stack.map((rsvp) => {
+                const person = usersById.get(rsvp.userId);
+                return (
+                  <React.Fragment key={rsvp.id}>
+                    {renderPersonAvatar(rsvp.userDisplayName, person?.photoPath)}
+                  </React.Fragment>
+                );
+              })}
+              {extra > 0 ? <span className="rd-staff__stack-more">+{extra}</span> : null}
+            </span>
+          ) : null}
+          <span className="rd-staff__next-who-copy">
+            <span className="rd-staff__next-confirmed">
+              {featuredRsvpsError
+                ? featuredRsvpsError
+                : featuredRsvpsLoading && rsvpCount === 0
+                  ? t('Carregando confirmados...')
+                  : rsvpCount === 0
+                    ? t('Nenhum aluno confirmou que vai nesta aula ainda.')
+                    : capacity > 0
+                      ? t('{count} de {capacity} confirmaram', { count: rsvpCount, capacity })
+                      : formatConfirmedLabel(rsvpCount)}
+            </span>
+            <span className={`rd-staff__next-attendance${attendanceCount > 0 ? ' is-on' : ''}`}>
+              {formatAttendanceLabel(attendanceCount)}
+            </span>
+          </span>
+          <ChevronRight size={18} strokeWidth={2} className="rd-staff__next-who-chevron" aria-hidden="true" />
+        </button>
+
         {capacity > 0 ? (
           <div
             className="lv-progress rd-staff__next-bar"
@@ -674,27 +785,24 @@ const StaffDashboardView: React.FC<StaffDashboardViewProps> = ({
           </div>
         ) : null}
 
-        <p className="lv-eyebrow rd-staff__next-label">{t('Quem confirmou')}</p>
-        <div className="rd-staff__people">
-          {featuredRsvpsError ? (
-            <p className="rd-staff__people-empty">{featuredRsvpsError}</p>
-          ) : featuredRsvpsLoading ? (
-            <p className="rd-staff__people-empty">{t('Carregando confirmados...')}</p>
-          ) : featuredRsvps.length > 0 ? (
-            featuredRsvps.slice(0, CONFIRMED_PREVIEW_SIZE).map((rsvp) => renderRsvpRow(rsvp))
-          ) : (
-            <p className="rd-staff__people-empty">{t('Nenhum aluno confirmou que vai nesta aula ainda.')}</p>
-          )}
-        </div>
+        {startError && canStart ? <p className="lv-alert lv-alert--danger rd-staff__next-error" role="alert">{startError}</p> : null}
 
-        <button type="button" className="rd-staff__next-more" onClick={() => setSelectedClassId(lesson.id)}>
-          <span>
-            {rsvpCount > 0
-              ? t('Ver os {count} confirmados', { count: rsvpCount })
-              : t('Ver detalhes da aula')}
-          </span>
-          <ArrowRight size={18} strokeWidth={2} aria-hidden="true" />
-        </button>
+        {isLive && onNavigateToClasses ? (
+          <button type="button" className="lv-btn lv-btn--primary rd-staff__next-cta" onClick={onNavigateToClasses}>
+            <Radio size={18} strokeWidth={2} aria-hidden="true" />
+            {t('Abrir aula ao vivo')}
+          </button>
+        ) : canStart ? (
+          <button
+            type="button"
+            className="lv-btn lv-btn--primary rd-staff__next-cta"
+            onClick={() => { void handleStartClass(); }}
+            disabled={startingClass}
+          >
+            <Play size={18} strokeWidth={2} fill="currentColor" aria-hidden="true" />
+            {startingClass ? t('Iniciando...') : t('Iniciar aula')}
+          </button>
+        ) : null}
       </article>
     );
   };
@@ -732,143 +840,150 @@ const StaffDashboardView: React.FC<StaffDashboardViewProps> = ({
     );
   };
 
+  const pendingPill = pendingTotal > 0 ? (
+    <button type="button" className="rd-staff__resolve-pill" onClick={() => scrollToSection(resolveRef)}>
+      <span className="rd-staff__resolve-dot" aria-hidden="true" />
+      {pendingTotal === 1 ? t('1 p/ resolver') : t('{count} p/ resolver', { count: pendingTotal })}
+    </button>
+  ) : (
+    <button
+      type="button"
+      className="lv-avatar lv-avatar--ink rd-staff__me"
+      onClick={() => shell.navigate('profile')}
+      aria-label={t('Perfil')}
+    >
+      {user.avatar && /^https?:/.test(user.avatar)
+        ? <img src={user.avatar} alt="" />
+        : initialOf(firstName || user.name)}
+    </button>
+  );
+
+  // Lista: os NEAR_GRADUATION_SIZE mais perto; "Ver todos" abre tambem quem ja esta pronto alem deles.
+  const expandedNear = nearGraduation.filter((row, index) => index < NEAR_GRADUATION_SIZE || row.remaining <= 0);
+  const visibleNear = showAllNear ? expandedNear : expandedNear.slice(0, NEAR_GRADUATION_SIZE);
+  const idleLabel = idleStudentsCount === 1 ? t('1 inativo') : t('{count} inativos', { count: idleStudentsCount });
+  const deactivatedLabel = inactiveStudents.length === 1
+    ? t('1 desativado')
+    : t('{count} desativados', { count: inactiveStudents.length });
+
   return (
     <div className="lv-screen rd-staff">
       <ScreenHeader
         eyebrow={eyebrow}
-        title={(
-          <>
-            {t(getGreeting(now))},
-            <br />
-            {firstName ? `${firstName}.` : null}
-          </>
-        )}
-        actions={(
-          <button
-            type="button"
-            className="lv-avatar lv-avatar--ink rd-staff__me"
-            onClick={() => shell.navigate('profile')}
-            aria-label={t('Perfil')}
-          >
-            {user.avatar && /^https?:/.test(user.avatar)
-              ? <img src={user.avatar} alt="" />
-              : initialOf(firstName || user.name)}
-          </button>
-        )}
+        title={firstName ? `${t(getGreeting(now))}, ${firstName}.` : `${t(getGreeting(now))}.`}
+        actions={pendingPill}
       />
 
       <div className="rd-staff__grid">
         <div className="rd-staff__col">
-          {/* ─── Pendencias ─────────────────────────────────────────────── */}
-          <section className="rd-staff__pending" aria-label={pendingCopy.title}>
-            {pendingTotal > 0 ? (
-              <>
-                <div className="rd-staff__pending-head">
-                  <span className="rd-staff__pending-number">{pendingTotal}</span>
-                  <span className="rd-staff__pending-title">
-                    {pendingTotal === 1 ? t('pendência aguardando ação') : t('pendências aguardando ação')}
-                  </span>
-                </div>
+          {/* ─── Pulso da academia ─────────────────────────────────────── */}
+          <section className="lv-card rd-staff__pulse" aria-label={t('Pulso da academia')}>
+            <div className="rd-staff__pulse-top">
+              <TickRing
+                total={activeStudents.length}
+                lit={trainedRecently}
+                label={t('{percent}% dos alunos ativos treinaram nos últimos 7 dias', { percent: trainedPercent })}
+              >
+                <strong className="rd-staff__ring-value"><CountUp value={trainedPercent} suffix="%" /></strong>
+              </TickRing>
+              <p className="rd-staff__pulse-line">
+                {activeStudents.length === 0 ? (
+                  <strong>{t('Nenhum aluno ativo ainda.')}</strong>
+                ) : (
+                  <>
+                    <strong>
+                      {activeStudents.length === 1
+                        ? t('{count} de 1 aluno', { count: trainedRecently })
+                        : t('{count} de {total} alunos', { count: trainedRecently, total: activeStudents.length })}
+                    </strong>
+                    {' '}
+                    <span>{t('treinaram nos últimos 7 dias')}</span>
+                  </>
+                )}
+              </p>
+            </div>
 
-                <div className="rd-staff__pending-list">
-                  {pendingAttendanceRequests.length > 0 ? (
-                    <PendingRow
-                      count={pendingAttendanceRequests.length}
-                      title={pendingAttendanceRequests.length === 1 ? t('Solicitação de presença') : t('Solicitações de presença')}
-                      note={formatNameList(pendingAttendanceRequests.map((entry) => entry.userDisplayName))}
-                      onClick={pendingNavigable ? () => goToPending('requests') : undefined}
+            <div className="rd-staff__bars" role="img" aria-label={pulseBarsLabel}>
+              {weekPulse.days.map((day, index) => {
+                const height = day.state === 'future'
+                  ? 0
+                  : Math.max(4, Math.round((day.count / pulseBarMax) * PULSE_BAR_MAX_HEIGHT));
+                return (
+                  <div key={day.date.toDateString()} className={`rd-staff__bar is-${day.state}`} aria-hidden="true">
+                    <span className="rd-staff__bar-value">{day.state === 'future' ? '' : day.count}</span>
+                    <span
+                      className="rd-staff__bar-col"
+                      style={{ '--h': `${height}px`, animationDelay: `${120 + index * 60}ms` } as React.CSSProperties}
                     />
-                  ) : null}
+                    <span className="rd-staff__bar-day">{weekdayNarrowFormatter.format(day.date)}</span>
+                  </div>
+                );
+              })}
+            </div>
 
-                  {pendingJoinRequests.length > 0 ? (
-                    <PendingRow
-                      count={pendingJoinRequests.length}
-                      title={pendingJoinRequests.length === 1 ? t('Pedido de entrada') : t('Pedidos de entrada')}
-                      note={pendingJoinRequests.length === 1
-                        ? t('{name} quer entrar na unidade', { name: pendingJoinRequests[0].displayName })
-                        : t('{names} querem entrar na unidade', {
-                          names: formatNameList(pendingJoinRequests.map((entry) => entry.displayName)),
-                        })}
-                      onClick={pendingNavigable ? () => goToPending('requests') : undefined}
-                    />
-                  ) : null}
-
-                  {recentNotices.length > 0 ? (
-                    <PendingRow
-                      count={recentNotices.length}
-                      title={recentNotices.length === 1 ? t('Aviso recente') : t('Avisos recentes')}
-                      note={[
-                        recentNotices[0].title,
-                        recentNotices[0].createdAt ? shortDateFormatter.format(recentNotices[0].createdAt.toDate()) : '',
-                      ].filter(Boolean).join(' · ')}
-                      onClick={pendingNavigable ? () => goToPending('notifications') : undefined}
-                    />
-                  ) : null}
-                </div>
-              </>
-            ) : (
-              <div className="rd-staff__pending-empty">
-                <p className="rd-staff__pending-empty-title">{pendingCopy.title}</p>
-                <p className="rd-staff__pending-empty-note">{pendingCopy.note}</p>
-              </div>
-            )}
+            <p className="rd-staff__pulse-foot">
+              <span><strong><CountUp value={weekPulse.today} /></strong> {t('check-ins hoje')}</span>
+              <span><strong><CountUp value={weekPulse.week} /></strong> {t('na semana')}</span>
+              {weekPulse.occupancy != null ? (
+                <span><strong><CountUp value={weekPulse.occupancy} suffix="%" /></strong> {t('de lotação')}</span>
+              ) : null}
+            </p>
           </section>
 
-          {/* ─── Numeros da unidade ─────────────────────────────────────── */}
-          <div className="rd-staff__stats">
-            <article className="rd-staff__stat">
+          {/* ─── Tres numeros ──────────────────────────────────────────── */}
+          <div className="rd-staff__trio">
+            <article className="lv-card rd-staff__tile">
               {onNavigateToStudents ? (
-                <button type="button" className="rd-staff__stat-main" onClick={onNavigateToStudents}>
-                  <span className="lv-eyebrow">{t('Alunos ativos')}</span>
-                  <span className="rd-staff__stat-value">{activeStudents.length}</span>
+                <button type="button" className="rd-staff__tile-main" onClick={onNavigateToStudents}>
+                  <span className="rd-staff__tile-value"><CountUp value={activeStudents.length} /></span>
+                  <span className="rd-staff__tile-label">{t('ativos')}</span>
                 </button>
               ) : (
-                <div className="rd-staff__stat-main">
-                  <span className="lv-eyebrow">{t('Alunos ativos')}</span>
-                  <span className="rd-staff__stat-value">{activeStudents.length}</span>
+                <div className="rd-staff__tile-main">
+                  <span className="rd-staff__tile-value"><CountUp value={activeStudents.length} /></span>
+                  <span className="rd-staff__tile-label">{t('ativos')}</span>
                 </div>
               )}
-              <p className="rd-staff__stat-note">
+              <span className="rd-staff__tile-links">
                 {onNavigateToStudents ? (
                   <button
                     type="button"
-                    className="rd-staff__stat-link"
+                    className="rd-staff__tile-link"
                     onClick={onNavigateToStudents}
                     title={t('Sem treinar há {days} dias ou mais', { days: INACTIVE_MINIMUM_DAYS })}
                   >
-                    {t('{count} inativos', { count: idleStudentsCount })}
+                    {idleLabel}
                   </button>
                 ) : (
-                  <span title={t('Sem treinar há {days} dias ou mais', { days: INACTIVE_MINIMUM_DAYS })}>
-                    {t('{count} inativos', { count: idleStudentsCount })}
-                  </span>
+                  <span title={t('Sem treinar há {days} dias ou mais', { days: INACTIVE_MINIMUM_DAYS })}>{idleLabel}</span>
                 )}
-                <span aria-hidden="true"> · </span>
                 {onNavigateToInactiveStudents ? (
-                  <button type="button" className="rd-staff__stat-link" onClick={onNavigateToInactiveStudents}>
-                    {t('{count} desativados', { count: inactiveStudents.length })}
+                  <button type="button" className="rd-staff__tile-link" onClick={onNavigateToInactiveStudents}>
+                    {deactivatedLabel}
                   </button>
                 ) : (
-                  <span>{t('{count} desativados', { count: inactiveStudents.length })}</span>
+                  <span>{deactivatedLabel}</span>
                 )}
-              </p>
+              </span>
             </article>
 
-            <article className="rd-staff__stat">
-              {onNavigateToInstructors ? (
-                <button type="button" className="rd-staff__stat-main rd-staff__stat-main--full" onClick={onNavigateToInstructors}>
-                  <span className="lv-eyebrow">{t('Instrutores')}</span>
-                  <span className="rd-staff__stat-value">{instructors.length}</span>
-                  <span className="rd-staff__stat-note">{t('Equipe ativa')}</span>
-                </button>
-              ) : (
-                <div className="rd-staff__stat-main rd-staff__stat-main--full">
-                  <span className="lv-eyebrow">{t('Instrutores')}</span>
-                  <span className="rd-staff__stat-value">{instructors.length}</span>
-                  <span className="rd-staff__stat-note">{t('Equipe ativa')}</span>
-                </div>
-              )}
-            </article>
+            <TileButton
+              value={missingStudents.length}
+              label={t('sumidos')}
+              note={t('{days}+ dias', { days: MISSING_MINIMUM_DAYS })}
+              onClick={missingStudents.length > 0 ? () => scrollToSection(missingRef) : undefined}
+            />
+
+            <TileButton
+              value={readyCount}
+              label={t('prontos p/ graduar')}
+              note={suggestedCount > 0
+                ? (suggestedCount === 1
+                  ? t('1 aprovação sugerida')
+                  : t('{count} aprovações sugeridas', { count: suggestedCount }))
+                : undefined}
+              onClick={nearGraduation.length > 0 ? () => scrollToSection(nearRef) : undefined}
+            />
           </div>
 
           {/* ─── Aulas de hoje ──────────────────────────────────────────── */}
@@ -901,12 +1016,62 @@ const StaffDashboardView: React.FC<StaffDashboardViewProps> = ({
               </div>
             )}
           </section>
+
+          {/* ─── Para resolver ──────────────────────────────────────────── */}
+          <section ref={resolveRef} className="lv-section rd-staff__section" aria-label={pendingCopy.title}>
+            <div className="lv-section__head">
+              <h2 className="lv-section__title">{t('Para resolver')}</h2>
+              {pendingTotal > 0 ? <span className="lv-label">{pendingTotal}</span> : null}
+            </div>
+            {pendingTotal > 0 ? (
+              <div className="lv-card lv-card--flush rd-staff__resolve">
+                {pendingAttendanceRequests.length > 0 ? (
+                  <PendingRow
+                    count={pendingAttendanceRequests.length}
+                    title={pendingAttendanceRequests.length === 1 ? t('Solicitação de presença') : t('Solicitações de presença')}
+                    note={formatNameList(pendingAttendanceRequests.map((entry) => entry.userDisplayName))}
+                    onClick={pendingNavigable ? () => goToPending('requests') : undefined}
+                  />
+                ) : null}
+
+                {pendingJoinRequests.length > 0 ? (
+                  <PendingRow
+                    count={pendingJoinRequests.length}
+                    title={pendingJoinRequests.length === 1 ? t('Pedido de entrada') : t('Pedidos de entrada')}
+                    note={pendingJoinRequests.length === 1
+                      ? t('{name} quer entrar na unidade', { name: pendingJoinRequests[0].displayName })
+                      : t('{names} querem entrar na unidade', {
+                        names: formatNameList(pendingJoinRequests.map((entry) => entry.displayName)),
+                      })}
+                    onClick={pendingNavigable ? () => goToPending('requests') : undefined}
+                  />
+                ) : null}
+
+                {recentNotices.length > 0 ? (
+                  <PendingRow
+                    count={recentNotices.length}
+                    title={recentNotices.length === 1 ? t('Aviso recente') : t('Avisos recentes')}
+                    note={[
+                      recentNotices[0].title,
+                      recentNotices[0].createdAt ? shortDateFormatter.format(recentNotices[0].createdAt.toDate()) : '',
+                    ].filter(Boolean).join(' · ')}
+                    onClick={pendingNavigable ? () => goToPending('notifications') : undefined}
+                  />
+                ) : null}
+              </div>
+            ) : (
+              <div className="lv-card rd-staff__resolve-empty">
+                <p className="rd-staff__resolve-empty-title">{pendingCopy.title}</p>
+                <p className="rd-staff__resolve-empty-note">{pendingCopy.note}</p>
+              </div>
+            )}
+          </section>
         </div>
 
         <div className="rd-staff__col">
           {/* ─── Sumidos ──────────────────────────────────────────────────── */}
           {missingStudents.length > 0 ? (
-            <section className="lv-section rd-staff__section">
+            <section ref={missingRef} className="lv-section rd-staff__section">
               <div className="lv-section__head">
                 <h2 className="lv-section__title">{t('Sumidos há {days}+ dias', { days: MISSING_MINIMUM_DAYS })}</h2>
                 <span className="lv-label">{missingStudents.length}</span>
@@ -987,12 +1152,12 @@ const StaffDashboardView: React.FC<StaffDashboardViewProps> = ({
 
           {/* ─── Perto de graduar ───────────────────────────────────────── */}
           {nearGraduation.length > 0 ? (
-            <section className="lv-section rd-staff__section">
+            <section ref={nearRef} className="lv-section rd-staff__section">
               <div className="lv-section__head">
                 <h2 className="lv-section__title">{t('Perto de graduar')}</h2>
               </div>
               <div className="rd-staff__near">
-                {nearGraduation.map((row) => {
+                {visibleNear.map((row) => {
                   const handleOpen = onOpenStudent
                     ? () => onOpenStudent(row.student.id)
                     : onNavigateToStudents;
@@ -1021,8 +1186,33 @@ const StaffDashboardView: React.FC<StaffDashboardViewProps> = ({
                   );
                 })}
               </div>
+              {expandedNear.length > NEAR_GRADUATION_SIZE ? (
+                <button type="button" className="lv-link rd-staff__more" onClick={() => setShowAllNear((value) => !value)}>
+                  {showAllNear ? t('Mostrar menos') : t('Ver todos ({count})', { count: expandedNear.length })}
+                </button>
+              ) : null}
             </section>
           ) : null}
+
+          {/* ─── Equipe ─────────────────────────────────────────────────── */}
+          {onNavigateToInstructors ? (
+            <button type="button" className="lv-card rd-staff__team" onClick={onNavigateToInstructors}>
+              <span className="rd-staff__team-icon" aria-hidden="true"><Users size={18} strokeWidth={2} /></span>
+              <span className="rd-staff__team-copy">
+                <span className="rd-staff__team-title">{t('Instrutores')} · {instructors.length}</span>
+                <span className="rd-staff__team-note">{t('Equipe ativa')}</span>
+              </span>
+              <ChevronRight size={18} strokeWidth={2} className="rd-staff__team-chevron" aria-hidden="true" />
+            </button>
+          ) : (
+            <div className="lv-card rd-staff__team">
+              <span className="rd-staff__team-icon" aria-hidden="true"><Users size={18} strokeWidth={2} /></span>
+              <span className="rd-staff__team-copy">
+                <span className="rd-staff__team-title">{t('Instrutores')} · {instructors.length}</span>
+                <span className="rd-staff__team-note">{t('Equipe ativa')}</span>
+              </span>
+            </div>
+          )}
 
           {/* ─── Faixa preta do professor ───────────────────────────────── */}
           {blackBeltProgress ? (
@@ -1048,36 +1238,6 @@ const StaffDashboardView: React.FC<StaffDashboardViewProps> = ({
           ) : null}
         </div>
       </div>
-
-      {/* ─── CTA fixo ─────────────────────────────────────────────────── */}
-      {liveClass && onNavigateToClasses ? (
-        <div className="lv-sticky-cta rd-staff__cta">
-          <button type="button" className="lv-btn lv-btn--primary" onClick={onNavigateToClasses}>
-            <Radio size={18} strokeWidth={2} aria-hidden="true" />
-            <span className="rd-staff__cta-label">{t('Abrir aula ao vivo')}</span>
-          </button>
-        </div>
-      ) : startableClass && (onStartClass || onNavigateToClasses) ? (
-        <div className="lv-sticky-cta rd-staff__cta">
-          {startError ? <p className="lv-alert lv-alert--danger rd-staff__cta-error" role="alert">{startError}</p> : null}
-          <button
-            type="button"
-            className="lv-btn lv-btn--primary"
-            onClick={() => { void handleStartClass(); }}
-            disabled={startingClass}
-          >
-            <Play size={18} strokeWidth={2} fill="currentColor" aria-hidden="true" />
-            <span className="rd-staff__cta-label">
-              {startingClass
-                ? t('Iniciando...')
-                : t('Iniciar aula · {title} {time}', {
-                  title: classTypeLabel(startableClass.description) || startableClass.title,
-                  time: formatTimeLabel(startableClass.scheduledStart),
-                })}
-            </span>
-          </button>
-        </div>
-      ) : null}
 
       {/* ─── Sheet da aula (confirmados) ──────────────────────────────── */}
       {selectedClass ? (
@@ -1151,6 +1311,66 @@ const StaffDashboardView: React.FC<StaffDashboardViewProps> = ({
         </div>
       ) : null}
     </div>
+  );
+};
+
+interface TickRingProps {
+  total: number;
+  lit: number;
+  label: string;
+  children?: React.ReactNode;
+}
+
+// Anel de tracinhos: um por aluno ativo (ate MAX_RING_TICKS; acima disso, proporcional).
+const TickRing: React.FC<TickRingProps> = ({ total, lit, label, children }) => {
+  const ticks = Math.min(total, MAX_RING_TICKS);
+  const litTicks = total > 0 ? Math.round((Math.min(lit, total) / total) * ticks) : 0;
+  const strokeWidth = ticks > 24 ? 4 : 6;
+  return (
+    <div className="rd-staff__ring" role="img" aria-label={label}>
+      <svg viewBox="0 0 100 100" aria-hidden="true">
+        {ticks === 0 ? (
+          <circle cx="50" cy="50" r="42" className="rd-staff__ring-empty" />
+        ) : Array.from({ length: ticks }, (_, index) => {
+          const angle = ((-90 + (index * 360) / ticks) * Math.PI) / 180;
+          return (
+            <line
+              key={index}
+              className={index < litTicks ? 'is-on' : undefined}
+              style={index < litTicks ? { animationDelay: `${200 + index * 60}ms` } : undefined}
+              x1={(50 + 34 * Math.cos(angle)).toFixed(2)}
+              y1={(50 + 34 * Math.sin(angle)).toFixed(2)}
+              x2={(50 + 46 * Math.cos(angle)).toFixed(2)}
+              y2={(50 + 46 * Math.sin(angle)).toFixed(2)}
+              strokeWidth={strokeWidth}
+            />
+          );
+        })}
+      </svg>
+      <span className="rd-staff__ring-center">{children}</span>
+    </div>
+  );
+};
+
+interface TileButtonProps {
+  value: number;
+  label: string;
+  note?: string;
+  onClick?: () => void;
+}
+
+const TileButton: React.FC<TileButtonProps> = ({ value, label, note, onClick }) => {
+  const content = (
+    <>
+      <span className="rd-staff__tile-value"><CountUp value={value} /></span>
+      <span className="rd-staff__tile-label">{label}</span>
+      {note ? <span className="rd-staff__tile-note">{note}</span> : null}
+    </>
+  );
+  return onClick ? (
+    <button type="button" className="lv-card rd-staff__tile rd-staff__tile-main" onClick={onClick}>{content}</button>
+  ) : (
+    <div className="lv-card rd-staff__tile rd-staff__tile-main">{content}</div>
   );
 };
 
