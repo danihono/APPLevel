@@ -25,6 +25,7 @@ import { classTypeLabel } from '../calendarUtils';
 import BeltImage from '../components/BeltImage';
 import { buildWhatsAppLink } from '../contactLinks';
 import ScreenHeader from '../components/redesign/ScreenHeader';
+import TopBackdrop from '../components/redesign/TopBackdrop';
 import { CountUp, prefersReducedMotion } from '../components/redesign/motion';
 import { useRedesignShell } from '../components/redesign/ShellContext';
 import type { User } from '../types';
@@ -579,6 +580,7 @@ const StaffDashboardView: React.FC<StaffDashboardViewProps> = ({
     .map((day) => `${weekdayLongFormatter.format(day.date)} ${day.count}`)
     .join(', ')}`;
 
+  const pulseRef = useRef<HTMLElement>(null);
   const resolveRef = useRef<HTMLElement>(null);
   const missingRef = useRef<HTMLElement>(null);
   const nearRef = useRef<HTMLElement>(null);
@@ -872,7 +874,8 @@ const StaffDashboardView: React.FC<StaffDashboardViewProps> = ({
     : t('{count} desativados', { count: inactiveStudents.length });
 
   return (
-    <div className="lv-screen rd-staff">
+    <div className="lv-screen rd-staff has-top-backdrop">
+      <TopBackdrop anchorRef={pulseRef} />
       <ScreenHeader
         eyebrow={eyebrow}
         title={firstName ? `${t(getGreeting(now))}, ${firstName}.` : `${t(getGreeting(now))}.`}
@@ -882,7 +885,7 @@ const StaffDashboardView: React.FC<StaffDashboardViewProps> = ({
       <div className="rd-staff__grid">
         <div className="rd-staff__col">
           {/* ─── Pulso da academia ─────────────────────────────────────── */}
-          <section className="lv-card lv-glass-hero rd-staff__pulse" aria-label={t('Pulso da academia')}>
+          <section ref={pulseRef} className="lv-card lv-glass-hero rd-staff__pulse" aria-label={t('Pulso da academia')}>
             <span className="lv-glass-hero__sheen" aria-hidden="true" />
             <div className="rd-staff__pulse-top">
               <TickRing

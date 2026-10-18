@@ -44,6 +44,7 @@ import ExamRulesModal from '../components/ExamRulesModal';
 import PushSettingsPanel from '../components/PushSettingsPanel';
 import LanguagePicker from '../components/LanguagePicker';
 import ScreenHeader from '../components/redesign/ScreenHeader';
+import TopBackdrop from '../components/redesign/TopBackdrop';
 import { useRedesignShell } from '../components/redesign/ShellContext';
 import type { FirestoreEntity } from '../services/firebase/data';
 import type { AttendanceRecord, GraduationRecord, UserRecord } from '../services/firebase/models';
@@ -162,6 +163,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
   const staffPhotoInputRef = useRef<HTMLInputElement>(null);
+  const heroRef = useRef<HTMLElement>(null);
   const [staffPhotoBusy, setStaffPhotoBusy] = useState(false);
   const [staffPhotoFeedback, setStaffPhotoFeedback] = useState('');
   const [staffPhotoError, setStaffPhotoError] = useState('');
@@ -439,7 +441,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({
   );
 
   const renderHero = (staff: boolean) => (
-    <section className="rd-profile__hero lv-glass-hero">
+    <section ref={heroRef} className="rd-profile__hero lv-glass-hero">
       <span className="lv-glass-hero__sheen" aria-hidden="true" />
       <div className="rd-profile__hero-top">
         <span className="rd-profile__eyebrow">
@@ -684,7 +686,8 @@ const ProfileView: React.FC<ProfileViewProps> = ({
 
   if (isStaffMobileProfile) {
     return (
-      <div className="view-shell rd-profile">
+      <div className="view-shell rd-profile has-top-backdrop">
+        <TopBackdrop anchorRef={heroRef} />
         {header}
         {renderHero(true)}
 
@@ -961,7 +964,8 @@ const ProfileView: React.FC<ProfileViewProps> = ({
   }
 
   return (
-    <div className="view-shell rd-profile">
+    <div className="view-shell rd-profile has-top-backdrop">
+      <TopBackdrop anchorRef={heroRef} />
       {header}
       {renderHero(false)}
       {renderCommitment()}

@@ -1905,6 +1905,75 @@ html.dark .lv-glass-hero.lv-glass-hero::before {
   .lv-glass-hero__sheen::before { animation: none; opacity: 0; }
 }
 
+/* Fundo amarelo de ponta a ponta atras do topo (cabecalho + cartao principal) do Inicio do
+   professor e do Perfil. A ordem e os cartoes nao mudam: e so o fundo (components/redesign/TopBackdrop). */
+.has-top-backdrop {
+  position: relative;
+}
+
+/* O fundo e o primeiro filho posicionado; o que fica por cima dele precisa ser posicionado
+   tambem (sem z-index, para nao criar camadas novas e nao prender os sheets fixos). */
+.has-top-backdrop > .lv-header,
+.has-top-backdrop > .rd-staff__grid {
+  position: relative;
+}
+
+.lv-top-backdrop {
+  position: absolute;
+  z-index: 0;
+  top: 0;
+  left: 50%;
+  width: 100vw;
+  height: 0;
+  transform: translateX(-50%);
+  border-radius: 0 0 34px 34px;
+  background:
+    radial-gradient(70% 60% at 88% 0%, rgba(255, 255, 255, 0.5), transparent 70%),
+    linear-gradient(180deg, #f7c84a 0%, #eba91d 100%);
+  box-shadow: 0 18px 40px -24px rgba(170, 110, 0, 0.55);
+  pointer-events: none;
+}
+
+html.dark .lv-top-backdrop {
+  background:
+    radial-gradient(70% 60% at 88% 0%, rgba(255, 255, 255, 0.28), transparent 70%),
+    linear-gradient(180deg, #f2bd38 0%, #d99a14 100%);
+  box-shadow: 0 18px 40px -24px rgba(0, 0, 0, 0.7);
+}
+
+/* No computador o fundo fica dentro da coluna, com cantos arredondados. */
+@media (min-width: 980px) {
+  .lv-top-backdrop {
+    top: -8px;
+    left: -16px;
+    width: calc(100% + 32px);
+    transform: none;
+    border-radius: 28px;
+  }
+}
+
+/* Texto do cabecalho sobre o amarelo: sempre escuro (no claro e no escuro). */
+.has-top-backdrop > .lv-header .lv-header__title,
+.has-top-backdrop > .lv-header .lv-header__subtitle {
+  color: #1a1300;
+}
+
+.has-top-backdrop > .lv-header .lv-eyebrow {
+  color: rgba(26, 19, 0, 0.72);
+}
+
+/* Cartao principal sobre o amarelo: vidro mais opaco para nao puxar a cor do fundo. */
+.has-top-backdrop .lv-glass-hero {
+  --lv-hero-b: rgba(255, 255, 255, 0.88);
+  --lv-hero-c: rgba(255, 252, 244, 0.84);
+}
+
+html.dark .has-top-backdrop .lv-glass-hero {
+  --lv-hero-a: rgba(58, 56, 66, 0.95);
+  --lv-hero-b: rgba(34, 33, 40, 0.94);
+  --lv-hero-c: rgba(24, 23, 29, 0.95);
+}
+
 /* Sem suporte a backdrop-filter: vidro fica quase opaco para manter a leitura. */
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
   :root { --lv-glass: rgba(255, 255, 255, 0.92); --lv-glass-strong: #ffffff; }
