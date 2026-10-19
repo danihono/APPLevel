@@ -65,3 +65,51 @@ export const CountUp: React.FC<CountUpProps> = ({ value, durationMs, suffix = ''
     </>
   );
 };
+
+interface OdometerProps {
+  /** Valor final. */
+  value: number;
+  /** Valor de onde as rodas partem (ex.: o treino anterior). */
+  from: number;
+  /** Atraso antes de girar (ms). */
+  delayMs?: number;
+  className?: string;
+}
+
+/**
+ * Numero em "rodas" (odometro): cada digito que muda gira ate o novo valor; os iguais ficam parados.
+ * O leitor de tela recebe so o valor final. Com menos movimento, mostra o valor direto.
+ * CSS em redesign.css (bloco "Odometro").
+ */
+export const Odometer: React.FC<OdometerProps> = ({ value, from, delayMs = 250, className }) => {
+  const reduce = prefersReducedMotion();
+  const [rolled, setRolled] = useState(reduce);
+  useEffect(() => {
+    if (reduce) return undefined;
+    const id = window.setTimeout(() => setRolled(true), delayMs);
+    return () => window.clearTimeout(id);
+  }, [delayMs, reduce]);
+
+  const target = String(Math.max(0, Math.round(value)));
+  const start = String(Math.max(0, Math.round(from))).padStart(target.length, ' ');
+  const digits = target.split('').map((digit, index) => {
+    const before = start[index] ?? ' ';
+    const shown = rolled ? digit : before;
+    return { key: index, digit: shown === ' ' ? 0 : Number(shown), blank: shown === ' ' };
+  });
+
+  return (
+    <span className={`lv-odometer${className ? ` ${className}` : ''}`}>
+      <span className="lv-odometer__digits" aria-hidden="true">
+        {digits.map((entry) => (
+          <span key={entry.key} className={`lv-odometer__col${entry.blank ? ' is-blank' : ''}`}>
+            <span className="lv-odometer__strip" style={{ transform: `translateY(-${entry.digit * 10}%)` }}>
+              {'0123456789'.split('').map((d) => <span key={d}>{d}</span>)}
+            </span>
+          </span>
+        ))}
+      </span>
+      <span className="lv-sr-only">{target}</span>
+    </span>
+  );
+};

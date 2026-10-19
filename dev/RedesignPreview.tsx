@@ -163,7 +163,18 @@ interface ScreenDef {
   label: string;
   overlay?: 'checkin' | 'checkin-link' | 'celebration' | 'loading';
   variant?: 'black' | 'empty' | 'ranking';
+  /** Check-in pelo link: forca o resultado (marco de 100 treinos ou um dos erros do backend). */
+  checkin?: 'milestone' | 'expired' | 'wrong-class' | 'closed' | 'already' | 'generic';
 }
+
+// Erros do backend como chegam do App (texto mostrado + codigo/texto originais em backendCode/backendMessage).
+const PREVIEW_CHECKIN_ERRORS: Record<string, { shown: string; code: string; message: string }> = {
+  expired: { shown: 'QR Code expirado.', code: 'functions/failed-precondition', message: 'QR Code expirado.' },
+  'wrong-class': { shown: 'Sua sessão não tem permissão para acessar este recurso.', code: 'functions/permission-denied', message: 'QR Code invalido.' },
+  closed: { shown: 'QR Code indisponivel para esta aula.', code: 'functions/failed-precondition', message: 'QR Code indisponivel para esta aula.' },
+  already: { shown: 'Presenca ja registrada para este atleta nesta aula.', code: 'functions/already-exists', message: 'Presenca ja registrada para este atleta nesta aula.' },
+  generic: { shown: 'O servidor não respondeu agora. Tente novamente em alguns instantes.', code: 'functions/unavailable', message: 'unavailable' },
+};
 
 const SCREENS: ScreenDef[] = [
   { id: 'aluno-cadastro', role: 'student', tab: 'signup', label: 'Aluno · Cadastro' },
@@ -178,6 +189,12 @@ const SCREENS: ScreenDef[] = [
   { id: 'aluno-avisos-vazio', role: 'student', tab: 'notifications', label: 'Aluno · Avisos (vazio)', variant: 'empty' },
   { id: 'aluno-checkin', role: 'student', tab: 'home', label: 'Aluno · Check-in (câmera)', overlay: 'checkin' },
   { id: 'aluno-checkin-link', role: 'student', tab: 'home', label: 'Aluno · Check-in (pelo link do QR)', overlay: 'checkin-link' },
+  { id: 'aluno-checkin-marco', role: 'student', tab: 'home', label: 'Aluno · Check-in no treino nº 100', overlay: 'checkin-link', checkin: 'milestone' },
+  { id: 'aluno-checkin-expirado', role: 'student', tab: 'home', label: 'Aluno · Check-in: QR expirado', overlay: 'checkin-link', checkin: 'expired' },
+  { id: 'aluno-checkin-outra-aula', role: 'student', tab: 'home', label: 'Aluno · Check-in: QR de outra aula', overlay: 'checkin-link', checkin: 'wrong-class' },
+  { id: 'aluno-checkin-fechado', role: 'student', tab: 'home', label: 'Aluno · Check-in: ainda fechado', overlay: 'checkin-link', checkin: 'closed' },
+  { id: 'aluno-checkin-ja', role: 'student', tab: 'home', label: 'Aluno · Check-in: já registrada', overlay: 'checkin-link', checkin: 'already' },
+  { id: 'aluno-checkin-erro', role: 'student', tab: 'home', label: 'Aluno · Check-in: erro genérico', overlay: 'checkin-link', checkin: 'generic' },
   { id: 'aluno-celebracao', role: 'student', tab: 'home', label: 'Aluno · Celebração de graduação', overlay: 'celebration' },
   { id: 'carregando', role: 'student', tab: 'home', label: 'Tela de carregamento', overlay: 'loading' },
   { id: 'prof-inicio', role: 'staff', tab: 'home', label: 'Professor · Início' },
@@ -1042,7 +1059,7 @@ const RedesignPreview: React.FC = () => {
           lesson={lessonTonight}
           classId={lessonTonight?.id ?? null}
           initialToken={screen.overlay === 'checkin-link' ? 'preview-token-123' : null}
-          user={student}
+          user={screen.checkin === 'milestone' ? { ...student, attendanceCount: 99 } : student}
           progressionRules={previewAcademy.progressionRules}
           nonCountingReason={previewNonCountingReason({
             classDescription: lessonTonight?.description,
@@ -1053,7 +1070,14 @@ const RedesignPreview: React.FC = () => {
           })}
           alreadyCheckedIn={false}
           hasPendingRequest={false}
-          onRegister={async () => delay(null)}
+          onRegister={async () => {
+            const failure = screen.checkin ? PREVIEW_CHECKIN_ERRORS[screen.checkin] : undefined;
+            if (failure) {
+              await delay(undefined, 500);
+              throw Object.assign(new Error(t(failure.shown)), { backendCode: failure.code, backendMessage: failure.message });
+            }
+            return delay(null);
+          }}
           onRequestAttendance={noopAsync}
           onClose={() => setOverlayClosed(true)}
           onOpenCalendar={() => goTab('calendar')}

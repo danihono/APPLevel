@@ -250,6 +250,15 @@ function getErrorMessage(error: unknown): string {
   }
 }
 
+function withBackendDetails(wrapped: Error, original: unknown): Error {
+  const details = wrapped as Error & { backendCode?: string; backendMessage?: string };
+  details.backendCode = typeof original === 'object' && original && 'code' in original
+    ? String((original as { code: unknown }).code)
+    : '';
+  details.backendMessage = original instanceof Error ? original.message : '';
+  return details;
+}
+
 function shouldResetSession(error: unknown): boolean {
   const code = typeof error === 'object' && error && 'code' in error
     ? String((error as { code: unknown }).code)
@@ -1842,7 +1851,9 @@ const App: React.FC = () => {
       });
       return result.countsAsAttendance ? null : result.nonCountingReason ?? 'daily_limit';
     } catch (error) {
-      throw new Error(getErrorMessage(error));
+      // Guarda o codigo e o texto original do backend: a tela de check-in usa para explicar o erro
+      // ("QR expirado", "outra aula"...) em vez da mensagem generica do codigo.
+      throw withBackendDetails(new Error(getErrorMessage(error)), error);
     }
   }
 

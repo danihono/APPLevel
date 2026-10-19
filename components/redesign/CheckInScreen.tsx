@@ -16,7 +16,12 @@ import type { ClassRecord } from '../../services/firebase/models';
 import type { User } from '../../types';
 import { getLocale, t } from '../../i18n';
 import BeltImage from '../BeltImage';
-import { hapticConfirm, hapticError, hapticSuccess } from '../../services/haptics';
+import { hapticConfirm, hapticError, hapticSuccess, hapticTap } from '../../services/haptics';
+import { classifyCheckinError, type CheckinErrorInfo } from '../../checkinErrors';
+import { subscribeToClassRsvps } from '../../services/firebase/data';
+import type { ClassRsvpRecord } from '../../services/firebase/models';
+import { Odometer } from './motion';
+import { useRedesignShell } from './ShellContext';
 import './checkin.css';
 
 export interface CheckInScreenProps {
@@ -52,6 +57,18 @@ export interface CheckInScreenProps {
 }
 
 type Step = 'scan' | 'confirm' | 'success';
+
+/** Treinos que viram comemoracao (tela preta + confete curto). */
+const TRAINING_MILESTONES = new Set([10, 50, 100, 150, 200, 250, 300, 400, 500, 750, 1000]);
+
+/** Confete curto dos marcos: posicoes fixas (sem aleatorio, mesmo desenho sempre). */
+const MILESTONE_CONFETTI = Array.from({ length: 28 }, (_, index) => ({
+  left: (index * 37) % 100,
+  delay: ((index * 7) % 10) / 20,
+  rotate: (index * 53) % 360,
+  light: index % 3 === 0,
+  wide: index % 4 === 1,
+}));
 
 interface QrPayload {
   token: string;
@@ -267,6 +284,54 @@ const QrViewfinder: React.FC<QrViewfinderProps> = ({ onDecoded, onError }) => {
   );
 };
 
+/* ─── Ilustracoes dos erros (linha em tinta, detalhe branco sobre o amarelo) ──── */
+
+const QR_FRAME = (
+  <>
+    <rect x="10" y="10" width="40" height="40" rx="6" />
+    <rect x="17" y="17" width="9" height="9" rx="1.5" />
+    <rect x="34" y="17" width="9" height="9" rx="1.5" />
+    <rect x="17" y="34" width="9" height="9" rx="1.5" />
+    <path d="M34 34h4M42 34v4M34 42h9" />
+  </>
+);
+
+const CheckinErrorArt: React.FC<{ kind: CheckinErrorInfo['kind'] }> = ({ kind }) => (
+  <svg className="rd-checkin__art" viewBox="0 0 72 72" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    {kind === 'expired' ? (
+      <>
+        {QR_FRAME}
+        <circle cx="54" cy="54" r="12" className="rd-checkin__art-accent" />
+        <path d="M54 48v6l4 3" />
+      </>
+    ) : kind === 'wrong-class' ? (
+      <>
+        {QR_FRAME}
+        <circle cx="54" cy="54" r="12" className="rd-checkin__art-accent" />
+        <path d="M50 50l8 8M58 50l-8 8" />
+      </>
+    ) : kind === 'closed' ? (
+      <>
+        <path d="M18 62V14a4 4 0 0 1 4-4h28a4 4 0 0 1 4 4v48" />
+        <path d="M10 62h52" />
+        <rect x="24" y="18" width="24" height="44" rx="2" className="rd-checkin__art-accent" />
+        <circle cx="42" cy="41" r="2" />
+      </>
+    ) : kind === 'already' ? (
+      <>
+        <circle cx="36" cy="36" r="24" className="rd-checkin__art-accent" />
+        <path d="M25 37l8 8 15-17" />
+      </>
+    ) : (
+      <>
+        <path d="M6 32h22M44 32h22" />
+        <rect x="26" y="24" width="20" height="16" rx="4" className="rd-checkin__art-accent" />
+        <path d="M30 40l-8 20M42 40l8 20" />
+      </>
+    )}
+  </svg>
+);
+
 /* ─── Tela ───────────────────────────────────────────────────────────────── */
 
 /**
@@ -305,7 +370,16 @@ const CheckInScreen: React.FC<CheckInScreenProps> = ({
   const [error, setError] = useState('');
   const [requestState, setRequestState] = useState<'idle' | 'loading' | 'sent'>('idle');
   const [requestError, setRequestError] = useState('');
-  const [result, setResult] = useState<{ reason: AttendanceNonCountingReason | null; summary: UserProgressionSummary } | null>(null);
+  const [result, setResult] = useState<{
+    reason: AttendanceNonCountingReason | null;
+    summary: UserProgressionSummary;
+    /** Numero do treino (presencas antes do check-in + 1), guardado na hora para nao mudar depois. */
+    trainingNumber: number;
+  } | null>(null);
+  const [failure, setFailure] = useState<CheckinErrorInfo | null>(null);
+  const [failureDetailsOpen, setFailureDetailsOpen] = useState(false);
+  const [classmates, setClassmates] = useState<Array<FirestoreEntity<ClassRsvpRecord>>>([]);
+  const shell = useRedesignShell();
   const titleRef = useRef<HTMLHeadingElement>(null);
   const pasteInputRef = useRef<HTMLInputElement>(null);
 
@@ -317,10 +391,10 @@ const CheckInScreen: React.FC<CheckInScreenProps> = ({
   const isAlreadyCheckedIn = sameClass && alreadyCheckedIn;
   const requestPending = (sameClass && hasPendingRequest) || requestState === 'sent';
 
-  // Foco no titulo a cada etapa (leitor de tela anuncia a mudanca).
+  // Foco no titulo a cada etapa e quando aparece um erro (leitor de tela anuncia a mudanca).
   useEffect(() => {
     titleRef.current?.focus();
-  }, [step]);
+  }, [step, failure?.kind]);
 
   // Esc fecha (so enquanto a tela esta montada; nao fecha no meio do registro).
   const closeRef = useRef(onClose);
@@ -347,6 +421,17 @@ const CheckInScreen: React.FC<CheckInScreenProps> = ({
   }, [pasteOpen]);
 
   const baseSummary = useMemo(() => getUserProgressionSummary(user, progressionRules), [user, progressionRules]);
+
+  // "Hoje com Ana, Felipe e mais 6": quem confirmou ida nesta aula (lista ja liberada para a academia).
+  const classmatesAcademyId = lesson && lesson.id === (target.classId ?? classId) ? lesson.academyId : null;
+  const classmatesClassId = step === 'success' ? (target.classId ?? classId) : null;
+  useEffect(() => {
+    if (!classmatesClassId || !classmatesAcademyId) {
+      setClassmates([]);
+      return undefined;
+    }
+    return subscribeToClassRsvps(classmatesClassId, classmatesAcademyId, setClassmates, () => setClassmates([]));
+  }, [classmatesClassId, classmatesAcademyId]);
   const preTarget = useMemo(() => progressTarget(baseSummary, false), [baseSummary]);
   const blackBelt = useMemo(() => getBlackBeltProgressForUser(user), [user]);
 
@@ -400,6 +485,7 @@ const CheckInScreen: React.FC<CheckInScreenProps> = ({
   const handleScanAgain = () => {
     setTarget({ token: '', classId });
     setError('');
+    setFailure(null);
     setScanError('');
     setCameraError(null);
     setCameraKey((current) => current + 1);
@@ -413,16 +499,21 @@ const CheckInScreen: React.FC<CheckInScreenProps> = ({
     }
     // Progressao de ANTES do check-in: o perfil so atualiza depois do trigger no servidor.
     const summary = getUserProgressionSummary(user, progressionRules);
+    const trainingNumber = Math.max(0, user.attendanceCount ?? 0) + 1;
     setRegistering(true);
     setError('');
+    setFailure(null);
+    setFailureDetailsOpen(false);
     try {
       const reason = await onRegister(effectiveClassId, token);
-      setResult({ reason, summary });
+      setResult({ reason, summary, trainingNumber });
       setStep('success');
       hapticSuccess();
     } catch (err) {
-      hapticError();
-      setError(err instanceof Error && err.message ? err.message : t('Erro ao registrar presença.'));
+      const info = classifyCheckinError(err);
+      if (!info.detail) info.detail = t('Erro ao registrar presença.');
+      setFailure(info);
+      if (info.kind === 'already') hapticTap(); else hapticError();
     } finally {
       setRegistering(false);
     }
@@ -517,18 +608,137 @@ const CheckInScreen: React.FC<CheckInScreenProps> = ({
     </div>
   ) : null);
 
+  /* ─── Erro sem susto: o que aconteceu + o que fazer ───────────────────── */
+  const renderFailure = (info: CheckinErrorInfo) => {
+    const copy: Record<CheckinErrorInfo['kind'], { title: string; text: string }> = {
+      expired: { title: t('Esse QR já virou.'), text: t('O QR muda a cada poucos minutos. Peça ao professor para mostrar o novo.') },
+      'wrong-class': { title: t('Esse código não é desta aula.'), text: t('Confira se o QR é o da aula em que você está e leia de novo.') },
+      closed: { title: t('O professor ainda não abriu o check-in.'), text: t('Espere a aula começar ou peça para ele aprovar sua presença.') },
+      already: { title: t('Já registrada.'), text: t('Sua presença nesta aula já está lá. Até a próxima. Oss.') },
+      generic: { title: t('Algo não deu certo agora.'), text: t('Sua presença não foi registrada. Tente de novo em alguns segundos.') },
+    };
+    const { title, text } = copy[info.kind];
+    const retry = (
+      <button
+        type="button"
+        className={info.kind === 'generic' ? 'lv-btn lv-btn--block rd-checkin__cta' : 'rd-checkin__link'}
+        onClick={() => void handleConfirm()}
+        disabled={registering}
+        aria-busy={registering}
+      >
+        {registering ? t('Registrando...') : t('Tentar de novo')}
+      </button>
+    );
+
+    return (
+      <>
+        <div className={`rd-checkin__fail rd-checkin__fail--${info.kind}`}>
+          <CheckinErrorArt kind={info.kind} />
+          <h1 id="rd-checkin-title" ref={titleRef} tabIndex={-1} className="rd-checkin__fail-title">{title}</h1>
+          <p className="rd-checkin__fail-text" role="alert">{text}</p>
+          {lessonMeta ? <p className="rd-checkin__meta">{lessonMeta}</p> : null}
+        </div>
+
+        {info.kind !== 'already' && info.detail ? (
+          <div className="rd-checkin__details">
+            <button
+              type="button"
+              className="rd-checkin__details-btn"
+              onClick={() => setFailureDetailsOpen((open) => !open)}
+              aria-expanded={failureDetailsOpen}
+            >
+              {t('Detalhes')}
+            </button>
+            {failureDetailsOpen ? <p className="rd-checkin__details-text">{info.detail}</p> : null}
+          </div>
+        ) : null}
+
+        <div className="lv-fullscreen__footer">
+          {info.kind === 'expired' || info.kind === 'wrong-class' ? (
+            <button type="button" className="lv-btn lv-btn--block rd-checkin__cta" onClick={handleScanAgain}>
+              <ScanLine size={18} strokeWidth={2} aria-hidden="true" />
+              {info.kind === 'expired' ? t('Ler de novo') : t('Ler outro QR')}
+            </button>
+          ) : null}
+          {info.kind === 'closed' ? (
+            <>
+              {renderRequestBlock()}
+              {retry}
+            </>
+          ) : null}
+          {info.kind === 'generic' ? (
+            <>
+              {retry}
+              {renderRequestBlock()}
+            </>
+          ) : null}
+          {info.kind === 'already' ? (
+            <>
+              <button type="button" className="lv-btn lv-btn--block rd-checkin__cta" onClick={onFinish}>
+                {t('Pronto')}
+              </button>
+              {onOpenCalendar ? (
+                <button type="button" className="lv-btn lv-btn--outline-dark lv-btn--block" onClick={onOpenCalendar}>
+                  <CalendarDays size={18} strokeWidth={2} aria-hidden="true" />
+                  {t('Ver calendário')}
+                </button>
+              ) : null}
+            </>
+          ) : null}
+          {info.kind !== 'expired' && info.kind !== 'wrong-class' && info.kind !== 'already' ? (
+            <button type="button" className="rd-checkin__link" onClick={handleScanAgain} disabled={registering}>
+              <ScanLine size={16} strokeWidth={2} aria-hidden="true" />
+              {t('Ler outro QR')}
+            </button>
+          ) : null}
+        </div>
+      </>
+    );
+  };
+
   /* ─── Sucesso ("Oss!") ─────────────────────────────────────────────────── */
   if (step === 'success' && result) {
     const counted = result.reason === null;
     const after = progressTarget(result.summary, counted);
     const longNumber = after ? String(after.remaining).length >= 3 : false;
+    const number = result.trainingNumber;
+    const milestone = counted && TRAINING_MILESTONES.has(number);
+    const firstName = (name: string) => (name || '').trim().split(/\s+/)[0] || t('Aluno');
+    const mates = classmates.filter((entry) => entry.userId !== user.id);
+    const matesText = mates.length === 0
+      ? null
+      : mates.length === 1
+        ? t('Hoje com {a}', { a: firstName(mates[0].userDisplayName) })
+        : mates.length === 2
+          ? t('Hoje com {a} e {b}', { a: firstName(mates[0].userDisplayName), b: firstName(mates[1].userDisplayName) })
+          : t('Hoje com {a}, {b} e mais {count}', {
+            a: firstName(mates[0].userDisplayName),
+            b: firstName(mates[1].userDisplayName),
+            count: mates.length - 2,
+          });
+
     return (
       <div
-        className="lv-fullscreen lv-fullscreen--yellow rd-checkin"
+        className={`lv-fullscreen lv-fullscreen--yellow rd-checkin${milestone ? ' rd-checkin--milestone' : ''}`}
         role="dialog"
         aria-modal="true"
         aria-labelledby="rd-checkin-title"
       >
+        {milestone ? (
+          <div className="rd-checkin__confetti" aria-hidden="true">
+            {MILESTONE_CONFETTI.map((piece, index) => (
+              <i
+                key={index}
+                className={`${piece.light ? 'is-light' : ''} ${piece.wide ? 'is-wide' : ''}`.trim() || undefined}
+                style={{
+                  left: `${piece.left}%`,
+                  animationDelay: `${piece.delay}s`,
+                  '--rd-confetti-rotate': `${piece.rotate}deg`,
+                } as React.CSSProperties}
+              />
+            ))}
+          </div>
+        ) : null}
         <div className="lv-fullscreen__inner rd-checkin__inner">
           {renderTopBar(true)}
 
@@ -547,7 +757,34 @@ const CheckInScreen: React.FC<CheckInScreenProps> = ({
             <p className="lv-alert lv-alert--on-yellow">{nonCountingWarning(result.reason)}</p>
           ) : null}
 
-          {after ? (
+          {counted ? (
+            <>
+              <div className="rd-checkin__count">
+                <span className="rd-checkin__eyebrow">{t('Treino nº')}</span>
+                <Odometer value={number} from={number - 1} className="rd-checkin__count-number" />
+                {milestone ? (
+                  <p className="rd-checkin__milestone">
+                    {t('{count} treinos. Isso é constância, {name}.', { count: number, name: firstName(user.name) })}
+                  </p>
+                ) : shell.unitLabel ? (
+                  <span className="rd-checkin__count-caption">{t('seu treino na {academy}', { academy: shell.unitLabel })}</span>
+                ) : null}
+              </div>
+
+              {matesText ? (
+                <div className="rd-checkin__mates">
+                  <span className="rd-checkin__mates-faces" aria-hidden="true">
+                    {mates.slice(0, 4).map((entry) => (
+                      <span key={entry.id}>{(entry.userDisplayName || '?').trim().charAt(0).toLocaleUpperCase()}</span>
+                    ))}
+                  </span>
+                  <span>{matesText}</span>
+                </div>
+              ) : null}
+
+              {after ? <p className="rd-checkin__next">{progressSentence(after)}</p> : null}
+            </>
+          ) : after ? (
             <>
               <div className="rd-checkin__divider" aria-hidden="true">
                 <span className="lv-stripes"><i /><i /><i /><i /></span>
@@ -615,15 +852,17 @@ const CheckInScreen: React.FC<CheckInScreenProps> = ({
       <div className="lv-fullscreen__inner rd-checkin__inner">
         {renderTopBar()}
 
-        <header className="rd-checkin__head">
-          <span className="rd-checkin__eyebrow">{t('Check-in')}</span>
-          <h1 id="rd-checkin-title" ref={titleRef} tabIndex={-1} className="rd-checkin__title">
-            {t('Hora do treino.')}
-          </h1>
-          {lessonMeta ? <p className="rd-checkin__meta">{lessonMeta}</p> : null}
-        </header>
+        {step === 'confirm' && failure ? null : (
+          <header className="rd-checkin__head">
+            <span className="rd-checkin__eyebrow">{t('Check-in')}</span>
+            <h1 id="rd-checkin-title" ref={titleRef} tabIndex={-1} className="rd-checkin__title">
+              {t('Hora do treino.')}
+            </h1>
+            {lessonMeta ? <p className="rd-checkin__meta">{lessonMeta}</p> : null}
+          </header>
+        )}
 
-        {renderAlreadyNotice()}
+        {step === 'confirm' && failure ? null : renderAlreadyNotice()}
 
         {step === 'scan' ? (
           <>
@@ -692,6 +931,8 @@ const CheckInScreen: React.FC<CheckInScreenProps> = ({
 
             <div className="lv-fullscreen__footer">{renderProgressPill()}</div>
           </>
+        ) : failure ? (
+          renderFailure(failure)
         ) : (
           <>
             <div className="rd-checkin__summary">

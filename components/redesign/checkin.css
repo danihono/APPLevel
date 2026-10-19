@@ -638,3 +638,249 @@ html.dark .rd-checkin__cta {
     animation: none;
   }
 }
+
+/* ═══ Oss. Treino nº N (ideia 9) ══════════════════════════════════════════ */
+.rd-checkin__count {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  margin-top: var(--lv-space-2);
+}
+
+.rd-checkin__count-number {
+  font-family: var(--font-display);
+  font-size: clamp(96px, 30vw, 150px);
+  line-height: 1;
+  font-weight: 800;
+  letter-spacing: -0.05em;
+  color: var(--lv-on-yellow);
+}
+
+.rd-checkin__count-caption {
+  font-size: 15px;
+  font-weight: 600;
+  color: rgba(26, 19, 0, 0.72);
+}
+
+.rd-checkin__mates {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--lv-on-yellow);
+}
+
+.rd-checkin__mates-faces {
+  display: flex;
+  flex: none;
+}
+
+.rd-checkin__mates-faces > span {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  margin-left: -8px;
+  border-radius: 50%;
+  background: var(--lv-black);
+  color: #ffffff;
+  box-shadow: 0 0 0 2px var(--lv-yellow);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.rd-checkin__mates-faces > span:first-child {
+  margin-left: 0;
+}
+
+.rd-checkin__next {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: rgba(26, 19, 0, 0.82);
+}
+
+/* Marco (10, 50, 100...): tela preta nos dois temas, numero com brilho amarelo e confete curto. */
+.rd-checkin--milestone.lv-fullscreen--yellow {
+  background: #000000;
+  color: #ffffff;
+}
+
+.rd-checkin--milestone .rd-checkin__oss-title,
+.rd-checkin--milestone .rd-checkin__oss-sub,
+.rd-checkin--milestone .rd-checkin__count-number,
+.rd-checkin--milestone .rd-checkin__mates,
+.rd-checkin--milestone .rd-checkin__next {
+  color: #ffffff;
+}
+
+.rd-checkin--milestone .rd-checkin__eyebrow {
+  color: var(--lv-yellow);
+}
+
+.rd-checkin--milestone .rd-checkin__count-number {
+  text-shadow: 0 0 24px rgba(240, 180, 41, 0.85);
+}
+
+.rd-checkin--milestone .rd-checkin__seal {
+  background: var(--lv-yellow);
+  color: var(--lv-on-yellow);
+  box-shadow: 0 0 0 5px #000000, 0 0 0 8px var(--lv-yellow);
+}
+
+.rd-checkin--milestone .rd-checkin__mates-faces > span {
+  background: #ffffff;
+  color: #16161e;
+  box-shadow: 0 0 0 2px #000000;
+}
+
+.rd-checkin--milestone .lv-icon-btn--on-yellow,
+.rd-checkin--milestone .rd-checkin__chip {
+  background: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+}
+
+.rd-checkin--milestone .rd-checkin__ribbon {
+  background: var(--lv-yellow);
+  color: var(--lv-on-yellow);
+}
+
+.rd-checkin--milestone .lv-btn--outline-dark {
+  color: #ffffff;
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.7);
+}
+
+.rd-checkin__milestone {
+  margin: 4px 0 0;
+  font-family: var(--font-display);
+  font-size: 22px;
+  line-height: 1.25;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.rd-checkin__confetti {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.rd-checkin__confetti > i {
+  position: absolute;
+  top: -4%;
+  width: 6px;
+  height: 16px;
+  border-radius: 1px;
+  background: var(--lv-yellow);
+  opacity: 0;
+  animation: rd-checkin-confetti 1.6s cubic-bezier(0.2, 0.6, 0.4, 1) both;
+}
+
+.rd-checkin__confetti > i.is-light {
+  background: #ffffff;
+}
+
+.rd-checkin__confetti > i.is-wide {
+  width: 16px;
+  height: 6px;
+}
+
+@keyframes rd-checkin-confetti {
+  0% { opacity: 1; transform: translate3d(0, -10vh, 0) rotate(var(--rd-confetti-rotate, 0deg)); }
+  85% { opacity: 1; }
+  100% { opacity: 0; transform: translate3d(14px, 90vh, 0) rotate(calc(var(--rd-confetti-rotate, 0deg) + 420deg)); }
+}
+
+.rd-checkin--milestone .rd-checkin__inner {
+  position: relative;
+  z-index: 1;
+}
+
+/* ═══ Check-in sem susto (ideia 10) ═══════════════════════════════════════ */
+.rd-checkin__fail {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  margin-top: clamp(24px, 8vh, 72px);
+  text-align: center;
+}
+
+.rd-checkin__art {
+  width: 88px;
+  height: 88px;
+  color: var(--lv-on-yellow);
+  margin-bottom: 6px;
+}
+
+.rd-checkin__art-accent {
+  fill: #ffffff;
+}
+
+.rd-checkin__fail-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(26px, 8vw, 32px);
+  line-height: 1.12;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: var(--lv-on-yellow);
+}
+
+.rd-checkin__fail-title:focus {
+  outline: none;
+}
+
+.rd-checkin__fail-text {
+  max-width: 30ch;
+  margin: 0;
+  font-size: 16px;
+  line-height: 1.45;
+  font-weight: 600;
+  color: rgba(26, 19, 0, 0.8);
+}
+
+.rd-checkin__details {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  margin-top: var(--lv-space-3);
+}
+
+.rd-checkin__details-btn {
+  min-height: 36px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: var(--lv-r-pill);
+  background: rgba(26, 19, 0, 0.08);
+  color: var(--lv-on-yellow);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.rd-checkin__details-text {
+  max-width: 34ch;
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: rgba(26, 19, 0, 0.7);
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rd-checkin__confetti { display: none; }
+}
+
+html .rd-checkin--milestone .rd-checkin__cta,
+html .rd-checkin--milestone .rd-checkin__cta:hover:not(:disabled) {
+  background: var(--lv-yellow);
+  color: var(--lv-on-yellow);
+}

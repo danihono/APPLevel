@@ -2277,3 +2277,36 @@ html.dark .lv-loading {
   0%, 100% { opacity: 0.35; transform: none; }
   50% { opacity: 1; transform: none; }
 }
+
+/* Odometro (components/redesign/motion.tsx): cada digito e uma fita 0-9 que gira. */
+.lv-odometer {
+  display: inline-flex;
+  font-variant-numeric: tabular-nums;
+}
+.lv-odometer__digits {
+  display: inline-flex;
+}
+.lv-odometer__col {
+  display: inline-block;
+  height: 1em;
+  line-height: 1;
+  overflow: hidden;
+  transition: opacity 0.3s ease, width 0.3s ease;
+}
+.lv-odometer__col.is-blank {
+  width: 0;
+  opacity: 0;
+}
+.lv-odometer__strip {
+  display: flex;
+  flex-direction: column;
+  transition: transform 0.7s cubic-bezier(0.25, 1.4, 0.45, 1);
+}
+.lv-odometer__strip > span {
+  display: block;
+  height: 1em;
+  line-height: 1;
+}
+@media (prefers-reduced-motion: reduce) {
+  .lv-odometer__strip, .lv-odometer__col { transition: none; }
+}
