@@ -2653,7 +2653,7 @@ const App: React.FC = () => {
           isDarkMode={isDarkMode}
           onSetThemeMode={setThemeMode}
         >
-          <LoadingScreen message={bootstrapMessage} />
+          <LoadingScreen message={bootstrapMessage} inline />
         </Layout>
       </>
     );
@@ -3347,7 +3347,7 @@ const App: React.FC = () => {
             setActiveTab('students');
           }}
         >
-          <Suspense fallback={<LoadingScreen message={t('Carregando esta area do APPLevel.')} />}>
+          <Suspense fallback={<LoadingScreen message={t('Carregando esta area do APPLevel.')} inline />}>
             {renderContent()}
           </Suspense>
         </Layout>

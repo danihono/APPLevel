@@ -2,6 +2,11 @@ import { useMemo } from 'react';
 
 interface LoadingScreenProps {
   message?: string;
+  /**
+   * Dentro do Layout (bootstrap da sessao, Suspense das telas): ocupa a area de conteudo em vez
+   * da tela toda, para o menu e avisos (ex.: erro de sessao) continuarem visiveis.
+   */
+  inline?: boolean;
 }
 
 /** Duracao da volta da linha (igual ao `lv-loading-run` do redesign.css). */
@@ -14,14 +19,14 @@ const LOADING_CYCLE_MS = 1400;
  * ponto quando uma etapa de carregamento troca pela seguinte, entao nada "pisca".
  * CSS em redesign.css (bloco "Carregamento").
  */
-export function LoadingScreen({ message }: LoadingScreenProps) {
+export function LoadingScreen({ message, inline = false }: LoadingScreenProps) {
   const phaseStyle = useMemo(
     () => ({ animationDelay: `-${Math.round(performance.now() % LOADING_CYCLE_MS)}ms` }),
     [],
   );
 
   return (
-    <div className="lv-loading" role="status" aria-live="polite">
+    <div className={`lv-loading${inline ? ' lv-loading--inline' : ''}`} role="status" aria-live="polite">
       <div className="lv-loading__center">
         <span className="lv-loading__mark" aria-hidden="true">
           <span className="lv-loading__stripes"><i /><i /><i /><i /></span>

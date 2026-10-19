@@ -2321,13 +2321,30 @@ const CalendarView: React.FC<CalendarViewProps> = ({
     } else if (lesson.status === 'finished') {
       action = <div className="rd-cal__seal is-soft" role="status"><CheckCircle size={20} aria-hidden="true" /><span>{t('Aula encerrada')}</span></div>;
     } else if (checkinFirst) {
+      // Na janela do check-in o QR vira a acao principal; a ida continua editavel enquanto a aula
+      // estiver agendada (o backend aceita).
+      const canToggle = lesson.status === 'scheduled';
       action = (
         <>
-          {isMine ? <p className="rd-cal__going"><CircleCheck size={16} aria-hidden="true" />{t('Você vai')}</p> : null}
+          {isMine ? (
+            <div className="rd-cal__going-row">
+              <p className="rd-cal__going"><CircleCheck size={18} aria-hidden="true" />{t('Você vai')}</p>
+              {canToggle ? (
+                <button type="button" className="rd-cal__text-link" onClick={() => void handleToggleRsvp(lesson.id)} disabled={rsvpBusy}>
+                  {rsvpBusy ? t('Aguarde...') : t('Cancelar ida')}
+                </button>
+              ) : null}
+            </div>
+          ) : null}
           <button type="button" className="lv-btn lv-btn--primary lv-btn--block rd-cal__student-cta" onClick={checkinAction}>
             <QrCode size={20} aria-hidden="true" />
             {t('Fazer check-in')}
           </button>
+          {!isMine && canToggle ? (
+            <button type="button" className="rd-cal__text-link rd-cal__text-link--center" onClick={() => void handleToggleRsvp(lesson.id)} disabled={rsvpBusy}>
+              {rsvpBusy ? t('Aguarde...') : t('Confirmar ida')}
+            </button>
+          ) : null}
         </>
       );
     } else if (isMine) {
@@ -2339,8 +2356,6 @@ const CalendarView: React.FC<CalendarViewProps> = ({
           </button>
         </div>
       );
-    } else if (isFull) {
-      action = <div className="rd-cal__seal is-soft" role="status"><Users size={20} aria-hidden="true" /><span>{t('Aula lotada')}</span></div>;
     } else {
       action = (
         <button
@@ -2402,7 +2417,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
             </div>
             <span>
               {t('{count} de {capacity} vagas', { count: confirmed, capacity })}
-              {lastSpots && !isFull ? ` · ${t('últimas vagas')}` : ''}
+              {isFull ? ` · ${t('Aula lotada')}` : lastSpots ? ` · ${t('últimas vagas')}` : ''}
             </span>
           </div>
         ) : null}

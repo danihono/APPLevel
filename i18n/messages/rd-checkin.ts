@@ -50,4 +50,6 @@ export const rdCheckinMessages: MessageCatalog = {
   "Tentar de novo": { en: "Try again", es: "Intentar de nuevo" },
   "Ler de novo": { en: "Scan again", es: "Escanear de nuevo" },
   "Pronto": { en: "Done", es: "Listo" },
+  "Essa aula não aceita mais check-in.": { en: "This class no longer accepts check-in.", es: "Esta clase ya no acepta check-in." },
+  "Ela já foi encerrada ou cancelada. Se você treinou, peça para o professor marcar sua presença.": { en: "It has already ended or was cancelled. If you trained, ask your instructor to mark your attendance.", es: "Ya terminó o fue cancelada. Si entrenaste, pide al profesor que marque tu asistencia." },
 };

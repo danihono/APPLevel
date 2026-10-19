@@ -1422,3 +1422,7 @@ html.dark .rd-cal__ghost {
 @media (prefers-reduced-motion: reduce) {
   .rd-finish, .rd-finish__num { animation: none; }
 }
+
+.rd-cal__text-link--center {
+  align-self: center;
+}

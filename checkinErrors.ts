@@ -3,7 +3,7 @@
  * humana ("Esse QR ja virou.") em vez do texto tecnico. So le os codigos e as mensagens que o backend
  * ja devolve (functions/src/modules/attendance.ts); nada muda no servidor.
  */
-export type CheckinErrorKind = 'expired' | 'wrong-class' | 'closed' | 'already' | 'generic';
+export type CheckinErrorKind = 'expired' | 'wrong-class' | 'closed' | 'ended' | 'already' | 'generic';
 
 export interface CheckinErrorInfo {
   kind: CheckinErrorKind;
@@ -27,13 +27,15 @@ export function classifyCheckinError(error: unknown): CheckinErrorInfo {
   const backend = normalize(readString(error, 'backendMessage') || shown);
   const detail = shown || readString(error, 'backendMessage');
 
-  if (backend.includes('qr code expirado')) return { kind: 'expired', detail };
-  if (backend.includes('qr code invalido') || backend.includes('aula nao encontrada') || backend.includes('aula fora da sua academia')) {
+  // "QR Code invalido." quase sempre e um QR que ja girou (o professor gera outro a cada poucos minutos e o
+  // link do QR ja leva o id da aula certa): mesma explicacao e mesma acao do expirado.
+  if (backend.includes('qr code expirado') || backend.includes('qr code invalido')) return { kind: 'expired', detail };
+  if (backend.includes('aula nao encontrada') || backend.includes('aula fora da sua academia')) {
     return { kind: 'wrong-class', detail };
   }
-  if (backend.includes('qr code indisponivel') || backend.includes('precisa estar ativa')) {
-    return { kind: 'closed', detail };
-  }
+  if (backend.includes('qr code indisponivel')) return { kind: 'closed', detail };
+  // QR vale com a aula agendada ou ativa: "precisa estar ativa" = aula encerrada ou cancelada.
+  if (backend.includes('precisa estar ativa')) return { kind: 'ended', detail };
   if (code === 'already-exists' || backend.includes('ja registrada')) return { kind: 'already', detail };
   return { kind: 'generic', detail };
 }

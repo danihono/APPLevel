@@ -2196,6 +2196,14 @@ html.dark .lv-loading {
     --lv-loading-track: rgba(255, 255, 255, 0.1);
   }
 }
+.lv-loading.lv-loading--inline {
+  position: relative;
+  inset: auto;
+  z-index: auto;
+  min-height: 60vh;
+  padding: 0;
+  background: transparent;
+}
 .lv-loading__center {
   display: flex;
   flex-direction: column;

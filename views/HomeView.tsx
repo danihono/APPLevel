@@ -498,17 +498,6 @@ const HomeView: React.FC<HomeViewProps> = ({
           {t('Solicitação pendente')}
         </div>
       );
-    } else if (isFull && !checkinFirst) {
-      action = (
-        <>
-          <div className="rd-home__class-state rd-home__class-state--full" role="status">
-            {t('Aula lotada')}
-          </div>
-          {onOpenClasses ? (
-            <button type="button" className="rd-home__more-link" onClick={onOpenClasses}>{t('Ver outras aulas')}</button>
-          ) : null}
-        </>
-      );
     } else if (checkinFirst) {
       // Na janela do check-in: o QR vira a acao principal; a ida fica como texto.
       action = (
@@ -568,6 +557,14 @@ const HomeView: React.FC<HomeViewProps> = ({
           </div>
         </div>
         {renderGoers()}
+        {isFull && !attended && !pending ? (
+          <p className="rd-home__full-note" role="status">
+            {t('Aula lotada')}
+            {onOpenClasses ? (
+              <button type="button" className="rd-home__inline-link" onClick={onOpenClasses}>{t('Ver outras aulas')}</button>
+            ) : null}
+          </p>
+        ) : null}
         {action}
         {rsvpError ? <p className="rd-home__rsvp-error" role="alert">{rsvpError}</p> : null}
         {rsvpFly ? (

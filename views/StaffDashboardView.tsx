@@ -22,6 +22,7 @@ import {
   getBlackBeltProgressForUser,
   getUserProgressionSummary,
   isBlackBelt,
+  type ProgressionRules,
 } from '../beltCatalog';
 import WovenBelt, { type WovenBeltSegment } from '../components/redesign/WovenBelt';
 import { classTypeLabel } from '../calendarUtils';
@@ -267,19 +268,38 @@ interface BeltGroup {
   people: Array<FirestoreEntity<UserRecord>>;
 }
 
-/** Agrupa pessoas pela faixa (ordem do catalogo) e separa adultos de kids. */
-function groupByBelt(people: Array<FirestoreEntity<UserRecord>>): { adult: BeltGroup[]; kids: BeltGroup[] } {
+function orderGroups(map: Map<string, Array<FirestoreEntity<UserRecord>>>): BeltGroup[] {
+  return Array.from(map.entries())
+    .sort(([left], [right]) => ALL_BELTS.indexOf(left as never) - ALL_BELTS.indexOf(right as never))
+    .map(([belt, list]) => ({ belt, people: list }));
+}
+
+/**
+ * Agrupa pessoas pela faixa (ordem do catalogo) e separa adultos de kids com a mesma regra do
+ * resto do app (resolveProgressionTrack: faixa so de kids, faixa so de adulto, idade/categoria).
+ */
+function groupByBelt(
+  people: Array<FirestoreEntity<UserRecord>>,
+  rules?: ProgressionRules | null,
+): { adult: BeltGroup[]; kids: BeltGroup[] } {
   const adult = new Map<string, Array<FirestoreEntity<UserRecord>>>();
   const kids = new Map<string, Array<FirestoreEntity<UserRecord>>>();
   people.forEach((person) => {
-    const meta = getBeltMeta(person.belt);
-    const target = meta.track === 'kids' || person.kidsCategory ? kids : adult;
-    target.set(meta.id, [...(target.get(meta.id) ?? []), person]);
+    const beltId = getBeltMeta(person.belt).id;
+    const target = getUserProgressionSummary(person, rules).track === 'Kids' ? kids : adult;
+    target.set(beltId, [...(target.get(beltId) ?? []), person]);
   });
-  const order = (map: Map<string, Array<FirestoreEntity<UserRecord>>>) => Array.from(map.entries())
-    .sort(([left], [right]) => ALL_BELTS.indexOf(left as never) - ALL_BELTS.indexOf(right as never))
-    .map(([belt, list]) => ({ belt, people: list }));
-  return { adult: order(adult), kids: order(kids) };
+  return { adult: orderGroups(adult), kids: orderGroups(kids) };
+}
+
+/** Uma faixa so, sem separar adulto/kids (mix da turma). */
+function groupByBeltFlat(people: Array<FirestoreEntity<UserRecord>>): BeltGroup[] {
+  const groups = new Map<string, Array<FirestoreEntity<UserRecord>>>();
+  people.forEach((person) => {
+    const beltId = getBeltMeta(person.belt).id;
+    groups.set(beltId, [...(groups.get(beltId) ?? []), person]);
+  });
+  return orderGroups(groups);
 }
 
 function toSegments(groups: BeltGroup[]): WovenBeltSegment[] {
@@ -563,7 +583,10 @@ const StaffDashboardView: React.FC<StaffDashboardViewProps> = ({
   const readyCount = useMemo(() => nearGraduation.filter((row) => row.remaining <= 0).length, [nearGraduation]);
 
   // Faixa tecida da academia (alunos ativos) e a lista aberta ao tocar num pedaco.
-  const academyWeave = useMemo(() => groupByBelt(activeStudents), [activeStudents]);
+  const academyWeave = useMemo(
+    () => groupByBelt(activeStudents, academy.progressionRules),
+    [activeStudents, academy.progressionRules],
+  );
   const [weaveFocus, setWeaveFocus] = useState<{ track: 'adult' | 'kids'; belt: string } | null>(null);
   const [featuredChip, setFeaturedChip] = useState<'birthday' | 'near' | null>(null);
   const suggestedCount = useMemo(() => nearGraduation.filter((row) => row.suggested).length, [nearGraduation]);
@@ -764,14 +787,13 @@ const StaffDashboardView: React.FC<StaffDashboardViewProps> = ({
       .map((rsvp) => usersById.get(rsvp.userId))
       .filter((person): person is FirestoreEntity<UserRecord> => Boolean(person));
     if (people.length === 0) return null;
-    const mix = groupByBelt(people);
-    const groups = [...mix.adult, ...mix.kids];
+    const groups = groupByBeltFlat(people);
     const ids = new Set(people.map((person) => person.id));
     const birthdayPeople = birthdays.filter((row) => row.inDays === 0 && ids.has(row.person.id)).map((row) => row.person);
     const nearPeople = nearGraduation
       .filter((row) => ids.has(row.student.id) && row.remaining <= NEAR_CHIP_MAX_REMAINING)
       .map((row) => row.student);
-    const beginners = mix.kids.length === 0 && mix.adult.length === 1 && getBeltMeta(mix.adult[0].belt).id === getBeltMeta('white').id;
+    const beginners = groups.length === 1 && getBeltMeta(groups[0].belt).id === getBeltMeta('white').id;
     const chips: Array<{ key: 'birthday' | 'near'; label: string; people: Array<FirestoreEntity<UserRecord>> }> = [];
     if (birthdayPeople.length > 0) {
       chips.push({

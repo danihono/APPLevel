@@ -164,13 +164,14 @@ interface ScreenDef {
   overlay?: 'checkin' | 'checkin-link' | 'celebration' | 'loading';
   variant?: 'black' | 'empty' | 'ranking';
   /** Check-in pelo link: forca o resultado (marco de 100 treinos ou um dos erros do backend). */
-  checkin?: 'milestone' | 'expired' | 'wrong-class' | 'closed' | 'already' | 'generic';
+  checkin?: 'milestone' | 'expired' | 'wrong-class' | 'closed' | 'ended' | 'already' | 'generic';
 }
 
 // Erros do backend como chegam do App (texto mostrado + codigo/texto originais em backendCode/backendMessage).
 const PREVIEW_CHECKIN_ERRORS: Record<string, { shown: string; code: string; message: string }> = {
   expired: { shown: 'QR Code expirado.', code: 'functions/failed-precondition', message: 'QR Code expirado.' },
-  'wrong-class': { shown: 'Sua sessão não tem permissão para acessar este recurso.', code: 'functions/permission-denied', message: 'QR Code invalido.' },
+  'wrong-class': { shown: 'Sua sessão não tem permissão para acessar este recurso.', code: 'functions/permission-denied', message: 'Aula fora da sua academia.' },
+  ended: { shown: 'A aula precisa estar ativa para registrar presenca.', code: 'functions/failed-precondition', message: 'A aula precisa estar ativa para registrar presenca.' },
   closed: { shown: 'QR Code indisponivel para esta aula.', code: 'functions/failed-precondition', message: 'QR Code indisponivel para esta aula.' },
   already: { shown: 'Presenca ja registrada para este atleta nesta aula.', code: 'functions/already-exists', message: 'Presenca ja registrada para este atleta nesta aula.' },
   generic: { shown: 'O servidor não respondeu agora. Tente novamente em alguns instantes.', code: 'functions/unavailable', message: 'unavailable' },
@@ -193,6 +194,7 @@ const SCREENS: ScreenDef[] = [
   { id: 'aluno-checkin-expirado', role: 'student', tab: 'home', label: 'Aluno · Check-in: QR expirado', overlay: 'checkin-link', checkin: 'expired' },
   { id: 'aluno-checkin-outra-aula', role: 'student', tab: 'home', label: 'Aluno · Check-in: QR de outra aula', overlay: 'checkin-link', checkin: 'wrong-class' },
   { id: 'aluno-checkin-fechado', role: 'student', tab: 'home', label: 'Aluno · Check-in: ainda fechado', overlay: 'checkin-link', checkin: 'closed' },
+  { id: 'aluno-checkin-encerrada', role: 'student', tab: 'home', label: 'Aluno · Check-in: aula encerrada', overlay: 'checkin-link', checkin: 'ended' },
   { id: 'aluno-checkin-ja', role: 'student', tab: 'home', label: 'Aluno · Check-in: já registrada', overlay: 'checkin-link', checkin: 'already' },
   { id: 'aluno-checkin-erro', role: 'student', tab: 'home', label: 'Aluno · Check-in: erro genérico', overlay: 'checkin-link', checkin: 'generic' },
   { id: 'aluno-celebracao', role: 'student', tab: 'home', label: 'Aluno · Celebração de graduação', overlay: 'celebration' },

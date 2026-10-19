@@ -310,7 +310,7 @@ const CheckinErrorArt: React.FC<{ kind: CheckinErrorInfo['kind'] }> = ({ kind })
         <circle cx="54" cy="54" r="12" className="rd-checkin__art-accent" />
         <path d="M50 50l8 8M58 50l-8 8" />
       </>
-    ) : kind === 'closed' ? (
+    ) : kind === 'closed' || kind === 'ended' ? (
       <>
         <path d="M18 62V14a4 4 0 0 1 4-4h28a4 4 0 0 1 4 4v48" />
         <path d="M10 62h52" />
@@ -614,6 +614,7 @@ const CheckInScreen: React.FC<CheckInScreenProps> = ({
       expired: { title: t('Esse QR já virou.'), text: t('O QR muda a cada poucos minutos. Peça ao professor para mostrar o novo.') },
       'wrong-class': { title: t('Esse código não é desta aula.'), text: t('Confira se o QR é o da aula em que você está e leia de novo.') },
       closed: { title: t('O professor ainda não abriu o check-in.'), text: t('Espere a aula começar ou peça para ele aprovar sua presença.') },
+      ended: { title: t('Essa aula não aceita mais check-in.'), text: t('Ela já foi encerrada ou cancelada. Se você treinou, peça para o professor marcar sua presença.') },
       already: { title: t('Já registrada.'), text: t('Sua presença nesta aula já está lá. Até a próxima. Oss.') },
       generic: { title: t('Algo não deu certo agora.'), text: t('Sua presença não foi registrada. Tente de novo em alguns segundos.') },
     };
@@ -671,6 +672,11 @@ const CheckInScreen: React.FC<CheckInScreenProps> = ({
               {retry}
               {renderRequestBlock()}
             </>
+          ) : null}
+          {info.kind === 'ended' ? (
+            <button type="button" className="lv-btn lv-btn--block rd-checkin__cta" onClick={onFinish}>
+              {t('Pronto')}
+            </button>
           ) : null}
           {info.kind === 'already' ? (
             <>
