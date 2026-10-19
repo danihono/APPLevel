@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AlertTriangle, CalendarDays, Camera, CheckCircle, ChevronDown, ChevronLeft, ChevronRight, MapPin, Pencil, Play, Plus, QrCode, RefreshCw, ShieldCheck, Sliders, StopCircle, Trash2, UserCheck, Users, X } from 'lucide-react';
+import { AlertTriangle, CalendarDays, Camera, CheckCircle, ChevronDown, ChevronLeft, ChevronRight, CircleCheck, Clock3, MapPin, Pencil, Play, Plus, QrCode, RefreshCw, ShieldCheck, Sliders, StopCircle, Trash2, UserCheck, Users, X } from 'lucide-react';
 import QRCodeSVG from 'react-qr-code';
 import { resolveAttendanceDate } from '../attendanceUtils';
 import { buildMonthGrid, CLASS_TYPE_LABELS, classTypeLabel, isClassVisibleForStudent, MONTH_WEEK_HEADER, sameCalendarDay, sameCalendarMonth, stripDate, toDateKey } from '../calendarUtils';
@@ -34,6 +34,7 @@ import { UserRole, type KidsCategory } from '../types';
 import { normalizePersonName } from '../utils';
 import { t, getLocale, createDateFormatter } from '../i18n';
 import { hapticConfirm } from '../services/haptics';
+import { classEndDate } from '../trainingStats';
 import EmptyState from '../components/redesign/EmptyState';
 
 // photoPath so e uma URL exibivel quando comeca com http (ver adapters.ts).
@@ -89,6 +90,9 @@ type FeedbackToast = {
   title: string;
   note?: string;
 };
+
+/** Janela antes do inicio em que o check-in vira a acao principal da folha do aluno. */
+const CHECKIN_WINDOW_MS = 30 * 60 * 1000;
 
 const monthFormatter = createDateFormatter({ month: 'long', year: 'numeric' });
 const longDayFormatter = createDateFormatter({ weekday: 'long', day: 'numeric', month: 'long' });
@@ -876,6 +880,10 @@ const CalendarView: React.FC<CalendarViewProps> = ({
   const [rsvpBusyByClass, setRsvpBusyByClass] = useState<Record<string, boolean>>({});
   const [showParticipants, setShowParticipants] = useState(false);
   const [participantsList, setParticipantsList] = useState<Array<FirestoreEntity<ClassRsvpRecord>>>([]);
+  // Folha do aluno: quem vai (rostos + vagas) e as partes recolhidas.
+  const [sheetGoers, setSheetGoers] = useState<Array<FirestoreEntity<ClassRsvpRecord>>>([]);
+  const [studentQrHelpOpen, setStudentQrHelpOpen] = useState(false);
+  const [studentDetailsOpen, setStudentDetailsOpen] = useState(false);
   const [participantsLoading, setParticipantsLoading] = useState(false);
   const [feedbackToast, setFeedbackToast] = useState<FeedbackToast | null>(null);
   const [nowMs, setNowMs] = useState(() => Date.now());
@@ -992,6 +1000,19 @@ const CalendarView: React.FC<CalendarViewProps> = ({
         .catch(() => {});
     });
   }, [classes, currentUserId, isStaff]);
+
+  useEffect(() => {
+    setStudentQrHelpOpen(false);
+    setStudentDetailsOpen(false);
+    const sheetClass = classes.find((c) => c.id === selectedClassId);
+    if (!sheetClass || isStaff || sheetClass.status === 'cancelled') {
+      setSheetGoers([]);
+      return undefined;
+    }
+    return subscribeToClassRsvps(sheetClass.id, sheetClass.academyId, setSheetGoers, () => setSheetGoers([]));
+    // so ao trocar de aula
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedClassId, isStaff]);
 
   useEffect(() => {
     const selectedClass = classes.find((c) => c.id === selectedClassId);
@@ -2212,6 +2233,246 @@ const CalendarView: React.FC<CalendarViewProps> = ({
     </div>
   );
 
+  // ─── Folha da aula (aluno): resumo + uma acao por estado ─────────────────
+  // Tudo o que existia continua: o QR manual e "Solicitar presenca" ficam em "Problemas com o QR?",
+  // e o cartao completo da aula (regras, capacidade) em "Detalhes da aula".
+  const renderStudentSheet = (lesson: FirestoreEntity<ClassRecord>) => {
+    const start = lesson.scheduledStart?.toDate() ?? null;
+    const end = classEndDate(lesson);
+    const durationMin = start && end ? Math.max(0, Math.round((end.getTime() - start.getTime()) / 60000)) : null;
+    const durationLabel = durationMin == null
+      ? null
+      : durationMin >= 60
+        ? (durationMin % 60 === 0 ? `${durationMin / 60}h` : `${Math.floor(durationMin / 60)}h${String(durationMin % 60).padStart(2, '0')}`)
+        : `${durationMin} min`;
+    const typeLabel = classTypeLabel(lesson.description);
+    const isMine = !!myRsvpByClass[lesson.id];
+    const rsvpBusy = !!rsvpBusyByClass[lesson.id];
+    const myAttendance = myAttendances.find((entry) => entry.classId === lesson.id) ?? null;
+    const msToStart = start ? start.getTime() - nowMs : 0;
+    const isLive = lesson.status === 'active';
+    const checkinFirst = isLive || (lesson.status === 'scheduled' && msToStart <= CHECKIN_WINDOW_MS && (end ? end.getTime() > nowMs : true));
+    const capacity = lesson.capacity ?? 0;
+    const confirmed = Math.max(sheetGoers.length, lesson.rsvpCount ?? 0);
+    const fillPercent = capacity > 0 ? Math.min(100, Math.round((confirmed / capacity) * 100)) : 0;
+    const lastSpots = capacity > 0 && fillPercent >= 80;
+    const isFull = capacity > 0 && confirmed >= capacity && !isMine;
+    const canUseQr = !myAttendance && (lesson.status === 'scheduled' || lesson.status === 'active');
+
+    const firstName = (name: string) => (name || '').trim().split(/\s+/)[0] || t('Aluno');
+    const mine = sheetGoers.find((entry) => entry.userId === currentUserId);
+    const others = sheetGoers.filter((entry) => entry.userId !== currentUserId);
+    const names = [...(mine || isMine ? [t('Você')] : []), ...others.map((entry) => firstName(entry.userDisplayName))];
+    const goersText = names.length === 0
+      ? t('Ninguém confirmou ainda')
+      : names.length === 1
+        ? (names[0] === t('Você') ? t('Você vai') : t('{name} vai', { name: names[0] }))
+        : names.length === 2
+          ? t('{a} e {b} vão', { a: names[0], b: names[1] })
+          : names.length === 3
+            ? t('{a}, {b} e mais 1 vão', { a: names[0], b: names[1] })
+            : t('{a}, {b} e mais {count} vão', { a: names[0], b: names[1], count: names.length - 2 });
+    const faces = [...(mine ? [mine] : []), ...others].slice(0, 4);
+
+    const checkinAction = () => {
+      if (onStartCheckin) {
+        onStartCheckin(lesson.id);
+        return;
+      }
+      setScannerClassId(lesson.id);
+      setScannerOpen(true);
+    };
+
+    let action: React.ReactNode;
+    if (myAttendance) {
+      const counted = myAttendance.countsAsAttendance !== false;
+      action = (
+        <div className={`rd-cal__seal${counted ? ' is-done' : ' is-soft'}`} role="status">
+          <CircleCheck size={20} strokeWidth={2} aria-hidden="true" />
+          <span>
+            {t('Presença registrada')}
+            <small>
+              {counted
+                ? t('contou pro grau')
+                : (myAttendance.nonCountingReason ? nonCountingReasonLabel(myAttendance.nonCountingReason) : t('não conta como aula'))}
+            </small>
+          </span>
+        </div>
+      );
+    } else if (pendingRequest) {
+      action = (
+        <div className="rd-cal__seal is-soft" role="status">
+          <Clock3 size={20} strokeWidth={2} aria-hidden="true" />
+          <span>{t('Solicitação pendente')}</span>
+        </div>
+      );
+    } else if (lesson.status === 'cancelled') {
+      action = <div className="rd-cal__seal is-soft" role="status"><X size={20} aria-hidden="true" /><span>{t('Aula cancelada')}</span></div>;
+    } else if (lesson.status === 'finished') {
+      action = <div className="rd-cal__seal is-soft" role="status"><CheckCircle size={20} aria-hidden="true" /><span>{t('Aula encerrada')}</span></div>;
+    } else if (checkinFirst) {
+      action = (
+        <>
+          {isMine ? <p className="rd-cal__going"><CircleCheck size={16} aria-hidden="true" />{t('Você vai')}</p> : null}
+          <button type="button" className="lv-btn lv-btn--primary lv-btn--block rd-cal__student-cta" onClick={checkinAction}>
+            <QrCode size={20} aria-hidden="true" />
+            {t('Fazer check-in')}
+          </button>
+        </>
+      );
+    } else if (isMine) {
+      action = (
+        <div className="rd-cal__going-row">
+          <p className="rd-cal__going"><CircleCheck size={18} aria-hidden="true" />{t('Você vai')}</p>
+          <button type="button" className="rd-cal__text-link" onClick={() => void handleToggleRsvp(lesson.id)} disabled={rsvpBusy}>
+            {rsvpBusy ? t('Aguarde...') : t('Cancelar ida')}
+          </button>
+        </div>
+      );
+    } else if (isFull) {
+      action = <div className="rd-cal__seal is-soft" role="status"><Users size={20} aria-hidden="true" /><span>{t('Aula lotada')}</span></div>;
+    } else {
+      action = (
+        <button
+          type="button"
+          className="lv-btn lv-btn--primary lv-btn--block rd-cal__student-cta"
+          onClick={() => void handleToggleRsvp(lesson.id)}
+          disabled={rsvpBusy}
+        >
+          {rsvpBusy ? t('Aguarde...') : t('Confirmar ida')}
+        </button>
+      );
+    }
+
+    return (
+      <div className="rd-cal__student">
+        <div className="rd-cal__student-head">
+          <p className="rd-cal__student-time">
+            {formatTimeLabel(lesson.scheduledStart)}
+            {start ? <small>{formatDateLabel(lesson.scheduledStart)}</small> : null}
+          </p>
+          <div className="rd-cal__student-title">
+            <h3>{lesson.title}</h3>
+            {typeLabel && typeLabel !== lesson.title ? <span className="rd-cal__student-chip">{typeLabel}</span> : null}
+            {isLive ? <span className="lv-chip lv-chip--live"><span className="lv-live-dot" aria-hidden="true" />{t('Ao vivo')}</span> : null}
+          </div>
+          <p className="rd-cal__student-facts">
+            <span>{lesson.professorName || t('Equipe técnica')}</span>
+            <span>{lesson.tatame || t('Tatame principal')}</span>
+            {durationLabel ? <span>{durationLabel}</span> : null}
+            {attendanceRate !== undefined ? <span>{t('{rate}% no mês', { rate: attendanceRate })}</span> : null}
+          </p>
+        </div>
+
+        {lesson.status !== 'cancelled' ? (
+          <button
+            type="button"
+            className="rd-cal__student-goers"
+            onClick={() => setShowParticipants(true)}
+            disabled={lesson.status !== 'scheduled'}
+          >
+            {faces.length > 0 ? (
+              <span className="rd-cal__student-faces" aria-hidden="true">
+                {faces.map((entry) => (
+                  <span key={entry.id} className={entry.userId === currentUserId ? 'is-me' : undefined}>
+                    {(entry.userDisplayName || '?').trim().charAt(0).toLocaleUpperCase()}
+                  </span>
+                ))}
+              </span>
+            ) : null}
+            <span className="rd-cal__student-goers-text">{goersText}</span>
+            {lesson.status === 'scheduled' ? <ChevronRight size={16} aria-hidden="true" /> : null}
+          </button>
+        ) : null}
+
+        {capacity > 0 && lesson.status !== 'cancelled' ? (
+          <div className={`rd-cal__spots${lastSpots ? ' is-last' : ''}`}>
+            <div className="rd-cal__spots-bar" role="progressbar" aria-valuemin={0} aria-valuemax={capacity} aria-valuenow={Math.min(confirmed, capacity)} aria-label={t('{count} de {capacity} vagas', { count: confirmed, capacity })}>
+              <span style={{ width: `${fillPercent}%` }} />
+            </div>
+            <span>
+              {t('{count} de {capacity} vagas', { count: confirmed, capacity })}
+              {lastSpots && !isFull ? ` · ${t('últimas vagas')}` : ''}
+            </span>
+          </div>
+        ) : null}
+
+        {message ? <p className="rd-cal__student-msg" role="status">{message}</p> : null}
+        {selectedClassNonCountingReason && canUseQr ? (
+          <p className="rd-cal__student-warn">{nonCountingWarning(selectedClassNonCountingReason)}</p>
+        ) : null}
+
+        <div className="rd-cal__student-action">{action}</div>
+
+        {canUseQr ? (
+          <div className={`rd-cal__disclosure${studentQrHelpOpen ? ' is-open' : ''}`}>
+            <button type="button" className="rd-cal__disclosure-btn" onClick={() => setStudentQrHelpOpen((open) => !open)} aria-expanded={studentQrHelpOpen}>
+              <span>{t('Problemas com o QR?')}</span>
+              <ChevronDown size={16} aria-hidden="true" />
+            </button>
+            {studentQrHelpOpen ? (
+              <div className="rd-cal__disclosure-body">
+                <div className="rd-cal__token-row">
+                  <input
+                    ref={tokenInputRef}
+                    type="text"
+                    value={qrInputByClass[lesson.id] || ''}
+                    onChange={(event) => setQrInputByClass((current) => ({ ...current, [lesson.id]: event.target.value }))}
+                    placeholder={t('Cole aqui o token do QR')}
+                    disabled={!selectedClassCanUseQr || busy}
+                    className="app-input"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setScannerClassId(lesson.id);
+                      setScannerOpen(true);
+                    }}
+                    disabled={!selectedClassCanUseQr || busy}
+                    className="app-button app-button--ghost app-button--icon"
+                    title={t('Escanear QR com camera')}
+                    aria-label={t('Escanear QR com camera')}
+                  >
+                    <Camera size={16} />
+                  </button>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => void runClassAction(lesson.id, () => onRegisterAttendance(lesson.id, qrInputByClass[lesson.id]))}
+                  disabled={!selectedClassCanUseQr || busy}
+                  className="lv-btn lv-btn--ink lv-btn--block"
+                >
+                  <ShieldCheck size={16} />
+                  {busy ? t('Registrando...') : t('Registrar presença')}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void runClassAction(lesson.id, () => onSubmitAttendanceRequest(lesson.id))}
+                  disabled={lesson.status !== 'active' || busy || !!pendingRequest}
+                  className="lv-btn lv-btn--block rd-cal__ghost"
+                >
+                  <CheckCircle size={16} />
+                  {pendingRequest ? t('Solicitação pendente') : t('Solicitar presença')}
+                </button>
+                {lesson.status !== 'active' ? (
+                  <p className="rd-cal__disclosure-note">{t('Solicitar presença fica disponível quando a aula começar.')}</p>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+
+        <div className={`rd-cal__disclosure${studentDetailsOpen ? ' is-open' : ''}`}>
+          <button type="button" className="rd-cal__disclosure-btn" onClick={() => setStudentDetailsOpen((open) => !open)} aria-expanded={studentDetailsOpen}>
+            <span>{t('Detalhes da aula')}</span>
+            <ChevronDown size={16} aria-hidden="true" />
+          </button>
+          {studentDetailsOpen ? <ClassSessionCard lesson={lesson} showDate className="rd-cal__details-card" /> : null}
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className={`view-shell ${!isAgendaLayout ? 'calendar-desktop' : ''}`.trim()}>
       {feedbackToast ? (
@@ -2451,97 +2712,10 @@ const CalendarView: React.FC<CalendarViewProps> = ({
           >
             <div className="rd-cal__sheet-scroll">
               <div className="lv-sheet__grip" aria-hidden="true" />
-              <ClassSessionCard lesson={selectedClass} showDate />
+              {canManageSelected ? <ClassSessionCard lesson={selectedClass} showDate /> : null}
 
               {/* Aluno: ação principal visível imediatamente, sem scroll */}
-              {!canManageSelected ? (
-                <div style={{ padding: '12px 20px', display: 'flex', flexDirection: 'column', gap: 10 }}>
-                  {message ? <div className="app-list-card text-sm text-[color:var(--text-muted)]">{message}</div> : null}
-
-                  {selectedClass.status === 'scheduled' ? (
-                    <>
-                      <button
-                        type="button"
-                        onClick={() => void handleToggleRsvp(selectedClass.id)}
-                        disabled={rsvpBusyByClass[selectedClass.id]}
-                        className={`app-button app-button--block ${myRsvpByClass[selectedClass.id] ? 'app-button--danger' : 'app-button--green'}`}
-                      >
-                        <CheckCircle size={14} />
-                        {rsvpBusyByClass[selectedClass.id] ? t('Aguarde...') : myRsvpByClass[selectedClass.id] ? t('Cancelar ida') : t('Confirmar ida')}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setShowParticipants(true)}
-                        className="app-button app-button--block app-button--ghost"
-                      >
-                        <Users size={14} />
-                        {`${t('Ver Participantes')}${selectedClass.rsvpCount ? ` (${selectedClass.rsvpCount})` : ''}`}
-                      </button>
-                    </>
-                  ) : (
-                    <>
-                      {attendanceRate !== undefined ? (
-                        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                          <span className="app-badge app-badge--gold">{t('{rate}% frequência', { rate: attendanceRate })}</span>
-                          <span style={{ fontSize: '0.75rem', color: 'var(--text-soft)' }}>{t('no mes atual')}</span>
-                        </div>
-                      ) : null}
-                      {selectedClassNonCountingReason ? (
-                        <p className="app-alert app-alert--warning">
-                          {nonCountingWarning(selectedClassNonCountingReason)}
-                        </p>
-                      ) : null}
-                      <div style={{ display: 'flex', gap: 8 }}>
-                        <input
-                          ref={tokenInputRef}
-                          type="text"
-                          value={qrInputByClass[selectedClass.id] || ''}
-                          onChange={(event) =>
-                            setQrInputByClass((current) => ({ ...current, [selectedClass.id]: event.target.value }))
-                          }
-                          placeholder={t('Cole aqui o token do QR')}
-                          disabled={!selectedClassCanUseQr || busy}
-                          className="app-input"
-                          style={{ flex: 1 }}
-                        />
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setScannerClassId(selectedClass.id);
-                            setScannerOpen(true);
-                          }}
-                          disabled={!selectedClassCanUseQr || busy}
-                          className="app-button app-button--ghost app-button--icon"
-                          title={t('Escanear QR com camera')}
-                          style={{ width: 42, height: 42, flexShrink: 0 }}
-                        >
-                          <Camera size={16} />
-                        </button>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          void runClassAction(selectedClass.id, () => onRegisterAttendance(selectedClass.id, qrInputByClass[selectedClass.id]))
-                        }
-                        disabled={!selectedClassCanUseQr || busy}
-                        className="app-button app-button--gold app-button--block"
-                      >
-                        <ShieldCheck size={14} />
-                        {busy ? t('Registrando...') : t('Registrar presença')}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => void runClassAction(selectedClass.id, () => onSubmitAttendanceRequest(selectedClass.id))}
-                        disabled={selectedClass.status !== 'active' || busy || !!pendingRequest}
-                        className="app-button app-button--ghost app-button--block"
-                      >
-                        <CheckCircle size={14} />
-                        {pendingRequest ? t('Solicitação pendente') : t('Solicitar presença')}
-                      </button>
-                    </>
-                  )}
-                </div>
-              ) : null}
+              {!canManageSelected ? renderStudentSheet(selectedClass) : null}
 
               {/* Staff: tabs Detalhes / Histórico */}
               {canManageSelected ? (

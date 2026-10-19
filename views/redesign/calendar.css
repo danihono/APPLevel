@@ -796,3 +796,343 @@ html.dark .rd-cal__class--ink {
   color: var(--lv-text-soft);
   text-align: right;
 }
+
+/* ═══ Folha da aula do aluno: uma acao so (ideia 7) ═══════════════════════ */
+.rd-cal__student {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 4px 20px 18px;
+}
+
+.rd-cal__student-head {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.rd-cal__student-time {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 44px;
+  line-height: 1;
+  font-weight: 800;
+  letter-spacing: -0.045em;
+  font-variant-numeric: tabular-nums;
+  color: var(--lv-text);
+}
+
+.rd-cal__student-time small {
+  margin-left: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0;
+  color: var(--lv-text-soft);
+}
+
+.rd-cal__student-facts span {
+  white-space: nowrap;
+}
+
+.rd-cal__student-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.rd-cal__student-title h3 {
+  margin: 0;
+  font-size: 22px;
+  line-height: 1.15;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--lv-text);
+}
+
+.rd-cal__student-chip {
+  padding: 4px 10px;
+  border-radius: var(--lv-r-pill);
+  background: var(--lv-glass-fill);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--lv-text);
+}
+
+.rd-cal__student-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 0;
+  margin: 2px 0 0;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--lv-text-soft);
+}
+
+.rd-cal__student-facts span + span::before {
+  content: '·';
+  margin: 0 7px;
+  opacity: 0.6;
+}
+
+.rd-cal__student-goers {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 40px;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: var(--lv-text-muted);
+  text-align: left;
+  cursor: pointer;
+}
+
+.rd-cal__student-goers:disabled {
+  cursor: default;
+}
+
+.rd-cal__student-goers svg {
+  flex: none;
+  color: var(--lv-text-soft);
+}
+
+.rd-cal__student-faces {
+  display: flex;
+  flex: none;
+}
+
+.rd-cal__student-faces > span {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  margin-left: -8px;
+  border-radius: 50%;
+  background: var(--lv-glass-strong);
+  box-shadow: 0 0 0 2px var(--lv-surface), inset 0 0 0 1px var(--lv-glass-hair);
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--lv-text);
+}
+
+.rd-cal__student-faces > span:first-child {
+  margin-left: 0;
+}
+
+.rd-cal__student-faces > span.is-me {
+  background: var(--lv-yellow);
+  color: var(--lv-on-yellow);
+}
+
+.rd-cal__student-goers-text {
+  min-width: 0;
+  overflow: hidden;
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.rd-cal__spots {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--lv-text-soft);
+}
+
+.rd-cal__spots-bar {
+  height: 6px;
+  overflow: hidden;
+  border-radius: 3px;
+  background: var(--lv-glass-fill);
+}
+
+.rd-cal__spots-bar > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--lv-text);
+}
+
+.rd-cal__spots.is-last .rd-cal__spots-bar > span {
+  background: var(--lv-yellow);
+}
+
+.rd-cal__spots.is-last {
+  color: var(--lv-gold-text);
+}
+
+.rd-cal__student-msg,
+.rd-cal__student-warn {
+  margin: 0;
+  padding: 10px 14px;
+  border-radius: 14px;
+  font-size: 13.5px;
+  line-height: 1.45;
+}
+
+.rd-cal__student-msg {
+  background: var(--lv-glass-fill);
+  color: var(--lv-text-muted);
+}
+
+.rd-cal__student-warn {
+  background: rgba(240, 180, 41, 0.14);
+  color: var(--lv-gold-text);
+}
+
+.rd-cal__student-action .lv-btn {
+  min-height: 52px;
+  font-size: 16px;
+}
+
+.rd-cal__student-action {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.rd-cal__seal {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 52px;
+  padding: 8px 16px;
+  border-radius: var(--lv-r-pill);
+  background: var(--lv-glass-fill);
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--lv-text);
+  text-align: left;
+}
+
+.rd-cal__seal > span {
+  display: flex;
+  flex-direction: column;
+}
+
+.rd-cal__seal small {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--lv-text-soft);
+}
+
+.rd-cal__seal.is-done svg {
+  color: var(--lv-success);
+}
+
+.rd-cal__seal.is-soft {
+  color: var(--lv-text-muted);
+}
+
+.rd-cal__going-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 52px;
+  padding: 0 6px 0 16px;
+  border-radius: var(--lv-r-pill);
+  background: var(--lv-glass-fill);
+}
+
+.rd-cal__going {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--lv-text);
+}
+
+.rd-cal__going svg {
+  color: var(--lv-success);
+}
+
+.rd-cal__text-link {
+  min-height: 40px;
+  padding: 0 12px;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--lv-text-soft);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.rd-cal__disclosure {
+  border-top: 1px solid var(--lv-glass-hair);
+}
+
+.rd-cal__disclosure-btn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  min-height: 46px;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--lv-text);
+  cursor: pointer;
+}
+
+.rd-cal__disclosure-btn svg {
+  color: var(--lv-text-soft);
+  transition: transform 0.2s ease;
+}
+
+.rd-cal__disclosure.is-open .rd-cal__disclosure-btn svg {
+  transform: rotate(180deg);
+}
+
+.rd-cal__disclosure-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-bottom: 6px;
+}
+
+.rd-cal__token-row {
+  display: flex;
+  gap: 8px;
+}
+
+.rd-cal__token-row .app-input {
+  flex: 1;
+  min-width: 0;
+}
+
+.rd-cal__token-row .app-button--icon {
+  flex: none;
+  width: 42px;
+  height: 42px;
+}
+
+.rd-cal__ghost,
+html.dark .rd-cal__ghost {
+  background: var(--lv-glass-fill);
+  color: var(--lv-text);
+}
+
+.rd-cal__disclosure-note {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--lv-text-soft);
+}
+
+.rd-cal__details-card {
+  margin-bottom: 8px;
+}
