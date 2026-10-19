@@ -2158,3 +2158,122 @@ html.dark .lv-empty {
   --lv-art-ink: #f5f5f7;
   --lv-art-soft: rgba(245, 245, 247, 0.5);
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Carregamento — fundo liso, marca LEVEL e uma linha amarela que corre.
+   Usado pelo LoadingScreen e pelo HTML estatico do index.html (antes do React).
+   Antes do App aplicar o tema (sem data-theme), segue o tema do sistema.
+   ═══════════════════════════════════════════════════════════════════════════ */
+.lv-loading {
+  --lv-loading-bg: #f4f2ee;
+  --lv-loading-ink: #16161e;
+  --lv-loading-mark: #16161e;
+  --lv-loading-soft: rgba(22, 22, 30, 0.5);
+  --lv-loading-track: rgba(22, 22, 30, 0.08);
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: grid;
+  place-items: center;
+  padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px);
+  background: var(--lv-loading-bg);
+  color: var(--lv-loading-ink);
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Inter', 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+}
+html.dark .lv-loading {
+  --lv-loading-bg: #08080b;
+  --lv-loading-ink: #ffffff;
+  --lv-loading-mark: #f0b429;
+  --lv-loading-soft: rgba(255, 255, 255, 0.5);
+  --lv-loading-track: rgba(255, 255, 255, 0.1);
+}
+@media (prefers-color-scheme: dark) {
+  html:not([data-theme]) .lv-loading {
+    --lv-loading-bg: #08080b;
+    --lv-loading-ink: #ffffff;
+    --lv-loading-mark: #f0b429;
+    --lv-loading-soft: rgba(255, 255, 255, 0.5);
+    --lv-loading-track: rgba(255, 255, 255, 0.1);
+  }
+}
+.lv-loading__center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 22px;
+  padding: 0 24px;
+}
+.lv-loading__mark {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+}
+.lv-loading__stripes {
+  display: inline-flex;
+  gap: 4px;
+}
+.lv-loading__stripes i {
+  display: block;
+  width: 4px;
+  height: 22px;
+  border-radius: 1.5px;
+  background: var(--lv-loading-mark);
+}
+.lv-loading__word {
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: 0.22em;
+  margin-right: -0.22em;
+  line-height: 1;
+}
+.lv-loading__track {
+  position: relative;
+  display: block;
+  width: 112px;
+  height: 3px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: var(--lv-loading-track);
+}
+.lv-loading__run {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 40%;
+  border-radius: inherit;
+  background: #f0b429;
+  animation: lv-loading-run 1.4s cubic-bezier(0.45, 0, 0.25, 1) infinite;
+}
+@keyframes lv-loading-run {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(250%); }
+}
+.lv-loading__message {
+  margin: 0;
+  max-width: 260px;
+  font-size: 13px;
+  line-height: 1.45;
+  text-align: center;
+  color: var(--lv-loading-soft);
+  /* Carregamento rapido nao mostra texto: so aparece se demorar. */
+  opacity: 0;
+  animation: lv-loading-in 0.4s ease 0.6s forwards;
+}
+@keyframes lv-loading-in {
+  to { opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .lv-loading__run {
+    width: 100%;
+    animation: lv-loading-breathe 2.4s ease-in-out infinite;
+  }
+  .lv-loading__message {
+    animation: none;
+    opacity: 1;
+  }
+}
+@keyframes lv-loading-breathe {
+  0%, 100% { opacity: 0.35; transform: none; }
+  50% { opacity: 1; transform: none; }
+}

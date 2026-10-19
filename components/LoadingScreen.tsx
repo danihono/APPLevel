@@ -1,59 +1,37 @@
-import { publicAsset } from '../publicAsset';
+import { useMemo } from 'react';
 
 interface LoadingScreenProps {
   message?: string;
 }
 
+/** Duracao da volta da linha (igual ao `lv-loading-run` do redesign.css). */
+const LOADING_CYCLE_MS = 1400;
+
+/**
+ * Tela de carregamento: fundo liso na cor do app, marca LEVEL no centro e uma linha amarela
+ * fina que corre. Sem imagem (aparece na hora). O mesmo visual existe em HTML estatico no
+ * `index.html` (antes do React montar); o atraso negativo da animacao mantem a linha no mesmo
+ * ponto quando uma etapa de carregamento troca pela seguinte, entao nada "pisca".
+ * CSS em redesign.css (bloco "Carregamento").
+ */
 export function LoadingScreen({ message }: LoadingScreenProps) {
+  const phaseStyle = useMemo(
+    () => ({ animationDelay: `-${Math.round(performance.now() % LOADING_CYCLE_MS)}ms` }),
+    [],
+  );
+
   return (
-    <div
-      style={{
-        background: '#0A0A0A',
-        width: '100vw',
-        height: '100vh',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: '24px',
-      }}
-    >
-      <div style={{ position: 'relative', width: '120px', height: '120px' }}>
-        <div
-          className="animate-spin"
-          style={{
-            position: 'absolute',
-            inset: 0,
-            borderRadius: '50%',
-            border: '3px solid transparent',
-            borderTopColor: '#D4AF37',
-            borderRightColor: '#D4AF37',
-          }}
-        />
-        <img
-          src={publicAsset('logo3.png')}
-          alt="APPLevel"
-          style={{
-            position: 'absolute',
-            inset: '12px',
-            width: 'calc(100% - 24px)',
-            height: 'calc(100% - 24px)',
-            objectFit: 'contain',
-          }}
-        />
+    <div className="lv-loading" role="status" aria-live="polite">
+      <div className="lv-loading__center">
+        <span className="lv-loading__mark" aria-hidden="true">
+          <span className="lv-loading__stripes"><i /><i /><i /><i /></span>
+          <span className="lv-loading__word">LEVEL</span>
+        </span>
+        <span className="lv-loading__track" aria-hidden="true">
+          <span className="lv-loading__run" style={phaseStyle} />
+        </span>
+        {message ? <p className="lv-loading__message">{message}</p> : <span className="lv-sr-only">LEVEL</span>}
       </div>
-      {message && (
-        <p
-          style={{
-            color: '#6B7280',
-            fontSize: '0.85rem',
-            textAlign: 'center',
-            maxWidth: '260px',
-          }}
-        >
-          {message}
-        </p>
-      )}
     </div>
   );
 }

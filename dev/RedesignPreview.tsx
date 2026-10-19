@@ -8,6 +8,7 @@ import CheckInScreen from '../components/redesign/CheckInScreen';
 import SignupWizard from '../components/redesign/SignupWizard';
 import { RedesignShellProvider, type RedesignShellValue } from '../components/redesign/ShellContext';
 import GraduationCelebrationModal from '../components/GraduationCelebrationModal';
+import { LoadingScreen } from '../components/LoadingScreen';
 import CalendarView from '../views/CalendarView';
 import EvolutionView from '../views/EvolutionView';
 import HomeView from '../views/HomeView';
@@ -160,7 +161,7 @@ interface ScreenDef {
   role: PreviewRole;
   tab: string;
   label: string;
-  overlay?: 'checkin' | 'checkin-link' | 'celebration';
+  overlay?: 'checkin' | 'checkin-link' | 'celebration' | 'loading';
   variant?: 'black' | 'empty' | 'ranking';
 }
 
@@ -178,6 +179,7 @@ const SCREENS: ScreenDef[] = [
   { id: 'aluno-checkin', role: 'student', tab: 'home', label: 'Aluno · Check-in (câmera)', overlay: 'checkin' },
   { id: 'aluno-checkin-link', role: 'student', tab: 'home', label: 'Aluno · Check-in (pelo link do QR)', overlay: 'checkin-link' },
   { id: 'aluno-celebracao', role: 'student', tab: 'home', label: 'Aluno · Celebração de graduação', overlay: 'celebration' },
+  { id: 'carregando', role: 'student', tab: 'home', label: 'Tela de carregamento', overlay: 'loading' },
   { id: 'prof-inicio', role: 'staff', tab: 'home', label: 'Professor · Início' },
   { id: 'prof-calendario', role: 'staff', tab: 'calendar', label: 'Professor · Calendário (toque numa aula)' },
   { id: 'prof-academia', role: 'staff', tab: 'management', label: 'Professor · Academia' },
@@ -1048,6 +1050,12 @@ const RedesignPreview: React.FC = () => {
           onFinish={() => setOverlayClosed(true)}
           timeZone={previewAcademy.timezone}
         />
+      ) : null}
+
+      {showOverlay && screen.overlay === 'loading' ? (
+        <div onClick={() => setOverlayClosed(true)}>
+          <LoadingScreen message={t('Carregando perfil, academia e permissoes.')} />
+        </div>
       ) : null}
 
       {showOverlay && screen.overlay === 'celebration' ? (
