@@ -1145,3 +1145,136 @@ button.rd-staff__team {
     padding: 11px 12px;
   }
 }
+
+/* ═══ Faixa tecida (ideia 14) ══════════════════════════════════════════════ */
+.rd-staff__weave {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.rd-staff__weave-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.rd-staff__weave-head h2 {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--lv-text);
+}
+
+.rd-staff__weave-head span {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--lv-text-soft);
+}
+
+.rd-staff__weave-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.rd-staff__weave-kicker {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--lv-text-soft);
+}
+
+.rd-staff__weave-legend,
+.rd-staff__mix-legend {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--lv-text-soft);
+}
+
+.rd-staff__weave-hint {
+  margin: -2px 0 0;
+  font-size: 12px;
+  color: var(--lv-text-soft);
+  opacity: 0.85;
+}
+
+.rd-staff__mix {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.rd-staff__mix-chips {
+  display: flex;
+  gap: 6px;
+  margin: 2px -2px 0;
+  padding: 2px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.rd-staff__mix-chips::-webkit-scrollbar {
+  display: none;
+}
+
+.rd-staff__mix-chip {
+  flex: none;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 30px;
+  padding: 0 10px 0 4px;
+  border: 1px solid var(--lv-glass-edge);
+  border-radius: var(--lv-r-pill);
+  background: var(--lv-glass-strong);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--lv-text);
+  cursor: pointer;
+}
+
+.rd-staff__mix-chip.is-static {
+  padding-left: 10px;
+  cursor: default;
+}
+
+.rd-staff__mix-chip.is-on {
+  background: var(--lv-yellow);
+  border-color: transparent;
+  color: var(--lv-on-yellow);
+}
+
+.rd-staff__mix-faces {
+  display: inline-flex;
+}
+
+.rd-staff__mix-faces > span {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  margin-left: -6px;
+  border-radius: 50%;
+  background: var(--lv-black);
+  color: #ffffff;
+  box-shadow: 0 0 0 1.5px var(--lv-glass-strong);
+  font-size: 9px;
+  font-weight: 800;
+}
+
+.rd-staff__mix-faces > span:first-child {
+  margin-left: 0;
+}
+
+.rd-staff__mix-names {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--lv-text-muted);
+}

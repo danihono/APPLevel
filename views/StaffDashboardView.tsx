@@ -16,11 +16,14 @@ import type {
 } from '../services/firebase/models';
 import { isUnreadNotificationForViewer } from '../services/firebase/notifications';
 import {
+  ALL_BELTS,
   beltLabel,
+  getBeltMeta,
   getBlackBeltProgressForUser,
   getUserProgressionSummary,
   isBlackBelt,
 } from '../beltCatalog';
+import WovenBelt, { type WovenBeltSegment } from '../components/redesign/WovenBelt';
 import { classTypeLabel } from '../calendarUtils';
 import BeltImage from '../components/BeltImage';
 import { buildWhatsAppLink } from '../contactLinks';
@@ -254,6 +257,42 @@ interface PulseDay {
   date: Date;
   count: number;
   state: 'past' | 'today' | 'future';
+}
+
+/** Chip "perto de graduar" no cartao da aula: ate quantas aulas faltando. */
+const NEAR_CHIP_MAX_REMAINING = 2;
+
+interface BeltGroup {
+  belt: string;
+  people: Array<FirestoreEntity<UserRecord>>;
+}
+
+/** Agrupa pessoas pela faixa (ordem do catalogo) e separa adultos de kids. */
+function groupByBelt(people: Array<FirestoreEntity<UserRecord>>): { adult: BeltGroup[]; kids: BeltGroup[] } {
+  const adult = new Map<string, Array<FirestoreEntity<UserRecord>>>();
+  const kids = new Map<string, Array<FirestoreEntity<UserRecord>>>();
+  people.forEach((person) => {
+    const meta = getBeltMeta(person.belt);
+    const target = meta.track === 'kids' || person.kidsCategory ? kids : adult;
+    target.set(meta.id, [...(target.get(meta.id) ?? []), person]);
+  });
+  const order = (map: Map<string, Array<FirestoreEntity<UserRecord>>>) => Array.from(map.entries())
+    .sort(([left], [right]) => ALL_BELTS.indexOf(left as never) - ALL_BELTS.indexOf(right as never))
+    .map(([belt, list]) => ({ belt, people: list }));
+  return { adult: order(adult), kids: order(kids) };
+}
+
+function toSegments(groups: BeltGroup[]): WovenBeltSegment[] {
+  return groups.map((group) => ({
+    belt: group.belt,
+    count: group.people.length,
+    label: t('{belt}: {count}', { belt: beltLabel(group.belt), count: group.people.length }),
+  }));
+}
+
+/** "Branca 6 · Azul 3 · Roxa 1" */
+function beltLegend(groups: BeltGroup[]): string {
+  return groups.map((group) => `${beltLabel(group.belt)} ${group.people.length}`).join(' · ');
 }
 
 interface NearGraduationRow {
@@ -522,6 +561,11 @@ const StaffDashboardView: React.FC<StaffDashboardViewProps> = ({
   }, [academy.progressionRules, activeStudents, graduationRequests]);
   const [showAllNear, setShowAllNear] = useState(false);
   const readyCount = useMemo(() => nearGraduation.filter((row) => row.remaining <= 0).length, [nearGraduation]);
+
+  // Faixa tecida da academia (alunos ativos) e a lista aberta ao tocar num pedaco.
+  const academyWeave = useMemo(() => groupByBelt(activeStudents), [activeStudents]);
+  const [weaveFocus, setWeaveFocus] = useState<{ track: 'adult' | 'kids'; belt: string } | null>(null);
+  const [featuredChip, setFeaturedChip] = useState<'birthday' | 'near' | null>(null);
   const suggestedCount = useMemo(() => nearGraduation.filter((row) => row.suggested).length, [nearGraduation]);
 
   // Pulso: alunos ativos que treinaram nos ultimos PULSE_WINDOW_DAYS dias.
@@ -714,6 +758,74 @@ const StaffDashboardView: React.FC<StaffDashboardViewProps> = ({
     </div>
   );
 
+  // Faixa fina da turma (mix de quem confirmou) + chips: aniversariante, perto de graduar, turma iniciante.
+  const renderClassMix = () => {
+    const people = featuredRsvps
+      .map((rsvp) => usersById.get(rsvp.userId))
+      .filter((person): person is FirestoreEntity<UserRecord> => Boolean(person));
+    if (people.length === 0) return null;
+    const mix = groupByBelt(people);
+    const groups = [...mix.adult, ...mix.kids];
+    const ids = new Set(people.map((person) => person.id));
+    const birthdayPeople = birthdays.filter((row) => row.inDays === 0 && ids.has(row.person.id)).map((row) => row.person);
+    const nearPeople = nearGraduation
+      .filter((row) => ids.has(row.student.id) && row.remaining <= NEAR_CHIP_MAX_REMAINING)
+      .map((row) => row.student);
+    const beginners = mix.kids.length === 0 && mix.adult.length === 1 && getBeltMeta(mix.adult[0].belt).id === getBeltMeta('white').id;
+    const chips: Array<{ key: 'birthday' | 'near'; label: string; people: Array<FirestoreEntity<UserRecord>> }> = [];
+    if (birthdayPeople.length > 0) {
+      chips.push({
+        key: 'birthday',
+        label: birthdayPeople.length === 1 ? t('1 aniversariante hoje') : t('{count} aniversariantes hoje', { count: birthdayPeople.length }),
+        people: birthdayPeople,
+      });
+    }
+    if (nearPeople.length > 0) {
+      chips.push({
+        key: 'near',
+        label: nearPeople.length === 1 ? t('1 perto de graduar') : t('{count} perto de graduar', { count: nearPeople.length }),
+        people: nearPeople,
+      });
+    }
+    const openChip = chips.find((chip) => chip.key === featuredChip) ?? null;
+
+    return (
+      <div className="rd-staff__mix">
+        <WovenBelt
+          size="sm"
+          segments={toSegments(groups)}
+          ariaLabel={t('Faixas de quem confirmou: {legend}', { legend: beltLegend(groups) })}
+        />
+        <p className="rd-staff__mix-legend">{beltLegend(groups)}</p>
+        {chips.length > 0 || beginners ? (
+          <div className="rd-staff__mix-chips">
+            {beginners ? <span className="rd-staff__mix-chip is-static">{t('Turma iniciante hoje')}</span> : null}
+            {chips.map((chip) => (
+              <button
+                key={chip.key}
+                type="button"
+                className={`rd-staff__mix-chip${featuredChip === chip.key ? ' is-on' : ''}`}
+                onClick={() => setFeaturedChip((current) => (current === chip.key ? null : chip.key))}
+                aria-expanded={featuredChip === chip.key}
+              >
+                <span className="rd-staff__mix-faces" aria-hidden="true">
+                  {chip.people.slice(0, 3).map((person) => (
+                    <span key={person.id}>{initialOf(person.displayName)}</span>
+                  ))}
+                </span>
+                {chip.key === 'birthday' ? <Cake size={13} strokeWidth={2.2} aria-hidden="true" /> : null}
+                {chip.label}
+              </button>
+            ))}
+          </div>
+        ) : null}
+        {openChip ? (
+          <p className="rd-staff__mix-names" role="status">{formatNameList(openChip.people.map((person) => person.displayName))}</p>
+        ) : null}
+      </div>
+    );
+  };
+
   const renderFeaturedClass = (lesson: FirestoreEntity<ClassRecord>, status: LessonDisplayStatus) => {
     const rsvpCount = featuredRsvpsLoading ? (lesson.rsvpCount ?? 0) : featuredRsvps.length;
     const capacity = lesson.capacity ?? 0;
@@ -788,6 +900,8 @@ const StaffDashboardView: React.FC<StaffDashboardViewProps> = ({
             <span style={{ width: `${percent}%` }} />
           </div>
         ) : null}
+
+        {renderClassMix()}
 
         {startError && canStart ? <p className="lv-alert lv-alert--danger rd-staff__next-error" role="alert">{startError}</p> : null}
 
@@ -1078,6 +1192,41 @@ const StaffDashboardView: React.FC<StaffDashboardViewProps> = ({
         </div>
 
         <div className="rd-staff__col">
+          {/* ─── Faixas da academia (faixa tecida) ──────────────────────────── */}
+          {academyWeave.adult.length > 0 || academyWeave.kids.length > 0 ? (
+            <section className="lv-card rd-staff__weave" aria-labelledby="rd-staff-weave-title">
+              <div className="rd-staff__weave-head">
+                <h2 id="rd-staff-weave-title">{t('Faixas da academia')}</h2>
+                <span>{activeStudents.length === 1 ? t('1 aluno') : t('{count} alunos', { count: activeStudents.length })}</span>
+              </div>
+              {academyWeave.adult.length > 0 ? (
+                <div className="rd-staff__weave-row">
+                  <WovenBelt
+                    segments={toSegments(academyWeave.adult)}
+                    selected={weaveFocus?.track === 'adult' ? weaveFocus.belt : null}
+                    onSelect={(belt) => setWeaveFocus({ track: 'adult', belt })}
+                    ariaLabel={t('Faixas dos adultos: {legend}', { legend: beltLegend(academyWeave.adult) })}
+                  />
+                  <p className="rd-staff__weave-legend">{beltLegend(academyWeave.adult)}</p>
+                </div>
+              ) : null}
+              {academyWeave.kids.length > 0 ? (
+                <div className="rd-staff__weave-row">
+                  <span className="rd-staff__weave-kicker">{t('Kids')}</span>
+                  <WovenBelt
+                    size="sm"
+                    segments={toSegments(academyWeave.kids)}
+                    selected={weaveFocus?.track === 'kids' ? weaveFocus.belt : null}
+                    onSelect={(belt) => setWeaveFocus({ track: 'kids', belt })}
+                    ariaLabel={t('Faixas dos kids: {legend}', { legend: beltLegend(academyWeave.kids) })}
+                  />
+                  <p className="rd-staff__weave-legend">{beltLegend(academyWeave.kids)}</p>
+                </div>
+              ) : null}
+              <p className="rd-staff__weave-hint">{t('Toque numa cor para ver quem está nela.')}</p>
+            </section>
+          ) : null}
+
           {/* ─── Sumidos ──────────────────────────────────────────────────── */}
           {missingStudents.length > 0 ? (
             <section ref={missingRef} className="lv-section rd-staff__section">
@@ -1247,6 +1396,57 @@ const StaffDashboardView: React.FC<StaffDashboardViewProps> = ({
           ) : null}
         </div>
       </div>
+
+      {/* ─── Sheet da faixa (quem esta naquela cor) ───────────────────── */}
+      {weaveFocus ? (() => {
+        const group = academyWeave[weaveFocus.track].find((entry) => entry.belt === weaveFocus.belt);
+        if (!group) return null;
+        const people = [...group.people].sort((left, right) => (left.displayName ?? '').localeCompare(right.displayName ?? '', 'pt-BR'));
+        return (
+          <div className="lv-backdrop" role="presentation" onClick={() => setWeaveFocus(null)}>
+            <section
+              className="lv-sheet rd-staff__sheet"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="staff-home-belt-title"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <div className="lv-sheet__grip" aria-hidden="true" />
+              <div className="lv-sheet__head">
+                <div className="rd-staff__sheet-title-copy">
+                  <p className="lv-eyebrow">{weaveFocus.track === 'kids' ? t('Faixas da academia · Kids') : t('Faixas da academia')}</p>
+                  <h2 id="staff-home-belt-title" className="lv-title-lg">{t('Faixa {belt}', { belt: beltLabel(group.belt) })}</h2>
+                  <p className="rd-staff__sheet-subtitle">
+                    {people.length === 1 ? t('1 aluno') : t('{count} alunos', { count: people.length })}
+                  </p>
+                </div>
+                <button type="button" onClick={() => setWeaveFocus(null)} className="lv-icon-btn" aria-label={t('Fechar')}>
+                  <X size={18} strokeWidth={2} />
+                </button>
+              </div>
+              <div className="rd-staff__people rd-staff__people--sheet">
+                {people.map((person) => (
+                  <div key={person.id} className="rd-staff__person">
+                    {renderPersonAvatar(person.displayName, person.photoPath)}
+                    <button
+                      type="button"
+                      className="rd-staff__person-copy"
+                      onClick={onOpenStudent ? () => { setWeaveFocus(null); onOpenStudent(person.id); } : undefined}
+                      disabled={!onOpenStudent}
+                    >
+                      <span className="rd-staff__person-name">{person.displayName}</span>
+                      <span className="rd-staff__person-line">
+                        {person.stripes > 0 ? t('{degree}º grau', { degree: person.stripes }) : t('Sem grau')}
+                      </span>
+                    </button>
+                    {renderMiniBelt(person.id, person.displayName)}
+                  </div>
+                ))}
+              </div>
+            </section>
+          </div>
+        );
+      })() : null}
 
       {/* ─── Sheet da aula (confirmados) ──────────────────────────────── */}
       {selectedClass ? (
