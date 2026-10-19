@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowRight,
   CalendarDays,
@@ -7,6 +7,7 @@ import {
   Clock,
   Flame,
   MapPin,
+  QrCode,
   Sparkles,
 } from 'lucide-react';
 import {
@@ -19,7 +20,8 @@ import BeltImage from '../components/BeltImage';
 import { hasBeltImage } from '../beltImages';
 import { commitmentLevelClass } from '../components/CommitmentBar';
 import ScreenHeader from '../components/redesign/ScreenHeader';
-import { CountUp } from '../components/redesign/motion';
+import { CountUp, prefersReducedMotion } from '../components/redesign/motion';
+import { hapticConfirm, hapticError } from '../services/haptics';
 import MonthlyRecap from '../components/redesign/MonthlyRecap';
 import { useRedesignShell } from '../components/redesign/ShellContext';
 import {
@@ -65,6 +67,8 @@ export interface HomeViewProps {
   academyId?: string;
   /** Abre a tela de check-in por QR para a aula. */
   onStartCheckin?: (classId: string) => void;
+  /** Confirma/cancela a ida na aula. Devolve se o aluno ficou confirmado. Sem ele o botao nao aparece. */
+  onToggleRsvp?: (classId: string) => Promise<boolean>;
   onOpenEvolution?: () => void;
   onOpenClasses?: () => void;
 }
@@ -93,6 +97,47 @@ function useNow(intervalMs = 60_000): Date {
   return now;
 }
 
+/** Relogio de 1 s so enquanto `enabled` (contagem dos ultimos minutos antes da aula). */
+function useFastNow(enabled: boolean, fallback: Date): Date {
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    if (!enabled) return undefined;
+    setNow(new Date());
+    const id = window.setInterval(() => setNow(new Date()), 1000);
+    return () => window.clearInterval(id);
+  }, [enabled]);
+  return enabled ? now : fallback;
+}
+
+/** Janela antes do inicio em que o check-in vira a acao principal (igual ao Calendario). */
+const CHECKIN_WINDOW_MS = 30 * 60 * 1000;
+/** Nos ultimos 10 min a contagem anda de segundo em segundo. */
+const FINAL_COUNTDOWN_MS = 10 * 60 * 1000;
+/** Duracao do voo do avatar ate a fileira de rostos (igual ao CSS). */
+const RSVP_FLY_MS = 700;
+
+function formatCountdown(ms: number): string {
+  const totalSeconds = Math.max(0, Math.ceil(ms / 1000));
+  if (ms <= FINAL_COUNTDOWN_MS) {
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    return t('em {time}', { time: `${minutes}:${String(seconds).padStart(2, '0')}` });
+  }
+  const totalMinutes = Math.ceil(totalSeconds / 60);
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  if (hours === 0) return t('em {minutes} min', { minutes });
+  if (minutes === 0) return t('em {hours}h', { hours });
+  return t('em {hours}h {minutes}min', { hours, minutes });
+}
+
+interface RsvpFly {
+  dx: number;
+  dy: number;
+  left: number;
+  top: number;
+}
+
 const HomeView: React.FC<HomeViewProps> = ({
   user,
   monthlyAttendanceCount,
@@ -105,6 +150,7 @@ const HomeView: React.FC<HomeViewProps> = ({
   academyTimeZone,
   academyId,
   onStartCheckin,
+  onToggleRsvp,
   onOpenEvolution,
   onOpenClasses,
 }) => {
@@ -161,6 +207,74 @@ const HomeView: React.FC<HomeViewProps> = ({
     }
     return subscribeToClassRsvps(nextClassId, academyId, setGoers, () => setGoers([]));
   }, [nextClassId, academyId]);
+
+  // "Vou" otimista: vale ate a lista de confirmados (fonte de verdade) mudar depois da resposta.
+  const [rsvpOverride, setRsvpOverride] = useState<{ classId: string; rsvped: boolean } | null>(null);
+  const [rsvpBusy, setRsvpBusy] = useState(false);
+  const [rsvpError, setRsvpError] = useState('');
+  const [rsvpFly, setRsvpFly] = useState<RsvpFly | null>(null);
+  const classCardRef = useRef<HTMLElement>(null);
+  const rsvpButtonRef = useRef<HTMLButtonElement>(null);
+  const flyTimerRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (!rsvpBusy) setRsvpOverride(null);
+    // so quando chega um snapshot novo
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [goers]);
+  useEffect(() => () => {
+    if (flyTimerRef.current) window.clearTimeout(flyTimerRef.current);
+  }, []);
+  const goersHasMe = goers.some((entry) => entry.userId === user.id);
+  const myRsvp = rsvpOverride && rsvpOverride.classId === nextClassId ? rsvpOverride.rsvped : goersHasMe;
+
+  // Contagem: relogio de 1 s so nos ultimos 10 min antes da aula de hoje.
+  const nextStartMs = nextClass?.scheduledStart ? nextClass.scheduledStart.toDate().getTime() : null;
+  const msToStartCoarse = nextStartMs != null ? nextStartMs - now.getTime() : null;
+  const fastNow = useFastNow(
+    msToStartCoarse != null && msToStartCoarse > 0 && msToStartCoarse <= FINAL_COUNTDOWN_MS + 60_000,
+    now,
+  );
+
+  const handleToggleRsvp = async (classId: string) => {
+    if (!onToggleRsvp || rsvpBusy) return;
+    const wanted = !myRsvp;
+    const fromRect = rsvpButtonRef.current?.getBoundingClientRect() ?? null;
+    setRsvpError('');
+    setRsvpBusy(true);
+    setRsvpOverride({ classId, rsvped: wanted });
+    if (wanted && fromRect && !prefersReducedMotion()) {
+      // Mede o rosto do aluno depois de ele entrar na fileira e voa ate la.
+      window.requestAnimationFrame(() => {
+        const card = classCardRef.current;
+        const target = card?.querySelector<HTMLElement>('.rd-home__goer.is-me');
+        if (!card || !target) return;
+        const cardRect = card.getBoundingClientRect();
+        const toRect = target.getBoundingClientRect();
+        const left = fromRect.left + fromRect.width / 2 - cardRect.left;
+        const top = fromRect.top + fromRect.height / 2 - cardRect.top;
+        setRsvpFly({
+          left,
+          top,
+          dx: toRect.left + toRect.width / 2 - cardRect.left - left,
+          dy: toRect.top + toRect.height / 2 - cardRect.top - top,
+        });
+        if (flyTimerRef.current) window.clearTimeout(flyTimerRef.current);
+        flyTimerRef.current = window.setTimeout(() => setRsvpFly(null), RSVP_FLY_MS);
+      });
+    }
+    try {
+      const rsvped = await onToggleRsvp(classId);
+      setRsvpOverride({ classId, rsvped });
+      hapticConfirm();
+    } catch {
+      setRsvpOverride(null);
+      setRsvpFly(null);
+      setRsvpError(wanted ? t('Não deu para confirmar. Tente de novo.') : t('Não deu para cancelar. Tente de novo.'));
+      hapticError();
+    } finally {
+      setRsvpBusy(false);
+    }
+  };
 
   const attendedClassIds = useMemo(() => new Set(attendances.map((entry) => entry.classId)), [attendances]);
   const pendingClassIds = useMemo(
@@ -248,10 +362,12 @@ const HomeView: React.FC<HomeViewProps> = ({
 
   // ─── Quem vai ─────────────────────────────────────────────────────────────
   const renderGoers = () => {
-    if (goers.length === 0) return null;
-    const firstName = (name: string) => (name || '').trim().split(/\s+/)[0] || t('Aluno');
-    const mine = goers.find((entry) => entry.userId === user.id);
     const others = goers.filter((entry) => entry.userId !== user.id);
+    const mine = myRsvp
+      ? (goers.find((entry) => entry.userId === user.id) ?? { id: 'me', userId: user.id, userDisplayName: user.name } as FirestoreEntity<ClassRsvpRecord>)
+      : undefined;
+    if (!mine && others.length === 0) return null;
+    const firstName = (name: string) => (name || '').trim().split(/\s+/)[0] || t('Aluno');
     const names = [...(mine ? [t('Você')] : []), ...others.map((entry) => firstName(entry.userDisplayName))];
     const rest = names.length - 2;
     const text = names.length === 1
@@ -266,7 +382,10 @@ const HomeView: React.FC<HomeViewProps> = ({
       <div className="rd-home__goers">
         <span className="rd-home__goers-faces" aria-hidden="true">
           {shown.map((entry) => (
-            <span key={entry.id} className={`rd-home__goer${entry.userId === user.id ? ' is-me' : ''}`}>
+            <span
+              key={entry.id}
+              className={`rd-home__goer${entry.userId === user.id ? ' is-me' : ''}${entry.userId === user.id && rsvpFly ? ' is-arriving' : ''}`}
+            >
               {(entry.userDisplayName || '?').trim().charAt(0).toLocaleUpperCase()}
             </span>
           ))}
@@ -322,15 +441,54 @@ const HomeView: React.FC<HomeViewProps> = ({
     const typeLabel = classTypeLabel(nextClass.description) ?? nextClass.title;
     const attended = attendedClassIds.has(nextClass.id);
     const pending = !attended && pendingClassIds.has(nextClass.id);
+    const msToStart = start.getTime() - fastNow.getTime();
+    const countdown = isToday && !live && msToStart > 0 ? formatCountdown(msToStart) : null;
+    const finalMinutes = countdown != null && msToStart <= FINAL_COUNTDOWN_MS;
+    const checkinFirst = live || (isToday && msToStart <= CHECKIN_WINDOW_MS);
+    const canRsvp = Boolean(onToggleRsvp) && !live && msToStart > 0 && nextClass.status === 'scheduled';
+    const capacity = nextClass.capacity ?? 0;
+    const confirmedCount = Math.max(goers.length, nextClass.rsvpCount ?? 0);
+    const isFull = capacity > 0 && confirmedCount >= capacity && !myRsvp;
+    const trainingNumber = Math.max(user.attendanceCount ?? 0, 1);
+
+    const rsvpButton = (primary: boolean) => (
+      <button
+        ref={rsvpButtonRef}
+        type="button"
+        className={primary
+          ? 'lv-btn lv-btn--primary lv-btn--block rd-home__rsvp'
+          : 'lv-btn lv-btn--block rd-home__ghost-btn rd-home__rsvp'}
+        onClick={() => void handleToggleRsvp(nextClass.id)}
+        disabled={rsvpBusy}
+        aria-pressed={myRsvp}
+      >
+        {myRsvp ? t('Cancelar ida') : t('Confirmar ida')}
+      </button>
+    );
+    const checkinButton = onStartCheckin ? (
+      <button type="button" className="lv-btn lv-btn--primary lv-btn--block" onClick={() => onStartCheckin(nextClass.id)}>
+        <QrCode size={20} strokeWidth={2} />
+        {t('Fazer check-in')}
+      </button>
+    ) : null;
+    const youGo = myRsvp ? (
+      <p className="rd-home__rsvp-state" role="status">
+        <CircleCheck size={16} strokeWidth={2.2} aria-hidden="true" />
+        {t('Você vai')}
+        {canRsvp ? (
+          <button type="button" className="rd-home__inline-link" onClick={() => void handleToggleRsvp(nextClass.id)} disabled={rsvpBusy}>
+            {t('Cancelar ida')}
+          </button>
+        ) : null}
+      </p>
+    ) : null;
 
     let action: React.ReactNode = null;
-    if (!isToday) {
-      action = goToClasses;
-    } else if (attended) {
+    if (attended) {
       action = (
         <div className="rd-home__class-state rd-home__class-state--done" role="status">
           <CircleCheck size={20} strokeWidth={2} />
-          {t('Presença registrada')}
+          {t('{count}º treino · Presença registrada', { count: trainingNumber })}
         </div>
       );
     } else if (pending) {
@@ -340,23 +498,63 @@ const HomeView: React.FC<HomeViewProps> = ({
           {t('Solicitação pendente')}
         </div>
       );
-    } else if (onStartCheckin) {
+    } else if (isFull && !checkinFirst) {
       action = (
-        <button type="button" className="lv-btn lv-btn--primary lv-btn--block" onClick={() => onStartCheckin(nextClass.id)}>
-          <CircleCheck size={20} strokeWidth={2} />
-          {t('Fazer check-in')}
-        </button>
+        <>
+          <div className="rd-home__class-state rd-home__class-state--full" role="status">
+            {t('Aula lotada')}
+          </div>
+          {onOpenClasses ? (
+            <button type="button" className="rd-home__more-link" onClick={onOpenClasses}>{t('Ver outras aulas')}</button>
+          ) : null}
+        </>
       );
+    } else if (checkinFirst) {
+      // Na janela do check-in: o QR vira a acao principal; a ida fica como texto.
+      action = (
+        <>
+          {youGo}
+          {checkinButton}
+          {!myRsvp && canRsvp ? (
+            <button type="button" className="rd-home__more-link" onClick={() => void handleToggleRsvp(nextClass.id)} disabled={rsvpBusy}>
+              {t('Confirmar ida')}
+            </button>
+          ) : null}
+        </>
+      );
+    } else if (canRsvp) {
+      action = (
+        <>
+          {myRsvp ? youGo : rsvpButton(true)}
+          {isToday && onStartCheckin ? (
+            <button type="button" className="rd-home__more-link" onClick={() => onStartCheckin(nextClass.id)}>
+              {t('Já está no tatame? Fazer check-in')}
+            </button>
+          ) : onOpenClasses ? (
+            <button type="button" className="rd-home__more-link" onClick={onOpenClasses}>{t('Ver aulas')} ›</button>
+          ) : null}
+        </>
+      );
+    } else if (!isToday) {
+      action = goToClasses;
+    } else {
+      action = checkinButton;
     }
 
     return (
-      <section className="lv-card lv-card--ink rd-home__class" aria-label={t('Próxima aula')}>
+      <section ref={classCardRef} className="lv-card lv-card--ink rd-home__class" aria-label={t('Próxima aula')}>
         <div className="rd-home__class-top">
           <span className="lv-eyebrow">
             {live ? <span className="lv-live-dot" aria-hidden="true" style={{ marginRight: 8 }} /> : null}
             {eyebrow}
           </span>
-          <span className="lv-stripes" aria-hidden="true"><i /><i /><i /><i /></span>
+          {countdown ? (
+            <span className={`rd-home__countdown${finalMinutes ? ' is-final' : ''}`} aria-live={finalMinutes ? 'off' : 'polite'}>
+              {countdown}
+            </span>
+          ) : (
+            <span className="lv-stripes" aria-hidden="true"><i /><i /><i /><i /></span>
+          )}
         </div>
         <p className="rd-home__class-time">{formatClock(start, timeZone)}</p>
         <div className="rd-home__class-row">
@@ -371,6 +569,21 @@ const HomeView: React.FC<HomeViewProps> = ({
         </div>
         {renderGoers()}
         {action}
+        {rsvpError ? <p className="rd-home__rsvp-error" role="alert">{rsvpError}</p> : null}
+        {rsvpFly ? (
+          <span
+            className="rd-home__fly"
+            aria-hidden="true"
+            style={{
+              left: rsvpFly.left,
+              top: rsvpFly.top,
+              ['--fly-dx' as string]: `${rsvpFly.dx}px`,
+              ['--fly-dy' as string]: `${rsvpFly.dy}px`,
+            } as React.CSSProperties}
+          >
+            {(user.name || '?').trim().charAt(0).toLocaleUpperCase()}
+          </span>
+        ) : null}
       </section>
     );
   };

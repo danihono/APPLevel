@@ -2806,6 +2806,7 @@ const App: React.FC = () => {
       academyTimeZone={resolvedAcademy.timezone}
       academyId={resolvedAcademy.id}
       onStartCheckin={openStudentCheckin}
+      onToggleRsvp={async (classId) => (await backendFunctions.toggleClassRsvp({ classId })).rsvped}
       onOpenEvolution={() => setActiveTab('evolution')}
       onOpenClasses={() => setActiveTab('calendar')}
     />

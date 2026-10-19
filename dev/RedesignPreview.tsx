@@ -1,7 +1,7 @@
 // Galeria do redesign: http://localhost:3000/?preview=redesign (desenvolvimento) e o build de
 // demonstracao para o cliente (`npm run build:demo`). index.tsx so carrega este arquivo nesses dois
 // casos. Simula a visao do aluno e a do professor com dados ficticios, sem login e sem gravar nada.
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Timestamp } from 'firebase/firestore';
 import Layout from '../components/Layout';
 import CheckInScreen from '../components/redesign/CheckInScreen';
@@ -371,6 +371,8 @@ const RedesignPreview: React.FC = () => {
   const [dark, setDark] = useState(() => readParam('theme') === 'dark');
   const [menuOpen, setMenuOpen] = useState(false);
   const [overlayClosed, setOverlayClosed] = useState(false);
+  // Demo: ida do aluno por aula depois de tocar em Confirmar/Cancelar (antes disso vale o mockRsvps).
+  const previewRsvpRef = useRef(new Map<string, boolean>());
   const [selectedStudentId, setSelectedStudentId] = useState('aluno-marina');
   // Superadmin: unidade em foco ('' = rede inteira) e periodo das estatisticas.
   const [saAcademyId, setSaAcademyId] = useState('');
@@ -617,6 +619,14 @@ const RedesignPreview: React.FC = () => {
               academyTimeZone={previewAcademy.timezone}
               academyId={previewAcademy.id}
               onStartCheckin={() => setScreenId('aluno-checkin')}
+              onToggleRsvp={async (classId) => {
+                // Demo: alterna a ida localmente (nada vai ao Firebase).
+                const going = previewRsvpRef.current;
+                const current = going.get(classId)
+                  ?? (mockRsvps(classId) as Array<{ userId: string }>).some((entry) => entry.userId === previewStudent.id);
+                going.set(classId, !current);
+                return delay(!current, 450);
+              }}
               onOpenEvolution={() => goTab('evolution')}
               onOpenClasses={() => goTab('calendar')}
             />

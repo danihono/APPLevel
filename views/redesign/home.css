@@ -625,3 +625,112 @@ html.dark .rd-home__ghost-btn {
   white-space: nowrap;
   text-overflow: ellipsis;
 }
+
+/* ─── Proxima aula viva (ideia 6) ───────────────────────────────────────── */
+.rd-home__class {
+  position: relative;
+}
+
+.rd-home__countdown {
+  font-size: 15px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: var(--lv-gold-text);
+  white-space: nowrap;
+}
+
+.rd-home__countdown.is-final {
+  padding: 3px 10px;
+  border-radius: var(--lv-r-pill);
+  background: var(--lv-yellow);
+  color: var(--lv-on-yellow);
+}
+
+.rd-home__rsvp-state {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: var(--lv-space-1) 0 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--lv-text);
+}
+
+.rd-home__rsvp-state svg {
+  color: var(--lv-success);
+}
+
+.rd-home__inline-link,
+.rd-home__more-link {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-weight: 600;
+  color: var(--lv-text-soft);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.rd-home__inline-link {
+  margin-left: auto;
+  font-size: 14px;
+}
+
+.rd-home__more-link {
+  align-self: center;
+  min-height: 32px;
+  font-size: 14px;
+}
+
+.rd-home__inline-link:disabled,
+.rd-home__more-link:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.rd-home__class-state--full {
+  color: var(--lv-text-soft);
+}
+
+.rd-home__rsvp-error {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--lv-danger);
+}
+
+/* Voo do "Vou": a inicial sai do botao e pousa como primeiro rosto da fileira. */
+.rd-home__fly {
+  position: absolute;
+  z-index: 3;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  margin: -15px 0 0 -15px;
+  border-radius: 50%;
+  background: var(--lv-yellow);
+  color: var(--lv-on-yellow);
+  font-size: 12px;
+  font-weight: 800;
+  pointer-events: none;
+  box-shadow: 0 8px 18px rgba(240, 180, 41, 0.45);
+  animation: rd-home-fly 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+@keyframes rd-home-fly {
+  0% { transform: translate(0, 0) scale(1.7); opacity: 0.4; }
+  20% { transform: translate(0, 0) scale(1.6); opacity: 1; }
+  60% { transform: translate(calc(var(--fly-dx) * 0.6), calc(var(--fly-dy) * 0.6 - 40px)) scale(1.15); }
+  100% { transform: translate(var(--fly-dx), var(--fly-dy)) scale(1); }
+}
+
+.rd-home__goer.is-arriving {
+  opacity: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rd-home__fly { display: none; }
+}
