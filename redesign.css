@@ -2160,88 +2160,63 @@ html.dark .lv-empty {
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   Carregamento — fundo liso, marca LEVEL e uma linha amarela que corre.
-   Usado pelo LoadingScreen e pelo HTML estatico do index.html (antes do React).
-   Antes do App aplicar o tema (sem data-theme), segue o tema do sistema.
+   Carregamento — fundo escuro (como sempre foi, nos dois temas), a logo da Level com um brilho
+   quente suave atras, e uma linha amarela fina que corre. Usado pelo LoadingScreen e pelo HTML
+   estatico do index.html (antes do React).
    ═══════════════════════════════════════════════════════════════════════════ */
 .lv-loading {
-  --lv-loading-bg: #f4f2ee;
-  --lv-loading-ink: #16161e;
-  --lv-loading-mark: #16161e;
-  --lv-loading-soft: rgba(22, 22, 30, 0.5);
-  --lv-loading-track: rgba(22, 22, 30, 0.08);
   position: fixed;
   inset: 0;
   z-index: 90;
   display: grid;
   place-items: center;
   padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px);
-  background: var(--lv-loading-bg);
-  color: var(--lv-loading-ink);
+  background:
+    radial-gradient(60% 45% at 50% 46%, rgba(240, 180, 41, 0.07), transparent 70%),
+    radial-gradient(120% 80% at 50% 0%, #17171c 0%, #0b0b0e 60%);
+  background-color: #0b0b0e;
+  color: #ffffff;
   font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Inter', 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
 }
-html.dark .lv-loading {
-  --lv-loading-bg: #08080b;
-  --lv-loading-ink: #ffffff;
-  --lv-loading-mark: #f0b429;
-  --lv-loading-soft: rgba(255, 255, 255, 0.5);
-  --lv-loading-track: rgba(255, 255, 255, 0.1);
-}
-@media (prefers-color-scheme: dark) {
-  html:not([data-theme]) .lv-loading {
-    --lv-loading-bg: #08080b;
-    --lv-loading-ink: #ffffff;
-    --lv-loading-mark: #f0b429;
-    --lv-loading-soft: rgba(255, 255, 255, 0.5);
-    --lv-loading-track: rgba(255, 255, 255, 0.1);
-  }
-}
-.lv-loading.lv-loading--inline {
-  position: relative;
-  inset: auto;
-  z-index: auto;
-  min-height: 60vh;
-  padding: 0;
-  background: transparent;
-}
 .lv-loading__center {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 22px;
+  gap: 26px;
   padding: 0 24px;
 }
-.lv-loading__mark {
-  display: inline-flex;
-  align-items: center;
-  gap: 12px;
+.lv-loading__glow {
+  position: absolute;
+  top: -10%;
+  left: 50%;
+  width: 280px;
+  height: 280px;
+  margin-left: -140px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(240, 180, 41, 0.16) 0%, rgba(240, 180, 41, 0.05) 45%, transparent 70%);
+  filter: blur(8px);
+  pointer-events: none;
+  animation: lv-loading-glow 2.8s ease-in-out infinite;
 }
-.lv-loading__stripes {
-  display: inline-flex;
-  gap: 4px;
-}
-.lv-loading__stripes i {
+.lv-loading__logo {
+  position: relative;
   display: block;
-  width: 4px;
-  height: 22px;
-  border-radius: 1.5px;
-  background: var(--lv-loading-mark);
+  width: clamp(150px, 42vw, 200px);
+  height: auto;
 }
-.lv-loading__word {
-  font-size: 24px;
-  font-weight: 800;
-  letter-spacing: 0.22em;
-  margin-right: -0.22em;
-  line-height: 1;
+@keyframes lv-loading-glow {
+  0%, 100% { opacity: 0.65; transform: scale(0.96); }
+  50% { opacity: 1; transform: scale(1.04); }
 }
 .lv-loading__track {
   position: relative;
   display: block;
-  width: 112px;
+  width: 120px;
   height: 3px;
   border-radius: 999px;
   overflow: hidden;
-  background: var(--lv-loading-track);
+  background: rgba(255, 255, 255, 0.1);
 }
 .lv-loading__run {
   position: absolute;
@@ -2251,6 +2226,7 @@ html.dark .lv-loading {
   width: 40%;
   border-radius: inherit;
   background: #f0b429;
+  box-shadow: 0 0 10px rgba(240, 180, 41, 0.6);
   animation: lv-loading-run 1.4s cubic-bezier(0.45, 0, 0.25, 1) infinite;
 }
 @keyframes lv-loading-run {
@@ -2258,12 +2234,16 @@ html.dark .lv-loading {
   100% { transform: translateX(250%); }
 }
 .lv-loading__message {
-  margin: 0;
-  max-width: 260px;
+  /* Fora do fluxo: a logo fica exatamente no mesmo lugar da tela estatica do index.html. */
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  width: 260px;
+  margin: 18px 0 0 -130px;
   font-size: 13px;
   line-height: 1.45;
   text-align: center;
-  color: var(--lv-loading-soft);
+  color: rgba(255, 255, 255, 0.55);
   /* Carregamento rapido nao mostra texto: so aparece se demorar. */
   opacity: 0;
   animation: lv-loading-in 0.4s ease 0.6s forwards;
@@ -2271,7 +2251,17 @@ html.dark .lv-loading {
 @keyframes lv-loading-in {
   to { opacity: 1; }
 }
+/* Dentro do Layout (sessao, Suspense): ocupa a area de conteudo, sem cobrir menu nem avisos. */
+.lv-loading.lv-loading--inline {
+  position: relative;
+  inset: auto;
+  z-index: auto;
+  min-height: 60vh;
+  padding: 24px 0;
+  border-radius: 28px;
+}
 @media (prefers-reduced-motion: reduce) {
+  .lv-loading__glow { animation: none; }
   .lv-loading__run {
     width: 100%;
     animation: lv-loading-breathe 2.4s ease-in-out infinite;

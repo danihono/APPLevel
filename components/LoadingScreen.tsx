@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import logoUrl from '../assets/loading-logo.webp';
 
 interface LoadingScreenProps {
   message?: string;
@@ -13,10 +14,10 @@ interface LoadingScreenProps {
 const LOADING_CYCLE_MS = 1400;
 
 /**
- * Tela de carregamento: fundo liso na cor do app, marca LEVEL no centro e uma linha amarela
- * fina que corre. Sem imagem (aparece na hora). O mesmo visual existe em HTML estatico no
- * `index.html` (antes do React montar); o atraso negativo da animacao mantem a linha no mesmo
- * ponto quando uma etapa de carregamento troca pela seguinte, entao nada "pisca".
+ * Tela de carregamento: fundo escuro, a logo da Level no centro (versao leve de logo3.png, com o
+ * "JIU JITSU" clareado para aparecer no escuro) e uma linha amarela fina que corre. O mesmo visual
+ * existe em HTML estatico no `index.html` (antes do React montar); o atraso negativo da animacao
+ * mantem a linha no mesmo ponto quando uma etapa de carregamento troca pela seguinte.
  * CSS em redesign.css (bloco "Carregamento").
  */
 export function LoadingScreen({ message, inline = false }: LoadingScreenProps) {
@@ -28,14 +29,12 @@ export function LoadingScreen({ message, inline = false }: LoadingScreenProps) {
   return (
     <div className={`lv-loading${inline ? ' lv-loading--inline' : ''}`} role="status" aria-live="polite">
       <div className="lv-loading__center">
-        <span className="lv-loading__mark" aria-hidden="true">
-          <span className="lv-loading__stripes"><i /><i /><i /><i /></span>
-          <span className="lv-loading__word">LEVEL</span>
-        </span>
+        <span className="lv-loading__glow" aria-hidden="true" />
+        <img className="lv-loading__logo" src={logoUrl} alt="Level Jiu Jitsu" width={360} height={376} decoding="async" />
         <span className="lv-loading__track" aria-hidden="true">
           <span className="lv-loading__run" style={phaseStyle} />
         </span>
-        {message ? <p className="lv-loading__message">{message}</p> : <span className="lv-sr-only">LEVEL</span>}
+        {message ? <p className="lv-loading__message">{message}</p> : null}
       </div>
     </div>
   );
