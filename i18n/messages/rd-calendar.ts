@@ -19,4 +19,11 @@ export const rdCalendarMessages: MessageCatalog = {
   "Problemas com o QR?": { en: "Trouble with the QR?", es: "¿Problemas con el QR?" },
   "Solicitar presença fica disponível quando a aula começar.": { en: "Requesting attendance opens when the class starts.", es: "Solicitar asistencia se habilita cuando empiece la clase." },
   "Detalhes da aula": { en: "Class details", es: "Detalles de la clase" },
+  "Encerrar {title}?": { en: "End {title}?", es: "¿Finalizar {title}?" },
+  "Esqueceu alguém?": { en: "Forgot someone?", es: "¿Olvidaste a alguien?" },
+  "Confirmaram ida e ainda não têm presença. Toque para marcar.": { en: "They said they'd come but have no attendance yet. Tap to mark.", es: "Confirmaron asistencia y aún no tienen presencia. Toca para marcar." },
+  "Marcar presença de {name}": { en: "Mark {name} present", es: "Marcar asistencia de {name}" },
+  "Deslize para encerrar": { en: "Slide to end class", es: "Desliza para finalizar" },
+  "Encerrar aula": { en: "End class", es: "Finalizar clase" },
+  "Encerrar sem deslizar": { en: "End without sliding", es: "Finalizar sin deslizar" },
 };

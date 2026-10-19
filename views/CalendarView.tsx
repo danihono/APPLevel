@@ -36,6 +36,7 @@ import { t, getLocale, createDateFormatter } from '../i18n';
 import { hapticConfirm } from '../services/haptics';
 import { classEndDate } from '../trainingStats';
 import EmptyState from '../components/redesign/EmptyState';
+import SlideToConfirm from '../components/redesign/SlideToConfirm';
 
 // photoPath so e uma URL exibivel quando comeca com http (ver adapters.ts).
 const photoToAvatar = (p?: string) => (p && p.startsWith('http') ? p : undefined);
@@ -874,6 +875,9 @@ const CalendarView: React.FC<CalendarViewProps> = ({
   const [finishQrData, setFinishQrData] = useState<QrSessionPayload | null>(null);
   const [finishBusy, setFinishBusy] = useState(false);
   const [finishCountdown, setFinishCountdown] = useState('');
+  // Encerrar: QR recolhido e quem foi marcado agora pelo "Esqueceu alguem?" (antes do snapshot chegar).
+  const [finishQrOpen, setFinishQrOpen] = useState(false);
+  const [finishMarkedIds, setFinishMarkedIds] = useState<string[]>([]);
   const [scannerOpen, setScannerOpen] = useState(false);
   const [scannerClassId, setScannerClassId] = useState<string | null>(null);
   const [myRsvpByClass, setMyRsvpByClass] = useState<Record<string, boolean>>({});
@@ -1540,6 +1544,8 @@ const CalendarView: React.FC<CalendarViewProps> = ({
     try {
       const freshQr = await onRefreshQr(classId);
       setFinishQrData(freshQr);
+      setFinishQrOpen(false);
+      setFinishMarkedIds([]);
       setFinishConfirmClassId(classId);
     } catch (error) {
       setMessageByClass((current) => ({
@@ -1583,16 +1589,19 @@ const CalendarView: React.FC<CalendarViewProps> = ({
     }
   }
 
-  async function handleMarkStudentPresent(classId: string, studentId: string) {
+  /** Marca a presenca na mao. Devolve se deu certo (o erro fica em studentErrorById). */
+  async function handleMarkStudentPresent(classId: string, studentId: string): Promise<boolean> {
     const busyKey = `manual_${studentId}`;
     setStudentErrorById((prev) => ({ ...prev, [studentId]: '' }));
     setBusyByClass((prev) => ({ ...prev, [busyKey]: true }));
     try {
       await onMarkStudentPresent?.(classId, studentId);
       hapticConfirm();
+      return true;
     } catch (error) {
       const msg = error instanceof Error ? error.message : t('Erro ao marcar presença.');
       setStudentErrorById((prev) => ({ ...prev, [studentId]: msg }));
+      return false;
     } finally {
       setBusyByClass((prev) => ({ ...prev, [busyKey]: false }));
     }
@@ -1619,7 +1628,8 @@ const CalendarView: React.FC<CalendarViewProps> = ({
 
   function buildFinishSummary(classId: string): FinishSummary | null {
     if (!selectedClass || selectedClass.id !== classId) return null;
-    const presentIds = Array.from(new Set(classAttendances.map((entry) => entry.userId)));
+    // Inclui quem foi marcado agora pelo "Esqueceu alguem?" e ainda nao chegou no snapshot.
+    const presentIds = Array.from(new Set([...classAttendances.map((entry) => entry.userId), ...finishMarkedIds]));
     const presentSet = new Set(presentIds);
     const nameOf = (userId: string) => confirmedRoster.find((entry) => entry.userId === userId)?.displayName
       ?? studentById.get(userId)?.displayName
@@ -3364,86 +3374,132 @@ const CalendarView: React.FC<CalendarViewProps> = ({
         </div>
       ) : null}
 
-      {finishConfirmClassId && finishQrData ? (
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            zIndex: 75,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            background: 'rgba(0,0,0,0.75)',
-            padding: 20,
-          }}
-        >
-          <div
-            className="app-panel"
-            style={{
-              width: '100%',
-              maxWidth: 360,
-              borderRadius: '1.8rem',
-              padding: 28,
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              gap: 16,
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <StopCircle size={20} style={{ color: 'var(--danger, #e05252)' }} />
-              <span style={{ fontWeight: 700, fontSize: '1rem' }}>{t('Encerrar aula?')}</span>
-            </div>
+      {finishConfirmClassId && finishQrData ? (() => {
+        const finishClass = classes.find((entry) => entry.id === finishConfirmClassId) ?? null;
+        const markedNow = finishMarkedIds.filter((userId) => !attendanceByUserId.has(userId));
+        const markedCount = classAttendances.length + markedNow.length;
+        // Confirmaram ida e ainda nao tem presenca: candidatos a "esqueci de marcar".
+        const forgotten = confirmedRoster.filter((entry) => !entry.record && entry.sourceOrder === 0);
+        const closeFinish = () => {
+          if (finishBusy) return;
+          setFinishConfirmClassId(null);
+          setFinishQrData(null);
+        };
+        return (
+          <div className="lv-backdrop rd-finish-backdrop" onClick={closeFinish}>
+            <section
+              className="rd-finish"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="rd-finish-title"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <div className="lv-sheet__grip" aria-hidden="true" />
+              <header className="rd-finish__head">
+                <h2 id="rd-finish-title">
+                  {finishClass ? t('Encerrar {title}?', { title: finishClass.title }) : t('Encerrar aula?')}
+                </h2>
+                {finishClass ? (
+                  <p>{[classTimeRange(finishClass), finishClass.tatame || t('Tatame principal')].join(' · ')}</p>
+                ) : null}
+              </header>
 
-            {/* Resumo de presença */}
-            <div style={{ display: 'flex', gap: 12, width: '100%', justifyContent: 'center' }}>
-              <div style={{ textAlign: 'center' }}>
-                <p style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--text-strong)' }}>{classAttendances.length}</p>
-                <p style={{ fontSize: '0.7rem', color: 'var(--text-soft)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{t('marcados')}</p>
+              <div className="rd-finish__nums">
+                <div>
+                  <strong key={markedCount} className="rd-finish__num">{markedCount}</strong>
+                  <span>{t('marcados')}</span>
+                </div>
+                <div>
+                  <strong className="rd-finish__num">{selectedClassRsvpCount}</strong>
+                  <span>{t('confirmaram ida')}</span>
+                </div>
               </div>
-              <div style={{ width: 1, background: 'var(--border)', alignSelf: 'stretch' }} />
-              <div style={{ textAlign: 'center' }}>
-                <p style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--text-strong)' }}>{selectedClassRsvpCount}</p>
-                <p style={{ fontSize: '0.7rem', color: 'var(--text-soft)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{t('confirmaram ida')}</p>
-              </div>
-            </div>
 
-            <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', textAlign: 'center', lineHeight: 1.5 }}>
-              {t('Mostre este QR para quem ainda não marcou presença')}
-            </p>
-            <div style={{ background: '#fff', padding: 14, borderRadius: 16 }}>
-              <QRCodeSVG
-                value={`${window.location.origin}?checkin=${encodeURIComponent(finishQrData.qrToken)}&classId=${encodeURIComponent(finishQrData.classId)}`}
-                size={220}
-                level="M"
+              {forgotten.length > 0 && onMarkStudentPresent ? (
+                <div className="rd-finish__forgot">
+                  <h3>{t('Esqueceu alguém?')}</h3>
+                  <p>{t('Confirmaram ida e ainda não têm presença. Toque para marcar.')}</p>
+                  <div className="rd-finish__people">
+                    {forgotten.map((entry) => {
+                      const busyMark = !!busyByClass[`manual_${entry.userId}`];
+                      const done = finishMarkedIds.includes(entry.userId);
+                      const firstName = entry.displayName.trim().split(/\s+/)[0] || entry.displayName;
+                      return (
+                        <button
+                          key={entry.userId}
+                          type="button"
+                          className={`rd-finish__person${done ? ' is-done' : ''}`}
+                          disabled={busyMark || done || finishBusy}
+                          aria-label={t('Marcar presença de {name}', { name: entry.displayName })}
+                          onClick={() => {
+                            setFinishMarkedIds((current) => [...current, entry.userId]);
+                            void handleMarkStudentPresent(finishConfirmClassId, entry.userId).then((ok) => {
+                              // Falhou: volta para a fileira (o erro aparece embaixo do nome).
+                              if (!ok) setFinishMarkedIds((current) => current.filter((id) => id !== entry.userId));
+                            });
+                          }}
+                        >
+                          <span className="rd-finish__avatar">
+                            {photoToAvatar(entry.photoPath)
+                              ? <img src={photoToAvatar(entry.photoPath)} alt="" />
+                              : <span>{entry.displayName.trim().charAt(0).toLocaleUpperCase()}</span>}
+                            <span className="rd-finish__plus" aria-hidden="true">
+                              {done ? <CircleCheck size={14} strokeWidth={2.6} /> : <Plus size={14} strokeWidth={3} />}
+                            </span>
+                          </span>
+                          <span className="rd-finish__name">{firstName}</span>
+                          {studentErrorById[entry.userId] ? (
+                            <span className="rd-finish__error" role="alert">{studentErrorById[entry.userId]}</span>
+                          ) : null}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : null}
+
+              <div className={`rd-finish__qr${finishQrOpen ? ' is-open' : ''}`}>
+                <button type="button" className="rd-finish__qr-btn" onClick={() => setFinishQrOpen((open) => !open)} aria-expanded={finishQrOpen}>
+                  <QrCode size={18} aria-hidden="true" />
+                  <span>{t('Mostre este QR para quem ainda não marcou presença')}</span>
+                  <ChevronDown size={16} aria-hidden="true" />
+                </button>
+                {finishQrOpen ? (
+                  <div className="rd-finish__qr-body">
+                    <div className="rd-finish__qr-code">
+                      <QRCodeSVG
+                        value={`${window.location.origin}?checkin=${encodeURIComponent(finishQrData.qrToken)}&classId=${encodeURIComponent(finishQrData.classId)}`}
+                        size={180}
+                        level="M"
+                      />
+                    </div>
+                    <p>
+                      {finishCountdown && finishCountdown !== '00:00' ? t('Expira em {time}', { time: finishCountdown }) : t('Renovando QR...')}
+                    </p>
+                  </div>
+                ) : null}
+              </div>
+
+              <SlideToConfirm
+                label={t('Deslize para encerrar')}
+                ariaLabel={t('Encerrar aula')}
+                busyLabel={t('Encerrando...')}
+                busy={finishBusy}
+                onConfirm={() => void handleConfirmFinish()}
               />
-            </div>
-            <p style={{ fontSize: '0.78rem', color: 'var(--text-soft)' }}>
-              {finishCountdown && finishCountdown !== '00:00' ? t('Expira em {time}', { time: finishCountdown }) : t('Renovando QR...')}
-            </p>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, width: '100%' }}>
-              <button type="button" onClick={() => void handleConfirmFinish()} disabled={finishBusy} className="app-button app-button--green app-button--block">
-                <StopCircle size={14} />
-                {finishBusy ? t('Encerrando...') : t('Confirmar encerramento')}
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setFinishConfirmClassId(null);
-                  setFinishQrData(null);
-                }}
-                disabled={finishBusy}
-                className="app-button app-button--ghost app-button--block"
-              >
-                {t('Continuar aula')}
-              </button>
-            </div>
-            <p style={{ fontSize: '0.72rem', color: 'var(--text-soft)', textAlign: 'center', lineHeight: 1.5 }}>
-              {t('Após encerrar, você ainda poderá marcar presenças manualmente.')}
-            </p>
+              <div className="rd-finish__foot">
+                <button type="button" className="rd-finish__link" onClick={closeFinish} disabled={finishBusy}>
+                  {t('Continuar aula')}
+                </button>
+                <button type="button" className="rd-finish__link" onClick={() => void handleConfirmFinish()} disabled={finishBusy}>
+                  {t('Encerrar sem deslizar')}
+                </button>
+              </div>
+              <p className="rd-finish__note">{t('Após encerrar, você ainda poderá marcar presenças manualmente.')}</p>
+            </section>
           </div>
-        </div>
-      ) : null}
+        );
+      })() : null}
 
       {scannerOpen ? (
         <div
