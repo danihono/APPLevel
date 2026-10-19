@@ -57,6 +57,7 @@ type UserSeed = {
   lastDays?: number;
   competitor?: boolean;
   birth?: string;
+  since?: number;
 };
 
 // Aniversario daqui a `inDays` dias (aparece em "Aniversariantes da semana").
@@ -66,8 +67,8 @@ const birthIn = (year: number, inDays: number) => {
 };
 
 const seeds: UserSeed[] = [
-  { id: 'aluno-daniel', first: 'Daniel', last: 'Honorato', belt: 'white', stripes: 2, count: 60, lastDays: 1, competitor: true, birth: '1995-04-12' },
-  { id: 'prof-murilo', first: 'Murilo', last: 'Ale', role: 'professor', belt: 'black', stripes: 2, count: 320, birth: '1988-02-01' },
+  { id: 'aluno-daniel', first: 'Daniel', last: 'Honorato', belt: 'white', stripes: 2, count: 60, lastDays: 1, competitor: true, birth: '1995-04-12', since: 2024 },
+  { id: 'prof-murilo', first: 'Murilo', last: 'Ale', role: 'professor', belt: 'black', stripes: 2, count: 320, birth: '1988-02-01', since: 2006 },
   { id: 'prof-ricardo', first: 'Ricardo', last: 'Saldanha', role: 'professor', belt: 'black', stripes: 4, count: 0, birth: '1980-06-20' },
   { id: 'aluno-lucas', first: 'Lucas', last: 'Prado', belt: 'white', stripes: 4, count: 150, lastDays: 0, birth: '1999-01-03' },
   { id: 'aluno-marina', first: 'Marina', last: 'Couto', belt: 'blue', stripes: 3, count: 286, lastDays: 0, birth: '1997-07-07' },
@@ -109,6 +110,7 @@ export const previewUsers: Array<FirestoreEntity<UserRecord>> = seeds.map((seed)
   beltPromotions: 1,
   lastAttendanceAt: seed.lastDays === undefined ? undefined : ts(dayAt(-seed.lastDays, 19)),
   createdAt: ts(dayAt(-400, 10)),
+  trainingStartDate: seed.since ? ts(new Date(seed.since, 2, 1)) : undefined,
   lastGraduationDateOverride: seed.role === 'professor' ? ts(new Date(2019, 3, 10)) : undefined,
 }));
 

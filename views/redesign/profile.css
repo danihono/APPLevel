@@ -650,3 +650,113 @@ html.dark .rd-profile__hero {
   -webkit-backdrop-filter: var(--lv-glass-blur);
   backdrop-filter: var(--lv-glass-blur);
 }
+
+/* ═══ Carteirinha de atleta (ideia 5) ══════════════════════════════════════ */
+/* O cartao de identidade vira carteirinha: foto e nome lado a lado, chips, "Atleta desde"
+   e a faixa na base. Reflexo segue o dedo/mouse; inclinacao leve so com mouse. */
+html .rd-profile__idcard.rd-profile__idcard {
+  align-items: stretch;
+  gap: 14px;
+  padding: 18px 20px 16px;
+  border-radius: 24px;
+  text-align: left;
+  touch-action: pan-y;
+  transform: perspective(800px) rotateX(var(--rd-card-rx, 0deg)) rotateY(var(--rd-card-ry, 0deg));
+  transition: transform 0.25s ease-out;
+}
+
+.rd-profile__idcard .rd-profile__identity {
+  flex-direction: row;
+  align-items: center;
+  gap: 14px;
+}
+
+.rd-profile__idcard .rd-profile__avatar {
+  flex: none;
+  width: 64px;
+  height: 64px;
+  font-size: 26px;
+}
+
+.rd-profile__idcard .rd-profile__who {
+  min-width: 0;
+}
+
+.rd-profile__idcard .rd-profile__name {
+  font-size: 22px;
+  line-height: 1.12;
+  overflow-wrap: anywhere;
+}
+
+.rd-profile__idcard .rd-profile__team {
+  margin-top: 3px;
+  font-size: 14px;
+}
+
+.rd-profile__idcard .rd-profile__chips {
+  justify-content: flex-start;
+}
+
+.rd-profile__idcard-foot {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.rd-profile__idcard-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 24px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--lv-text-soft);
+}
+
+.rd-profile__idcard-comp {
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: #16161e;
+  color: #f0b429;
+  font-size: 11.5px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+html.dark .rd-profile__idcard-comp {
+  background: #f0b429;
+  color: #1a1300;
+}
+
+.rd-profile__idcard .rd-profile__belt {
+  width: 100%;
+  max-width: none;
+  margin: 2px auto 0;
+}
+
+.rd-profile__idcard.lv-glass-hero.lv-glass-hero > .rd-profile__idcard-shine {
+  position: absolute;
+  z-index: 2;
+  inset: -40%;
+  pointer-events: none;
+  background: linear-gradient(115deg, transparent 40%, rgba(255, 255, 255, 0.5) 50%, transparent 60%);
+  mix-blend-mode: soft-light;
+  transform: translateX(var(--rd-card-sx, -70%));
+  transition: transform 0.18s ease-out;
+}
+
+html.dark .rd-profile__idcard.lv-glass-hero.lv-glass-hero > .rd-profile__idcard-shine {
+  background: linear-gradient(115deg, transparent 42%, rgba(255, 255, 255, 0.16) 50%, transparent 58%);
+  mix-blend-mode: normal;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html .rd-profile__idcard.rd-profile__idcard {
+    transform: none;
+    transition: none;
+  }
+  .rd-profile__idcard.lv-glass-hero.lv-glass-hero > .rd-profile__idcard-shine {
+    display: none;
+  }
+}

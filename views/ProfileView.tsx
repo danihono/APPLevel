@@ -9,6 +9,7 @@ import {
   type ProgressionRules,
 } from '../beltCatalog';
 import { resolveAttendanceDate } from '../attendanceUtils';
+import { prefersReducedMotion } from '../components/redesign/motion';
 import { commitmentLevelClass, commitmentNote } from '../components/CommitmentBar';
 import type { CommitmentResult } from '../commitmentScale';
 import { nonCountingReasonLabel } from '../classRules';
@@ -440,9 +441,48 @@ const ProfileView: React.FC<ProfileViewProps> = ({
     </div>
   );
 
+  // Carteirinha: "Atleta desde" = inicio do treino informado, senao a graduacao mais antiga; sem dado, some.
+  const athleteSinceYear = useMemo(() => {
+    const fromProfile = profile.trainingStartDate?.toDate();
+    if (fromProfile && !Number.isNaN(fromProfile.getTime())) return fromProfile.getFullYear();
+    const promoted = graduations
+      .map((graduation) => graduation.promotedAt?.toDate())
+      .filter((date): date is Date => Boolean(date) && !Number.isNaN(date!.getTime()));
+    if (promoted.length === 0) return null;
+    return Math.min(...promoted.map((date) => date.getFullYear()));
+  }, [graduations, profile.trainingStartDate]);
+
+  // Reflexo que segue o dedo/mouse e inclinacao leve (sem sensor; desligado com reduced motion).
+  const handleCardPointerMove = (event: React.PointerEvent<HTMLElement>) => {
+    const card = event.currentTarget;
+    const rect = card.getBoundingClientRect();
+    const x = (event.clientX - rect.left) / rect.width - 0.5;
+    const y = (event.clientY - rect.top) / rect.height - 0.5;
+    card.style.setProperty('--rd-card-sx', `${Math.round(x * 120)}%`);
+    if (event.pointerType === 'mouse' && !prefersReducedMotion()) {
+      card.style.setProperty('--rd-card-ry', `${(x * 8).toFixed(1)}deg`);
+      card.style.setProperty('--rd-card-rx', `${(-y * 6).toFixed(1)}deg`);
+    }
+  };
+  const handleCardPointerLeave = (event: React.PointerEvent<HTMLElement>) => {
+    const card = event.currentTarget;
+    card.style.removeProperty('--rd-card-sx');
+    card.style.removeProperty('--rd-card-ry');
+    card.style.removeProperty('--rd-card-rx');
+  };
+
   const renderHero = (staff: boolean) => (
-    <section ref={heroRef} className="rd-profile__hero lv-glass-hero">
+    <section
+      ref={heroRef}
+      className="rd-profile__hero rd-profile__idcard lv-glass-hero"
+      aria-label={staff ? t('Carteirinha') : t('Carteirinha de atleta')}
+      onPointerMove={handleCardPointerMove}
+      onPointerLeave={handleCardPointerLeave}
+      onPointerUp={handleCardPointerLeave}
+      onPointerCancel={handleCardPointerLeave}
+    >
       <span className="lv-glass-hero__sheen" aria-hidden="true" />
+      <span className="rd-profile__idcard-shine" aria-hidden="true" />
       <div className="rd-profile__hero-top">
         <span className="rd-profile__eyebrow">
           {staff ? `LEVEL · ${roleLabel(profile.role)}` : t('LEVEL · Atleta')}
@@ -487,14 +527,6 @@ const ProfileView: React.FC<ProfileViewProps> = ({
         </div>
       </div>
 
-      <BeltImage
-        belt={user.belt}
-        stripes={user.stripes}
-        blackBelt={blackBeltProgress}
-        className="rd-profile__belt"
-        alt={beltTitle}
-      />
-
       <div className="rd-profile__chips">
         <span className="rd-profile__chip is-yellow">{beltTitle}</span>
         <span className="rd-profile__chip">
@@ -503,7 +535,24 @@ const ProfileView: React.FC<ProfileViewProps> = ({
             : (blackBeltProgress ? (blackBeltProgress.degreeLabel || t('Faixa lisa')) : t('{count} graus', { count: user.stripes }))}
         </span>
         <span className="rd-profile__chip">{t(user.type)}</span>
-        {!staff && profile.isCompetitor ? <span className="rd-profile__chip is-outline">{t('Competidor')}</span> : null}
+      </div>
+
+      <div className="rd-profile__idcard-foot">
+        {athleteSinceYear || (!staff && profile.isCompetitor) ? (
+          <div className="rd-profile__idcard-meta">
+            {athleteSinceYear ? (
+              <span>{staff ? t('No tatame desde {year}', { year: athleteSinceYear }) : t('Atleta desde {year}', { year: athleteSinceYear })}</span>
+            ) : <span />}
+            {!staff && profile.isCompetitor ? <span className="rd-profile__idcard-comp">{t('Competidor')}</span> : null}
+          </div>
+        ) : null}
+        <BeltImage
+          belt={user.belt}
+          stripes={user.stripes}
+          blackBelt={blackBeltProgress}
+          className="rd-profile__belt"
+          alt={beltTitle}
+        />
       </div>
 
       {staffPhotoFeedback ? <p className="rd-profile__hero-note is-ok">{staffPhotoFeedback}</p> : null}
