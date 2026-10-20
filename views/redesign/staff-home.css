@@ -1231,3 +1231,15 @@ button.rd-staff__team {
   font-weight: 600;
   color: var(--lv-text-muted);
 }
+
+/* Os 3 numeros ficam sobre o fundo amarelo do topo (celular): vidro mais firme para ler bem. */
+/* Especificidade alta de proposito: vence o vidro generico de .lv-card (redesign.css). */
+.has-top-backdrop.has-top-backdrop .rd-staff__trio .rd-staff__tile.rd-staff__tile.rd-staff__tile {
+  background: rgba(255, 255, 255, 0.84);
+  border-color: rgba(255, 255, 255, 0.95);
+}
+
+html.dark .has-top-backdrop.has-top-backdrop .rd-staff__trio .rd-staff__tile.rd-staff__tile.rd-staff__tile {
+  background: rgba(28, 28, 34, 0.86);
+  border-color: rgba(255, 255, 255, 0.1);
+}

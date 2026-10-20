@@ -647,6 +647,8 @@ const StaffDashboardView: React.FC<StaffDashboardViewProps> = ({
     .join(', ')}`;
 
   const pulseRef = useRef<HTMLElement>(null);
+  // O fundo amarelo do topo desce ate o fim dos 3 numeros (logo abaixo do pulso).
+  const trioRef = useRef<HTMLDivElement>(null);
   const resolveRef = useRef<HTMLElement>(null);
   const missingRef = useRef<HTMLElement>(null);
   const nearRef = useRef<HTMLElement>(null);
@@ -1010,7 +1012,7 @@ const StaffDashboardView: React.FC<StaffDashboardViewProps> = ({
 
   return (
     <div className="lv-screen rd-staff has-top-backdrop">
-      <TopBackdrop anchorRef={pulseRef} />
+      <TopBackdrop anchorRef={trioRef} />
       <ScreenHeader
         eyebrow={eyebrow}
         title={firstName ? `${t(getGreeting(now))}, ${firstName}.` : `${t(getGreeting(now))}.`}
@@ -1070,7 +1072,7 @@ const StaffDashboardView: React.FC<StaffDashboardViewProps> = ({
           </section>
 
           {/* ─── Tres numeros ──────────────────────────────────────────── */}
-          <div className="rd-staff__trio">
+          <div ref={trioRef} className="rd-staff__trio">
             <article className="lv-card rd-staff__tile">
               {onNavigateToStudents ? (
                 <button type="button" className="rd-staff__tile-main" onClick={onNavigateToStudents}>

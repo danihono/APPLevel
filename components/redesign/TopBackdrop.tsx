@@ -12,6 +12,21 @@ interface TopBackdropProps {
  * Fica atras do conteudo e acompanha a altura do cartao; a tela pai precisa da classe
  * `has-top-backdrop` (ver redesign.css).
  */
+/**
+ * Fim do elemento em relacao ao `ancestor`, pelo layout (offsetTop), ignorando `transform`: os cartoes
+ * entram com animacao de subida e o getBoundingClientRect pegaria a posicao no meio da animacao.
+ */
+function layoutBottom(element: HTMLElement, ancestor: HTMLElement): number {
+  let top = 0;
+  let node: HTMLElement | null = element;
+  while (node && node !== ancestor) {
+    top += node.offsetTop;
+    node = node.offsetParent as HTMLElement | null;
+  }
+  if (node === ancestor) return top + element.offsetHeight;
+  return element.getBoundingClientRect().bottom - ancestor.getBoundingClientRect().top;
+}
+
 const TopBackdrop: React.FC<TopBackdropProps> = ({ anchorRef, extend = 14 }) => {
   const ref = useRef<HTMLDivElement>(null);
   const [height, setHeight] = useState<number | null>(null);
@@ -31,7 +46,7 @@ const TopBackdrop: React.FC<TopBackdropProps> = ({ anchorRef, extend = 14 }) => 
       const wide = typeof window.matchMedia === 'function' && window.matchMedia('(min-width: 980px)').matches;
       const header = wide ? parent.querySelector<HTMLElement>(':scope > .lv-header') : null;
       const target = header ?? anchor;
-      const next = Math.round(target.getBoundingClientRect().bottom - parent.getBoundingClientRect().top + extend);
+      const next = Math.round(layoutBottom(target, parent) + extend);
       setHeight((current) => (current === next ? current : next));
     };
     update();
