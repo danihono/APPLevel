@@ -75,8 +75,7 @@ const BIRTHDAY_WINDOW_DAYS = 7;
 const weekdayShortFormatter = createDateFormatter({ weekday: 'short', day: '2-digit', month: '2-digit' });
 // Pulso da academia: janela de "treinaram" e limite de tracinhos do anel (1 por aluno ate esse total).
 const PULSE_WINDOW_DAYS = 7;
-const MAX_RING_TICKS = 36;
-const PULSE_BAR_MAX_HEIGHT = 34;
+const PULSE_BAR_MAX_HEIGHT = 96;
 const STACK_PREVIEW_SIZE = 5;
 const weekdayNarrowFormatter = createDateFormatter({ weekday: 'narrow' });
 const weekdayLongFormatter = createDateFormatter({ weekday: 'long' });
@@ -1023,30 +1022,25 @@ const StaffDashboardView: React.FC<StaffDashboardViewProps> = ({
           {/* ─── Pulso da academia ─────────────────────────────────────── */}
           <section ref={pulseRef} className="lv-card lv-glass-hero rd-staff__pulse" aria-label={t('Pulso da academia')}>
             <span className="lv-glass-hero__sheen" aria-hidden="true" />
-            <div className="rd-staff__pulse-top">
-              <TickRing
-                total={activeStudents.length}
-                lit={trainedRecently}
-                label={t('{percent}% dos alunos ativos treinaram nos últimos 7 dias', { percent: trainedPercent })}
-              >
-                <strong className="rd-staff__ring-value"><CountUp value={trainedPercent} suffix="%" /></strong>
-              </TickRing>
-              <p className="rd-staff__pulse-line">
-                {activeStudents.length === 0 ? (
-                  <strong>{t('Nenhum aluno ativo ainda.')}</strong>
-                ) : (
-                  <>
-                    <strong>
-                      {activeStudents.length === 1
-                        ? t('{count} de 1 aluno', { count: trainedRecently })
-                        : t('{count} de {total} alunos', { count: trainedRecently, total: activeStudents.length })}
-                    </strong>
-                    {' '}
-                    <span>{trainedRecently === 1 ? t('treinou nos últimos 7 dias') : t('treinaram nos últimos 7 dias')}</span>
-                  </>
-                )}
-              </p>
-            </div>
+            <p className="rd-staff__pulse-cap">{t('Pulso da academia · check-ins da semana')}</p>
+            <p className="rd-staff__pulse-line">
+              {activeStudents.length === 0 ? (
+                <strong>{t('Nenhum aluno ativo ainda.')}</strong>
+              ) : (
+                <>
+                  <strong>
+                    {activeStudents.length === 1
+                      ? t('{count} de 1 aluno', { count: trainedRecently })
+                      : t('{count} de {total} alunos', { count: trainedRecently, total: activeStudents.length })}
+                  </strong>
+                  {' '}
+                  <span>{trainedRecently === 1 ? t('treinou nos últimos 7 dias') : t('treinaram nos últimos 7 dias')}</span>
+                  <span className="lv-sr-only">
+                    {` (${t('{percent}% dos alunos ativos treinaram nos últimos 7 dias', { percent: trainedPercent })})`}
+                  </span>
+                </>
+              )}
+            </p>
 
             <div className="rd-staff__bars" role="img" aria-label={pulseBarsLabel}>
               {weekPulse.days.map((day, index) => {
@@ -1541,44 +1535,6 @@ const StaffDashboardView: React.FC<StaffDashboardViewProps> = ({
           </section>
         </div>
       ) : null}
-    </div>
-  );
-};
-
-interface TickRingProps {
-  total: number;
-  lit: number;
-  label: string;
-  children?: React.ReactNode;
-}
-
-// Anel de tracinhos: um por aluno ativo (ate MAX_RING_TICKS; acima disso, proporcional).
-const TickRing: React.FC<TickRingProps> = ({ total, lit, label, children }) => {
-  const ticks = Math.min(total, MAX_RING_TICKS);
-  const litTicks = total > 0 ? Math.round((Math.min(lit, total) / total) * ticks) : 0;
-  const strokeWidth = ticks > 24 ? 4 : 6;
-  return (
-    <div className="rd-staff__ring" role="img" aria-label={label}>
-      <svg viewBox="0 0 100 100" aria-hidden="true">
-        {ticks === 0 ? (
-          <circle cx="50" cy="50" r="42" className="rd-staff__ring-empty" />
-        ) : Array.from({ length: ticks }, (_, index) => {
-          const angle = ((-90 + (index * 360) / ticks) * Math.PI) / 180;
-          return (
-            <line
-              key={index}
-              className={index < litTicks ? 'is-on' : undefined}
-              style={index < litTicks ? { animationDelay: `${200 + index * 60}ms` } : undefined}
-              x1={(50 + 34 * Math.cos(angle)).toFixed(2)}
-              y1={(50 + 34 * Math.sin(angle)).toFixed(2)}
-              x2={(50 + 46 * Math.cos(angle)).toFixed(2)}
-              y2={(50 + 46 * Math.sin(angle)).toFixed(2)}
-              strokeWidth={strokeWidth}
-            />
-          );
-        })}
-      </svg>
-      <span className="rd-staff__ring-center">{children}</span>
     </div>
   );
 };

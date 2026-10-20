@@ -75,4 +75,5 @@ export const rdStaffHomeMessages: MessageCatalog = {
   "Faixas dos kids: {legend}": { en: "Kids belts: {legend}", es: "Fajas de kids: {legend}" },
   "Toque numa cor para ver quem está nela.": { en: "Tap a color to see who's in it.", es: "Toca un color para ver quién está en él." },
   "Faixas da academia · Kids": { en: "Academy belts · Kids", es: "Fajas de la academia · Kids" },
+  "Pulso da academia · check-ins da semana": { en: "Academy pulse · check-ins this week", es: "Pulso de la academia · check-ins de la semana" },
 };
