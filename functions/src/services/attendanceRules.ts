@@ -25,12 +25,14 @@ import { normalizeBeltId } from './progression';
 // `countsAsAttendance: false` + `nonCountingReason`, que todos os contadores ja respeitam
 // (services/userState.ts, modules/auth.ts, StudentRoster, StudentDetailView...).
 //
-// 3. Aluno iniciante (adulto, faixa branca ate 2 graus) so treina na LEVEL Iniciante. Em
+// 3. Aluno adulto de faixa branca com menos de 2 graus so treina na LEVEL Iniciante. Em
 //    qualquer outra turma o check-in e RECUSADO — por QR, manual, solicitacao ou aprovacao.
+//    Com 2 graus ele ja pode ir nas outras turmas (e a Iniciante ainda conta, regra 1).
 
 export const BEGINNER_CLASS_TYPE = 'iniciante';
 export const MAX_COUNTED_ATTENDANCES_PER_DAY = 2;
 export const DEFAULT_TIMEZONE = 'America/Sao_Paulo';
+export const MIN_STRIPES_FOR_OTHER_CLASSES = 2;
 
 // `ClassDoc.description` guarda o CODIGO da turma ('iniciante', 'sport', 'kids-01'...),
 // nao um texto livre — vide `tipoDescription` em components/CreateClassModal.tsx.
@@ -43,12 +45,15 @@ export function isEligibleForBeginnerClass(user: Pick<UserDoc, 'belt' | 'stripes
 }
 
 export const BEGINNER_ONLY_CLASS_MESSAGE =
-  'Aluno iniciante (faixa branca até 2 graus) só pode fazer check-in na aula LEVEL Iniciante.';
+  'Aluno faixa branca com menos de 2 graus só pode fazer check-in na aula LEVEL Iniciante.';
 
 // Aluno kids fica de fora: criancas de faixa branca treinam nas turmas Kids. Professor e
 // superadmin tambem — a regra e sobre o aluno.
 export function isRestrictedBeginner(user: Pick<UserDoc, 'role' | 'belt' | 'stripes' | 'kidsCategory'>): boolean {
-  return user.role === 'student' && !user.kidsCategory && isEligibleForBeginnerClass(user);
+  return user.role === 'student'
+    && !user.kidsCategory
+    && normalizeBeltId(user.belt) === 'white'
+    && Math.max(0, Math.floor(user.stripes ?? 0)) < MIN_STRIPES_FOR_OTHER_CLASSES;
 }
 
 export function assertBeginnerCanJoinClass(

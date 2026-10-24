@@ -10,6 +10,8 @@ import { t } from './i18n';
 export const BEGINNER_CLASS_TYPE = 'iniciante';
 export const MAX_COUNTED_ATTENDANCES_PER_DAY = 2;
 export const MAX_BEGINNER_STRIPES = 2;
+// A partir deste grau a faixa branca ja pode fazer check-in nas outras turmas.
+export const MIN_STRIPES_FOR_OTHER_CLASSES = 2;
 
 export type AttendanceNonCountingReason = 'beginner_class_belt' | 'daily_limit';
 
@@ -26,8 +28,9 @@ export function isEligibleForBeginnerClass(belt?: string | null, stripes?: numbe
     && Math.max(0, Math.floor(stripes ?? 0)) <= MAX_BEGINNER_STRIPES;
 }
 
-// Aluno iniciante (adulto, faixa branca ate 2 graus) so faz check-in na LEVEL Iniciante; em
-// qualquer outra turma o backend RECUSA a presenca. Kids, professor e superadmin ficam de fora.
+// Aluno adulto de faixa branca com menos de 2 graus so faz check-in na LEVEL Iniciante; em
+// qualquer outra turma o backend RECUSA a presenca. Com 2 graus ja pode ir nas outras (e a
+// Iniciante ainda conta). Kids, professor e superadmin ficam de fora.
 export function isRestrictedBeginner(params: {
   role?: string | null;
   belt?: string | null;
@@ -36,7 +39,8 @@ export function isRestrictedBeginner(params: {
 }): boolean {
   return params.role === 'student'
     && !params.kidsCategory
-    && isEligibleForBeginnerClass(params.belt, params.stripes);
+    && normalizeBeltId(params.belt ?? undefined) === BeltColor.BRANCA
+    && Math.max(0, Math.floor(params.stripes ?? 0)) < MIN_STRIPES_FOR_OTHER_CLASSES;
 }
 
 export function canJoinClass(
@@ -48,7 +52,7 @@ export function canJoinClass(
 
 /** Aviso (traduzido) do bloqueio — mesmo texto do erro da Cloud Function. */
 export function beginnerOnlyClassWarning(): string {
-  return t('Aluno iniciante (faixa branca até 2 graus) só pode fazer check-in na aula LEVEL Iniciante.');
+  return t('Aluno faixa branca com menos de 2 graus só pode fazer check-in na aula LEVEL Iniciante.');
 }
 
 export function nonCountingReasonLabel(reason?: AttendanceNonCountingReason | null): string | null {
