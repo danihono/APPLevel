@@ -2542,6 +2542,7 @@ const App: React.FC = () => {
     belt: profile.belt,
     stripes: profile.stripes,
     kidsCategory: profile.kidsCategory,
+    birthDate: profile.birthDate,
   });
   const isSuperAdmin = profile.role === 'superadmin';
   const handleSetSuperadminViewMode = (nextMode: SuperadminViewMode) => {

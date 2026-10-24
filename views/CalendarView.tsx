@@ -1346,6 +1346,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
       belt: student.belt,
       stripes: student.stripes,
       kidsCategory: student.kidsCategory,
+      birthDate: student.birthDate,
     });
   const selectedClassNonCountingReason = useMemo(
     () =>

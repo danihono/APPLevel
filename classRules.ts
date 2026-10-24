@@ -1,4 +1,4 @@
-import { normalizeBeltId } from './beltCatalog';
+import { inferKidsCategoryFromBirthDate, normalizeBeltId } from './beltCatalog';
 import { BeltColor, KidsCategory } from './types';
 import { t } from './i18n';
 
@@ -12,6 +12,13 @@ export const MAX_COUNTED_ATTENDANCES_PER_DAY = 2;
 export const MAX_BEGINNER_STRIPES = 2;
 // A partir deste grau a faixa branca ja pode fazer check-in nas outras turmas.
 export const MIN_STRIPES_FOR_OTHER_CLASSES = 2;
+// Tipos de turma em que a branca com menos de 2 graus NAO entra (inclui codigos legados).
+// Aula sem tipo reconhecido nao bloqueia: para travar, o professor define o tipo da aula.
+export const BEGINNER_RESTRICTED_CLASS_TYPES = new Set([
+  'vida', 'sport', 'feminino', 'competicao', 'nogi',
+  'kids-01', 'kids-02', 'kids-03',
+  'kids', 'advanced', 'no-gi',
+]);
 
 export type AttendanceNonCountingReason = 'beginner_class_belt' | 'daily_limit';
 
@@ -28,17 +35,22 @@ export function isEligibleForBeginnerClass(belt?: string | null, stripes?: numbe
     && Math.max(0, Math.floor(stripes ?? 0)) <= MAX_BEGINNER_STRIPES;
 }
 
-// Aluno adulto de faixa branca com menos de 2 graus so faz check-in na LEVEL Iniciante; em
-// qualquer outra turma o backend RECUSA a presenca. Com 2 graus ja pode ir nas outras (e a
-// Iniciante ainda conta). Kids, professor e superadmin ficam de fora.
+export function isRestrictedClassType(description?: string | null): boolean {
+  return BEGINNER_RESTRICTED_CLASS_TYPES.has((description ?? '').trim().toLowerCase());
+}
+
+// Aluno adulto de faixa branca com menos de 2 graus so faz check-in na LEVEL Iniciante; nas
+// turmas de outro tipo o backend RECUSA a presenca. Com 2 graus ja pode ir nas outras (e a
+// Iniciante ainda conta). Kids (pelo cadastro ou pela idade), professor e superadmin ficam de fora.
 export function isRestrictedBeginner(params: {
   role?: string | null;
   belt?: string | null;
   stripes?: number | null;
   kidsCategory?: KidsCategory | null;
+  birthDate?: string | null;
 }): boolean {
   return params.role === 'student'
-    && !params.kidsCategory
+    && !(params.kidsCategory ?? inferKidsCategoryFromBirthDate(params.birthDate))
     && normalizeBeltId(params.belt ?? undefined) === BeltColor.BRANCA
     && Math.max(0, Math.floor(params.stripes ?? 0)) < MIN_STRIPES_FOR_OTHER_CLASSES;
 }
@@ -47,7 +59,7 @@ export function canJoinClass(
   classDescription: string | null | undefined,
   user: Parameters<typeof isRestrictedBeginner>[0],
 ): boolean {
-  return isBeginnerClassType(classDescription) || !isRestrictedBeginner(user);
+  return !isRestrictedClassType(classDescription) || !isRestrictedBeginner(user);
 }
 
 /** Aviso (traduzido) do bloqueio — mesmo texto do erro da Cloud Function. */

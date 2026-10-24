@@ -3,7 +3,7 @@ import { Clock3, MapPin, Shield, Users, UserRound } from 'lucide-react';
 import { formatDateLabel, formatTimeLabel } from '../services/firebase/adapters';
 import type { FirestoreEntity } from '../services/firebase/data';
 import type { ClassRecord } from '../services/firebase/models';
-import { MAX_BEGINNER_STRIPES, MIN_STRIPES_FOR_OTHER_CLASSES, isBeginnerClassType } from '../classRules';
+import { MAX_BEGINNER_STRIPES, MIN_STRIPES_FOR_OTHER_CLASSES, isBeginnerClassType, isRestrictedClassType } from '../classRules';
 import { t } from '../i18n';
 
 interface ClassSessionCardProps {
@@ -38,8 +38,10 @@ function toRules(lesson: FirestoreEntity<ClassRecord>) {
   const sex = source.includes('femin') ? t('Feminino') : source.includes('masc') ? t('Masculino') : t('Misto');
   // Regras que o backend aplica de verdade (classRules.ts) saem do CODIGO da turma, nao de um
   // `includes` no titulo: a LEVEL Iniciante e para branca ate 2 graus, e a branca com menos de 2
-  // graus so pode fazer check-in nela — toda outra turma adulta exige 2 graus ou mais.
+  // graus so pode fazer check-in nela — turma adulta de outro tipo exige 2 graus ou mais. Aula
+  // sem tipo reconhecido nao trava ninguem, entao aparece como livre.
   const isBeginner = isBeginnerClassType(desc);
+  const isRestricted = isRestrictedClassType(desc);
   const isKids = INFANTIL_TYPES.has(desc) || source.includes('kids');
   const isAdvanced = source.includes('advanced') || source.includes('avanc');
   const belt = isAdvanced
@@ -48,14 +50,18 @@ function toRules(lesson: FirestoreEntity<ClassRecord>) {
       ? t('Kids')
       : isBeginner
         ? t('Branca')
-        : t('Branca+');
+        : isRestricted
+          ? t('Branca+')
+          : t('Livre');
   const grade = isAdvanced
     ? t('Intermediário/Avançado')
     : isKids
       ? t('Todos os graus')
       : isBeginner
         ? t('até {count}° grau', { count: MAX_BEGINNER_STRIPES })
-        : t('{count}° grau ou mais', { count: MIN_STRIPES_FOR_OTHER_CLASSES });
+        : isRestricted
+          ? t('{count}° grau ou mais', { count: MIN_STRIPES_FOR_OTHER_CLASSES })
+          : t('Todos os graus');
 
   return { sex, belt, grade };
 }
