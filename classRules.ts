@@ -13,9 +13,10 @@ export const MAX_BEGINNER_STRIPES = 2;
 // A partir deste grau a faixa branca ja pode fazer check-in nas outras turmas.
 export const MIN_STRIPES_FOR_OTHER_CLASSES = 2;
 // Tipos de turma em que a branca com menos de 2 graus NAO entra (inclui codigos legados).
-// Aula sem tipo reconhecido nao bloqueia: para travar, o professor define o tipo da aula.
+// A LEVEL Feminino e livre para qualquer graduacao. Aula sem tipo reconhecido nao bloqueia:
+// para travar, o professor define o tipo da aula.
 export const BEGINNER_RESTRICTED_CLASS_TYPES = new Set([
-  'vida', 'sport', 'feminino', 'competicao', 'nogi',
+  'vida', 'sport', 'competicao', 'nogi',
   'kids-01', 'kids-02', 'kids-03',
   'kids', 'advanced', 'no-gi',
 ]);

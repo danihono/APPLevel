@@ -36,9 +36,10 @@ export const MAX_COUNTED_ATTENDANCES_PER_DAY = 2;
 export const DEFAULT_TIMEZONE = 'America/Sao_Paulo';
 export const MIN_STRIPES_FOR_OTHER_CLASSES = 2;
 // Tipos de turma em que a branca com menos de 2 graus NAO entra. Inclui os codigos legados
-// que o app ainda reconhece (components/ClassSessionCard.tsx).
+// que o app ainda reconhece (components/ClassSessionCard.tsx). A LEVEL Feminino fica de fora:
+// e livre para qualquer graduacao.
 export const BEGINNER_RESTRICTED_CLASS_TYPES = new Set([
-  'vida', 'sport', 'feminino', 'competicao', 'nogi',
+  'vida', 'sport', 'competicao', 'nogi',
   'kids-01', 'kids-02', 'kids-03',
   'kids', 'advanced', 'no-gi',
 ]);
