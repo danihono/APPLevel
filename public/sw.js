@@ -1,8 +1,7 @@
-const CACHE_NAME = 'applevel-v1';
+const CACHE_NAME = 'applevel-v2';
 
 const APP_SHELL = [
   '/',
-  '/index.css',
   '/logo3.png',
   '/login.png',
   '/favicon.svg',

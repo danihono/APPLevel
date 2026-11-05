@@ -75,4 +75,10 @@ export const appMessages: MessageCatalog = {
   "Registrando...": { en: "Registering...", es: "Registrando..." },
   "Sim, confirmar": { en: "Yes, confirm", es: "Sí, confirmar" },
   "Carregando esta area do APPLevel.": { en: "Loading this area of APPLevel.", es: "Cargando esta área de APPLevel." },
+  // Modo offline
+  "Sem conexão com a internet. Tente novamente quando estiver online.": { en: "No internet connection. Try again when you're back online.", es: "Sin conexión a internet. Inténtalo de nuevo cuando vuelvas a estar en línea." },
+  "Sem conexão com a internet. Conecte-se para carregar seus dados pela primeira vez neste aparelho.": { en: "No internet connection. Connect to load your data on this device for the first time.", es: "Sin conexión a internet. Conéctate para cargar tus datos por primera vez en este dispositivo." },
+  "Sem conexão com a internet. Conecte-se para entrar pela primeira vez neste aparelho.": { en: "No internet connection. Connect to sign in on this device for the first time.", es: "Sin conexión a internet. Conéctate para entrar por primera vez en este dispositivo." },
+  "Sem conexão com o servidor. Mostrando os últimos dados salvos.": { en: "Can't reach the server. Showing your last saved data.", es: "Sin conexión con el servidor. Mostrando los últimos datos guardados." },
+  "Você está offline. Mostrando os últimos dados salvos.": { en: "You're offline. Showing your last saved data.", es: "Estás sin conexión. Mostrando los últimos datos guardados." },
 };

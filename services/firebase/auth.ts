@@ -10,6 +10,7 @@ import {
 import { firebaseAuth } from './client';
 import { backendFunctions } from './functions';
 import { releasePushRegistration } from './messaging';
+import { clearValidatedSession } from './offline';
 import { t } from '../../i18n';
 
 export function subscribeToAuthState(listener: (user: User | null) => void) {
@@ -30,6 +31,8 @@ export async function requestPasswordReset(email: string) {
 export async function logout() {
   // Antes de sair: o aparelho para de receber notificacoes desta conta.
   await releasePushRegistration();
+  // Quem saiu precisa entrar de novo online: esquece a sessao salva para uso offline.
+  clearValidatedSession(firebaseAuth.currentUser?.uid);
   return signOut(firebaseAuth);
 }
 

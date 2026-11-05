@@ -6,6 +6,7 @@ import type { DeleteClassPayload } from './components/DeleteClassModal';
 import type { EditClassPayload } from './components/EditClassModal';
 import GraduationCelebrationModal from './components/GraduationCelebrationModal';
 import { LoadingScreen } from './components/LoadingScreen';
+import { OfflineBanner } from './components/OfflineBanner';
 import Layout from './components/Layout';
 import HomeView from './views/HomeView';
 import LoginView from './views/LoginView';
@@ -64,6 +65,7 @@ import {
 import {
   backendFunctions,
   isRetryableBackendError,
+  OfflineActionError,
   type CreateClassScheduleBatchResult,
   type DeleteClassScheduleResult,
   type UpdateRecurringClassSeriesResult,
@@ -76,6 +78,13 @@ import {
   uploadUserPhoto,
 } from './services/firebase/mutations';
 import { isUnreadNotificationForViewer } from './services/firebase/notifications';
+import {
+  isDeviceOffline,
+  isNetworkError,
+  readValidatedSession,
+  saveValidatedSession,
+  useOnlineStatus,
+} from './services/firebase/offline';
 import type {
   AppRole,
   AcademyRecord,
@@ -132,6 +141,9 @@ const NETWORK_NAME = 'LEVEL';
 const SESSION_VALIDATION_RETRY_DELAYS = [2000, 4000, 8000];
 const AUTH_CLAIM_REFRESH_ATTEMPTS = 4;
 const AUTH_CLAIM_REFRESH_DELAY_MS = 500;
+// Com a sessao aberta a partir do cache (sem servidor), tenta revalidar neste
+// intervalo enquanto o aparelho estiver conectado.
+const OFFLINE_SESSION_REVALIDATE_MS = 30000;
 const GRADUATION_CELEBRATION_STORAGE_PREFIX = 'applevel:graduation-celebrations-seen';
 type SuperadminViewMode = 'superadmin' | 'professor';
 type AcademyContextStatus = 'idle' | 'ready' | 'missing' | 'error';
@@ -210,6 +222,10 @@ function graduationPromotionTime(graduation: FirestoreEntity<GraduationRecord>):
 }
 
 function getErrorMessage(error: unknown): string {
+  if (error instanceof OfflineActionError) {
+    return error.message;
+  }
+
   const code = typeof error === 'object' && error && 'code' in error
     ? String((error as { code: unknown }).code)
     : '';
@@ -666,6 +682,12 @@ const App: React.FC = () => {
   const [academyStatus, setAcademyStatus] = useState<AcademyContextStatus>('idle');
   const [superadminDirectoryLoading, setSuperadminDirectoryLoading] = useState(false);
   const [sessionValidated, setSessionValidated] = useState(false);
+  // Sessao aberta com a ultima validacao salva no aparelho, sem confirmar no
+  // servidor (sem internet). Os dados exibidos vem do cache do Firestore.
+  const [offlineSession, setOfflineSession] = useState(false);
+  const [sessionReconnectNonce, setSessionReconnectNonce] = useState(0);
+  const isOnline = useOnlineStatus();
+  const wasOnlineRef = useRef(isOnline);
   const [sessionError, setSessionError] = useState('');
   const [sessionErrorSource, setSessionErrorSource] = useState('');
   const [loginScreenError, setLoginScreenError] = useState('');
@@ -862,20 +884,68 @@ const App: React.FC = () => {
     };
   }, [authUser]);
 
+  const applyValidatedSession = (session: ValidatedSessionSnapshot, fromDeviceCache: boolean) => {
+    validatedSessionRef.current = session;
+    if (!fromDeviceCache) {
+      saveValidatedSession(session);
+    }
+    setOfflineSession(fromDeviceCache);
+    setProfile((current) => (
+      current
+        ? applyValidatedSessionToProfile(current, session)
+        : current
+    ));
+    setSessionValidated(true);
+  };
+
   useEffect(() => {
     if (!authUser) {
       setSessionValidated(false);
+      setOfflineSession(false);
       return;
     }
 
     let cancelled = false;
     setSessionValidated(false);
+    setOfflineSession(false);
     validatedSessionRef.current = null;
+
+    // Sem servidor: abre com a ultima sessao validada neste aparelho (mesmo uid).
+    // Se o token em cache ainda puder ser lido, os claims precisam bater; se nem
+    // isso der sem rede, vale a sessao salva. A seguranca dos dados continua nas
+    // regras do Firestore — aqui so liberamos a leitura do cache local.
+    const openWithStoredSession = async (): Promise<boolean> => {
+      const stored = readValidatedSession(authUser.uid);
+      if (!stored) {
+        return false;
+      }
+
+      try {
+        const token = await authUser.getIdTokenResult(false);
+        if (!authClaimsMatchSession(token.claims, stored)) {
+          return false;
+        }
+      } catch (error) {
+        if (!isNetworkError(error)) {
+          return false;
+        }
+      }
+
+      if (!cancelled) {
+        clearSessionError();
+        applyValidatedSession({ uid: stored.uid, academyId: stored.academyId, role: stored.role }, true);
+      }
+      return true;
+    };
 
     // Uma falha passageira do backend (cota estourada, teto de instancias,
     // indisponibilidade) nao pode deixar a sessao presa para sempre: sem isso o
     // app trava em "Sincronizando permissoes" ate alguem recarregar na mao.
     const validateWithRetry = async () => {
+      if (isDeviceOffline() && await openWithStoredSession()) {
+        return;
+      }
+
       for (let attempt = 0; attempt < SESSION_VALIDATION_RETRY_DELAYS.length + 1; attempt += 1) {
         try {
           const session = await backendFunctions.validateSessionAccess();
@@ -891,13 +961,7 @@ const App: React.FC = () => {
             return;
           }
 
-          validatedSessionRef.current = nextValidatedSession;
-          setProfile((current) => (
-            current
-              ? applyValidatedSessionToProfile(current, nextValidatedSession)
-              : current
-          ));
-          setSessionValidated(true);
+          applyValidatedSession(nextValidatedSession, false);
           return;
         } catch (error) {
           if (cancelled) {
@@ -916,6 +980,17 @@ const App: React.FC = () => {
           }
 
           const nextDelay = SESSION_VALIDATION_RETRY_DELAYS[attempt];
+          const unreachable = isNetworkError(error) || isRetryableBackendError(error);
+          // Caiu a conexao no meio, ou o servidor segue sem responder depois das
+          // retentativas: abre com o que ja esta salvo no aparelho.
+          if ((isDeviceOffline() || nextDelay === undefined) && unreachable && await openWithStoredSession()) {
+            return;
+          }
+
+          if (cancelled) {
+            return;
+          }
+
           if (nextDelay === undefined || !isRetryableBackendError(error)) {
             reportSessionError('session:validateSessionAccess', error);
             return;
@@ -933,10 +1008,77 @@ const App: React.FC = () => {
     return () => {
       cancelled = true;
     };
-  }, [authUser]);
+  // applyValidatedSession/clearSessionError so mexem em estado; nao precisam reiniciar a validacao.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authUser, sessionReconnectNonce]);
+
+  // A internet voltou e a sessao ainda nao tinha sido validada (ex.: primeiro
+  // acesso neste aparelho feito offline): tenta de novo sem precisar reabrir o app.
+  useEffect(() => {
+    const cameBackOnline = isOnline && !wasOnlineRef.current;
+    wasOnlineRef.current = isOnline;
+    if (cameBackOnline && authUser && !sessionValidated) {
+      setSessionReconnectNonce((current) => current + 1);
+    }
+  }, [authUser, isOnline, sessionValidated]);
+
+  // Sessao aberta pelo cache: assim que houver conexao, confirma no servidor em
+  // segundo plano (sem voltar para a tela de carregamento) e repete enquanto falhar.
+  useEffect(() => {
+    if (!authUser || !offlineSession || !isOnline) {
+      return undefined;
+    }
+
+    let cancelled = false;
+    let running = false;
+    const revalidate = async () => {
+      if (running || cancelled) {
+        return;
+      }
+
+      running = true;
+      try {
+        const session = await backendFunctions.validateSessionAccess();
+        const nextValidatedSession = { uid: session.uid, academyId: session.academyId, role: session.role };
+        await refreshAuthClaimsForSession(authUser, nextValidatedSession);
+        if (!cancelled) {
+          applyValidatedSession(nextValidatedSession, false);
+        }
+      } catch (error) {
+        if (cancelled) {
+          return;
+        }
+
+        if (error instanceof Error && error.message === 'user-suspended') {
+          setIsSuspended(true);
+          return;
+        }
+
+        if (shouldResetSession(error)) {
+          recoverInvalidSession('session:revalidateOfflineSession', error);
+          return;
+        }
+
+        console.warn('[session:revalidateOfflineSession]', error);
+      } finally {
+        running = false;
+      }
+    };
+
+    const timeoutId = window.setTimeout(() => { void revalidate(); }, 1500);
+    const intervalId = window.setInterval(() => { void revalidate(); }, OFFLINE_SESSION_REVALIDATE_MS);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timeoutId);
+      window.clearInterval(intervalId);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authUser, isOnline, offlineSession]);
 
   useEffect(() => {
-    if (!authUser?.uid || !profile || !sessionValidated || !academy?.id || profile.role === 'superadmin') {
+    // Precisa do servidor: espera a sessao ser confirmada online.
+    if (!authUser?.uid || !profile || !sessionValidated || offlineSession || !academy?.id || profile.role === 'superadmin') {
       return;
     }
 
@@ -953,7 +1095,7 @@ const App: React.FC = () => {
       cancelled = true;
       window.clearTimeout(timeoutId);
     };
-  }, [academy?.id, authUser?.uid, profile?.role, sessionValidated]);
+  }, [academy?.id, authUser?.uid, offlineSession, profile?.role, sessionValidated]);
 
   useEffect(() => {
     if (!profile || !sessionValidated) {
@@ -1667,6 +1809,8 @@ const App: React.FC = () => {
       };
       await refreshAuthClaimsForSession(authUser, nextValidatedSession);
       validatedSessionRef.current = nextValidatedSession;
+      // Offline, o app reabre na academia escolhida por ultimo.
+      saveValidatedSession(nextValidatedSession);
       setProfile((current) => applyValidatedSessionToProfile(current, nextValidatedSession));
       setSelectedAcademyId(targetAcademyId);
       setStudentSessionAcademyChosen(true);
@@ -2512,7 +2656,13 @@ const App: React.FC = () => {
   }
 
   if (profileLoading || !profile) {
-    return <LoadingScreen message={t('Carregando perfil, academia e permissoes.')} />;
+    return (
+      <LoadingScreen
+        message={isOnline
+          ? t('Carregando perfil, academia e permissoes.')
+          : t('Sem conexão com a internet. Conecte-se para carregar seus dados pela primeira vez neste aparelho.')}
+      />
+    );
   }
 
   const currentUser = toUiUser({
@@ -2579,9 +2729,11 @@ const App: React.FC = () => {
     ? allAcademies.filter((entry) => studentMemberships.includes(entry.id))
     : [];
   const needsStudentMembershipChoice = isMultiAcademyStudent && !studentSessionAcademyChosen;
-  const bootstrapMessage = !sessionValidated
-    ? t('Sincronizando permissoes da sua sessao.')
-    : t('Carregando perfil, academia e permissoes.');
+  const bootstrapMessage = !isOnline && !sessionValidated
+    ? t('Sem conexão com a internet. Conecte-se para entrar pela primeira vez neste aparelho.')
+    : !sessionValidated
+      ? t('Sincronizando permissoes da sua sessao.')
+      : t('Carregando perfil, academia e permissoes.');
   const isBootstrapPending = !sessionValidated || superadminDirectoryLoading || (!isSuperAdmin && (academyLoading || academyStatus === 'idle'));
   const mobileUnitLabel = isSuperAdmin
     ? (
@@ -3184,6 +3336,8 @@ const App: React.FC = () => {
     // key={language}: trocar o idioma remonta as telas (o estado global do App e mantido),
     // assim nenhum texto memoizado fica no idioma anterior.
     <React.Fragment key={language}>
+      <OfflineBanner online={isOnline} offlineSession={offlineSession} />
+
       {sessionError ? (
         <div className="fixed top-24 left-4 right-4 z-[70] mx-auto max-w-lg">
           <div className="app-toast text-sm">

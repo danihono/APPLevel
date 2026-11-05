@@ -199,3 +199,9 @@ Perfil (salvo em `users/{uid}.language` e no `localStorage`). Sem biblioteca ext
   automaticamente. Se fizer deploy manual, rode `npm run firebase:fix-invokers`.
 - `App.tsx` é grande (~2800 linhas) e concentra roteamento e estado global.
 - Emuladores: auth `9099`, functions `5001`, firestore `8080`, storage `9199`.
+- **Offline:** o app precisa abrir sem internet (iOS). Por isso o Tailwind é compilado
+  no build (`tailwind.config.js`, `tailwind.css`, carregado depois do `index.css`) e as
+  fontes vêm do `@fontsource` (`fonts.ts`) — não volte a usar CDN. O Firestore usa cache
+  persistente (`services/firebase/client.ts`) e a última sessão validada fica salva no
+  aparelho (`services/firebase/offline.ts`) para o app abrir sem o `validateSessionAccess`.
+  Callables lançam `OfflineActionError` quando o aparelho está sem conexão.

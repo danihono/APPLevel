@@ -1,5 +1,7 @@
 import { Capacitor } from '@capacitor/core';
 import { httpsCallable, httpsCallableFromURL } from 'firebase/functions';
+import { isDeviceOffline } from './offline';
+import { t } from '../../i18n';
 import type { AttendanceNonCountingReason } from '../../classRules';
 import type {
   AppRole,
@@ -132,12 +134,35 @@ async function callFunction<TResponse, TPayload = unknown>(
   functionName: string,
   payload: TPayload,
 ): Promise<TResponse> {
+  // Sem internet a callable falharia com um erro tecnico ("internal"); avisa
+  // de forma clara. O codigo `unavailable` mantem a logica de retentativa.
+  if (isDeviceOffline()) {
+    throw new OfflineActionError();
+  }
+
   const callableUrl = resolveCallableUrl(functionName);
   const callable = callableUrl
     ? httpsCallableFromURL<TPayload, TResponse>(firebaseFunctions, callableUrl)
     : httpsCallable<TPayload, TResponse>(firebaseFunctions, functionName);
-  const response = await callable(payload);
-  return response.data;
+  try {
+    const response = await callable(payload);
+    return response.data;
+  } catch (error) {
+    // A conexao caiu durante a chamada.
+    if (isDeviceOffline()) {
+      throw new OfflineActionError();
+    }
+    throw error;
+  }
+}
+
+export class OfflineActionError extends Error {
+  readonly code = 'unavailable';
+
+  constructor() {
+    super(t('Sem conexão com a internet. Tente novamente quando estiver online.'));
+    this.name = 'OfflineActionError';
+  }
 }
 
 // Falhas passageiras do backend: vale tentar de novo em vez de desistir.

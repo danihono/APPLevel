@@ -85,7 +85,14 @@ export function subscribeToUserProfile(
   return onSnapshot(
     doc(firebaseDb, 'users', uid),
     (snapshot) => {
+      const fromCache = snapshot.metadata.fromCache;
       if (!snapshot.exists()) {
+        // Offline e sem copia no cache: o documento nao e "inexistente", so
+        // nao foi carregado ainda. Espera o servidor antes de concluir.
+        if (fromCache) {
+          return;
+        }
+
         listener(null);
         return;
       }
@@ -109,7 +116,14 @@ export function subscribeToAcademy(
   return onSnapshot(
     doc(firebaseDb, 'academies', academyId),
     (snapshot) => {
+      const fromCache = snapshot.metadata.fromCache;
       if (!snapshot.exists()) {
+        // Offline e sem copia no cache: o documento nao e "inexistente", so
+        // nao foi carregado ainda. Espera o servidor antes de concluir.
+        if (fromCache) {
+          return;
+        }
+
         listener(null);
         return;
       }

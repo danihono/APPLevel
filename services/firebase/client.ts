@@ -6,7 +6,14 @@ import {
   indexedDBLocalPersistence,
   initializeAuth,
 } from 'firebase/auth';
-import { connectFirestoreEmulator, getFirestore } from 'firebase/firestore';
+import {
+  connectFirestoreEmulator,
+  getFirestore,
+  initializeFirestore,
+  persistentLocalCache,
+  persistentMultipleTabManager,
+  type Firestore,
+} from 'firebase/firestore';
 import { connectFunctionsEmulator, getFunctions } from 'firebase/functions';
 import { getMessaging, isSupported } from 'firebase/messaging';
 import { connectStorageEmulator, getStorage } from 'firebase/storage';
@@ -49,7 +56,23 @@ function createFirebaseAuth() {
 }
 
 export const firebaseAuth = createFirebaseAuth();
-export const firebaseDb = getFirestore(app);
+// Cache persistente (IndexedDB): o que ja foi carregado fica salvo no aparelho
+// e aparece mesmo sem internet. Sem isso o cache era so em memoria e, ao reabrir
+// o app offline, nao havia dado nenhum para mostrar. Escritas diretas no
+// Firestore feitas offline ficam na fila e sobem quando a conexao volta.
+function createFirestore(): Firestore {
+  try {
+    return initializeFirestore(app, {
+      localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
+    });
+  } catch (error) {
+    // Ja inicializado (hot reload) ou IndexedDB indisponivel: segue com o padrao.
+    console.warn('[firestore] cache persistente indisponivel, usando o padrao.', error);
+    return getFirestore(app);
+  }
+}
+
+export const firebaseDb = createFirestore();
 export const firebaseFunctions = getFunctions(app, functionsRegion);
 export const firebaseStorage = getStorage(app);
 export const messagingSupported = isSupported();

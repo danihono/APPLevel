@@ -1,0 +1,8 @@
+/*
+ * Tailwind compilado localmente (antes vinha do CDN e quebrava offline).
+ * Carregado DEPOIS do index.css, como acontecia com o CDN, para manter a mesma
+ * precedencia entre as utilidades do Tailwind e os estilos proprios.
+ */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;

@@ -11193,3 +11193,39 @@ html.dark .exam-rules__body {
   text-decoration: underline;
   cursor: pointer;
 }
+
+/*
+ * Aviso de modo offline (components/OfflineBanner.tsx) — mesmo elemento no
+ * desktop e no mobile. Fica logo acima da barra de navegacao inferior para nao
+ * cobrir o cabecalho (seletor de unidade, titulo).
+ */
+.offline-banner {
+  position: fixed;
+  bottom: calc(max(env(safe-area-inset-bottom, 0px), 0.25rem) + 5rem);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 80;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  max-width: calc(100vw - 1.5rem);
+  padding: 0.5rem 0.9rem;
+  border-radius: 999px;
+  border: 1px solid rgba(212, 175, 55, 0.35);
+  background: rgba(20, 20, 24, 0.88);
+  color: #f5e7b8;
+  width: max-content;
+  font-size: 0.74rem;
+  font-weight: 600;
+  line-height: 1.25;
+  text-align: center;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.22);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  pointer-events: none;
+}
+
+.offline-banner svg {
+  flex-shrink: 0;
+  color: #d4af37;
+}
