@@ -52,8 +52,9 @@ npm run firebase:bootstrap:tenant -- \
   --timezone=America/Sao_Paulo
 ```
 
-> **Não há suíte de testes automatizados.** Use `typecheck` / `lint` e os emuladores
-> para validar mudanças.
+> **Não há suíte completa de testes automatizados.** Há testes unitários de funções puras em
+> `tests/` (`node --test --experimental-strip-types tests/*.test.ts`); no mais, use
+> `typecheck` / `lint` e os emuladores para validar mudanças.
 
 ## Estrutura de diretórios
 
@@ -124,6 +125,7 @@ Região global: `southamerica-east1`; `maxInstances: 10`.
 | `fightVideos.ts` | Submissão e moderação de vídeos de luta |
 | `notifications.ts` | Tokens de dispositivo, notificações segmentadas, leitura |
 | `rsvp.ts` | Confirmação de presença em aulas (`toggleClassRsvp`) |
+| `faceBiometrics.ts` | Biometria facial: cadastro/revogação do aluno e sugestão de presença por foto |
 | `proxy.ts` | `callableProxy` — proxy HTTP para as functions callable |
 
 ### Triggers do Firestore
@@ -134,6 +136,9 @@ Região global: `southamerica-east1`; `maxInstances: 10`.
 - **Login:** autenticação → `validateSessionAccess` → custom claims → acesso à academia
 - **Presença:** `registerAttendance` → trigger `onAttendanceCreated` → progressão + ranking
 - **Aula:** `startClassSession` + QR dinâmico (`generateClassQrCode`) → `finishClassSession`
+- **Chamada por foto:** aluno 18+ aceita o termo e cadastra o rosto (`enrollFaceBiometrics`) →
+  professor fotografa a turma → `suggestClassAttendanceFromFaces` **sugere** → professor confirma →
+  `registerAttendance` com `sourceDevice: 'face_photo'`
 - **Learning:** trilhas → cursos → lições → blocos/quizzes (`submitLessonQuiz`)
 - **Finanças:** produtos/serviços → vendas → pagamentos → receitas/despesas
 
@@ -146,6 +151,9 @@ Todas segmentadas por `academyId`:
 `learning_*` (tracks, courses, lessons, quizzes, progress),
 `finance_*` (products, services, sales, payments, revenues, expenses),
 `inventory_movements`.
+
+Exceção: `face_biometrics/{uid}` (vetores faciais) e `face_consent_logs` (aceite/revogação) —
+dado sensível, lido e gravado **somente** pelas Cloud Functions (regras negam todo cliente).
 
 ## Convenções de código
 
@@ -182,6 +190,20 @@ Perfil (salvo em `users/{uid}.language` e no `localStorage`). Sem biblioteca ext
 - Datas/números: `getLocale()` em vez de `'pt-BR'` fixo.
 - Push/notificações e mensagens geradas pelas Cloud Functions continuam em pt-BR; erros do
   backend só saem traduzidos se o texto estiver no catálogo.
+
+## Biometria facial
+
+- O reconhecimento roda **no aparelho** (`services/faceEngine.ts`, biblioteca `@vladmandic/human`,
+  carregada sob demanda). Nenhuma foto é armazenada ou enviada: só o vetor numérico do rosto.
+- A comparação é no servidor (`functions/src/services/faceMatching.ts`, módulo puro com os
+  limiares). Os vetores nunca descem para um cliente.
+- Opcional, só **alunos maiores de 18**, com termo versionado (`FACE_CONSENT_VERSION` em
+  `faceBiometricsRules.ts` **e** em `functions/src/modules/faceBiometrics.ts` — mude nos dois).
+- Trocar de motor = reimplementar `faceEngine.ts` + `faceMatching.ts` e subir `FACE_MODEL_VERSION`.
+- O modal de cadastro é montado na raiz (`components/FaceEnrollmentHost.tsx`): o App remonta as
+  telas a cada atualização do perfil, e um modal dentro de uma tela sumiria ao salvar.
+- Os modelos (~9 MB) não ficam no git: `scripts/copyFaceModels.cjs` copia de `node_modules` para
+  `public/models/human/` nos hooks `predev`/`prebuild`.
 
 ## Ambiente
 

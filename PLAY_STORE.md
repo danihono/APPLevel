@@ -131,6 +131,9 @@ o Passo 4 (Asset Links). Teste login, QR (câmera) e navegação.
    - Descrição curta (≤80 caracteres) e completa.
    - URL da privacidade: `https://applevel-c5e73.web.app/privacidade/`.
 4. Preencha os formulários: **Data safety**, **Content rating**, público-alvo, anúncios (não).
+   - **Biometria facial:** no Data safety, declare também a coleta opcional de dado sensível
+     (código numérico do rosto, usado só para sugerir presença; não compartilhado; o usuário
+     pode pedir a exclusão no próprio app, em Perfil → Biometria facial).
 5. Faça o Passo 4 (atualizar assetlinks com a App signing key) e teste pela faixa interna.
 6. Promova para **Produção**. A primeira revisão do Google costuma levar alguns dias.
 
