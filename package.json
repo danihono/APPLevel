@@ -4,7 +4,10 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
+    "face:models": "node scripts/copyFaceModels.cjs",
+    "predev": "npm run face:models",
     "dev": "vite",
+    "prebuild": "npm run face:models",
     "build": "vite build",
     "preview": "vite preview",
     "ios:sync": "npm run build && npx cap sync ios",
@@ -29,6 +32,7 @@
     "@capacitor/core": "^8.4.1",
     "@capacitor/ios": "^8.4.1",
     "@google/genai": "^1.41.0",
+    "@vladmandic/human": "^3.3.6",
     "exceljs": "^4.4.0",
     "file-saver": "^2.0.5",
     "firebase": "^12.11.0",

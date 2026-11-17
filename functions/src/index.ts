@@ -49,6 +49,12 @@ import {
   submitAttendanceRequest,
 } from './modules/attendance';
 import {
+  enrollFaceBiometrics,
+  onUserDeletedPurgeFaceBiometrics,
+  revokeFaceBiometrics,
+  suggestClassAttendanceFromFaces,
+} from './modules/faceBiometrics';
+import {
   approveFightVideoSubmission,
   rejectFightVideoSubmission,
   submitFightVideoSubmission,
@@ -128,6 +134,10 @@ setGlobalOptions({
 });
 
 export {
+  enrollFaceBiometrics,
+  onUserDeletedPurgeFaceBiometrics,
+  revokeFaceBiometrics,
+  suggestClassAttendanceFromFaces,
   adminUpdateInstructorProfile,
   adjustProductStock,
   approveGraduationRequest,

@@ -70,6 +70,8 @@ export interface User {
   isCompetitor?: boolean;
   phone?: string;
   birthDate?: string;
+  // Aluno aceitou o termo e cadastrou a biometria facial (opcional, so maiores de 18).
+  faceBiometricsEnrolled?: boolean;
   startDate?: string;
   lastStripeDate?: string;
   trainingStartDate?: string;

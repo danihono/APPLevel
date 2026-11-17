@@ -193,6 +193,7 @@ export function toUiUser(params: {
     isCompetitor: user.isCompetitor ?? false,
     phone: user.phone,
     birthDate: user.birthDate,
+    faceBiometricsEnrolled: user.faceBiometricsStatus === 'enrolled',
     startDate: formatDate(user.trainingStartDate ?? user.createdAt) || undefined,
     lastStripeDate: formatDate(user.lastStripeDateOverride ?? latestGraduationAt) || undefined,
     trainingStartDate: formatDate(user.trainingStartDate) || undefined,

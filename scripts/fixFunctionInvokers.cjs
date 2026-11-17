@@ -49,6 +49,9 @@ const functionIds = [
   'upsertLearningTrack',
   'upsertLessonQuiz',
   'upsertMission',
+  'enrollFaceBiometrics',
+  'revokeFaceBiometrics',
+  'suggestClassAttendanceFromFaces',
 ];
 
 const firebaseToolsConfigPath = path.join(

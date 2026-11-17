@@ -32,12 +32,12 @@ import {
   ShieldCheck,
   Sun,
   Trash2,
-  UserRound,
-} from 'lucide-react';
+  UserRound, ScanFace } from 'lucide-react';
 import AvatarWithBelt from '../components/AvatarWithBelt';
 import DateField from '../components/DateField';
 import ExamRulesModal from '../components/ExamRulesModal';
 import PushSettingsPanel from '../components/PushSettingsPanel';
+import FaceBiometricsPanel, { canOfferFaceBiometrics } from '../components/FaceBiometricsPanel';
 import LanguagePicker from '../components/LanguagePicker';
 import ProgressBar from '../components/ProgressBar';
 import type { FirestoreEntity } from '../services/firebase/data';
@@ -241,7 +241,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({
     ? (blackBeltProgress.degreeLabel || t('Faixa lisa'))
     : user.stripes > 0 ? t('{stripe}o Grau', { stripe: user.stripes }) : t('0 Grau');
   const [activeSection, setActiveSection] = useState<'settings' | 'history' | 'achievements' | null>(null);
-  const [activeStudentSection, setActiveStudentSection] = useState<'dados-pessoais' | 'acesso-email' | 'aparencia' | 'idioma' | 'notificacoes' | 'historicos' | 'excluir-conta' | null>(null);
+  const [activeStudentSection, setActiveStudentSection] = useState<'dados-pessoais' | 'acesso-email' | 'aparencia' | 'idioma' | 'notificacoes' | 'biometria' | 'historicos' | 'excluir-conta' | null>(null);
   const [examRulesOpen, setExamRulesOpen] = useState(false);
   const [deletePassword, setDeletePassword] = useState('');
   const [deleteConfirmChecked, setDeleteConfirmChecked] = useState(false);
@@ -1067,6 +1067,30 @@ const ProfileView: React.FC<ProfileViewProps> = ({
             </div>
           ) : null}
         </div>
+
+        {/* Biometria facial (opcional, so maiores de 18) */}
+        {canOfferFaceBiometrics(profile.birthDate) ? (
+          <div>
+            <button
+              type="button"
+              className="profile-mobile__menu-row w-full text-left"
+              onClick={() => setActiveStudentSection(activeStudentSection === 'biometria' ? null : 'biometria')}
+            >
+              <div className="profile-mobile__menu-icon"><ScanFace size={18} /></div>
+              <span className="profile-mobile__menu-label">{t('Biometria facial')}</span>
+              <ChevronRight
+                size={18}
+                className={`profile-mobile__menu-arrow transition-transform duration-200 ${activeStudentSection === 'biometria' ? 'rotate-90' : ''}`}
+              />
+            </button>
+
+            {activeStudentSection === 'biometria' ? (
+              <div className="px-4 pb-5 pt-4 border-t border-white/10">
+                <FaceBiometricsPanel enrolled={profile.faceBiometricsStatus === 'enrolled'} birthDate={profile.birthDate} />
+              </div>
+            ) : null}
+          </div>
+        ) : null}
 
         {/* Historicos */}
         <div>

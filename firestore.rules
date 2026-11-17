@@ -103,7 +103,8 @@ service cloud.firestore {
           'nextStripeAttendanceTarget', 'nextBeltAttendanceTarget',
           'currentStripeProgress', 'classesToNextStripe',
           'currentBeltProgress', 'totalClassesToNextBelt',
-          'rankingPoints', 'missionPoints', 'competitionPoints', 'beltPromotions'
+          'rankingPoints', 'missionPoints', 'competitionPoints', 'beltPromotions',
+          'faceBiometricsStatus', 'faceBiometricsEnrolledAt'
         ]);
 
       allow delete: if isSuperAdmin() || (isAdmin() && sameAcademy(resource.data.academyId));
@@ -348,6 +349,16 @@ service cloud.firestore {
     match /finance_withdrawals/{withdrawalId} {
       allow read: if isSuperAdmin();
       allow write: if false;
+    }
+
+    // Biometria facial: dado sensivel. Nenhum cliente le ou grava — nem o proprio usuario,
+    // nem a equipe, nem o superadmin. So as Cloud Functions (Admin SDK) acessam.
+    match /face_biometrics/{userId} {
+      allow read, write: if false;
+    }
+
+    match /face_consent_logs/{logId} {
+      allow read, write: if false;
     }
   }
 }

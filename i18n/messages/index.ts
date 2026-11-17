@@ -25,6 +25,7 @@ import { loginMessages } from './login';
 import { layoutMessages } from './layout';
 import { appMessages } from './app';
 import { commonMessages } from './common';
+import { biometricsMessages } from './biometrics';
 
 export const messages: MessageCatalog = {
   ...commonMessages,
@@ -53,4 +54,5 @@ export const messages: MessageCatalog = {
   ...financeMessages,
   ...reportsMessages,
   ...calendarMessages,
+  ...biometricsMessages,
 };

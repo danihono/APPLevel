@@ -96,6 +96,9 @@ const ALLOWED_CALLABLES = new Set([
   'reactivateStudent',
   'requestReactivation',
   'resolveReactivationRequest',
+  'enrollFaceBiometrics',
+  'revokeFaceBiometrics',
+  'suggestClassAttendanceFromFaces',
 ]);
 
 const FORWARDED_HEADERS = [

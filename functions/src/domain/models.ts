@@ -5,6 +5,8 @@ export const COLLECTIONS = {
   classRsvps: 'class_rsvps',
   classes: 'classes',
   competitions: 'competitions',
+  faceBiometrics: 'face_biometrics',
+  faceConsentLogs: 'face_consent_logs',
   fights: 'fights',
   fightVideoSubmissions: 'fight_video_submissions',
   graduationRequests: 'graduation_requests',
@@ -173,8 +175,34 @@ export interface UserDoc {
   // aprovar uma nova graduacao antes de o aluno comparecer a uma aula.
   lastGradeApprovalAt?: FirebaseFirestore.Timestamp;
   plainPassword?: string;
+  // Biometria facial (opcional, so 18+). Aqui fica apenas o STATUS; os vetores ficam em
+  // `face_biometrics/{uid}`, que nenhum cliente consegue ler.
+  faceBiometricsStatus?: 'enrolled';
+  faceBiometricsEnrolledAt?: FirebaseFirestore.Timestamp;
   createdAt: FirebaseFirestore.Timestamp;
   updatedAt: FirebaseFirestore.Timestamp;
+}
+
+// Vetores faciais do usuario (id do doc = uid). Dado pessoal sensivel (LGPD): gravado e lido
+// somente pelas Cloud Functions; nenhuma foto e armazenada.
+export interface FaceBiometricsDoc {
+  userId: string;
+  samples: { values: number[] }[];
+  modelVersion: string;
+  consentVersion: string;
+  consentAcceptedAt: FirebaseFirestore.Timestamp;
+  createdAt: FirebaseFirestore.Timestamp;
+  updatedAt: FirebaseFirestore.Timestamp;
+}
+
+// Trilha de auditoria do consentimento (aceite e revogacao). Nao contem biometria.
+export interface FaceConsentLogDoc {
+  userId: string;
+  academyId: string;
+  action: 'granted' | 'revoked';
+  consentVersion: string;
+  modelVersion: string;
+  createdAt: FirebaseFirestore.Timestamp;
 }
 
 export interface ClassDoc {

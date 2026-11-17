@@ -73,6 +73,8 @@ export interface UserRecord {
   // Faixa preta: override manual do grau (0-9). null/ausente = grau derivado da data da preta.
   blackBeltDegreeManual?: number | null;
   photoPath?: string;
+  // So o status; os vetores faciais ficam em `face_biometrics`, fora do alcance de qualquer cliente.
+  faceBiometricsStatus?: 'enrolled';
   attendanceCount: number;
   attendanceCountBonus?: number;
   attendanceCountAtBeltStart?: number;

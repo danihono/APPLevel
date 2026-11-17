@@ -177,6 +177,23 @@ export interface SendBroadcastResult {
   failed: number;
 }
 
+export interface FaceAttendanceCandidate {
+  userId: string;
+  similarity: number;
+  alreadyPresent: boolean;
+}
+
+export interface FaceAttendanceSuggestions {
+  classId: string;
+  // Quantos alunos da unidade tem biometria cadastrada (0 = ninguem para comparar).
+  enrolledCount: number;
+  faces: {
+    faceIndex: number;
+    best: (FaceAttendanceCandidate & { confidence: 'high' | 'medium' }) | null;
+    alternatives: FaceAttendanceCandidate[];
+  }[];
+}
+
 export const backendFunctions = {
   listSignupAcademies: () =>
     callFunction<SignupAcademyRecord[]>('listSignupAcademies', {}),
@@ -353,6 +370,20 @@ export const backendFunctions = {
 
   removeAttendance: (payload: { classId: string; targetUserId: string }) =>
     callFunction<{ classId: string; userId: string }>('removeAttendance', payload),
+
+  // Biometria facial: o aparelho calcula os vetores; nenhuma foto e enviada.
+  enrollFaceBiometrics: (payload: {
+    embeddings: number[][];
+    consentAccepted: true;
+    consentVersion: string;
+    modelVersion: string;
+  }) => callFunction<{ userId: string; status: 'enrolled' }>('enrollFaceBiometrics', payload),
+
+  revokeFaceBiometrics: () =>
+    callFunction<{ userId: string; status: 'revoked' }>('revokeFaceBiometrics', {}),
+
+  suggestClassAttendanceFromFaces: (payload: { classId: string; embeddings: number[][] }) =>
+    callFunction<FaceAttendanceSuggestions>('suggestClassAttendanceFromFaces', payload),
 
   submitAttendanceRequest: (payload: { classId: string }) =>
     callFunction<{ requestId: string; classId: string; status: AttendanceRequestStatus }>('submitAttendanceRequest', payload),

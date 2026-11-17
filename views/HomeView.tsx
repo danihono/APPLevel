@@ -9,7 +9,9 @@ import BjjBelt from '../components/BjjBelt';
 import ProgressBar from '../components/ProgressBar';
 import { CommitmentBar } from '../components/CommitmentBar';
 import type { CommitmentResult } from '../commitmentScale';
-import type { User } from '../types';
+import FaceBiometricsInviteBanner from '../components/FaceBiometricsInviteBanner';
+import { isAdultByBirthDate } from '../faceBiometricsRules';
+import { UserRole, type User } from '../types';
 import { t, getLocale } from '../i18n';
 
 interface HomeViewProps {
@@ -41,8 +43,14 @@ const HomeView: React.FC<HomeViewProps> = ({
   const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
   const attendedDays = new Set(attendanceDays);
 
+  // Convite da biometria facial: so aluno maior de idade que ainda nao cadastrou.
+  const canInviteFaceBiometrics = user.role === UserRole.ALUNO
+    && !user.faceBiometricsEnrolled
+    && isAdultByBirthDate(user.birthDate);
+
   return (
     <div className="view-shell">
+      <FaceBiometricsInviteBanner eligible={canInviteFaceBiometrics} />
       <section className="app-panel app-panel-pad">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="flex items-center gap-3">

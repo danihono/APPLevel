@@ -2289,6 +2289,9 @@ export const deleteMyAccount = onCall(callableOptions, async (request) => {
     console.error(`Falha ao apagar arquivos do Storage para ${uid}:`, error);
   }
 
+  // 1b) Apaga a biometria facial (dado sensivel) antes de qualquer outra coisa.
+  await db.collection(COLLECTIONS.faceBiometrics).doc(uid).delete();
+
   // 2) Apaga o doc do usuario PRIMEIRO: assim os triggers (onFightWritten) que dependem do
   //    doc do usuario fazem no-op e nao recriam ranking orfao durante a anonimizacao abaixo.
   await db.collection(COLLECTIONS.users).doc(uid).delete();

@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AlertTriangle, CalendarDays, Camera, CheckCircle, ChevronDown, ChevronLeft, ChevronRight, MapPin, Pencil, Play, Plus, QrCode, RefreshCw, ShieldCheck, Sliders, StopCircle, Trash2, UserCheck, Users, X } from 'lucide-react';
+import { AlertTriangle, CalendarDays, Camera, CheckCircle, ChevronDown, ChevronLeft, ChevronRight, MapPin, Pencil, Play, Plus, QrCode, RefreshCw, ScanFace, ShieldCheck, Sliders, StopCircle, Trash2, UserCheck, Users, X } from 'lucide-react';
 import QRCodeSVG from 'react-qr-code';
 import { resolveAttendanceDate } from '../attendanceUtils';
 import { buildMonthGrid, MONTH_WEEK_HEADER, sameCalendarDay, sameCalendarMonth, stripDate, toDateKey } from '../calendarUtils';
@@ -19,6 +19,7 @@ import {
   type AttendanceNonCountingReason,
 } from '../classRules';
 import AvatarWithBelt from '../components/AvatarWithBelt';
+import FaceAttendanceModal from '../components/FaceAttendanceModal';
 import { getMyClassRsvp, subscribeToClassAttendances, subscribeToClassRsvps, type FirestoreEntity } from '../services/firebase/data';
 import {
   backendFunctions,
@@ -855,6 +856,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
   const [myRsvpByClass, setMyRsvpByClass] = useState<Record<string, boolean>>({});
   const [rsvpBusyByClass, setRsvpBusyByClass] = useState<Record<string, boolean>>({});
   const [showParticipants, setShowParticipants] = useState(false);
+  const [faceAttendanceOpen, setFaceAttendanceOpen] = useState(false);
   const [participantsList, setParticipantsList] = useState<Array<FirestoreEntity<ClassRsvpRecord>>>([]);
   const [participantsLoading, setParticipantsLoading] = useState(false);
   const [feedbackToast, setFeedbackToast] = useState<FeedbackToast | null>(null);
@@ -2446,6 +2448,18 @@ const CalendarView: React.FC<CalendarViewProps> = ({
 
                   {sheetTab === 'agendamento' ? (
                     <div style={{ padding: '0 20px 16px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+                      {/* Chamada por foto: mesmas condicoes da chamada manual (aula ativa ou encerrada) */}
+                      {onMarkStudentPresent && (selectedClass.status === 'active' || selectedClass.status === 'finished') ? (
+                        <button
+                          type="button"
+                          className="app-button app-button--gold app-button--block"
+                          onClick={() => setFaceAttendanceOpen(true)}
+                        >
+                          <ScanFace size={16} />
+                          {t('Chamada por foto')}
+                        </button>
+                      ) : null}
+
                       {/* Seção confirmados */}
                       <p style={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--text-soft)' }}>
                         {t('Confirmados ({count})', { count: confirmedRoster.length })}
@@ -3182,6 +3196,15 @@ const CalendarView: React.FC<CalendarViewProps> = ({
             </div>
           </section>
         </div>
+      ) : null}
+
+      {faceAttendanceOpen && selectedClass && canManageSelected ? (
+        <FaceAttendanceModal
+          classId={selectedClass.id}
+          className={selectedClass.title}
+          students={academyStudents ?? []}
+          onClose={() => setFaceAttendanceOpen(false)}
+        />
       ) : null}
     </div>
   );

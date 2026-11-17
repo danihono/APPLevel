@@ -3,6 +3,7 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
 import { ConfirmProvider } from './components/ConfirmDialog';
+import FaceEnrollmentHost from './components/FaceEnrollmentHost';
 import { LanguageProvider } from './i18n';
 
 const rootElement = document.getElementById('root');
@@ -16,6 +17,7 @@ root.render(
     <LanguageProvider>
       <ConfirmProvider>
         <App />
+        <FaceEnrollmentHost />
       </ConfirmProvider>
     </LanguageProvider>
   </React.StrictMode>
