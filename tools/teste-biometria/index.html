@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Teste da chamada por foto</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@600;800&family=Inter:wght@400;600&display=swap" rel="stylesheet">
+<style>
+/* VOICE: ferramenta de tatame, direta, para o professor testar no celular.
+   IDEA: a chamada do professor — a foto da turma com cada rosto numerado, como uma lista de presença.
+   PICTURE: a propria foto analisada, com as caixas numeradas desenhadas sobre ela.
+   COLOUR and TYPE: dourado LEVEL sobre preto/branco; Sora nos titulos, Inter no texto.
+   LAYOUT: uma coluna, tres passos em sequencia; a foto da turma ocupa a largura toda. */
+:root{color-scheme:light dark;--bg:light-dark(#f7f5f0,#0b0b0d);--card:light-dark(#fff,#16161a);--ink:light-dark(#141414,#f2efe8);--muted:light-dark(#5f5a52,#a7a196);--line:light-dark(#e6e1d6,#2a2a30);--gold:#e8af48;--gold-ink:#1b1305;--ok:#1f9d6b;--warn:#c98a12;--bad:#d24b4b}
+:root[data-theme=light]{color-scheme:light}:root[data-theme=dark]{color-scheme:dark}
+*{box-sizing:border-box;min-width:0}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 Inter,system-ui,sans-serif;overflow-x:clip}
+h1,h2{font-family:Sora,Inter,sans-serif;line-height:1.1;text-wrap:balance;margin:0}
+h1{font-size:clamp(30px,6vw,44px);font-weight:800}
+h2{font-size:21px;font-weight:800;display:flex;gap:10px;align-items:center}
+.step{display:inline-grid;place-items:center;width:30px;height:30px;border-radius:50%;background:var(--gold);color:var(--gold-ink);font-size:15px;flex:none}
+header{background:#0b0b0d;color:#f2efe8;padding:28px max(5vw,16px) 24px}
+header p{margin:10px 0 0;color:#c9c3b6;max-width:62ch}
+.privacy{margin-top:14px;display:inline-block;border:1px solid #3a3426;border-radius:10px;padding:8px 12px;font-size:14px;color:#e8d9b5}
+main{max-width:760px;margin:0 auto;padding:20px max(4vw,14px) 60px;display:grid;gap:18px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:20px}
+.card>p{color:var(--muted);margin:8px 0 0}
+label{font-weight:600;font-size:14px;display:block;margin:16px 0 6px}
+input[type=text]{width:100%;font:inherit;font-size:16px;padding:11px 13px;border-radius:12px;border:1px solid var(--line);background:var(--bg);color:var(--ink);min-height:46px}
+.row{display:flex;flex-wrap:wrap;gap:10px;margin-top:14px}
+button,.btn{font:600 15px Inter,sans-serif;min-height:46px;padding:0 18px;border-radius:12px;border:1px solid var(--line);background:var(--bg);color:var(--ink);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:8px}
+.primary{background:var(--gold);border-color:var(--gold);color:var(--gold-ink)}
+button:disabled,.btn.is-off{opacity:.45;cursor:not-allowed;pointer-events:none}
+button:focus-visible,.btn:focus-within,input:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
+.btn input{position:absolute;opacity:0;width:1px;height:1px}
+.slots{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:14px}
+.slot{aspect-ratio:1;border-radius:14px;border:2px dashed var(--line);display:grid;place-items:center;font-size:13px;color:var(--muted);text-align:center;padding:6px;overflow:hidden;position:relative}
+.slot img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.slot.ok{border-style:solid;border-color:var(--ok)}
+.msg{margin-top:12px;font-size:14px;border-radius:10px;padding:10px 12px;display:none}
+.msg.show{display:block}.msg.err{background:color-mix(in srgb,var(--bad) 14%,transparent);color:var(--bad)}
+.msg.info{background:color-mix(in srgb,var(--gold) 16%,transparent)}
+.people{display:grid;gap:8px;margin-top:14px;padding:0;list-style:none}
+.people li{display:flex;align-items:center;gap:10px;border:1px solid var(--line);border-radius:12px;padding:8px 10px}
+.people img{width:44px;height:44px;border-radius:10px;object-fit:cover;flex:none}
+.people span{flex:1;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.people button{min-height:40px;padding:0 12px;font-size:14px}
+.photo{position:relative;margin-top:16px;border-radius:14px;overflow:hidden;background:#000;display:none}
+.photo.show{display:block}.photo canvas{display:block;width:100%;height:auto}
+.spin{display:none;align-items:center;gap:10px;margin-top:14px;font-weight:600}
+.spin.show{display:flex}
+.spin i{width:18px;height:18px;border:3px solid var(--line);border-top-color:var(--gold);border-radius:50%;animation:r .8s linear infinite}
+@keyframes r{to{transform:rotate(360deg)}}
+@media(prefers-reduced-motion:reduce){.spin i{animation:none}}
+.summary{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+.pill{border-radius:999px;padding:5px 12px;font-size:14px;font-weight:600;border:1px solid var(--line);white-space:nowrap}
+.faces{display:grid;gap:8px;margin-top:14px}
+.face{display:flex;align-items:center;gap:12px;border:1px solid var(--line);border-radius:14px;padding:8px}
+.face img{width:58px;height:58px;border-radius:10px;object-fit:cover;flex:none}
+.num{flex:none;width:28px;height:28px;border-radius:50%;display:grid;place-items:center;font-weight:800;font-size:13px;color:#fff}
+.face .t{flex:1}.face b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.face small{color:var(--muted);font-size:13px;display:block}
+.face.unknown{opacity:.7}
+.pct{font:800 18px Sora,sans-serif;white-space:nowrap}
+details{margin-top:16px}summary{cursor:pointer;font-weight:600;min-height:44px;display:flex;align-items:center}
+.scroll{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:14px;margin-top:8px}
+th,td{border-bottom:1px solid var(--line);padding:7px 8px;text-align:right;white-space:nowrap}
+th:first-child,td:first-child{text-align:left}
+td.hi{color:var(--ok);font-weight:800}td.mid{color:var(--warn);font-weight:700}
+.legend{font-size:13px;color:var(--muted);margin-top:8px}
+footer{font-size:13px;color:var(--muted);text-align:center;padding:0 16px 40px}
+</style>
+</head>
+<body>
+<header>
+  <h1>Teste da chamada por foto</h1>
+  <p>Cadastre o rosto de algumas pessoas e depois mande uma foto da turma. A página sugere quem está em cada rosto, igual ao app LEVEL.</p>
+  <div class="privacy">Tudo roda neste aparelho. Nenhuma foto é salva ou enviada, e recarregar a página apaga tudo.</div>
+</header>
+
+<main>
+  <section class="card" id="enroll">
+    <h2><span class="step">1</span>Cadastrar pessoas</h2>
+    <p>Para cada aluno: nome e 3 fotos do rosto, com boa luz, sem boné e sem óculos escuros. Uma de frente e as outras com o rosto levemente virado para cada lado.</p>
+    <label for="name">Nome</label>
+    <input type="text" id="name" placeholder="Ex.: Ana Souza" autocomplete="off">
+    <div class="slots" id="slots"></div>
+    <div class="row">
+      <span class="btn primary" id="selfieCam">Tirar foto<input type="file" accept="image/*" capture="user" id="selfieCamInput"></span>
+      <span class="btn" id="selfieGal">Escolher da galeria<input type="file" accept="image/*" id="selfieGalInput"></span>
+      <button type="button" id="resetSlots">Refazer fotos</button>
+    </div>
+    <div class="spin" id="enrollSpin"><i></i><span>Analisando foto…</span></div>
+    <div class="msg" id="enrollMsg"></div>
+    <div class="row"><button type="button" class="primary" id="savePerson" disabled>Salvar pessoa</button></div>
+    <ul class="people" id="people"></ul>
+  </section>
+
+  <section class="card" id="group">
+    <h2><span class="step">2</span>Foto da turma</h2>
+    <p>Tire uma foto com todos olhando para a câmera. Na primeira vez o aparelho baixa o modelo (cerca de 11 MB) e pode levar alguns segundos.</p>
+    <div class="row">
+      <span class="btn primary is-off" id="groupCam">Tirar foto da turma<input type="file" accept="image/*" capture="environment" id="groupCamInput"></span>
+      <span class="btn is-off" id="groupGal">Escolher da galeria<input type="file" accept="image/*" id="groupGalInput"></span>
+    </div>
+    <div class="msg info show" id="groupHint">Cadastre pelo menos uma pessoa no passo 1.</div>
+    <div class="spin" id="groupSpin"><i></i><span id="groupSpinText">Analisando a foto…</span></div>
+    <div class="msg" id="groupMsg"></div>
+    <div class="photo" id="photo"><canvas id="photoCanvas"></canvas></div>
+    <div class="summary" id="summary"></div>
+    <div class="faces" id="faces"></div>
+    <details id="calib" hidden>
+      <summary>Calibração: semelhança de cada rosto com cada pessoa</summary>
+      <div class="scroll"><table id="calibTable"></table></div>
+      <p class="legend">Verde: a partir de 68% (o app já marca a presença como sugestão de confiança alta). Amarelo: de 58% a 67% (o app sugere, mas pede para o professor conferir). Abaixo de 58% o rosto fica como não reconhecido. Se o certo ficou baixo ou alguém errado ficou alto, me mande esses números.</p>
+    </details>
+  </section>
+</main>
+<!-- Constantes copiadas de services/faceEngine.ts e functions/src/services/faceMatching.ts: mudou lá, mude aqui. -->
+<footer>Página de teste da biometria facial do app LEVEL. Mesmas regras e limites do app.</footer>
+
+<script type="module">
+{
+// ===== Mesmas constantes do app (services/faceEngine.ts e functions/src/services/faceMatching.ts) =====
+const SELFIE_MAX_SIDE = 1024, GROUP_MAX_SIDE = 2560;
+const SELFIE_MIN_FACE_PX = 110, GROUP_MIN_FACE_PX = 34;
+const SELFIE_MIN_MESH_SCORE = 0.6, GROUP_MIN_BOX_SCORE = 0.4;
+const MATCH = 0.58, HIGH = 0.68, SAMPLES = 3, MAX_FACES = 80;
+const COLORS = ['#e8af48', '#4fa3e0', '#1f9d6b', '#d2508f', '#8a6cf0', '#e0743a', '#2bb5b0', '#c9c12e'];
+
+const config = {
+  backend: 'webgl', modelBasePath: new URL('models/', document.baseURI).href,
+  cacheSensitivity: 0, warmup: 'none', debug: false,
+  filter: { enabled: true, equalization: false, flip: false },
+  face: { enabled: true, detector: { rotation: false, maxDetected: 40, minConfidence: 0.3, return: false },
+    mesh: { enabled: true, keepInvalid: true }, iris: { enabled: false }, emotion: { enabled: false },
+    antispoof: { enabled: false }, liveness: { enabled: false }, description: { enabled: true } },
+  body: { enabled: false }, hand: { enabled: false }, object: { enabled: false },
+  gesture: { enabled: false }, segmentation: { enabled: false },
+};
+
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+let humanPromise = null;
+function getHuman() {
+  if (!humanPromise) {
+    humanPromise = (async () => {
+      const mod = await import('./human.esm.js');
+      const human = new mod.Human(config);
+      await human.load();
+      return human;
+    })().catch((e) => { humanPromise = null; console.error(e); throw new Error('engine'); });
+  }
+  return humanPromise;
+}
+
+async function loadToCanvas(file, maxSide) {
+  let bmp;
+  try { bmp = await createImageBitmap(file, { imageOrientation: 'from-image' }); } catch { throw new Error('invalid_image'); }
+  const scale = Math.min(1, maxSide / Math.max(bmp.width, bmp.height));
+  const c = document.createElement('canvas');
+  c.width = Math.max(1, Math.round(bmp.width * scale)); c.height = Math.max(1, Math.round(bmp.height * scale));
+  c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height); bmp.close();
+  return c;
+}
+function crop(src, x, y, w, h) {
+  const c = document.createElement('canvas'); c.width = w; c.height = h;
+  c.getContext('2d').drawImage(src, x, y, w, h, 0, 0, w, h); return c;
+}
+function thumb(src, b, size = 112) {
+  const side = Math.max(b.width, b.height) * 1.5;
+  const c = document.createElement('canvas'); c.width = size; c.height = size;
+  c.getContext('2d').drawImage(src, b.x + b.width / 2 - side / 2, b.y + b.height / 2 - side / 2, side, side, 0, 0, size, size);
+  return c.toDataURL('image/jpeg', 0.8);
+}
+async function detectIn(human, canvas, mode, ox = 0, oy = 0) {
+  const r = await human.detect(canvas);
+  const out = [];
+  for (const f of r.face) {
+    const ok = mode === 'selfie' ? f.faceScore >= SELFIE_MIN_MESH_SCORE : (f.faceScore >= SELFIE_MIN_MESH_SCORE || f.boxScore >= GROUP_MIN_BOX_SCORE);
+    if (!f.embedding || !f.embedding.length || !ok) continue;
+    out.push({ embedding: f.embedding.map((v) => Math.round(v * 10000) / 10000),
+      box: { x: f.box[0] + ox, y: f.box[1] + oy, width: f.box[2], height: f.box[3] },
+      score: f.faceScore >= SELFIE_MIN_MESH_SCORE ? 1 + f.faceScore : f.boxScore });
+  }
+  return out;
+}
+function overlap(a, b) {
+  const w = Math.min(a.x + a.width, b.x + b.width) - Math.max(a.x, b.x);
+  const h = Math.min(a.y + a.height, b.y + b.height) - Math.max(a.y, b.y);
+  return w <= 0 || h <= 0 ? 0 : (w * h) / Math.min(a.width * a.height, b.width * b.height);
+}
+function dedupe(faces) {
+  const kept = [];
+  for (const f of [...faces].sort((a, b) => b.score - a.score)) if (!kept.some((k) => overlap(f.box, k.box) > 0.45)) kept.push(f);
+  return kept;
+}
+function similarity(a, b) {
+  if (a.length !== b.length || !a.length) return 0;
+  let sum = 0; for (let i = 0; i < a.length; i++) { const d = a[i] - b[i]; sum += d * d; }
+  if (sum === 0) return 1;
+  const n = (1 - Math.sqrt(25 * sum) / 100 - 0.2) / 0.6;
+  return Math.round(100 * Math.max(0, Math.min(1, n))) / 100;
+}
+const bestOf = (face, person) => Math.max(...person.embeddings.map((e) => similarity(face, e)));
+
+// ===== Passo 1: cadastro =====
+const people = [];
+let samples = []; // { embedding, thumb }
+const ERR = {
+  no_face: 'Não encontramos um rosto nesta foto. Tente de novo com boa luz, olhando para a câmera.',
+  multiple_faces: 'Apareceu mais de uma pessoa na foto. A foto de cadastro precisa ter só um rosto.',
+  face_too_small: 'O rosto ficou muito pequeno. Aproxime o celular e tente de novo.',
+  invalid_image: 'Não foi possível abrir esta imagem. Tente outra foto.',
+  engine: 'Não foi possível iniciar o reconhecimento facial neste aparelho. Verifique a conexão e recarregue a página.',
+};
+function showMsg(el, text, kind = 'err') { el.textContent = text; el.className = text ? `msg show ${kind}` : 'msg'; }
+
+function renderSlots() {
+  $('slots').innerHTML = Array.from({ length: SAMPLES }, (_, i) => samples[i]
+    ? `<div class="slot ok"><img src="${samples[i].thumb}" alt="Foto ${i + 1}"></div>`
+    : `<div class="slot">${['De frente', 'Virado à esquerda', 'Virado à direita'][i]}</div>`).join('');
+  const full = samples.length >= SAMPLES;
+  $('selfieCam').classList.toggle('is-off', full); $('selfieGal').classList.toggle('is-off', full);
+  $('savePerson').disabled = !full;
+}
+function renderPeople() {
+  $('people').innerHTML = people.map((p, i) => `<li><img src="${p.thumb}" alt=""><span>${esc(p.name)}</span><button type="button" data-i="${i}">Remover</button></li>`).join('');
+  const none = people.length === 0;
+  $('groupCam').classList.toggle('is-off', none); $('groupGal').classList.toggle('is-off', none);
+  $('groupHint').className = none ? 'msg info show' : 'msg';
+}
+
+async function onSelfie(file) {
+  if (!file) return;
+  showMsg($('enrollMsg'), ''); $('enrollSpin').classList.add('show');
+  try {
+    const human = await getHuman();
+    const canvas = await loadToCanvas(file, SELFIE_MAX_SIDE);
+    const faces = dedupe(await detectIn(human, canvas, 'selfie'));
+    if (!faces.length) throw new Error('no_face');
+    if (faces.length > 1) throw new Error('multiple_faces');
+    if (Math.min(faces[0].box.width, faces[0].box.height) < SELFIE_MIN_FACE_PX) throw new Error('face_too_small');
+    samples.push({ embedding: faces[0].embedding, thumb: thumb(canvas, faces[0].box) });
+    renderSlots();
+  } catch (e) {
+    showMsg($('enrollMsg'), ERR[e.message] || 'Não foi possível analisar a foto. Tente de novo.');
+  } finally { $('enrollSpin').classList.remove('show'); }
+}
+for (const id of ['selfieCamInput', 'selfieGalInput']) {
+  $(id).addEventListener('change', (ev) => { const f = ev.target.files[0]; ev.target.value = ''; onSelfie(f); });
+}
+$('resetSlots').addEventListener('click', () => { samples = []; showMsg($('enrollMsg'), ''); renderSlots(); });
+$('savePerson').addEventListener('click', () => {
+  const name = $('name').value.trim();
+  if (!name) { showMsg($('enrollMsg'), 'Escreva o nome da pessoa antes de salvar.'); $('name').focus(); return; }
+  const embs = samples.map((s) => s.embedding);
+  let lowest = 1;
+  for (let i = 0; i < embs.length; i++) for (let j = i + 1; j < embs.length; j++) lowest = Math.min(lowest, similarity(embs[i], embs[j]));
+  if (lowest < MATCH) {
+    showMsg($('enrollMsg'), `As fotos não parecem ser da mesma pessoa (semelhança mínima ${Math.round(lowest * 100)}%, o app exige ${Math.round(MATCH * 100)}%). Refaça as fotos.`);
+    samples = []; renderSlots(); return;
+  }
+  people.push({ name, embeddings: embs, thumb: samples[0].thumb });
+  samples = []; $('name').value = '';
+  showMsg($('enrollMsg'), `${name} cadastrado(a). Semelhança mínima entre as 3 fotos: ${Math.round(lowest * 100)}%.`, 'info');
+  renderSlots(); renderPeople();
+});
+$('people').addEventListener('click', (ev) => {
+  const i = ev.target.closest('button')?.dataset.i;
+  if (i != null) { people.splice(Number(i), 1); renderPeople(); }
+});
+
+// ===== Passo 2: foto da turma =====
+function suggest(faces) {
+  const cands = faces.map((f) => people.map((p, pi) => ({ pi, s: bestOf(f, p) }))
+    .filter((c) => c.s >= MATCH).sort((a, b) => b.s - a.s));
+  const pairs = cands.flatMap((cs, fi) => cs.map((c) => ({ fi, ...c }))).sort((a, b) => b.s - a.s || a.fi - b.fi);
+  const best = new Map(), taken = new Set();
+  for (const p of pairs) { if (best.has(p.fi) || taken.has(p.pi)) continue; best.set(p.fi, p); taken.add(p.pi); }
+  return faces.map((_, fi) => ({ best: best.get(fi) || null, alts: cands[fi].filter((c) => c.pi !== best.get(fi)?.pi).slice(0, 2) }));
+}
+
+function drawPhoto(canvas, faces, results) {
+  const out = $('photoCanvas');
+  out.width = canvas.width; out.height = canvas.height;
+  const g = out.getContext('2d'); g.drawImage(canvas, 0, 0);
+  const lw = Math.max(2, canvas.width / 400), fs = Math.max(14, canvas.width / 55);
+  faces.forEach((f, i) => {
+    const color = results[i].best ? COLORS[results[i].best.pi % COLORS.length] : '#9a9a9a';
+    g.strokeStyle = color; g.lineWidth = lw; g.strokeRect(f.box.x, f.box.y, f.box.width, f.box.height);
+    const r = fs * 0.85, cx = f.box.x + f.box.width / 2, cy = Math.max(r, f.box.y - r - lw);
+    g.fillStyle = color; g.beginPath(); g.arc(cx, cy, r, 0, Math.PI * 2); g.fill();
+    g.fillStyle = '#fff'; g.font = `800 ${fs}px Sora, sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.fillText(String(i + 1), cx, cy + 1);
+  });
+  $('photo').classList.add('show');
+}
+
+function renderResults(faces, results) {
+  const recognized = results.filter((r) => r.best).length;
+  const high = results.filter((r) => r.best && r.best.s >= HIGH).length;
+  $('summary').innerHTML = `<span class="pill">${faces.length} rostos encontrados</span><span class="pill">${high} com confiança alta</span><span class="pill">${recognized - high} para conferir</span><span class="pill">${faces.length - recognized} não reconhecidos</span>`;
+  const order = faces.map((f, i) => i).sort((a, b) => Number(!!results[b].best) - Number(!!results[a].best) || a - b);
+  $('faces').innerHTML = order.map((i) => {
+    const r = results[i], f = faces[i];
+    const color = r.best ? COLORS[r.best.pi % COLORS.length] : '#9a9a9a';
+    const alts = r.alts.length ? `Outras opções: ${r.alts.map((a) => `${esc(people[a.pi].name)} (${Math.round(a.s * 100)}%)`).join(', ')}` : '';
+    if (!r.best) return `<div class="face unknown"><span class="num" style="background:${color}">${i + 1}</span><img src="${f.thumb}" alt="Rosto ${i + 1}"><div class="t"><b>Não reconhecido</b><small>${r.alts.length ? `Parecido com ${r.alts.map((a) => `${esc(people[a.pi].name)} (${Math.round(a.s * 100)}%)`).join(', ')}, que já foi sugerido(a) em outro rosto. No app, vai para a chamada manual.` : 'Sem cadastro ou rosto pouco visível. No app, vai para a chamada manual.'}</small></div></div>`;
+    const isHigh = r.best.s >= HIGH;
+    return `<div class="face"><span class="num" style="background:${color}">${i + 1}</span><img src="${f.thumb}" alt="Rosto ${i + 1}"><div class="t"><b>${esc(people[r.best.pi].name)}</b><small>${isHigh ? 'Confiança alta: o app já deixa marcado' : 'Confira com atenção: o app sugere sem marcar'}${alts ? ' · ' + alts : ''}</small></div><span class="pct" style="color:${isHigh ? 'var(--ok)' : 'var(--warn)'}">${Math.round(r.best.s * 100)}%</span></div>`;
+  }).join('');
+  const head = `<thead><tr><th>Rosto</th>${people.map((p) => `<th>${esc(p.name)}</th>`).join('')}</tr></thead>`;
+  const body = faces.map((f, i) => `<tr><td>${i + 1}</td>${people.map((p) => { const s = bestOf(f.embedding, p); return `<td class="${s >= HIGH ? 'hi' : s >= MATCH ? 'mid' : ''}">${Math.round(s * 100)}%</td>`; }).join('')}</tr>`).join('');
+  $('calibTable').innerHTML = head + `<tbody>${body}</tbody>`;
+  $('calib').hidden = false;
+}
+
+async function onGroup(file) {
+  if (!file || !people.length) return;
+  showMsg($('groupMsg'), ''); $('summary').innerHTML = ''; $('faces').innerHTML = ''; $('calib').hidden = true; $('photo').classList.remove('show');
+  $('groupSpin').classList.add('show');
+  const t0 = performance.now();
+  try {
+    $('groupSpinText').textContent = 'Preparando o reconhecimento facial…';
+    const human = await getHuman();
+    $('groupSpinText').textContent = 'Procurando rostos na foto…';
+    const canvas = await loadToCanvas(file, GROUP_MAX_SIDE);
+    const found = await detectIn(human, canvas, 'group');
+    if (Math.max(canvas.width, canvas.height) > 900) {
+      const land = canvas.width >= canvas.height, cols = land ? 3 : 2, rows = land ? 2 : 3;
+      const tw = Math.min(canvas.width, Math.round((canvas.width / cols) * 1.4));
+      const th = Math.min(canvas.height, Math.round((canvas.height / rows) * 1.4));
+      let n = 0;
+      for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
+        n++; $('groupSpinText').textContent = `Procurando rostos pequenos (parte ${n} de ${rows * cols})…`;
+        const x = Math.round(((canvas.width - tw) * c) / (cols - 1)), y = Math.round(((canvas.height - th) * r) / (rows - 1));
+        found.push(...await detectIn(human, crop(canvas, x, y, tw, th), 'group', x, y));
+      }
+    }
+    const faces = dedupe(found).filter((f) => Math.min(f.box.width, f.box.height) >= GROUP_MIN_FACE_PX)
+      .sort((a, b) => a.box.x - b.box.x).slice(0, MAX_FACES)
+      .map((f) => ({ ...f, thumb: thumb(canvas, f.box) }));
+    if (!faces.length) throw new Error('none');
+    const results = suggest(faces.map((f) => f.embedding));
+    drawPhoto(canvas, faces, results);
+    renderResults(faces, results);
+    showMsg($('groupMsg'), `Análise feita em ${((performance.now() - t0) / 1000).toFixed(1)} s neste aparelho.`, 'info');
+  } catch (e) {
+    showMsg($('groupMsg'), e.message === 'none' ? 'Não encontramos rostos nesta foto. Tente de novo mais perto e com boa luz.' : (ERR[e.message] || 'Não foi possível analisar a foto. Tente de novo.'));
+  } finally { $('groupSpin').classList.remove('show'); }
+}
+for (const id of ['groupCamInput', 'groupGalInput']) {
+  $(id).addEventListener('change', (ev) => { const f = ev.target.files[0]; ev.target.value = ''; onGroup(f); });
+}
+
+renderSlots(); renderPeople();
+// Adianta o download do modelo enquanto a pessoa preenche o nome.
+getHuman().catch(() => showMsg($('enrollMsg'), ERR.engine));
+window.__demoReady = true;
+}
+</script>
+</body>
+</html>
