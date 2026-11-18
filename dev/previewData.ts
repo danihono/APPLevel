@@ -404,11 +404,37 @@ export const previewLearningTracks: Array<FirestoreEntity<LearningTrackRecord>> 
   order: 1,
   status: 'published',
   audience: { mode: 'custom', roles: [], belts: [] }, // todos (alunos e professores, todas as faixas)
-}];
+},
+// Trilhas extras so com video enviado (sem arquivo): mostram as capas de cor da trilha.
+...([
+  ['track-raspagens', 'Raspagens', 'Inverter a posição a partir da guarda.', 2],
+  ['track-passagens', 'Passagens de guarda', 'Passar a guarda e estabilizar por cima.', 3],
+  ['track-finalizacoes', 'Finalizações', 'Chaves e estrangulamentos, do básico ao avançado.', 4],
+] as Array<[string, string, string, number]>).map(([id, title, description, order]) => ({
+  id,
+  title,
+  description,
+  order,
+  status: 'published' as const,
+  audience: { mode: 'custom' as const, roles: [], belts: [] },
+}))];
 
 export const previewLearningCourses: Array<FirestoreEntity<LearningCourseRecord>> = [
   { id: 'course-base', trackId: 'track-fundamentos', title: 'Base e postura', description: 'Postura na guarda, base em pé e quedas seguras.', order: 1, status: 'published' },
   { id: 'course-guarda', trackId: 'track-fundamentos', title: 'Guarda fechada', description: 'Controle, quebra de postura e as finalizações clássicas.', order: 2, status: 'published' },
+  { id: 'course-rasp-gf', trackId: 'track-raspagens', title: 'Da guarda fechada', order: 1, status: 'published' },
+  { id: 'course-rasp-meia', trackId: 'track-raspagens', title: 'Da meia-guarda', order: 2, status: 'published' },
+  { id: 'course-pass-aberta', trackId: 'track-passagens', title: 'Guarda aberta', order: 1, status: 'published' },
+  { id: 'course-fin-montada', trackId: 'track-finalizacoes', title: 'Da montada', order: 1, status: 'published' },
+];
+
+const extraLessonSeeds: Array<[string, string, string, string, number]> = [
+  ['lesson-tesoura', 'track-raspagens', 'course-rasp-gf', 'Raspagem de tesoura', 1],
+  ['lesson-quadril', 'track-raspagens', 'course-rasp-gf', 'Raspagem de quadril', 2],
+  ['lesson-gancho', 'track-raspagens', 'course-rasp-meia', 'Raspagem de gancho por dentro', 3],
+  ['lesson-toreando', 'track-passagens', 'course-pass-aberta', 'Passagem toreando', 1],
+  ['lesson-joelho', 'track-passagens', 'course-pass-aberta', 'Passagem de joelho cruzado', 2],
+  ['lesson-americana', 'track-finalizacoes', 'course-fin-montada', 'Americana da montada', 1],
 ];
 
 const lessonSeeds: Array<[string, string, string, string, number]> = [
@@ -418,7 +444,7 @@ const lessonSeeds: Array<[string, string, string, string, number]> = [
   ['lesson-triangulo', 'course-guarda', 'Triângulo', 'Um braço dentro, um fora: ajuste o ângulo e feche.', 2],
 ];
 
-export const previewLearningLessons: Array<FirestoreEntity<LearningLessonRecord>> = lessonSeeds.map(([id, courseId, title, description, order]) => ({
+export const previewLearningLessons: Array<FirestoreEntity<LearningLessonRecord>> = lessonSeeds.map(([id, courseId, title, description, order]): FirestoreEntity<LearningLessonRecord> => ({
   id,
   trackId: 'track-fundamentos',
   courseId,
@@ -430,9 +456,21 @@ export const previewLearningLessons: Array<FirestoreEntity<LearningLessonRecord>
   requiredWatchPercent: 80,
   quizQuestionCount: id === 'lesson-armlock' ? 3 : 0,
   contentBlockCount: 1,
-}));
+})).concat(extraLessonSeeds.map(([id, trackId, courseId, title, order]) => ({
+  id,
+  trackId,
+  courseId,
+  title,
+  description: '',
+  order,
+  status: 'published' as const,
+  passingScore: 70,
+  requiredWatchPercent: 80,
+  quizQuestionCount: 0,
+  contentBlockCount: 1,
+})));
 
-export const previewLearningBlocks: Array<FirestoreEntity<LearningLessonBlockRecord>> = lessonSeeds.map(([id, courseId, title], index) => ({
+export const previewLearningBlocks: Array<FirestoreEntity<LearningLessonBlockRecord>> = lessonSeeds.map(([id, courseId, title], index): FirestoreEntity<LearningLessonBlockRecord> => ({
   id: `block-${id}`,
   lessonId: id,
   trackId: 'track-fundamentos',
@@ -442,7 +480,17 @@ export const previewLearningBlocks: Array<FirestoreEntity<LearningLessonBlockRec
   order: 1,
   sourceUrl: beltImage(['faixa-branca-amarrada.webp', 'faixa-azul-amarrada.webp', 'faixa-roxa-amarrada.webp', 'faixa-marrom-amarrada.webp'][index]),
   lessonStatus: 'published',
-}));
+})).concat(extraLessonSeeds.map(([id, trackId, courseId, title]) => ({
+  id: `block-${id}`,
+  lessonId: id,
+  trackId,
+  courseId,
+  type: 'uploaded_video' as const,
+  title,
+  order: 1,
+  sourceUrl: '',
+  lessonStatus: 'published',
+})));
 
 export const previewLearningQuizzes: Array<FirestoreEntity<LearningQuizRecord>> = [{
   id: 'quiz-armlock',
@@ -479,6 +527,29 @@ export const previewLearningProgress: Array<FirestoreEntity<LearningProgressReco
     lastScore: 100,
     bestScore: 100,
     attemptCount: 1,
+  },
+  {
+    id: 'progress-postura',
+    academyId: ACADEMY_ID,
+    userId: previewStudent.id,
+    userDisplayName: previewStudent.displayName,
+    trackId: 'track-fundamentos',
+    courseId: 'course-base',
+    lessonId: 'lesson-postura',
+    videoSecondsWatched: 0,
+    durationSeconds: 0,
+    watchPercent: 0,
+    videoCompleted: false,
+    quizReady: false,
+    quizPassed: false,
+    lessonCompleted: false,
+    completedContentIds: [],
+    contentProgressMap: { 'block-lesson-postura': 40 },
+    contentCompletionPercent: 40,
+    contentCompleted: false,
+    lastScore: 0,
+    bestScore: 0,
+    attemptCount: 0,
   },
 ];
 
