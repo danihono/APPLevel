@@ -1,5 +1,6 @@
 import { RekognitionClient } from '@aws-sdk/client-rekognition';
 import { defineSecret, defineString } from 'firebase-functions/params';
+import { createFakeRekognitionClient } from './fakeRekognition';
 
 // Chaves de um usuario IAM com permissao apenas para o Rekognition (ver docs/biometria-aws.md).
 // Configurar com: firebase functions:secrets:set AWS_REKOGNITION_ACCESS_KEY_ID (e o SECRET).
@@ -13,7 +14,13 @@ export const faceSecrets = [awsRekognitionKeyId, awsRekognitionSecret];
 
 let client: RekognitionClient | null = null;
 
+// Simulacao local: so no emulador e so com FACE_AWS_FAKE=1 (functions/.env.local).
+const useFake = process.env.FUNCTIONS_EMULATOR === 'true' && process.env.FACE_AWS_FAKE === '1';
+
 export function getRekognitionClient(): RekognitionClient {
+  if (useFake) {
+    return createFakeRekognitionClient() as unknown as RekognitionClient;
+  }
   if (!client) {
     client = new RekognitionClient({
       region: awsRekognitionRegion.value(),
