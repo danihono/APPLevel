@@ -16,6 +16,7 @@ import { db } from '../lib/firebase';
 import { optionalString, requiredString } from '../lib/payload';
 import { hashQrToken } from '../lib/security';
 import {
+  assertBeginnerCanJoinClass,
   CountingDecision,
   dailyAttendanceQuery,
   isBeginnerClass,
@@ -59,6 +60,8 @@ async function createAttendanceRecord(params: {
   qrVersion?: number;
 }): Promise<CreateAttendanceResult> {
   const academyId = params.classData.academyId;
+  // Antes de tudo: iniciante fora da LEVEL Iniciante nao entra, por nenhum caminho.
+  assertBeginnerCanJoinClass(params.classData, params.targetUser);
   await ensureNoAttendanceDuplicate(academyId, params.classId, params.userId);
 
   // O dia da presenca e o dia da AULA no fuso da academia, nao o do lancamento: um professor
@@ -315,6 +318,7 @@ export const submitAttendanceRequest = onCall(callableOptions, async (request) =
 
   assertCondition(classData.academyId === actor.academyId, 'permission-denied', 'Aula fora da sua academia.');
   assertCondition(classData.status === 'active', 'failed-precondition', 'A aula precisa estar ativa para solicitar presenca.');
+  assertBeginnerCanJoinClass(classData, actor.user);
   await ensureNoAttendanceDuplicate(classData.academyId, classId, actor.uid);
 
   const duplicateRequest = await db

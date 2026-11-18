@@ -14,6 +14,8 @@ import StaffDashboardView from './views/StaffDashboardView';
 import { getUserProgressionSummary, normalizeBeltId } from './beltCatalog';
 import { resolveMonthlyCommitment } from './commitmentScale';
 import {
+  beginnerOnlyClassWarning,
+  canJoinClass,
   previewNonCountingReason,
   type AttendanceNonCountingReason,
 } from './classRules';
@@ -2559,6 +2561,14 @@ const App: React.FC = () => {
         attendances: attendances.filter((entry) => entry.userId === profile.id),
       })
     : null;
+  // Iniciante so entra na LEVEL Iniciante: o backend recusaria, entao nem deixamos confirmar.
+  const pendingCheckinBlocked = !!pendingCheckinClass && !canJoinClass(pendingCheckinClass.description, {
+    role: profile.role,
+    belt: profile.belt,
+    stripes: profile.stripes,
+    kidsCategory: profile.kidsCategory,
+    birthDate: profile.birthDate,
+  });
   const isSuperAdmin = profile.role === 'superadmin';
   const handleSetSuperadminViewMode = (nextMode: SuperadminViewMode) => {
     if (nextMode === 'professor' && allAcademies.length === 0) {
@@ -3300,6 +3310,7 @@ const App: React.FC = () => {
           user={currentUser}
           progressionRules={resolvedAcademy.progressionRules}
           nonCountingReason={pendingCheckinNonCountingReason}
+          blockedReason={pendingCheckinBlocked ? beginnerOnlyClassWarning() : null}
           alreadyCheckedIn={Boolean(
             pendingCheckin.classId
             && attendances.some((entry) => entry.classId === pendingCheckin.classId && entry.userId === profile.id),

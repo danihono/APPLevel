@@ -8,9 +8,10 @@ import {
   COLLECTIONS,
   UserDoc,
 } from '../domain/models';
+import { assertCondition } from '../lib/errors';
 import { db } from '../lib/firebase';
 import { isValidTimeZone } from '../lib/payload';
-import { normalizeBeltId } from './progression';
+import { inferKidsCategoryFromBirthDate, normalizeBeltId } from './progression';
 
 // Regras de negocio da presenca. Espelhado no frontend em `classRules.ts` (raiz) — ao mudar
 // uma regra aqui, mude la tambem: o frontend so usa a copia para AVISAR o aluno antes do
@@ -20,13 +21,28 @@ import { normalizeBeltId } from './progression';
 //    mas a presenca nao conta como aula.
 // 2. No maximo 2 presencas computadas por dia. Fez 3 aulas, recebe 2.
 //
-// Em nenhum dos casos o check-in e recusado: a presenca e gravada com
+// Nesses dois casos o check-in nao e recusado: a presenca e gravada com
 // `countsAsAttendance: false` + `nonCountingReason`, que todos os contadores ja respeitam
 // (services/userState.ts, modules/auth.ts, StudentRoster, StudentDetailView...).
+//
+// 3. Aluno adulto de faixa branca com menos de 2 graus so treina na LEVEL Iniciante. Nas
+//    turmas de outro tipo o check-in e RECUSADO — por QR, manual, solicitacao ou aprovacao.
+//    Com 2 graus ele ja pode ir nas outras turmas (e a Iniciante ainda conta, regra 1).
+//    Aula sem tipo reconhecido (aulas antigas, texto livre) nao bloqueia: para travar, o
+//    professor define o tipo da aula.
 
 export const BEGINNER_CLASS_TYPE = 'iniciante';
 export const MAX_COUNTED_ATTENDANCES_PER_DAY = 2;
 export const DEFAULT_TIMEZONE = 'America/Sao_Paulo';
+export const MIN_STRIPES_FOR_OTHER_CLASSES = 2;
+// Tipos de turma em que a branca com menos de 2 graus NAO entra. Inclui os codigos legados
+// que o app ainda reconhece (components/ClassSessionCard.tsx). A LEVEL Feminino fica de fora:
+// e livre para qualquer graduacao.
+export const BEGINNER_RESTRICTED_CLASS_TYPES = new Set([
+  'vida', 'sport', 'competicao', 'nogi',
+  'kids-01', 'kids-02', 'kids-03',
+  'kids', 'advanced', 'no-gi',
+]);
 
 // `ClassDoc.description` guarda o CODIGO da turma ('iniciante', 'sport', 'kids-01'...),
 // nao um texto livre — vide `tipoDescription` em components/CreateClassModal.tsx.
@@ -36,6 +52,36 @@ export function isBeginnerClass(classData: Pick<ClassDoc, 'description'>): boole
 
 export function isEligibleForBeginnerClass(user: Pick<UserDoc, 'belt' | 'stripes'>): boolean {
   return normalizeBeltId(user.belt) === 'white' && Math.max(0, Math.floor(user.stripes ?? 0)) <= 2;
+}
+
+export function isRestrictedClassForBeginner(classData: Pick<ClassDoc, 'description'>): boolean {
+  return BEGINNER_RESTRICTED_CLASS_TYPES.has((classData.description ?? '').trim().toLowerCase());
+}
+
+export const BEGINNER_ONLY_CLASS_MESSAGE =
+  'Aluno faixa branca com menos de 2 graus só pode fazer check-in na aula LEVEL Iniciante.';
+
+// Aluno kids fica de fora: criancas de faixa branca treinam nas turmas Kids. Sem
+// `kidsCategory` gravado, a idade decide (mesma reserva da progressao e do frontend).
+// Professor e superadmin tambem ficam de fora — a regra e sobre o aluno.
+type RestrictableUser = Pick<UserDoc, 'role' | 'belt' | 'stripes' | 'kidsCategory' | 'birthDate'>;
+
+export function isRestrictedBeginner(user: RestrictableUser): boolean {
+  return user.role === 'student'
+    && !(user.kidsCategory ?? inferKidsCategoryFromBirthDate(user.birthDate))
+    && normalizeBeltId(user.belt) === 'white'
+    && Math.max(0, Math.floor(user.stripes ?? 0)) < MIN_STRIPES_FOR_OTHER_CLASSES;
+}
+
+export function assertBeginnerCanJoinClass(
+  classData: Pick<ClassDoc, 'description'>,
+  user: RestrictableUser,
+): void {
+  assertCondition(
+    !isRestrictedClassForBeginner(classData) || !isRestrictedBeginner(user),
+    'failed-precondition',
+    BEGINNER_ONLY_CLASS_MESSAGE,
+  );
 }
 
 // Dia da aula no fuso da academia. 'en-CA' formata como YYYY-MM-DD, que ordena

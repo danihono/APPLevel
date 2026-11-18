@@ -34,6 +34,11 @@ export interface CheckInScreenProps {
   progressionRules?: ProgressionRules;
   /** Previa de que a presenca NAO vai contar (aula iniciante / limite diario). */
   nonCountingReason: AttendanceNonCountingReason | null;
+  /**
+   * Opcional: a aula nao aceita este aluno (ex.: iniciante fora da LEVEL Iniciante). O backend
+   * recusaria, entao a tela mostra o motivo e trava o confirmar e o "Solicitar presenca".
+   */
+  blockedReason?: string | null;
   alreadyCheckedIn: boolean;
   hasPendingRequest: boolean;
   /** Registra a presenca. Devolve o motivo quando ela nao conta como aula (null = conta). */
@@ -348,6 +353,7 @@ const CheckInScreen: React.FC<CheckInScreenProps> = ({
   user,
   progressionRules,
   nonCountingReason,
+  blockedReason,
   alreadyCheckedIn,
   hasPendingRequest,
   onRegister,
@@ -388,6 +394,7 @@ const CheckInScreen: React.FC<CheckInScreenProps> = ({
   const sameClass = effectiveClassId === classId;
   const shownLesson = lesson && lesson.id === effectiveClassId ? lesson : null;
   const pendingReason = sameClass ? nonCountingReason : null;
+  const blockedText = sameClass ? blockedReason ?? null : null;
   const isAlreadyCheckedIn = sameClass && alreadyCheckedIn;
   const requestPending = (sameClass && hasPendingRequest) || requestState === 'sent';
 
@@ -494,7 +501,7 @@ const CheckInScreen: React.FC<CheckInScreenProps> = ({
 
   const handleConfirm = async () => {
     const token = target.token.trim();
-    if (!effectiveClassId || !token || registering) {
+    if (!effectiveClassId || !token || registering || blockedText) {
       return;
     }
     // Progressao de ANTES do check-in: o perfil so atualiza depois do trigger no servidor.
@@ -567,7 +574,7 @@ const CheckInScreen: React.FC<CheckInScreenProps> = ({
           type="button"
           className="lv-btn lv-btn--outline-dark lv-btn--block"
           onClick={() => void handleRequest()}
-          disabled={requestPending || requestState === 'loading'}
+          disabled={requestPending || requestState === 'loading' || !!blockedText}
         >
           <Hand size={18} strokeWidth={2} aria-hidden="true" />
           {requestPending
@@ -968,7 +975,9 @@ const CheckInScreen: React.FC<CheckInScreenProps> = ({
             {!isAlreadyCheckedIn ? (
               <p className="rd-checkin__question">{t('Deseja registrar sua presença nesta aula?')}</p>
             ) : null}
-            {pendingReason ? (
+            {blockedText && !isAlreadyCheckedIn ? (
+              <p className="lv-alert lv-alert--on-yellow">{blockedText}</p>
+            ) : pendingReason ? (
               <p className="lv-alert lv-alert--on-yellow">{nonCountingWarning(pendingReason)}</p>
             ) : null}
             {error ? <p className="rd-checkin__error" role="alert">{error}</p> : null}
@@ -986,7 +995,7 @@ const CheckInScreen: React.FC<CheckInScreenProps> = ({
                     type="button"
                     className="lv-btn lv-btn--block rd-checkin__cta"
                     onClick={() => void handleConfirm()}
-                    disabled={registering || !effectiveClassId || !target.token.trim()}
+                    disabled={registering || !effectiveClassId || !target.token.trim() || !!blockedText}
                     aria-busy={registering}
                   >
                     {registering ? t('Registrando...') : t('Confirmar presença')}
