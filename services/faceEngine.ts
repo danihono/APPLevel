@@ -1,6 +1,6 @@
 // Imagens da biometria facial.
 //
-// O RECONHECIMENTO e feito no servidor (AWS Rekognition, functions/src/services/faceRecognition.ts).
+// O RECONHECIMENTO e feito no nosso servidor (functions/src/services/faceRecognition.ts).
 // Aqui no aparelho ficam so duas coisas:
 //  1. a GUIA do cadastro por video: detecta o rosto ao vivo (biblioteca Human, so deteccao + malha,
 //     sem reconhecimento) para dizer "aproxime", "vire para o lado" e capturar os quadros sozinho;

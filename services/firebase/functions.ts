@@ -373,7 +373,7 @@ export const backendFunctions = {
   removeAttendance: (payload: { classId: string; targetUserId: string }) =>
     callFunction<{ classId: string; userId: string }>('removeAttendance', payload),
 
-  // Biometria facial: as imagens (JPEG em base64) vao para o servidor, que usa o AWS Rekognition.
+  // Biometria facial: as imagens (JPEG em base64) vao para o servidor, que roda o reconhecimento.
   // Nenhuma foto e armazenada.
   enrollFaceBiometrics: (payload: {
     images: string[];

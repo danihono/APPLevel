@@ -238,10 +238,9 @@ foto, dados de uso. É um questionário, não um upload.
 
 > **Biometria facial:** o app oferece, de forma opcional, só para maiores de 18 anos e só nas academias
 > liberadas pelo superadmin, o cadastro do rosto para a chamada por foto. As imagens são processadas
-> no servidor e no AWS Rekognition, e só o modelo do rosto fica guardado. Atualize o questionário de
-> App Privacy: não há categoria "biometria", então declare em **Sensitive Info** e **Photos**
-> (vinculado à identidade, uso: funcionalidade do app, sem rastreamento, compartilhado com
-> processador terceiro). Nas notas de revisão, descreva o consentimento explícito no app, que
+> só no nosso servidor, e só o modelo do rosto fica guardado. Atualize o questionário de App Privacy:
+> não há categoria "biometria", então declare em **Sensitive Info** e **Photos** (vinculado à
+> identidade, uso: funcionalidade do app, sem rastreamento, sem compartilhamento com terceiros). Nas notas de revisão, descreva o consentimento explícito no app, que
 > nenhuma foto é armazenada e a remoção em Perfil → Biometria facial (diretriz 5.1.2 sobre dados de
 > rosto). A política em `/privacidade/` já traz a seção.
 

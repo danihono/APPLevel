@@ -103,7 +103,7 @@ const FaceEnrollmentModal: React.FC<FaceEnrollmentModalProps> = ({ onClose }) =>
             </div>
             <label className="face-modal__consent">
               <input type="checkbox" checked={accepted} onChange={(event) => setAccepted(event.target.checked)} />
-              <span>{t('Li e aceito o uso da minha biometria facial para sugestão de presença nas aulas, inclusive o processamento pela Amazon Web Services.')}</span>
+              <span>{t('Li e aceito o uso da minha biometria facial para sugestão de presença nas aulas.')}</span>
             </label>
             <div className="face-modal__actions">
               <button type="button" className="app-button app-button--ghost" onClick={onClose}>
