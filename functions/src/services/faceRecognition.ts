@@ -38,7 +38,7 @@ const ENROLL_MAX_SIDE = 1024;
 const PHOTO_MAX_SIDE = 2560;
 const DETECTION_MIN_CONFIDENCE = 0.5;
 // Cadastro: deteccao firme e rosto grande o bastante para um vetor confiavel.
-const ENROLL_MIN_SCORE = 0.8;
+const ENROLL_MIN_SCORE = 0.6;
 const ENROLL_MIN_FACE_PX = 80;
 // Outro rosto "de verdade" no quadro do cadastro (nao um rostinho la no fundo).
 const ENROLL_OTHER_FACE_RATIO = 0.45;
