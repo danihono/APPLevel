@@ -151,6 +151,7 @@ export async function updateAcademySettings(
     status?: 'active' | 'inactive' | 'suspended';
     classCheckinWindowMinutes?: number;
     masterBlackLimit?: number;
+    faceAttendanceEnabled?: boolean;
   },
 ) {
   // Fuso invalido zera as estatisticas por dia/horario da Central sem nenhum erro visivel —
@@ -167,6 +168,8 @@ export async function updateAcademySettings(
       ? { classCheckinWindowMinutes: payload.classCheckinWindowMinutes }
       : {}),
     ...(payload.masterBlackLimit !== undefined ? { masterBlackLimit: payload.masterBlackLimit } : {}),
+    // A regra do Firestore so deixa o superadmin gravar este campo.
+    ...(payload.faceAttendanceEnabled !== undefined ? { faceAttendanceEnabled: payload.faceAttendanceEnabled } : {}),
     updatedAt: serverTimestamp(),
   });
 }

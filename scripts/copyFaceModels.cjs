@@ -1,13 +1,13 @@
 // Copia os modelos de reconhecimento facial (biblioteca Human) de node_modules para
 // public/models/human/, de onde o app os baixa sob demanda. Roda antes de `dev` e `build`
-// (hooks predev/prebuild), entao os binarios (~9 MB) nao precisam ficar no git.
+// (hooks predev/prebuild), entao os binarios (~2 MB) nao precisam ficar no git.
 const fs = require('node:fs');
 const path = require('node:path');
 
 const source = path.join(__dirname, '..', 'node_modules', '@vladmandic', 'human', 'models');
 const target = path.join(__dirname, '..', 'public', 'models', 'human');
-// Deteccao do rosto, malha (alinhamento) e descritor (o "vetor" usado na comparacao).
-const models = ['blazeface', 'facemesh', 'faceres'];
+// Deteccao do rosto e malha (posicao e angulo da cabeca), usados so para guiar o cadastro por video.
+const models = ['blazeface', 'facemesh'];
 
 if (!fs.existsSync(source)) {
   console.error('Modelos faciais nao encontrados. Rode `npm install` na raiz do projeto.');

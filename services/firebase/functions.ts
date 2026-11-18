@@ -189,6 +189,8 @@ export interface FaceAttendanceSuggestions {
   enrolledCount: number;
   faces: {
     faceIndex: number;
+    // Posicao do rosto em fracao (0..1) da foto enviada, para recortar a miniatura.
+    box: { left: number; top: number; width: number; height: number };
     best: (FaceAttendanceCandidate & { confidence: 'high' | 'medium' }) | null;
     alternatives: FaceAttendanceCandidate[];
   }[];
@@ -371,18 +373,18 @@ export const backendFunctions = {
   removeAttendance: (payload: { classId: string; targetUserId: string }) =>
     callFunction<{ classId: string; userId: string }>('removeAttendance', payload),
 
-  // Biometria facial: o aparelho calcula os vetores; nenhuma foto e enviada.
+  // Biometria facial: as imagens (JPEG em base64) vao para o servidor, que usa o AWS Rekognition.
+  // Nenhuma foto e armazenada.
   enrollFaceBiometrics: (payload: {
-    embeddings: number[][];
+    images: string[];
     consentAccepted: true;
     consentVersion: string;
-    modelVersion: string;
-  }) => callFunction<{ userId: string; status: 'enrolled' }>('enrollFaceBiometrics', payload),
+  }) => callFunction<{ userId: string; status: 'enrolled'; faces: number }>('enrollFaceBiometrics', payload),
 
   revokeFaceBiometrics: () =>
     callFunction<{ userId: string; status: 'revoked' }>('revokeFaceBiometrics', {}),
 
-  suggestClassAttendanceFromFaces: (payload: { classId: string; embeddings: number[][] }) =>
+  suggestClassAttendanceFromFaces: (payload: { classId: string; image: string }) =>
     callFunction<FaceAttendanceSuggestions>('suggestClassAttendanceFromFaces', payload),
 
   submitAttendanceRequest: (payload: { classId: string }) =>

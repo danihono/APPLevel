@@ -16,6 +16,8 @@ import { t, getLocale } from '../i18n';
 
 interface HomeViewProps {
   user: User;
+  // Chamada por foto liberada na academia do aluno (so o superadmin liga).
+  faceAttendanceEnabled?: boolean;
   monthlyAttendanceCount: number;
   commitment?: CommitmentResult | null;
   attendanceDays: number[];
@@ -24,6 +26,7 @@ interface HomeViewProps {
 
 const HomeView: React.FC<HomeViewProps> = ({
   user,
+  faceAttendanceEnabled = false,
   monthlyAttendanceCount,
   commitment = null,
   attendanceDays,
@@ -44,7 +47,8 @@ const HomeView: React.FC<HomeViewProps> = ({
   const attendedDays = new Set(attendanceDays);
 
   // Convite da biometria facial: so aluno maior de idade que ainda nao cadastrou.
-  const canInviteFaceBiometrics = user.role === UserRole.ALUNO
+  const canInviteFaceBiometrics = faceAttendanceEnabled
+    && user.role === UserRole.ALUNO
     && !user.faceBiometricsEnrolled
     && isAdultByBirthDate(user.birthDate);
 

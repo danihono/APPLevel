@@ -76,6 +76,8 @@ interface CalendarViewProps {
   onMarkStudentPresent?: (classId: string, targetUserId: string) => Promise<void>;
   onRemoveStudentPresent?: (classId: string, targetUserId: string) => Promise<void>;
   onOpenStudent?: (studentId: string) => void;
+  // Academias com a chamada por foto liberada (so o superadmin liga).
+  faceAttendanceAcademyIds?: Set<string>;
 }
 
 type CalendarSurface = 'calendar' | 'today' | 'unfinished';
@@ -825,6 +827,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
   onMarkStudentPresent,
   onRemoveStudentPresent,
   onOpenStudent,
+  faceAttendanceAcademyIds,
 }) => {
   const isStaff = userRole === UserRole.PROFESSOR || userRole === UserRole.SUPERADMIN;
   const isSuperAdmin = isSuperAdminProp ?? userRole === UserRole.SUPERADMIN;
@@ -2449,7 +2452,9 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                   {sheetTab === 'agendamento' ? (
                     <div style={{ padding: '0 20px 16px', display: 'flex', flexDirection: 'column', gap: 12 }}>
                       {/* Chamada por foto: mesmas condicoes da chamada manual (aula ativa ou encerrada) */}
-                      {onMarkStudentPresent && (selectedClass.status === 'active' || selectedClass.status === 'finished') ? (
+                      {onMarkStudentPresent
+                        && faceAttendanceAcademyIds?.has(selectedClass.academyId)
+                        && (selectedClass.status === 'active' || selectedClass.status === 'finished') ? (
                         <button
                           type="button"
                           className="app-button app-button--gold app-button--block"

@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "face:models": "node scripts/copyFaceModels.cjs",
+    "face:aws-check": "node scripts/checkRekognition.cjs",
     "predev": "npm run face:models",
     "dev": "vite",
     "prebuild": "npm run face:models",
@@ -17,7 +18,6 @@
     "deploy:hosting": "npm run build && firebase deploy --only hosting --project applevel-c5e73 --non-interactive",
     "functions:build": "npm --prefix functions run build",
     "firebase:fix-invokers": "node scripts/fixFunctionInvokers.cjs",
-    "demo:biometria": "node scripts/deployFaceDemo.cjs",
     "firebase:bootstrap:tenant": "npm --prefix functions run bootstrap:tenant --",
     "firebase:reset:student": "npm --prefix functions run reset:student --",
     "firebase:fix:class-professors": "npm --prefix functions run fix:class-professors --",

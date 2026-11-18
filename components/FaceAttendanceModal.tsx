@@ -1,8 +1,8 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import { Camera, CheckCircle2, ImagePlus, ScanFace, UserX, X } from 'lucide-react';
 import { FACE_ATTENDANCE_SOURCE, FACE_ENGINE_ERROR_TEXT } from '../faceBiometricsRules';
 import { t } from '../i18n';
-import { extractFacesFromGroupPhoto, FaceEngineError, preloadFaceEngine, type DetectedFace } from '../services/faceEngine';
+import { cropThumbnail, FaceEngineError, prepareGroupPhoto } from '../services/faceEngine';
 import type { FirestoreEntity } from '../services/firebase/data';
 import { backendFunctions, type FaceAttendanceCandidate } from '../services/firebase/functions';
 import type { UserRecord } from '../services/firebase/models';
@@ -19,7 +19,7 @@ interface FaceAttendanceModalProps {
 type Step = 'pick' | 'analyzing' | 'review' | 'saving' | 'summary';
 
 interface ReviewFace {
-  face: DetectedFace;
+  thumbnail: string;
   // Melhor sugestao primeiro, depois as alternativas. Vazio = rosto nao reconhecido.
   candidates: FaceAttendanceCandidate[];
   confidence: 'high' | 'medium' | null;
@@ -47,10 +47,6 @@ const FaceAttendanceModal: React.FC<FaceAttendanceModalProps> = ({ classId, clas
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    preloadFaceEngine();
-  }, []);
-
   const studentById = useMemo(() => new Map(students.map((student) => [student.id, student])), [students]);
   const nameOf = (userId: string) => studentById.get(userId)?.displayName ?? t('Aluno');
   const busy = step === 'analyzing' || step === 'saving';
@@ -62,21 +58,19 @@ const FaceAttendanceModal: React.FC<FaceAttendanceModalProps> = ({ classId, clas
     setStep('analyzing');
     setError('');
     try {
-      const detected = await extractFacesFromGroupPhoto(file);
-      if (detected.length === 0) {
-        throw new FaceEngineError('no_face');
+      const photo = await prepareGroupPhoto(file);
+      const result = await backendFunctions.suggestClassAttendanceFromFaces({ classId, image: photo.base64 });
+      if (result.faces.length === 0) {
+        setError(t('Não encontramos rostos nesta foto. Tente de novo mais perto e com boa luz.'));
+        setStep('pick');
+        return;
       }
-
-      const result = await backendFunctions.suggestClassAttendanceFromFaces({
-        classId,
-        embeddings: detected.map((face) => face.embedding),
-      });
 
       setEnrolledCount(result.enrolledCount);
       setFaces(result.faces.map((suggestion) => {
         const best = suggestion.best;
         return {
-          face: detected[suggestion.faceIndex],
+          thumbnail: cropThumbnail(photo.canvas, suggestion.box),
           candidates: best ? [best, ...suggestion.alternatives] : suggestion.alternatives,
           confidence: best?.confidence ?? null,
           selectedUserId: best?.userId ?? '',
@@ -87,9 +81,7 @@ const FaceAttendanceModal: React.FC<FaceAttendanceModalProps> = ({ classId, clas
       setStep('review');
     } catch (photoError) {
       setError(photoError instanceof FaceEngineError
-        ? photoError.code === 'no_face'
-          ? t('Não encontramos rostos nesta foto. Tente de novo mais perto e com boa luz.')
-          : t(FACE_ENGINE_ERROR_TEXT[photoError.code])
+        ? t(FACE_ENGINE_ERROR_TEXT[photoError.code])
         : photoError instanceof Error && photoError.message
           ? t(photoError.message)
           : t('Não foi possível analisar a foto. Tente de novo.'));
@@ -161,7 +153,7 @@ const FaceAttendanceModal: React.FC<FaceAttendanceModalProps> = ({ classId, clas
                 {t('Tire uma foto da turma com todos olhando para a câmera. O app sugere quem está presente e você confirma antes de registrar.')}
               </p>
               <p className="face-modal__copy">
-                {t('Só são reconhecidos alunos que cadastraram a biometria facial. A foto é analisada no seu aparelho e não fica guardada.')}
+                {t('Só são reconhecidos alunos que cadastraram a biometria facial. A foto é enviada para análise e não fica guardada.')}
               </p>
               {step === 'analyzing' ? (
                 <div className="face-modal__progress">
@@ -230,7 +222,7 @@ const FaceAttendanceModal: React.FC<FaceAttendanceModalProps> = ({ classId, clas
                   const recognized = entry.candidates.length > 0;
                   return (
                     <div key={index} className={`app-list-card face-review__row ${recognized ? '' : 'is-unknown'}`}>
-                      <img src={entry.face.thumbnail} alt={t('Rosto na foto')} className="face-review__thumb" />
+                      <img src={entry.thumbnail} alt={t('Rosto na foto')} className="face-review__thumb" />
                       {recognized && selected ? (
                         <>
                           <AvatarWithBelt
@@ -263,8 +255,8 @@ const FaceAttendanceModal: React.FC<FaceAttendanceModalProps> = ({ classId, clas
                               {selected.alreadyPresent
                                 ? t('Presença já registrada')
                                 : entry.confidence === 'high' && selected.userId === entry.candidates[0].userId
-                                  ? t('Confiança alta · {percent}%', { percent: Math.round(selected.similarity * 100) })
-                                  : t('Confira com atenção · {percent}%', { percent: Math.round(selected.similarity * 100) })}
+                                  ? t('Confiança alta · {percent}%', { percent: Math.floor(selected.similarity) })
+                                  : t('Confira com atenção · {percent}%', { percent: Math.floor(selected.similarity) })}
                             </p>
                           </div>
                           {selected.alreadyPresent ? (

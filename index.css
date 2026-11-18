@@ -11414,3 +11414,134 @@ html.dark .exam-rules__body {
   font-size: 0.74rem;
   line-height: 1.35;
 }
+
+.face-flag {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  margin-top: 1.25rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  cursor: pointer;
+}
+
+.face-flag input {
+  flex-shrink: 0;
+  width: 1.25rem;
+  height: 1.25rem;
+  margin-top: 0.15rem;
+  accent-color: #29a675;
+}
+
+.face-flag strong {
+  display: block;
+  color: var(--text-strong);
+  font-size: 0.92rem;
+}
+
+.face-flag small {
+  display: block;
+  margin-top: 0.2rem;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+/* Cadastro da biometria por video guiado. */
+.face-video {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.face-video__stage {
+  position: relative;
+  width: 100%;
+  max-width: 340px;
+  margin: 0 auto;
+  aspect-ratio: 3 / 4;
+  overflow: hidden;
+  border-radius: 18px;
+  background: #000;
+}
+
+.face-video__stage.is-flash::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(255, 255, 255, 0.55);
+}
+
+.face-video__video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  /* Espelhado como um espelho de verdade; o quadro enviado nao e espelhado. */
+  transform: scaleX(-1);
+}
+
+.face-video__mask {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.face-video__mask ellipse {
+  transition: stroke 0.2s ease;
+}
+
+.face-video__loading {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.face-video__progress {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+}
+
+.face-video__progress span {
+  width: 28px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--border);
+}
+
+.face-video__progress span.is-current {
+  background: #e8af48;
+}
+
+.face-video__progress span.is-done {
+  background: #29a675;
+}
+
+.face-video__instruction {
+  margin: 0;
+  color: var(--text-strong);
+  font-size: 1.05rem;
+  font-weight: 800;
+  text-align: center;
+}
+
+.face-video__hint {
+  margin: 0;
+  color: #c98a12;
+  font-size: 0.86rem;
+  font-weight: 600;
+  text-align: center;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .face-video__stage.is-flash::after {
+    display: none;
+  }
+}

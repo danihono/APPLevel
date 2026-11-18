@@ -36,6 +36,7 @@ interface ManagementViewProps {
     status: 'active' | 'inactive' | 'suspended';
     classCheckinWindowMinutes: number;
     masterBlackLimit: number;
+    faceAttendanceEnabled?: boolean;
   }) => Promise<void>;
   onCreateAcademy: (payload: {
     name: string;
@@ -282,6 +283,7 @@ const ManagementView: React.FC<ManagementViewProps> = ({
   const [academyStatus, setAcademyStatus] = useState<'active' | 'inactive' | 'suspended'>(managedAcademy.status);
   const [checkinWindow, setCheckinWindow] = useState(managedAcademy.classCheckinWindowMinutes);
   const [masterBlackLimit, setMasterBlackLimit] = useState(managedAcademy.masterBlackLimit ?? 1);
+  const [faceAttendanceEnabled, setFaceAttendanceEnabled] = useState(managedAcademy.faceAttendanceEnabled === true);
   const [academyBusy, setAcademyBusy] = useState(false);
   const [academyFeedback, setAcademyFeedback] = useState('');
   const [academyError, setAcademyError] = useState('');
@@ -315,6 +317,7 @@ const ManagementView: React.FC<ManagementViewProps> = ({
     setAcademyStatus(managedAcademy.status);
     setCheckinWindow(managedAcademy.classCheckinWindowMinutes);
     setMasterBlackLimit(managedAcademy.masterBlackLimit ?? 1);
+    setFaceAttendanceEnabled(managedAcademy.faceAttendanceEnabled === true);
   }, [managedAcademy]);
 
   useEffect(() => {
@@ -411,6 +414,8 @@ const ManagementView: React.FC<ManagementViewProps> = ({
         status: academyStatus,
         classCheckinWindowMinutes: checkinWindow,
         masterBlackLimit,
+        // So o superadmin liga/desliga a chamada por foto (a regra do Firestore tambem barra).
+        ...(isSuperAdmin ? { faceAttendanceEnabled } : {}),
       });
       setAcademyFeedback(t('Academia atualizada com sucesso.'));
     } catch (submitError) {
@@ -914,6 +919,20 @@ const ManagementView: React.FC<ManagementViewProps> = ({
                   <input type="number" min={0} value={masterBlackLimit} onChange={(event) => setMasterBlackLimit(Number(event.target.value))} className="app-input" />
                 </label>
               </div>
+
+              {isSuperAdmin ? (
+                <label className="face-flag">
+                  <input
+                    type="checkbox"
+                    checked={faceAttendanceEnabled}
+                    onChange={(event) => setFaceAttendanceEnabled(event.target.checked)}
+                  />
+                  <span>
+                    <strong>{t('Chamada por foto (biometria facial)')}</strong>
+                    <small>{t('Libera nesta academia o cadastro facial dos alunos e a chamada por foto para os professores. Desligada, nada disso aparece no app.')}</small>
+                  </span>
+                </label>
+              ) : null}
 
               <button type="submit" disabled={academyBusy} className="app-button app-button--gold mt-6">
                 <Save size={16} />

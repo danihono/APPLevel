@@ -48,6 +48,8 @@ export interface AcademyRecord {
   timezone: string;
   classCheckinWindowMinutes: number;
   masterBlackLimit?: number;
+  // Chamada por foto (biometria facial) liberada nesta academia. So o superadmin liga.
+  faceAttendanceEnabled?: boolean;
   progressionRules?: ProgressionRules;
   createdAt?: Timestamp;
   updatedAt?: Timestamp;

@@ -81,6 +81,8 @@ interface ProfileViewProps {
   availableAcademiesForRequest?: Array<{ id: string; name: string }>;
   onRequestAcademyChange?: () => void;
   onRequestAdditionalAcademy?: (academyId: string) => Promise<void>;
+  // Chamada por foto liberada na academia (so o superadmin liga).
+  faceAttendanceEnabled?: boolean;
 }
 
 function roleLabel(role: UserRecord['role']) {
@@ -131,6 +133,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({
   availableAcademiesForRequest,
   onRequestAcademyChange,
   onRequestAdditionalAcademy,
+  faceAttendanceEnabled = false,
 }) => {
   const [firstName, setFirstName] = useState(profile.firstName);
   const [lastName, setLastName] = useState(profile.lastName);
@@ -1069,7 +1072,9 @@ const ProfileView: React.FC<ProfileViewProps> = ({
         </div>
 
         {/* Biometria facial (opcional, so maiores de 18) */}
-        {canOfferFaceBiometrics(profile.birthDate) ? (
+        {/* Com a chamada por foto desligada, quem ja cadastrou ainda ve o bloco para poder remover. */}
+        {canOfferFaceBiometrics(profile.birthDate)
+          && (faceAttendanceEnabled || profile.faceBiometricsStatus === 'enrolled') ? (
           <div>
             <button
               type="button"

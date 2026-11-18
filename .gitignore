@@ -19,7 +19,6 @@ functions/.env*
 
 # Modelos de reconhecimento facial: copiados de node_modules por scripts/copyFaceModels.cjs
 public/models/human
-.face-demo-dist
 
 # Editor directories and files
 .vscode/*

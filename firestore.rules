@@ -113,7 +113,10 @@ service cloud.firestore {
     match /academies/{academyDocId} {
       allow read: if signedIn();
       allow create: if isSuperAdmin();
-      allow update: if isSuperAdmin() || (isAdmin() && sameAcademy(academyDocId));
+      // A chamada por foto (biometria facial) so e liberada pelo superadmin.
+      allow update: if isSuperAdmin()
+        || (isAdmin() && sameAcademy(academyDocId)
+          && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['faceAttendanceEnabled']));
       allow delete: if isSuperAdmin() || (isAdmin() && sameAcademy(academyDocId));
     }
 

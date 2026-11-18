@@ -1,94 +1,86 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { Camera, CheckCircle2, ScanFace, ShieldCheck, X } from 'lucide-react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { Camera, CheckCircle2, RotateCcw, ScanFace, ShieldCheck, X } from 'lucide-react';
 import { FACE_CONSENT_PARAGRAPHS, FACE_CONSENT_VERSION, FACE_ENGINE_ERROR_TEXT } from '../faceBiometricsRules';
-import { t, tKey } from '../i18n';
-import {
-  extractEnrollmentEmbedding,
-  FACE_ENROLLMENT_SAMPLES,
-  FACE_MODEL_VERSION,
-  FaceEngineError,
-  preloadFaceEngine,
-} from '../services/faceEngine';
+import { t } from '../i18n';
+import { FaceEngineError, preloadFaceGuide, prepareEnrollmentPhoto } from '../services/faceEngine';
 import { backendFunctions } from '../services/firebase/functions';
+import FaceVideoCapture from './FaceVideoCapture';
 
 interface FaceEnrollmentModalProps {
   onClose: () => void;
 }
 
-type Step = 'terms' | 'capture' | 'done';
+// terms → video (camera ao vivo) ou upload (sem camera) → sending → done (ou retry)
+type Step = 'terms' | 'video' | 'upload' | 'sending' | 'retry' | 'done';
 
-// Uma instrucao por foto: variar o angulo deixa o reconhecimento mais tolerante na foto da turma.
-const SAMPLE_INSTRUCTIONS = [
-  tKey('Olhando de frente para a câmera'),
-  tKey('Rosto levemente virado para a esquerda'),
-  tKey('Rosto levemente virado para a direita'),
-] as const;
+const UPLOAD_SAMPLES = 3;
 
 const FaceEnrollmentModal: React.FC<FaceEnrollmentModalProps> = ({ onClose }) => {
   const [step, setStep] = useState<Step>('terms');
   const [accepted, setAccepted] = useState(false);
-  // So os vetores ficam em memoria; a foto e descartada assim que e analisada.
-  const [samples, setSamples] = useState<number[][]>([]);
-  const [analyzing, setAnalyzing] = useState(false);
-  const [saving, setSaving] = useState(false);
+  // Fotos avulsas (so quando a camera ao vivo nao abre), ja reduzidas, em memoria.
+  const [uploads, setUploads] = useState<string[]>([]);
+  const [preparing, setPreparing] = useState(false);
   const [error, setError] = useState('');
+  // Recomeca o video do zero (nova montagem do componente) apos um erro no envio.
+  const [attempt, setAttempt] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Baixa os modelos enquanto a pessoa le o termo.
+  // Baixa a deteccao facial enquanto a pessoa le o termo.
   useEffect(() => {
-    preloadFaceEngine();
+    void preloadFaceGuide().catch(() => undefined);
   }, []);
 
-  const busy = analyzing || saving;
-  const complete = samples.length >= FACE_ENROLLMENT_SAMPLES;
+  const busy = step === 'sending' || preparing;
 
-  const handlePhoto = async (file: File | undefined) => {
-    if (!file) {
-      return;
-    }
-    setAnalyzing(true);
-    setError('');
-    try {
-      const embedding = await extractEnrollmentEmbedding(file);
-      setSamples((current) => [...current, embedding]);
-    } catch (photoError) {
-      setError(photoError instanceof FaceEngineError
-        ? t(FACE_ENGINE_ERROR_TEXT[photoError.code])
-        : t('Não foi possível analisar a foto. Tente de novo.'));
-    } finally {
-      setAnalyzing(false);
-    }
-  };
-
-  const handleSave = async () => {
-    setSaving(true);
+  const send = useCallback(async (images: string[]) => {
+    setStep('sending');
     setError('');
     try {
       await backendFunctions.enrollFaceBiometrics({
-        embeddings: samples,
+        images,
         consentAccepted: true,
         consentVersion: FACE_CONSENT_VERSION,
-        modelVersion: FACE_MODEL_VERSION,
       });
       setStep('done');
-    } catch (saveError) {
-      // "Fotos nao parecem da mesma pessoa" e similares: recomeca a captura.
-      setSamples([]);
-      setError(saveError instanceof Error && saveError.message
-        ? t(saveError.message)
+    } catch (sendError) {
+      setError(sendError instanceof Error && sendError.message
+        ? t(sendError.message)
         : t('Não foi possível salvar a biometria. Tente de novo.'));
+      setUploads([]);
+      setAttempt((current) => current + 1);
+      setStep('retry');
+    }
+  }, []);
+
+  const handleUpload = async (file: File | undefined) => {
+    if (!file) return;
+    setPreparing(true);
+    setError('');
+    try {
+      const image = await prepareEnrollmentPhoto(file);
+      const next = [...uploads, image];
+      setUploads(next);
+      if (next.length >= UPLOAD_SAMPLES) {
+        await send(next);
+      }
+    } catch (uploadError) {
+      setError(uploadError instanceof FaceEngineError
+        ? t(FACE_ENGINE_ERROR_TEXT[uploadError.code])
+        : t('Não foi possível abrir esta imagem. Tente outra foto.'));
     } finally {
-      setSaving(false);
+      setPreparing(false);
     }
   };
 
+  const onVideoComplete = useCallback((frames: string[]) => { void send(frames); }, [send]);
+  const onCameraUnavailable = useCallback(() => {
+    setError(t('Não conseguimos abrir a câmera ao vivo. Envie 3 fotos do rosto: uma de frente e uma virada para cada lado.'));
+    setStep('upload');
+  }, []);
+
   return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      className="face-modal"
-      onClick={() => { if (!busy) onClose(); }}
-    >
+    <div role="dialog" aria-modal="true" className="face-modal" onClick={() => { if (!busy) onClose(); }}>
       <div className="app-panel face-modal__panel" onClick={(event) => event.stopPropagation()}>
         <div className="face-modal__header">
           <div className="app-icon-shell" style={{ flexShrink: 0 }}>
@@ -97,13 +89,7 @@ const FaceEnrollmentModal: React.FC<FaceEnrollmentModalProps> = ({ onClose }) =>
           <h2 className="face-modal__title">
             {step === 'terms' ? t('Termo de consentimento — biometria facial') : t('Cadastro da biometria facial')}
           </h2>
-          <button
-            type="button"
-            className="app-button app-button--ghost app-button--icon"
-            onClick={onClose}
-            disabled={busy}
-            aria-label={t('Fechar')}
-          >
+          <button type="button" className="app-button app-button--ghost app-button--icon" onClick={onClose} disabled={busy} aria-label={t('Fechar')}>
             <X size={16} />
           </button>
         </div>
@@ -117,38 +103,32 @@ const FaceEnrollmentModal: React.FC<FaceEnrollmentModalProps> = ({ onClose }) =>
             </div>
             <label className="face-modal__consent">
               <input type="checkbox" checked={accepted} onChange={(event) => setAccepted(event.target.checked)} />
-              <span>{t('Li e aceito o uso da minha biometria facial para sugestão de presença nas aulas.')}</span>
+              <span>{t('Li e aceito o uso da minha biometria facial para sugestão de presença nas aulas, inclusive o processamento pela Amazon Web Services.')}</span>
             </label>
             <div className="face-modal__actions">
               <button type="button" className="app-button app-button--ghost" onClick={onClose}>
                 {t('Agora não')}
               </button>
-              <button type="button" className="app-button app-button--gold" disabled={!accepted} onClick={() => setStep('capture')}>
+              <button type="button" className="app-button app-button--gold" disabled={!accepted} onClick={() => setStep('video')}>
                 {t('Aceitar e continuar')}
               </button>
             </div>
           </>
         ) : null}
 
-        {step === 'capture' ? (
+        {step === 'video' ? (
+          <div className="face-modal__body">
+            <FaceVideoCapture key={attempt} onComplete={onVideoComplete} onUnavailable={onCameraUnavailable} />
+          </div>
+        ) : null}
+
+        {step === 'upload' ? (
           <>
             <div className="face-modal__body">
-              <p className="face-modal__copy">
-                {t('Tire {count} fotos do seu rosto, sem boné nem óculos escuros e com boa luz. As fotos não são guardadas.', { count: FACE_ENROLLMENT_SAMPLES })}
-              </p>
-              <ol className="face-modal__steps">
-                {SAMPLE_INSTRUCTIONS.map((instruction, index) => {
-                  const done = index < samples.length;
-                  const current = index === samples.length;
-                  return (
-                    <li key={instruction} className={`face-modal__step ${done ? 'is-done' : ''} ${current ? 'is-current' : ''}`}>
-                      {done ? <CheckCircle2 size={18} /> : <span className="face-modal__step-number">{index + 1}</span>}
-                      <span>{t(instruction)}</span>
-                    </li>
-                  );
-                })}
-              </ol>
               {error ? <div className="app-alert app-alert--error">{error}</div> : null}
+              <p className="face-modal__copy">
+                {t('Foto {current} de {total}. Boa luz, sem boné nem óculos escuros, só você na foto.', { current: uploads.length + 1, total: UPLOAD_SAMPLES })}
+              </p>
             </div>
             <input
               ref={fileInputRef}
@@ -158,34 +138,37 @@ const FaceEnrollmentModal: React.FC<FaceEnrollmentModalProps> = ({ onClose }) =>
               hidden
               onChange={(event) => {
                 const file = event.target.files?.[0];
-                // Limpa para o mesmo arquivo poder ser escolhido de novo apos um erro.
                 event.target.value = '';
-                void handlePhoto(file);
+                void handleUpload(file);
               }}
             />
             <div className="face-modal__actions">
-              {complete ? (
-                <>
-                  <button type="button" className="app-button app-button--ghost" onClick={() => setSamples([])} disabled={busy}>
-                    {t('Refazer fotos')}
-                  </button>
-                  <button type="button" className="app-button app-button--gold" onClick={() => void handleSave()} disabled={busy}>
-                    {saving ? t('Salvando...') : t('Salvar biometria')}
-                  </button>
-                </>
-              ) : (
-                <button
-                  type="button"
-                  className="app-button app-button--gold app-button--block"
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={busy}
-                >
-                  <Camera size={16} />
-                  {analyzing
-                    ? t('Analisando foto...')
-                    : t('Tirar foto {current} de {total}', { current: samples.length + 1, total: FACE_ENROLLMENT_SAMPLES })}
-                </button>
-              )}
+              <button type="button" className="app-button app-button--gold app-button--block" onClick={() => fileInputRef.current?.click()} disabled={busy}>
+                <Camera size={16} />
+                {preparing ? t('Preparando foto...') : t('Tirar foto {current} de {total}', { current: uploads.length + 1, total: UPLOAD_SAMPLES })}
+              </button>
+            </div>
+          </>
+        ) : null}
+
+        {step === 'sending' ? (
+          <div className="face-modal__body face-modal__done">
+            <span className="face-modal__spinner" />
+            <p className="face-modal__copy">{t('Salvando sua biometria com segurança...')}</p>
+          </div>
+        ) : null}
+
+        {step === 'retry' ? (
+          <>
+            <div className="face-modal__body">
+              <div className="app-alert app-alert--error">{error}</div>
+            </div>
+            <div className="face-modal__actions">
+              <button type="button" className="app-button app-button--ghost" onClick={onClose}>{t('Fechar')}</button>
+              <button type="button" className="app-button app-button--gold" onClick={() => { setError(''); setStep('video'); }}>
+                <RotateCcw size={16} />
+                {t('Tentar de novo')}
+              </button>
             </div>
           </>
         ) : null}

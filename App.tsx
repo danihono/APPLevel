@@ -1913,6 +1913,7 @@ const App: React.FC = () => {
     status: 'active' | 'inactive' | 'suspended';
     classCheckinWindowMinutes: number;
     masterBlackLimit: number;
+    faceAttendanceEnabled?: boolean;
   }) {
     try {
       await updateAcademySettings(payload.academyId, payload);
@@ -2689,6 +2690,13 @@ const App: React.FC = () => {
   }
 
   const resolvedAcademy = academy ?? buildFallbackAcademy(profile.id);
+  // Chamada por foto (biometria facial): liberada por academia, so pelo superadmin.
+  const faceAttendanceEnabled = resolvedAcademy.faceAttendanceEnabled === true;
+  const faceAttendanceAcademyIds = new Set(
+    [...allAcademies, ...(academy ? [academy] : [])]
+      .filter((entry) => entry.faceAttendanceEnabled === true)
+      .map((entry) => entry.id),
+  );
   const branch = toBranch(resolvedAcademy);
   const classStartById = new Map(
     classes
@@ -2838,6 +2846,7 @@ const App: React.FC = () => {
           ) : (
             <HomeView
               user={currentUser}
+              faceAttendanceEnabled={faceAttendanceEnabled}
               monthlyAttendanceCount={countedAttendanceThisMonth.length}
               commitment={studentCommitment}
               attendanceDays={attendanceDays}
@@ -2864,6 +2873,7 @@ const App: React.FC = () => {
         ) : (
           <HomeView
             user={currentUser}
+            faceAttendanceEnabled={faceAttendanceEnabled}
             monthlyAttendanceCount={countedAttendanceThisMonth.length}
             commitment={studentCommitment}
             attendanceDays={attendanceDays}
@@ -2921,6 +2931,7 @@ const App: React.FC = () => {
 
         return (
           <CalendarView
+            faceAttendanceAcademyIds={faceAttendanceAcademyIds}
             userRole={viewUserRole}
             currentUserId={currentUser.id}
             isSuperAdmin={isSuperAdmin}
@@ -3125,6 +3136,7 @@ const App: React.FC = () => {
       case 'profile':
         return (
           <ProfileView
+            faceAttendanceEnabled={faceAttendanceEnabled}
             user={currentUser}
             progressionRules={resolvedAcademy.progressionRules}
             profile={profile}
@@ -3171,6 +3183,7 @@ const App: React.FC = () => {
         return (
           <HomeView
             user={currentUser}
+            faceAttendanceEnabled={faceAttendanceEnabled}
             monthlyAttendanceCount={countedAttendanceThisMonth.length}
             commitment={studentCommitment}
             attendanceDays={attendanceDays}
