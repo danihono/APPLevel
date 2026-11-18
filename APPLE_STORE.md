@@ -236,12 +236,14 @@ sem distorção visível.
 **App Privacy** (aba separada, obrigatória): declare o que você coleta — e-mail, nome,
 foto, dados de uso. É um questionário, não um upload.
 
-> **Biometria facial:** o app passou a oferecer (opcional, 18+) o cadastro do rosto para a
-> chamada por foto. Atualize o questionário de App Privacy — não há categoria "biometria", então
-> declare em **Sensitive Info** e **Other Data** (vinculado à identidade, uso: funcionalidade do
-> app, sem rastreamento) — e descreva nas notas de revisão: consentimento explícito no app,
-> nenhuma foto armazenada, só um código numérico, remoção em Perfil → Biometria facial
-> (diretriz 5.1.2 sobre dados de rosto). A política em `/privacidade/` já traz a seção.
+> **Biometria facial:** o app oferece, de forma opcional, só para maiores de 18 anos e só nas academias
+> liberadas pelo superadmin, o cadastro do rosto para a chamada por foto. As imagens são processadas
+> no servidor e no AWS Rekognition, e só o modelo do rosto fica guardado. Atualize o questionário de
+> App Privacy: não há categoria "biometria", então declare em **Sensitive Info** e **Photos**
+> (vinculado à identidade, uso: funcionalidade do app, sem rastreamento, compartilhado com
+> processador terceiro). Nas notas de revisão, descreva o consentimento explícito no app, que
+> nenhuma foto é armazenada e a remoção em Perfil → Biometria facial (diretriz 5.1.2 sobre dados de
+> rosto). A política em `/privacidade/` já traz a seção.
 
 **Conta de demonstração** (em "App Review Information"): a Apple **exige** um login de
 teste, já que o app é todo protegido por autenticação. Crie um aluno de demonstração numa

@@ -29,6 +29,7 @@ Cobre: agendamento de aulas, registro de presença, progressão de faixa, gamifi
 | `npm run firebase:deploy` | Deploy completo + corrige invokers |
 | `npm run deploy:hosting` | Build + deploy apenas do hosting |
 | `npm run firebase:bootstrap:tenant -- ...` | Cria o primeiro tenant/superadmin |
+| `npm run face:aws-check` | Confere chaves/região/coleção do AWS Rekognition (chamada por foto) |
 
 ### Backend (`functions/`)
 
@@ -53,7 +54,8 @@ npm run firebase:bootstrap:tenant -- \
 ```
 
 > **Não há suíte completa de testes automatizados.** Há testes unitários de funções puras em
-> `tests/` (`node --test --experimental-strip-types tests/*.test.ts`); no mais, use
+> `tests/` (`node --test --experimental-strip-types tests/*.test.ts`) e das functions em
+> `functions/test/` (`npm --prefix functions test`); no mais, use
 > `typecheck` / `lint` e os emuladores para validar mudanças.
 
 ## Estrutura de diretórios
@@ -125,7 +127,7 @@ Região global: `southamerica-east1`; `maxInstances: 10`.
 | `fightVideos.ts` | Submissão e moderação de vídeos de luta |
 | `notifications.ts` | Tokens de dispositivo, notificações segmentadas, leitura |
 | `rsvp.ts` | Confirmação de presença em aulas (`toggleClassRsvp`) |
-| `faceBiometrics.ts` | Biometria facial: cadastro/revogação do aluno e sugestão de presença por foto |
+| `faceBiometrics.ts` | Biometria facial (AWS Rekognition): cadastro/revogação do aluno e sugestão de presença por foto |
 | `proxy.ts` | `callableProxy` — proxy HTTP para as functions callable |
 
 ### Triggers do Firestore
@@ -152,7 +154,7 @@ Todas segmentadas por `academyId`:
 `finance_*` (products, services, sales, payments, revenues, expenses),
 `inventory_movements`.
 
-Exceção: `face_biometrics/{uid}` (vetores faciais) e `face_consent_logs` (aceite/revogação) —
+Exceção: `face_biometrics/{uid}` (ids dos rostos no Rekognition) e `face_consent_logs` (aceite/revogação) —
 dado sensível, lido e gravado **somente** pelas Cloud Functions (regras negam todo cliente).
 
 ## Convenções de código
@@ -193,17 +195,25 @@ Perfil (salvo em `users/{uid}.language` e no `localStorage`). Sem biblioteca ext
 
 ## Biometria facial
 
-- O reconhecimento roda **no aparelho** (`services/faceEngine.ts`, biblioteca `@vladmandic/human`,
-  carregada sob demanda). Nenhuma foto é armazenada ou enviada: só o vetor numérico do rosto.
-- A comparação é no servidor (`functions/src/services/faceMatching.ts`, módulo puro com os
-  limiares). Os vetores nunca descem para um cliente.
-- Opcional, só **alunos maiores de 18**, com termo versionado (`FACE_CONSENT_VERSION` em
+- O reconhecimento é feito pelo **AWS Rekognition** no servidor (`functions/src/services/faceRecognition.ts`;
+  cliente e segredos em `functions/src/lib/rekognition.ts`). Coleção única `applevel-alunos`, com
+  `UserId` = uid; o isolamento entre academias é feito no servidor, filtrando pelos alunos da aula.
+- No aparelho (`services/faceEngine.ts`, `@vladmandic/human`) só existe a **guia do cadastro por
+  vídeo** (`components/FaceVideoCapture.tsx`): detecção + ângulo da cabeça, sem reconhecimento.
+- **Liga/desliga por academia:** `academies/{id}.faceAttendanceEnabled`, que só o superadmin altera
+  (regra no `firestore.rules` + interruptor em Gestão). Desligado, nada de biometria aparece no app.
+- Opcional, só **alunos maiores de 18**, termo versionado (`FACE_CONSENT_VERSION` em
   `faceBiometricsRules.ts` **e** em `functions/src/modules/faceBiometrics.ts` — mude nos dois).
-- Trocar de motor = reimplementar `faceEngine.ts` + `faceMatching.ts` e subir `FACE_MODEL_VERSION`.
+- Limiares e atribuição 1-para-1: `functions/src/services/faceMatching.ts` (puro, testado em
+  `tests/faceMatching.test.ts`). Módulo da AWS testado com mock em `functions/test/` (`npm --prefix functions test`).
+- **Segredos obrigatórios no deploy das functions:** `AWS_REKOGNITION_ACCESS_KEY_ID` e
+  `AWS_REKOGNITION_SECRET_ACCESS_KEY` (ver `docs/biometria-aws.md`).
+- Emulador sem AWS: `functions/.env.local` com `FACE_AWS_FAKE=1` + `functions/.secret.local` com
+  chaves falsas usa `functions/src/lib/fakeRekognition.ts` (reconhece por cor, não por rosto).
 - O modal de cadastro é montado na raiz (`components/FaceEnrollmentHost.tsx`): o App remonta as
   telas a cada atualização do perfil, e um modal dentro de uma tela sumiria ao salvar.
-- Os modelos (~9 MB) não ficam no git: `scripts/copyFaceModels.cjs` copia de `node_modules` para
-  `public/models/human/` nos hooks `predev`/`prebuild`.
+- Os modelos da guia (~2 MB) não ficam no git: `scripts/copyFaceModels.cjs` copia de `node_modules`
+  para `public/models/human/` nos hooks `predev`/`prebuild`.
 
 ## Ambiente
 
