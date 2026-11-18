@@ -1,155 +1,95 @@
-// Testes do modulo de reconhecimento com a AWS simulada (aws-sdk-client-mock).
-// Rode com: npm --prefix functions test
+// Testes do reconhecimento com o MODELO DE VERDADE (dlib via face-api) e fotos reais de exemplo
+// que vem no pacote @vladmandic/face-api. Rode com: npm --prefix functions test
 const assert = require('node:assert/strict');
+const path = require('node:path');
 const test = require('node:test');
 const sharp = require('sharp');
-const { mockClient } = require('aws-sdk-client-mock');
-const {
-  RekognitionClient, IndexFacesCommand, SearchUsersCommand, CreateUserCommand, AssociateFacesCommand,
-  DeleteFacesCommand, DeleteUserCommand, ListFacesCommand, DescribeCollectionCommand, CreateCollectionCommand,
-  DetectFacesCommand, SearchUsersByImageCommand,
-} = require('@aws-sdk/client-rekognition');
-const { enrollUserFaces, searchFacesInPhoto, deleteUserFaces, FaceEnrollError } = require('../lib/services/faceRecognition');
+const { describeEnrollment, detectFacesInPhoto, FaceEnrollError } = require('../lib/services/faceRecognition');
+const { candidatesForFace, suggestFaceMatches, FACE_HIGH_CONFIDENCE_THRESHOLD } = require('../lib/services/faceMatching');
 
-const rek = mockClient(RekognitionClient);
-const client = new RekognitionClient({ region: 'us-east-1', credentials: { accessKeyId: 'x', secretAccessKey: 'y' } });
-const jpeg = (w = 400, h = 400) => sharp({ create: { width: w, height: h, channels: 3, background: '#887766' } }).jpeg().toBuffer();
-const notFound = () => Object.assign(new Error('nf'), { name: 'ResourceNotFoundException' });
+const samples = path.join(path.dirname(require.resolve('@vladmandic/face-api/package.json')), 'demo');
+const sample = (n) => path.join(samples, `sample${n}.jpg`);
 
-test.beforeEach(() => {
-  rek.reset();
-  rek.on(DescribeCollectionCommand).resolves({});
-  rek.on(ListFacesCommand).resolves({ Faces: [] });
-  rek.on(DeleteUserCommand).resolves({});
-  rek.on(DeleteFacesCommand).resolves({});
-  rek.on(CreateUserCommand).resolves({});
-  rek.on(SearchUsersCommand).resolves({ UserMatches: [] });
-});
-
-function indexSequence(results) {
-  let call = 0;
-  rek.on(IndexFacesCommand).callsFake(() => results[call++]);
+// Recorte de um rosto (caixa em fracao) como se fosse um quadro do video do cadastro.
+async function frameOf(file, box, { brightness = 1, scale = 1, flip = false } = {}) {
+  const meta = await sharp(file).metadata();
+  const w = box.width * meta.width, h = box.height * meta.height;
+  const side = Math.max(w, h) * 2.4 * scale;
+  const cx = (box.left + box.width / 2) * meta.width, cy = (box.top + box.height / 2) * meta.height;
+  const left = Math.max(0, Math.round(cx - side / 2)), top = Math.max(0, Math.round(cy - side / 2));
+  let img = sharp(file)
+    .extract({ left, top, width: Math.min(meta.width - left, Math.round(side)), height: Math.min(meta.height - top, Math.round(side)) })
+    .resize(600, 600, { fit: 'fill' })
+    .modulate({ brightness });
+  if (flip) img = img.flop();
+  return img.jpeg({ quality: 90 }).toBuffer();
 }
 
-test('cadastro ok: indexa, confere identidade, cria usuario e associa os rostos', async () => {
-  indexSequence([1, 2, 3, 4, 5].map((n) => ({ FaceRecords: [{ Face: { FaceId: `f${n}` } }] })));
-  rek.on(AssociateFacesCommand).callsFake((input) => ({ AssociatedFaces: input.FaceIds.map((FaceId) => ({ FaceId })) }));
-  const images = await Promise.all([1, 2, 3, 4, 5].map(() => jpeg()));
-  const result = await enrollUserFaces(client, 'col', 'uid1', images);
-  assert.deepEqual(result.faceIds, ['f1', 'f2', 'f3', 'f4', 'f5']);
-  const index = rek.commandCalls(IndexFacesCommand)[0].args[0].input;
-  assert.equal(index.MaxFaces, 1);
-  assert.equal(index.QualityFilter, 'HIGH');
-  assert.equal(index.ExternalImageId, 'uid1');
-  assert.equal(rek.commandCalls(CreateUserCommand)[0].args[0].input.UserId, 'uid1');
-  // Primeiro rosto vira referencia; os outros so entram se baterem com ela.
-  const assoc = rek.commandCalls(AssociateFacesCommand).map((c) => c.args[0].input);
-  assert.deepEqual(assoc[0].FaceIds, ['f1']);
-  assert.deepEqual(assoc[1].FaceIds, ['f2', 'f3', 'f4', 'f5']);
-  assert.equal(assoc[1].UserMatchThreshold, 80);
-  assert.equal(rek.commandCalls(DeleteFacesCommand).length, 0);
+let groupFaces; // rostos da sample3 (3 pessoas)
+test.before(async () => {
+  groupFaces = await detectFacesInPhoto(await sharp(sample(3)).toBuffer());
 });
 
-test('cadastro: quadros ruins demais -> erro de qualidade e nada fica na AWS', async () => {
-  indexSequence([
-    { FaceRecords: [{ Face: { FaceId: 'f1' } }] },
-    { FaceRecords: [], UnindexedFaces: [{ Reasons: ['LOW_SHARPNESS'] }] },
-    { FaceRecords: [], UnindexedFaces: [{ Reasons: ['LOW_BRIGHTNESS'] }] },
-    { FaceRecords: [{ Face: { FaceId: 'f4' } }] },
+test('foto de grupo: acha as 3 pessoas da foto, em ordem da esquerda para a direita', () => {
+  assert.equal(groupFaces.length, 3);
+  assert.ok(groupFaces[0].box.left < groupFaces[1].box.left && groupFaces[1].box.left < groupFaces[2].box.left);
+  for (const face of groupFaces) assert.equal(face.descriptor.length, 128);
+});
+
+test('cadastro ok: 3 quadros da mesma pessoa com variacoes de luz, distancia e lado', async () => {
+  const box = groupFaces[1].box;
+  const frames = await Promise.all([
+    frameOf(sample(3), box),
+    frameOf(sample(3), box, { brightness: 0.8, scale: 1.2 }),
+    frameOf(sample(3), box, { flip: true, brightness: 1.1 }),
   ]);
-  const images = await Promise.all([1, 2, 3, 4].map(() => jpeg()));
-  await assert.rejects(enrollUserFaces(client, 'col', 'uid1', images), (e) => e instanceof FaceEnrollError && e.code === 'low_quality');
-  const deleted = rek.commandCalls(DeleteFacesCommand).flatMap((c) => c.args[0].input.FaceIds);
-  assert.deepEqual(deleted.sort(), ['f1', 'f4']);
-  assert.equal(rek.commandCalls(CreateUserCommand).length, 0);
+  const descriptors = await describeEnrollment(frames);
+  assert.equal(descriptors.length, 3);
 });
 
-test('cadastro: outra pessoa no quadro descarta o quadro', async () => {
-  indexSequence([
-    { FaceRecords: [{ Face: { FaceId: 'f1' } }], UnindexedFaces: [{ Reasons: ['EXCEEDS_MAX_FACES'] }] },
-    { FaceRecords: [{ Face: { FaceId: 'f2' } }], UnindexedFaces: [{ Reasons: ['EXCEEDS_MAX_FACES'] }] },
-    { FaceRecords: [{ Face: { FaceId: 'f3' } }] },
-  ]);
-  const images = await Promise.all([1, 2, 3].map(() => jpeg()));
-  await assert.rejects(enrollUserFaces(client, 'col', 'uid1', images), (e) => e.code === 'multiple_faces');
+test('cadastro: quadros de pessoas diferentes -> not_same_person', async () => {
+  const frames = await Promise.all([0, 1, 2].map((i) => frameOf(sample(3), groupFaces[i].box)));
+  await assert.rejects(describeEnrollment(frames), (e) => e instanceof FaceEnrollError && e.code === 'not_same_person');
 });
 
-test('cadastro: rostos de pessoas diferentes -> not_same_person e desfaz tudo', async () => {
-  indexSequence([1, 2, 3, 4].map((n) => ({ FaceRecords: [{ Face: { FaceId: `f${n}` } }] })));
-  rek.on(AssociateFacesCommand)
-    .resolvesOnce({ AssociatedFaces: [{ FaceId: 'f1' }] })
-    .resolvesOnce({ AssociatedFaces: [{ FaceId: 'f2' }], UnsuccessfulFaceAssociations: [{ FaceId: 'f3', Reasons: ['LOW_MATCH_CONFIDENCE'] }, { FaceId: 'f4', Reasons: ['LOW_MATCH_CONFIDENCE'] }] });
-  const images = await Promise.all([1, 2, 3, 4].map(() => jpeg()));
-  await assert.rejects(enrollUserFaces(client, 'col', 'uid1', images), (e) => e.code === 'not_same_person');
-  assert.equal(rek.commandCalls(DeleteUserCommand).length, 1);
-  const deleted = rek.commandCalls(DeleteFacesCommand).flatMap((c) => c.args[0].input.FaceIds);
-  assert.deepEqual(deleted.sort(), ['f1', 'f2', 'f3', 'f4']);
+test('cadastro: imagem sem rosto -> no_face', async () => {
+  const gray = await sharp({ create: { width: 600, height: 600, channels: 3, background: '#808080' } }).jpeg().toBuffer();
+  await assert.rejects(describeEnrollment([gray, gray, gray]), (e) => e.code === 'no_face');
 });
 
-test('cadastro: rosto que ja e de outro aluno e recusado', async () => {
-  indexSequence([1, 2, 3].map((n) => ({ FaceRecords: [{ Face: { FaceId: `f${n}` } }] })));
-  rek.on(SearchUsersCommand).resolves({ UserMatches: [{ Similarity: 99, User: { UserId: 'outro' } }] });
-  const images = await Promise.all([1, 2, 3].map(() => jpeg()));
-  await assert.rejects(enrollUserFaces(client, 'col', 'uid1', images), (e) => e.code === 'already_enrolled_other');
-  assert.equal(rek.commandCalls(CreateUserCommand).length, 0);
+test('cadastro: mais de uma pessoa no quadro -> multiple_faces', async () => {
+  const group = await sharp(sample(3)).resize(1000).jpeg().toBuffer();
+  await assert.rejects(describeEnrollment([group, group, group]), (e) => e.code === 'multiple_faces');
 });
 
 test('cadastro: arquivo que nao e imagem -> invalid_image', async () => {
-  await assert.rejects(enrollUserFaces(client, 'col', 'uid1', [Buffer.from('nao e imagem'), Buffer.alloc(10), Buffer.alloc(10)]), (e) => e.code === 'invalid_image');
+  await assert.rejects(describeEnrollment([Buffer.from('nao e imagem'), Buffer.alloc(10), Buffer.alloc(10)]), (e) => e.code === 'invalid_image');
 });
 
-test('cadastro: colecao inexistente e criada', async () => {
-  rek.on(DescribeCollectionCommand).rejects(notFound());
-  rek.on(CreateCollectionCommand).resolves({});
-  indexSequence([1, 2, 3].map((n) => ({ FaceRecords: [{ Face: { FaceId: `f${n}` } }] })));
-  rek.on(AssociateFacesCommand).callsFake((input) => ({ AssociatedFaces: input.FaceIds.map((FaceId) => ({ FaceId })) }));
-  const images = await Promise.all([1, 2, 3].map(() => jpeg()));
-  await enrollUserFaces(client, 'col-nova', 'uid1', images);
-  assert.equal(rek.commandCalls(CreateCollectionCommand)[0].args[0].input.CollectionId, 'col-nova');
-});
+test('chamada: reconhece quem foi cadastrado e deixa o resto como nao reconhecido', async () => {
+  const enrolled = [];
+  for (const [index, userId] of [[0, 'ana'], [2, 'bia']]) {
+    const box = groupFaces[index].box;
+    const frames = await Promise.all([
+      frameOf(sample(3), box), frameOf(sample(3), box, { brightness: 0.85 }), frameOf(sample(3), box, { flip: true }),
+    ]);
+    enrolled.push({ userId, descriptors: await describeEnrollment(frames) });
+  }
 
-test('revogacao: apaga usuario e todos os rostos, mesmo os que so a AWS conhece', async () => {
-  rek.on(ListFacesCommand).resolves({ Faces: [{ FaceId: 'aws1' }, { FaceId: 'f1' }] });
-  await deleteUserFaces(client, 'col', 'uid1', ['f1', 'f2']);
-  assert.equal(rek.commandCalls(DeleteUserCommand)[0].args[0].input.UserId, 'uid1');
-  assert.deepEqual(rek.commandCalls(DeleteFacesCommand)[0].args[0].input.FaceIds.sort(), ['aws1', 'f1', 'f2']);
-});
+  // Foto da turma menor (rostos menores, como de mais longe).
+  const photo = await sharp(sample(3)).resize(1200).jpeg({ quality: 85 }).toBuffer();
+  const faces = await detectFacesInPhoto(photo);
+  const result = suggestFaceMatches(faces.map((face) => candidatesForFace(face.descriptor, enrolled)));
+  assert.equal(result.length, 3);
+  assert.equal(result[0].best?.userId, 'ana');
+  assert.equal(result[1].best, null, 'pessoa nao cadastrada nao recebe sugestao');
+  assert.equal(result[2].best?.userId, 'bia');
+  assert.ok(result[0].best.similarity >= FACE_HIGH_CONFIDENCE_THRESHOLD, `confianca alta (${result[0].best.similarity})`);
 
-test('revogacao: idempotente quando nada existe na AWS', async () => {
-  rek.on(ListFacesCommand).rejects(notFound());
-  rek.on(DeleteUserCommand).rejects(notFound());
-  await deleteUserFaces(client, 'col', 'uid1', []);
-});
-
-test('foto da turma: acha rostos, ignora deteccao fraca/minuscula e busca cada rosto recortado', async () => {
-  rek.on(DescribeCollectionCommand).resolves({});
-  rek.on(DetectFacesCommand).resolves({ FaceDetails: [
-    { Confidence: 99, BoundingBox: { Left: 0.6, Top: 0.2, Width: 0.1, Height: 0.15 } },
-    { Confidence: 99, BoundingBox: { Left: 0.1, Top: 0.2, Width: 0.1, Height: 0.15 } },
-    { Confidence: 50, BoundingBox: { Left: 0.3, Top: 0.2, Width: 0.1, Height: 0.15 } },
-    { Confidence: 99, BoundingBox: { Left: 0.8, Top: 0.2, Width: 0.005, Height: 0.005 } },
-  ] });
-  let call = 0;
-  rek.on(SearchUsersByImageCommand).callsFake(() => {
-    call += 1;
-    if (call === 1) return { UserMatches: [{ Similarity: 98.76, User: { UserId: 'ana' } }] };
-    throw Object.assign(new Error('no face'), { name: 'InvalidParameterException' });
-  });
-  const faces = await searchFacesInPhoto(client, 'col', await jpeg(2000, 1200));
-  assert.equal(faces.length, 2);
-  assert.ok(faces[0].box.left < faces[1].box.left, 'ordem da esquerda para a direita');
-  const searches = rek.commandCalls(SearchUsersByImageCommand).map((c) => c.args[0].input);
-  assert.equal(searches.length, 2);
-  assert.equal(searches[0].UserMatchThreshold, 80);
-  assert.equal(searches[0].QualityFilter, 'NONE');
-  const meta = await sharp(searches[0].Image.Bytes).metadata();
-  assert.ok(meta.width >= 240 && meta.height >= 240, 'recorte ampliado');
-  const all = faces.flatMap((f) => f.candidates);
-  assert.deepEqual(all, [{ userId: 'ana', similarity: 98.8 }]);
-});
-
-test('foto da turma: erro da AWS que nao e "sem rosto" sobe para quem chamou', async () => {
-  rek.on(DetectFacesCommand).resolves({ FaceDetails: [{ Confidence: 99, BoundingBox: { Left: 0.1, Top: 0.1, Width: 0.2, Height: 0.2 } }] });
-  rek.on(SearchUsersByImageCommand).rejects(Object.assign(new Error('denied'), { name: 'AccessDeniedException' }));
-  await assert.rejects(searchFacesInPhoto(client, 'col', await jpeg(1000, 800)), (e) => e.name === 'AccessDeniedException');
+  // Outras fotos, com outras pessoas: ninguem pode ser confundido com Ana ou Bia.
+  for (const n of [1, 2, 4, 5, 6]) {
+    const others = await detectFacesInPhoto(await sharp(sample(n)).toBuffer());
+    const wrong = others.map((face) => candidatesForFace(face.descriptor, enrolled)).flat();
+    assert.deepEqual(wrong, [], `sample${n} nao deveria sugerir ninguem: ${JSON.stringify(wrong)}`);
+  }
 });

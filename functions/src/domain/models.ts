@@ -185,14 +185,13 @@ export interface UserDoc {
   updatedAt: FirebaseFirestore.Timestamp;
 }
 
-// Cadastro facial do usuario (id do doc = uid). Os vetores ficam no AWS Rekognition; aqui so os
-// ids, para apagar tudo na revogacao. Dado pessoal sensivel (LGPD): gravado e lido somente pelas
-// Cloud Functions; nenhuma foto e armazenada.
+// Cadastro facial do usuario (id do doc = uid): os vetores do rosto (128 numeros por amostra),
+// gerados no nosso servidor. Dado pessoal sensivel (LGPD): gravado e lido somente pelas Cloud
+// Functions; nenhuma foto e armazenada.
 export interface FaceBiometricsDoc {
   userId: string;
-  faceIds: string[];
-  collectionId: string;
-  region: string;
+  // Firestore nao aceita array dentro de array, por isso cada amostra vai embrulhada.
+  samples: { values: number[] }[];
   modelVersion: string;
   consentVersion: string;
   consentAcceptedAt: FirebaseFirestore.Timestamp;

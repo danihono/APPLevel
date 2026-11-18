@@ -1,23 +1,85 @@
-// Regras de sugestao da chamada por foto. Modulo PURO (sem Firebase nem AWS), testado isolado.
+// Regras de sugestao da chamada por foto. Modulo PURO (sem Firebase nem modelo), testado isolado.
 //
-// O reconhecimento em si e feito pelo AWS Rekognition (services/faceRecognition.ts): para cada
-// rosto da foto ele devolve candidatos { userId, similarity 0..100 }. Aqui decidimos o que vira
+// O reconhecimento roda no nosso servidor (services/faceRecognition.ts, modelo dlib ResNet via
+// face-api): cada rosto vira um vetor de 128 numeros. Aqui comparamos vetores, decidimos o que vira
 // sugestao, com que confianca, e garantimos que um aluno nao aparece em dois rostos.
 
-export const FACE_MODEL_VERSION = 'aws-rekognition-v1';
+export const FACE_MODEL_VERSION = 'dlib-faceapi-v1';
+export const FACE_DESCRIPTOR_LENGTH = 128;
 
 // Cadastro: quadros capturados pelo video guiado (o app manda 5; aceitamos de 3 a 6).
 export const FACE_MIN_ENROLLMENT_SAMPLES = 3;
 export const FACE_MAX_ENROLLMENT_SAMPLES = 6;
-// Teto de rostos analisados por foto da turma (custo e tempo).
+// Teto de rostos analisados por foto da turma (tempo de processamento).
 export const FACE_MAX_FACES_PER_PHOTO = 60;
 
-// Similaridade do Rekognition (0..100). Abaixo do minimo o rosto fica "nao reconhecido"; a partir
-// do alto a sugestao ja vem marcada para o professor. Ponto de partida — calibrar no teste real
-// (a tela do professor mostra a % de cada sugestao).
-export const FACE_SEARCH_THRESHOLD = 80;
-export const FACE_MATCH_THRESHOLD = 85;
-export const FACE_HIGH_CONFIDENCE_THRESHOLD = 95;
+// Distancia euclidiana entre vetores do dlib: quanto MENOR, mais parecido. Medido em 20 pessoas
+// (selfie x mesmo rosto pequeno/escuro): mesma pessoa ate ~0,34 (0,51 no pior caso escuro e
+// borrado); pessoas diferentes nunca abaixo de ~0,49. Ponto de partida — calibrar no teste real.
+export const FACE_MATCH_MAX_DISTANCE = 0.45;
+export const FACE_HIGH_CONFIDENCE_MAX_DISTANCE = 0.36;
+// Quadros do proprio cadastro (angulos diferentes) precisam estar a no maximo isto da referencia.
+export const FACE_ENROLLMENT_MAX_DISTANCE = 0.55;
+// Rosto do cadastro tao perto de outro aluno ja cadastrado: provavelmente e a mesma pessoa.
+export const FACE_DUPLICATE_MAX_DISTANCE = 0.4;
+
+// Para exibir ao professor: distancia vira "% de semelhanca" (0 → 100%; limiar 0,45 → 55%).
+export function similarityFromDistance(distance: number): number {
+  return Math.round(Math.max(0, Math.min(1, 1 - distance)) * 1000) / 10;
+}
+
+export const FACE_MATCH_THRESHOLD = similarityFromDistance(FACE_MATCH_MAX_DISTANCE);
+export const FACE_HIGH_CONFIDENCE_THRESHOLD = similarityFromDistance(FACE_HIGH_CONFIDENCE_MAX_DISTANCE);
+
+export function faceDistance(a: number[], b: number[]): number {
+  if (a.length !== b.length || a.length === 0) {
+    return Number.POSITIVE_INFINITY;
+  }
+  let sum = 0;
+  for (let index = 0; index < a.length; index += 1) {
+    const diff = a[index] - b[index];
+    sum += diff * diff;
+  }
+  return Math.sqrt(sum);
+}
+
+export function isValidDescriptor(value: unknown): value is number[] {
+  return Array.isArray(value)
+    && value.length === FACE_DESCRIPTOR_LENGTH
+    && value.every((entry) => typeof entry === 'number' && Number.isFinite(entry));
+}
+
+export interface EnrolledFace {
+  userId: string;
+  descriptors: number[][];
+}
+
+// Menor distancia entre o rosto e as amostras do aluno.
+export function bestDistance(descriptor: number[], enrolled: EnrolledFace): number {
+  let best = Number.POSITIVE_INFINITY;
+  for (const sample of enrolled.descriptors) {
+    best = Math.min(best, faceDistance(descriptor, sample));
+  }
+  return best;
+}
+
+// Candidatos de um rosto da foto: alunos a uma distancia aceitavel, como % de semelhanca.
+export function candidatesForFace(descriptor: number[], enrolled: EnrolledFace[]): FaceCandidate[] {
+  return enrolled
+    .map((entry) => ({ userId: entry.userId, distance: bestDistance(descriptor, entry) }))
+    .filter((entry) => entry.distance <= FACE_MATCH_MAX_DISTANCE)
+    .map((entry) => ({ userId: entry.userId, similarity: similarityFromDistance(entry.distance) }));
+}
+
+// Cadastro: fica so com os quadros coerentes com a referencia (o 1o quadro, de frente). Se sobrar
+// menos que o minimo, os quadros nao sao da mesma pessoa.
+export function consistentEnrollment(descriptors: number[][]): number[][] {
+  if (!descriptors.length) {
+    return [];
+  }
+  const reference = descriptors[0];
+  return descriptors.filter((descriptor) => faceDistance(reference, descriptor) <= FACE_ENROLLMENT_MAX_DISTANCE);
+}
 
 const MAX_ALTERNATIVES = 2;
 

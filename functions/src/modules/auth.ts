@@ -2290,7 +2290,7 @@ export const deleteMyAccount = onCall(callableOptions, async (request) => {
   }
 
   // 1b) Biometria facial: o trigger onUserDeletedPurgeFaceBiometrics (modules/faceBiometrics.ts)
-  //     apaga na AWS e no Firebase assim que o doc do usuario e removido logo abaixo.
+  //     apaga os vetores do rosto assim que o doc do usuario e removido logo abaixo.
 
   // 2) Apaga o doc do usuario PRIMEIRO: assim os triggers (onFightWritten) que dependem do
   //    doc do usuario fazem no-op e nao recriam ranking orfao durante a anonimizacao abaixo.
