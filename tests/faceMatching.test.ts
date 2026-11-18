@@ -2,51 +2,31 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
-  FACE_EMBEDDING_LENGTH,
-  faceSimilarity,
+  FACE_HIGH_CONFIDENCE_THRESHOLD,
+  FACE_MATCH_THRESHOLD,
   isAdultByBirthDate,
-  isValidEmbedding,
-  minPairwiseSimilarity,
   suggestFaceMatches,
 } from '../functions/src/services/faceMatching.ts';
 
-// Vetor "de uma pessoa": base diferente por semente, com um ruido pequeno opcional.
-function embedding(seed: number, noise = 0): number[] {
-  return Array.from({ length: FACE_EMBEDDING_LENGTH }, (_, index) => (
-    ((index * 7 + seed * 13) % 17) / 4 + (index % 2 === 0 ? noise : -noise)
-  ));
-}
-
-test('similaridade: identico = 1, mesma pessoa com ruido fica alta, pessoas diferentes ficam baixas', () => {
-  assert.equal(faceSimilarity(embedding(1), embedding(1)), 1);
-  assert.ok(faceSimilarity(embedding(1), embedding(1, 0.05)) > 0.9);
-  assert.ok(faceSimilarity(embedding(1), embedding(2)) < 0.3);
-  assert.equal(faceSimilarity([1, 2], [1]), 0);
-});
-
-test('embedding precisa ter o tamanho do modelo e so numeros finitos', () => {
-  assert.equal(isValidEmbedding(embedding(1)), true);
-  assert.equal(isValidEmbedding(embedding(1).slice(1)), false);
-  assert.equal(isValidEmbedding([...embedding(1).slice(1), Number.NaN]), false);
-  assert.equal(isValidEmbedding('rosto'), false);
-});
-
-test('sugestao: reconhece cadastrados, ignora desconhecidos e usa a melhor amostra do aluno', () => {
-  const enrolled = [
-    { userId: 'ana', embeddings: [embedding(5), embedding(1)] },
-    { userId: 'bia', embeddings: [embedding(2)] },
-  ];
-  const result = suggestFaceMatches([embedding(2, 0.005), embedding(9), embedding(1, 0.005)], enrolled);
+test('sugestao: melhor candidato acima do limiar; desconhecido fica sem sugestao', () => {
+  const result = suggestFaceMatches([
+    [{ userId: 'bia', similarity: 99.1 }, { userId: 'ana', similarity: 86 }],
+    [],
+    [{ userId: 'ana', similarity: 91 }],
+  ]);
 
   assert.equal(result[0].best?.userId, 'bia');
   assert.equal(result[0].best?.confidence, 'high');
   assert.equal(result[1].best, null);
   assert.equal(result[2].best?.userId, 'ana');
+  assert.equal(result[2].best?.confidence, 'medium');
 });
 
 test('sugestao 1-para-1: o mesmo aluno nunca e sugerido para dois rostos', () => {
-  const enrolled = [{ userId: 'ana', embeddings: [embedding(1)] }];
-  const result = suggestFaceMatches([embedding(1, 0.25), embedding(1, 0.19)], enrolled);
+  const result = suggestFaceMatches([
+    [{ userId: 'ana', similarity: 88 }],
+    [{ userId: 'ana', similarity: 97 }],
+  ]);
 
   // O rosto mais parecido fica com a Ana; o outro vira "nao reconhecido" com ela de alternativa.
   assert.equal(result[1].best?.userId, 'ana');
@@ -54,15 +34,30 @@ test('sugestao 1-para-1: o mesmo aluno nunca e sugerido para dois rostos', () =>
   assert.deepEqual(result[0].alternatives.map((candidate) => candidate.userId), ['ana']);
 });
 
-test('sugestao: confianca media abaixo do limiar alto', () => {
-  const enrolled = [{ userId: 'ana', embeddings: [embedding(1)] }];
-  const [face] = suggestFaceMatches([embedding(1, 0.27)], enrolled);
-  assert.equal(face.best?.confidence, 'medium');
+test('sugestao: candidato abaixo do limiar minimo e descartado', () => {
+  const [face] = suggestFaceMatches([[{ userId: 'ana', similarity: FACE_MATCH_THRESHOLD - 0.5 }]]);
+  assert.equal(face.best, null);
+  assert.deepEqual(face.alternatives, []);
 });
 
-test('selfies do cadastro: menor similaridade entre os pares', () => {
-  assert.equal(minPairwiseSimilarity([embedding(1)]), 1);
-  assert.ok(minPairwiseSimilarity([embedding(1), embedding(1, 0.05), embedding(2)]) < 0.3);
+test('sugestao: limiar alto define a confianca', () => {
+  const [high, medium] = suggestFaceMatches([
+    [{ userId: 'ana', similarity: FACE_HIGH_CONFIDENCE_THRESHOLD }],
+    [{ userId: 'bia', similarity: FACE_HIGH_CONFIDENCE_THRESHOLD - 0.1 }],
+  ]);
+  assert.equal(high.best?.confidence, 'high');
+  assert.equal(medium.best?.confidence, 'medium');
+});
+
+test('sugestao: candidato repetido no mesmo rosto conta uma vez, com a maior similaridade', () => {
+  const [face] = suggestFaceMatches([[
+    { userId: 'ana', similarity: 90 },
+    { userId: 'ana', similarity: 96 },
+    { userId: 'bia', similarity: 89 },
+  ]]);
+  assert.equal(face.best?.userId, 'ana');
+  assert.equal(face.best?.similarity, 96);
+  assert.deepEqual(face.alternatives.map((candidate) => candidate.userId), ['bia']);
 });
 
 test('maioridade: idade exata no dia, nao pelo ano', () => {

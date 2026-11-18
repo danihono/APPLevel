@@ -16,16 +16,20 @@
     "clean": "rimraf lib",
     "deploy": "firebase deploy --only functions --project applevel-c5e73 && npm --prefix .. run firebase:fix-invokers",
     "emulators": "firebase emulators:start --only functions,firestore,auth,storage --project applevel-c5e73",
-    "lint": "tsc --noEmit -p tsconfig.json"
+    "lint": "tsc --noEmit -p tsconfig.json",
+    "test": "npm run build && node --test test/*.test.js"
   },
   "dependencies": {
+    "@aws-sdk/client-rekognition": "^3.1171.0",
     "firebase-admin": "^13.0.0",
     "firebase-functions": "^6.0.0",
-    "nodemailer": "^6.10.1"
+    "nodemailer": "^6.10.1",
+    "sharp": "^0.35.5"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",
     "@types/nodemailer": "^6.4.24",
+    "aws-sdk-client-mock": "^4.1.0",
     "rimraf": "^6.0.1",
     "typescript": "^5.8.2"
   }

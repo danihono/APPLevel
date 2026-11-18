@@ -125,6 +125,8 @@ export interface AcademyDoc {
   progressionRules: ProgressionRules;
   classCheckinWindowMinutes: number;
   masterBlackLimit: number;
+  // Chamada por foto (biometria facial) liberada nesta academia. So o superadmin liga.
+  faceAttendanceEnabled?: boolean;
   createdAt: FirebaseFirestore.Timestamp;
   updatedAt: FirebaseFirestore.Timestamp;
 }
@@ -183,11 +185,14 @@ export interface UserDoc {
   updatedAt: FirebaseFirestore.Timestamp;
 }
 
-// Vetores faciais do usuario (id do doc = uid). Dado pessoal sensivel (LGPD): gravado e lido
-// somente pelas Cloud Functions; nenhuma foto e armazenada.
+// Cadastro facial do usuario (id do doc = uid). Os vetores ficam no AWS Rekognition; aqui so os
+// ids, para apagar tudo na revogacao. Dado pessoal sensivel (LGPD): gravado e lido somente pelas
+// Cloud Functions; nenhuma foto e armazenada.
 export interface FaceBiometricsDoc {
   userId: string;
-  samples: { values: number[] }[];
+  faceIds: string[];
+  collectionId: string;
+  region: string;
   modelVersion: string;
   consentVersion: string;
   consentAcceptedAt: FirebaseFirestore.Timestamp;

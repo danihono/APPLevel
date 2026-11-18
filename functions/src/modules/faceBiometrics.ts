@@ -1,7 +1,9 @@
 import { FieldValue, Timestamp } from 'firebase-admin/firestore';
+import { logger } from 'firebase-functions/v2';
 import { onDocumentDeleted } from 'firebase-functions/v2/firestore';
-import { onCall } from 'firebase-functions/v2/https';
+import { HttpsError, onCall } from 'firebase-functions/v2/https';
 import {
+  AcademyDoc,
   AttendanceDoc,
   ClassDoc,
   COLLECTIONS,
@@ -13,36 +15,74 @@ import { getRequestContext } from '../lib/context';
 import { assertCondition } from '../lib/errors';
 import { db } from '../lib/firebase';
 import { requiredString } from '../lib/payload';
+import { faceSecrets, getFaceCollectionId, getFaceRegion, getRekognitionClient } from '../lib/rekognition';
 import {
-  EnrolledFace,
-  FACE_MATCH_THRESHOLD,
   FACE_MAX_ENROLLMENT_SAMPLES,
-  FACE_MAX_FACES_PER_PHOTO,
+  FACE_MIN_ENROLLMENT_SAMPLES,
   FACE_MODEL_VERSION,
   isAdultByBirthDate,
-  isValidEmbedding,
-  minPairwiseSimilarity,
   suggestFaceMatches,
 } from '../services/faceMatching';
+import { deleteUserFaces, enrollUserFaces, FaceEnrollError, searchFacesInPhoto, type FaceEnrollErrorCode } from '../services/faceRecognition';
 
-const callableOptions = { region: 'southamerica-east1', invoker: 'public' as const };
+// sharp precisa de memoria; a foto da turma leva alguns segundos (varias buscas na AWS).
+const callableOptions = {
+  region: 'southamerica-east1',
+  invoker: 'public' as const,
+  secrets: faceSecrets,
+  memory: '1GiB' as const,
+  timeoutSeconds: 120,
+};
 
-// Versao do termo de consentimento exibido no app (components/FaceEnrollmentModal.tsx).
+// Versao do termo de consentimento exibido no app (faceBiometricsRules.ts).
 // Mudou o texto do termo? Suba a versao aqui e la: o aceite fica registrado por versao.
-export const FACE_CONSENT_VERSION = '2026-11-v1';
+export const FACE_CONSENT_VERSION = '2026-11-v2';
 
-const GET_ALL_CHUNK = 300;
+// Tamanho maximo das imagens em base64 (o app ja manda bem menor que isso).
+const MAX_ENROLL_IMAGE_CHARS = 900_000;
+const MAX_PHOTO_CHARS = 6_000_000;
 
-function readEmbeddings(data: unknown, fieldName: string, maxItems: number): number[][] {
-  const value = data && typeof data === 'object' ? (data as Record<string, unknown>)[fieldName] : undefined;
+const ENROLL_ERROR_MESSAGES: Record<FaceEnrollErrorCode, string> = {
+  no_face: 'Nao encontramos seu rosto nas imagens. Tente de novo com boa luz, olhando para a camera.',
+  multiple_faces: 'Apareceu mais de uma pessoa na camera. Faca o cadastro sozinho(a).',
+  low_quality: 'As imagens ficaram escuras ou tremidas. Procure um lugar mais iluminado e segure o celular firme.',
+  extreme_pose: 'O rosto ficou virado demais. Gire so um pouco para cada lado.',
+  not_same_person: 'As imagens nao parecem ser da mesma pessoa. Refaca o cadastro.',
+  already_enrolled_other: 'Este rosto ja esta cadastrado para outro aluno. Se for um engano, fale com o professor.',
+  invalid_image: 'Nao foi possivel ler as imagens enviadas. Tente de novo.',
+};
+
+function readImage(value: unknown, maxChars: number): Buffer {
+  assertCondition(typeof value === 'string' && value.length > 0, 'invalid-argument', 'Imagem nao enviada.');
+  assertCondition(value.length <= maxChars, 'invalid-argument', 'Imagem grande demais.');
+  const base64 = value.replace(/^data:image\/[a-z]+;base64,/, '');
+  const buffer = Buffer.from(base64, 'base64');
+  assertCondition(buffer.length > 1000, 'invalid-argument', 'Imagem invalida.');
+  return buffer;
+}
+
+async function assertFaceAttendanceEnabled(academyId: string): Promise<void> {
+  const academy = await db.collection(COLLECTIONS.academies).doc(academyId).get();
   assertCondition(
-    Array.isArray(value) && value.length > 0,
-    'invalid-argument',
-    'Nenhum rosto foi enviado para analise.',
+    academy.exists && (academy.data() as AcademyDoc).faceAttendanceEnabled === true,
+    'failed-precondition',
+    'A chamada por foto nao esta liberada nesta academia.',
   );
-  assertCondition(value.length <= maxItems, 'invalid-argument', 'Rostos demais em um unico envio.');
-  assertCondition(value.every(isValidEmbedding), 'invalid-argument', 'Dados biometricos em formato invalido.');
-  return value as number[][];
+}
+
+// Erros da AWS viram mensagens que o aluno/professor entende; o detalhe vai para o log.
+function rethrowAwsError(context: string, error: unknown): never {
+  if (error instanceof HttpsError) {
+    throw error;
+  }
+  if (error instanceof FaceEnrollError) {
+    throw new HttpsError('invalid-argument', ENROLL_ERROR_MESSAGES[error.code]);
+  }
+  logger.error(`Falha no reconhecimento facial (${context})`, {
+    name: typeof error === 'object' && error && 'name' in error ? String((error as { name: unknown }).name) : '',
+    message: error instanceof Error ? error.message : String(error),
+  });
+  throw new HttpsError('unavailable', 'O reconhecimento facial esta indisponivel agora. Tente de novo em instantes.');
 }
 
 function consentLog(params: {
@@ -61,11 +101,12 @@ function consentLog(params: {
   };
 }
 
-// Cadastro da biometria pelo PROPRIO usuario. Recebe so os vetores calculados no aparelho —
-// nenhuma foto chega ao servidor.
+// Cadastro da biometria pelo PROPRIO aluno, com os quadros do video guiado. As imagens sao
+// usadas so para gerar os vetores na AWS e descartadas; nada e salvo no Firebase.
 export const enrollFaceBiometrics = onCall(callableOptions, async (request) => {
   const actor = await getRequestContext(request, 'student');
   assertCondition(actor.role === 'student', 'permission-denied', 'A biometria facial e destinada aos alunos.');
+  await assertFaceAttendanceEnabled(actor.academyId);
 
   assertCondition(
     request.data?.consentAccepted === true && requiredString(request.data, 'consentVersion') === FACE_CONSENT_VERSION,
@@ -73,31 +114,48 @@ export const enrollFaceBiometrics = onCall(callableOptions, async (request) => {
     'E necessario aceitar o termo de consentimento atual para cadastrar a biometria facial.',
   );
   assertCondition(
-    requiredString(request.data, 'modelVersion') === FACE_MODEL_VERSION,
-    'failed-precondition',
-    'Atualize o aplicativo para cadastrar a biometria facial.',
-  );
-  assertCondition(
     isAdultByBirthDate(actor.user.birthDate),
     'failed-precondition',
     'A biometria facial esta disponivel apenas para maiores de 18 anos com data de nascimento cadastrada.',
   );
 
-  const embeddings = readEmbeddings(request.data, 'embeddings', FACE_MAX_ENROLLMENT_SAMPLES);
+  const rawImages = request.data?.images;
   assertCondition(
-    minPairwiseSimilarity(embeddings) >= FACE_MATCH_THRESHOLD,
+    Array.isArray(rawImages) && rawImages.length >= FACE_MIN_ENROLLMENT_SAMPLES && rawImages.length <= FACE_MAX_ENROLLMENT_SAMPLES,
     'invalid-argument',
-    'As fotos nao parecem ser da mesma pessoa. Refaca o cadastro.',
+    `Envie de ${FACE_MIN_ENROLLMENT_SAMPLES} a ${FACE_MAX_ENROLLMENT_SAMPLES} imagens do rosto.`,
   );
+  const images = rawImages.map((image: unknown) => readImage(image, MAX_ENROLL_IMAGE_CHARS));
 
-  const now = Timestamp.now();
+  const client = getRekognitionClient();
+  const collectionId = getFaceCollectionId();
   const biometricsRef = db.collection(COLLECTIONS.faceBiometrics).doc(actor.uid);
   const existing = await biometricsRef.get();
 
+  let faceIds: string[];
+  try {
+    // Refazer o cadastro substitui o anterior por completo.
+    await deleteUserFaces(client, collectionId, actor.uid, existing.exists ? (existing.data() as FaceBiometricsDoc).faceIds ?? [] : []);
+    ({ faceIds } = await enrollUserFaces(client, collectionId, actor.uid, images));
+  } catch (error) {
+    if (existing.exists) {
+      // O cadastro antigo ja foi apagado na AWS: o status precisa acompanhar.
+      await biometricsRef.delete();
+      await db.collection(COLLECTIONS.users).doc(actor.uid).update({
+        faceBiometricsStatus: FieldValue.delete(),
+        faceBiometricsEnrolledAt: FieldValue.delete(),
+        updatedAt: Timestamp.now(),
+      });
+    }
+    rethrowAwsError('cadastro', error);
+  }
+
+  const now = Timestamp.now();
   const biometrics: FaceBiometricsDoc = {
     userId: actor.uid,
-    // Firestore nao aceita array dentro de array, por isso cada amostra vai embrulhada.
-    samples: embeddings.map((values) => ({ values })),
+    faceIds,
+    collectionId,
+    region: getFaceRegion(),
     modelVersion: FACE_MODEL_VERSION,
     consentVersion: FACE_CONSENT_VERSION,
     consentAcceptedAt: now,
@@ -118,16 +176,28 @@ export const enrollFaceBiometrics = onCall(callableOptions, async (request) => {
   );
   await batch.commit();
 
-  return { userId: actor.uid, status: 'enrolled' as const };
+  return { userId: actor.uid, status: 'enrolled' as const, faces: faceIds.length };
 });
 
-// Revogacao do consentimento: apaga os vetores na hora. O log guarda apenas o fato e a data.
+// Revogacao do consentimento: apaga na AWS e no Firebase na hora. Funciona mesmo com a chamada
+// por foto desligada na academia (o aluno sempre pode desistir).
 export const revokeFaceBiometrics = onCall(callableOptions, async (request) => {
   const actor = await getRequestContext(request, 'student');
-  const now = Timestamp.now();
+  const biometricsRef = db.collection(COLLECTIONS.faceBiometrics).doc(actor.uid);
+  const existing = await biometricsRef.get();
 
+  if (existing.exists || actor.user.faceBiometricsStatus === 'enrolled') {
+    try {
+      const data = existing.data() as FaceBiometricsDoc | undefined;
+      await deleteUserFaces(getRekognitionClient(), data?.collectionId ?? getFaceCollectionId(), actor.uid, data?.faceIds ?? []);
+    } catch (error) {
+      rethrowAwsError('revogacao', error);
+    }
+  }
+
+  const now = Timestamp.now();
   const batch = db.batch();
-  batch.delete(db.collection(COLLECTIONS.faceBiometrics).doc(actor.uid));
+  batch.delete(biometricsRef);
   batch.update(db.collection(COLLECTIONS.users).doc(actor.uid), {
     faceBiometricsStatus: FieldValue.delete(),
     faceBiometricsEnrolledAt: FieldValue.delete(),
@@ -142,37 +212,12 @@ export const revokeFaceBiometrics = onCall(callableOptions, async (request) => {
   return { userId: actor.uid, status: 'revoked' as const };
 });
 
-async function loadEnrolledFaces(userIds: string[]): Promise<EnrolledFace[]> {
-  const enrolled: EnrolledFace[] = [];
-
-  for (let index = 0; index < userIds.length; index += GET_ALL_CHUNK) {
-    const refs = userIds
-      .slice(index, index + GET_ALL_CHUNK)
-      .map((userId) => db.collection(COLLECTIONS.faceBiometrics).doc(userId));
-    const snapshots = await db.getAll(...refs);
-
-    for (const snapshot of snapshots) {
-      if (!snapshot.exists) {
-        continue;
-      }
-      const data = snapshot.data() as FaceBiometricsDoc;
-      // Cadastro feito com outro modelo nao e comparavel: fica de fora ate o aluno refazer.
-      if (data.modelVersion !== FACE_MODEL_VERSION) {
-        continue;
-      }
-      enrolled.push({ userId: snapshot.id, embeddings: data.samples.map((sample) => sample.values) });
-    }
-  }
-
-  return enrolled;
-}
-
-// Recebe os rostos detectados na foto da turma e SUGERE quem sao. Nao grava presenca: o
-// professor aprova na tela e a confirmacao passa pelo `registerAttendance` de sempre.
+// Recebe a foto da turma e SUGERE quem e cada rosto. Nao grava presenca: o professor aprova na
+// tela e a confirmacao passa pelo `registerAttendance` de sempre. A foto nao e armazenada.
 export const suggestClassAttendanceFromFaces = onCall(callableOptions, async (request) => {
   const actor = await getRequestContext(request, 'professor');
   const classId = requiredString(request.data, 'classId');
-  const faces = readEmbeddings(request.data, 'embeddings', FACE_MAX_FACES_PER_PHOTO);
+  const image = readImage(request.data?.image, MAX_PHOTO_CHARS);
 
   const classSnap = await db.collection(COLLECTIONS.classes).doc(classId).get();
   assertCondition(classSnap.exists, 'not-found', 'Aula nao encontrada.');
@@ -187,6 +232,7 @@ export const suggestClassAttendanceFromFaces = onCall(callableOptions, async (re
     'failed-precondition',
     'A aula precisa estar ativa para registrar presenca.',
   );
+  await assertFaceAttendanceEnabled(classData.academyId);
 
   const [usersSnapshot, attendancesSnapshot] = await Promise.all([
     db
@@ -201,23 +247,34 @@ export const suggestClassAttendanceFromFaces = onCall(callableOptions, async (re
       .get(),
   ]);
 
-  // Mesmo publico da chamada manual: alunos ativos da unidade.
-  const eligibleUserIds = usersSnapshot.docs
+  // Mesmo publico da chamada manual: alunos ativos da unidade. A colecao na AWS e unica para
+  // todas as academias; aqui descartamos qualquer match de fora desta.
+  const eligible = new Set(usersSnapshot.docs
     .filter((doc) => {
       const user = doc.data() as UserDoc;
       return user.role === 'student' && user.status !== 'suspended';
     })
-    .map((doc) => doc.id);
+    .map((doc) => doc.id));
   const presentUserIds = new Set(attendancesSnapshot.docs.map((doc) => (doc.data() as AttendanceDoc).userId));
 
-  const enrolled = await loadEnrolledFaces(eligibleUserIds);
-  const suggestions = suggestFaceMatches(faces, enrolled);
+  let faces;
+  try {
+    faces = eligible.size ? await searchFacesInPhoto(getRekognitionClient(), getFaceCollectionId(), image) : [];
+  } catch (error) {
+    if (error instanceof FaceEnrollError) {
+      throw new HttpsError('invalid-argument', 'Nao foi possivel ler a foto. Tente outra imagem.');
+    }
+    rethrowAwsError('foto da turma', error);
+  }
+
+  const suggestions = suggestFaceMatches(faces.map((face) => face.candidates.filter((candidate) => eligible.has(candidate.userId))));
 
   return {
     classId,
-    enrolledCount: enrolled.length,
+    enrolledCount: eligible.size,
     faces: suggestions.map((suggestion) => ({
       faceIndex: suggestion.faceIndex,
+      box: faces[suggestion.faceIndex].box,
       best: suggestion.best
         ? { ...suggestion.best, alreadyPresent: presentUserIds.has(suggestion.best.userId) }
         : null,
@@ -230,10 +287,19 @@ export const suggestClassAttendanceFromFaces = onCall(callableOptions, async (re
 });
 
 // Qualquer caminho que apague o usuario (auto-exclusao, exclusao pelo admin no console/app)
-// leva junto a biometria: dado sensivel nunca fica orfao.
+// leva junto a biometria, na AWS e no Firebase: dado sensivel nunca fica orfao.
 export const onUserDeletedPurgeFaceBiometrics = onDocumentDeleted(
-  { document: `${COLLECTIONS.users}/{userId}`, region: 'southamerica-east1' },
+  { document: `${COLLECTIONS.users}/{userId}`, region: 'southamerica-east1', secrets: faceSecrets },
   async (event) => {
-    await db.collection(COLLECTIONS.faceBiometrics).doc(event.params.userId).delete();
+    const userId = event.params.userId;
+    const biometricsRef = db.collection(COLLECTIONS.faceBiometrics).doc(userId);
+    const existing = await biometricsRef.get();
+    const wasEnrolled = existing.exists || (event.data?.data() as UserDoc | undefined)?.faceBiometricsStatus === 'enrolled';
+    if (!wasEnrolled) {
+      return;
+    }
+    const data = existing.data() as FaceBiometricsDoc | undefined;
+    await deleteUserFaces(getRekognitionClient(), data?.collectionId ?? getFaceCollectionId(), userId, data?.faceIds ?? []);
+    await biometricsRef.delete();
   },
 );

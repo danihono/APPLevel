@@ -1,30 +1,27 @@
-// Comparacao de biometria facial. Modulo PURO (sem Firebase) para poder ser testado isolado.
+// Regras de sugestao da chamada por foto. Modulo PURO (sem Firebase nem AWS), testado isolado.
 //
-// Os vetores ("embeddings") sao gerados no aparelho pelo modelo `faceres` da biblioteca Human;
-// aqui so comparamos numeros. Trocar de motor (ex.: AWS Rekognition) significa trocar este
-// arquivo e o `services/faceEngine.ts` do frontend, e invalidar os cadastros antigos via
-// FACE_MODEL_VERSION.
+// O reconhecimento em si e feito pelo AWS Rekognition (services/faceRecognition.ts): para cada
+// rosto da foto ele devolve candidatos { userId, similarity 0..100 }. Aqui decidimos o que vira
+// sugestao, com que confianca, e garantimos que um aluno nao aparece em dois rostos.
 
-export const FACE_MODEL_VERSION = 'human-faceres-v1';
-export const FACE_EMBEDDING_LENGTH = 1024;
-export const FACE_MAX_ENROLLMENT_SAMPLES = 3;
-export const FACE_MAX_FACES_PER_PHOTO = 80;
+export const FACE_MODEL_VERSION = 'aws-rekognition-v1';
 
-// Similaridade 0..1. Abaixo do limiar minimo o rosto fica "nao reconhecido"; a partir do limiar
-// alto a sugestao ja vem marcada para o professor. No teste inicial, pessoas DIFERENTES chegaram
-// a 0.54 e a mesma pessoa ficou em 0.75+; os valores abaixo deixam folga, mas sao um ponto de
-// partida — calibrar com fotos reais de aula (a tela do professor mostra a % de cada sugestao).
-export const FACE_MATCH_THRESHOLD = 0.58;
-export const FACE_HIGH_CONFIDENCE_THRESHOLD = 0.68;
+// Cadastro: quadros capturados pelo video guiado (o app manda 5; aceitamos de 3 a 6).
+export const FACE_MIN_ENROLLMENT_SAMPLES = 3;
+export const FACE_MAX_ENROLLMENT_SAMPLES = 6;
+// Teto de rostos analisados por foto da turma (custo e tempo).
+export const FACE_MAX_FACES_PER_PHOTO = 60;
+
+// Similaridade do Rekognition (0..100). Abaixo do minimo o rosto fica "nao reconhecido"; a partir
+// do alto a sugestao ja vem marcada para o professor. Ponto de partida — calibrar no teste real
+// (a tela do professor mostra a % de cada sugestao).
+export const FACE_SEARCH_THRESHOLD = 80;
+export const FACE_MATCH_THRESHOLD = 85;
+export const FACE_HIGH_CONFIDENCE_THRESHOLD = 95;
 
 const MAX_ALTERNATIVES = 2;
 
 export type FaceConfidence = 'high' | 'medium';
-
-export interface EnrolledFace {
-  userId: string;
-  embeddings: number[][];
-}
 
 export interface FaceCandidate {
   userId: string;
@@ -37,73 +34,30 @@ export interface FaceSuggestion {
   alternatives: FaceCandidate[];
 }
 
-export function isValidEmbedding(value: unknown): value is number[] {
-  return Array.isArray(value)
-    && value.length === FACE_EMBEDDING_LENGTH
-    && value.every((entry) => typeof entry === 'number' && Number.isFinite(entry));
-}
-
-// Mesma formula de `human.match.similarity` (distancia euclidiana normalizada para 0.2..0.8),
-// para que os limiares documentados pela biblioteca continuem valendo no servidor.
-export function faceSimilarity(a: number[], b: number[]): number {
-  if (a.length !== b.length || a.length === 0) {
-    return 0;
-  }
-
-  let sum = 0;
-  for (let index = 0; index < a.length; index += 1) {
-    const diff = a[index] - b[index];
-    sum += diff * diff;
-  }
-
-  if (sum === 0) {
-    return 1;
-  }
-
-  const distance = Math.sqrt(25 * sum) / 100;
-  const normalized = (1 - distance - 0.2) / 0.6;
-  return Math.round(100 * Math.max(0, Math.min(1, normalized))) / 100;
-}
-
-// Um usuario pode ter ate 3 amostras; vale a que mais se parece com o rosto da foto.
-function bestSimilarity(face: number[], enrolled: EnrolledFace): number {
-  let best = 0;
-  for (const sample of enrolled.embeddings) {
-    const similarity = faceSimilarity(face, sample);
-    if (similarity > best) {
-      best = similarity;
-    }
-  }
-  return best;
-}
-
-// As selfies do cadastro precisam ser da mesma pessoa. Devolve a menor similaridade entre elas.
-export function minPairwiseSimilarity(embeddings: number[][]): number {
-  let lowest = 1;
-  for (let i = 0; i < embeddings.length; i += 1) {
-    for (let j = i + 1; j < embeddings.length; j += 1) {
-      lowest = Math.min(lowest, faceSimilarity(embeddings[i], embeddings[j]));
-    }
-  }
-  return lowest;
-}
-
 // Atribuicao 1-para-1: cada rosto recebe no maximo um aluno e cada aluno aparece em no maximo
 // um rosto. Gulosa por similaridade decrescente — o par mais parecido e resolvido primeiro.
+// `candidatesByFace[i]` sao os candidatos do rosto i (ja filtrados pelos alunos elegiveis).
 export function suggestFaceMatches(
-  faces: number[][],
-  enrolled: EnrolledFace[],
+  candidatesByFace: FaceCandidate[][],
   options?: { threshold?: number; highThreshold?: number },
 ): FaceSuggestion[] {
   const threshold = options?.threshold ?? FACE_MATCH_THRESHOLD;
   const highThreshold = options?.highThreshold ?? FACE_HIGH_CONFIDENCE_THRESHOLD;
 
-  const candidatesByFace: FaceCandidate[][] = faces.map((face) => enrolled
-    .map((entry) => ({ userId: entry.userId, similarity: bestSimilarity(face, entry) }))
-    .filter((candidate) => candidate.similarity >= threshold)
-    .sort((left, right) => right.similarity - left.similarity || left.userId.localeCompare(right.userId)));
+  // Mesmo aluno repetido no mesmo rosto (nao deveria acontecer): fica a maior similaridade.
+  const sorted = candidatesByFace.map((candidates) => {
+    const bestByUser = new Map<string, number>();
+    for (const candidate of candidates) {
+      if (candidate.similarity >= threshold) {
+        bestByUser.set(candidate.userId, Math.max(bestByUser.get(candidate.userId) ?? 0, candidate.similarity));
+      }
+    }
+    return [...bestByUser.entries()]
+      .map(([userId, similarity]) => ({ userId, similarity }))
+      .sort((left, right) => right.similarity - left.similarity || left.userId.localeCompare(right.userId));
+  });
 
-  const pairs = candidatesByFace
+  const pairs = sorted
     .flatMap((candidates, faceIndex) => candidates.map((candidate) => ({ faceIndex, ...candidate })))
     .sort((left, right) => right.similarity - left.similarity
       || left.faceIndex - right.faceIndex
@@ -119,14 +73,14 @@ export function suggestFaceMatches(
     takenUsers.add(pair.userId);
   }
 
-  return faces.map((_, faceIndex) => {
+  return sorted.map((candidates, faceIndex) => {
     const best = bestByFace.get(faceIndex) ?? null;
     return {
       faceIndex,
       best: best
         ? { ...best, confidence: best.similarity >= highThreshold ? 'high' as const : 'medium' as const }
         : null,
-      alternatives: candidatesByFace[faceIndex]
+      alternatives: candidates
         .filter((candidate) => candidate.userId !== best?.userId)
         .slice(0, MAX_ALTERNATIVES),
     };
