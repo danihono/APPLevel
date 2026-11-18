@@ -97,10 +97,11 @@ const FaceAttendanceModal: React.FC<FaceAttendanceModalProps> = ({ classId, clas
   const orderedFaces = useMemo(
     () => faces
       .map((entry, index) => ({ entry, index }))
-      .sort((left, right) => Number(right.entry.candidates.length > 0) - Number(left.entry.candidates.length > 0)),
+      .sort((left, right) => Number(right.entry.confidence !== null) - Number(left.entry.confidence !== null)),
     [faces],
   );
-  const unrecognizedCount = faces.filter((entry) => entry.candidates.length === 0).length;
+  // Sem sugestao propria (mesmo que pareca com alguem ja sugerido em outro rosto).
+  const unrecognizedCount = faces.filter((entry) => entry.confidence === null).length;
   // Um aluno marcado em dois rostos conta uma vez so.
   const selectedUserIds = useMemo(
     () => [...new Set(faces
@@ -219,7 +220,7 @@ const FaceAttendanceModal: React.FC<FaceAttendanceModalProps> = ({ classId, clas
                 {orderedFaces.map(({ entry, index }) => {
                   const selected = entry.candidates.find((candidate) => candidate.userId === entry.selectedUserId);
                   const student = selected ? studentById.get(selected.userId) : undefined;
-                  const recognized = entry.candidates.length > 0;
+                  const recognized = entry.confidence !== null;
                   return (
                     <div key={index} className={`app-list-card face-review__row ${recognized ? '' : 'is-unknown'}`}>
                       <img src={entry.thumbnail} alt={t('Rosto na foto')} className="face-review__thumb" />
@@ -275,7 +276,11 @@ const FaceAttendanceModal: React.FC<FaceAttendanceModalProps> = ({ classId, clas
                       ) : (
                         <div className="face-review__info">
                           <p className="face-review__name"><UserX size={14} style={{ verticalAlign: '-2px', marginRight: 6 }} />{t('Não reconhecido')}</p>
-                          <p className="face-review__meta">{t('Sem biometria cadastrada ou rosto pouco visível. Marque na chamada manual.')}</p>
+                          <p className="face-review__meta">
+                            {entry.candidates.length
+                              ? t('Parecido com {names}, já sugerido(a) em outro rosto. Confira e marque na chamada manual.', { names: entry.candidates.map((candidate) => nameOf(candidate.userId)).join(', ') })
+                              : t('Sem biometria cadastrada ou rosto pouco visível. Marque na chamada manual.')}
+                          </p>
                         </div>
                       )}
                     </div>
@@ -295,7 +300,9 @@ const FaceAttendanceModal: React.FC<FaceAttendanceModalProps> = ({ classId, clas
               >
                 {step === 'saving'
                   ? t('Registrando...')
-                  : t('Confirmar {count} presenças', { count: selectedUserIds.length })}
+                  : selectedUserIds.length === 1
+                    ? t('Confirmar 1 presença')
+                    : t('Confirmar {count} presenças', { count: selectedUserIds.length })}
               </button>
             </div>
           </>
@@ -305,7 +312,7 @@ const FaceAttendanceModal: React.FC<FaceAttendanceModalProps> = ({ classId, clas
           <>
             <div className="face-modal__body face-modal__done">
               <CheckCircle2 size={40} style={{ color: '#29a675' }} />
-              <p className="face-modal__title">{t('{count} presenças registradas', { count: savedCount })}</p>
+              <p className="face-modal__title">{savedCount === 1 ? t('1 presença registrada') : t('{count} presenças registradas', { count: savedCount })}</p>
               {failed.length > 0 ? (
                 <div className="app-alert app-alert--error" style={{ textAlign: 'left', width: '100%' }}>
                   <p style={{ fontWeight: 700, marginBottom: 4 }}>{t('Não foi possível registrar:')}</p>
@@ -316,7 +323,9 @@ const FaceAttendanceModal: React.FC<FaceAttendanceModalProps> = ({ classId, clas
               ) : null}
               {unrecognizedCount > 0 ? (
                 <p className="face-modal__copy">
-                  {t('{count} rostos não foram reconhecidos: confira a lista e complete pela chamada manual.', { count: unrecognizedCount })}
+                  {unrecognizedCount === 1
+                    ? t('1 rosto não foi reconhecido: confira a lista e complete pela chamada manual.')
+                    : t('{count} rostos não foram reconhecidos: confira a lista e complete pela chamada manual.', { count: unrecognizedCount })}
                 </p>
               ) : null}
             </div>

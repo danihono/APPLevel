@@ -43,21 +43,21 @@ const MAX_ENROLL_IMAGE_CHARS = 900_000;
 const MAX_PHOTO_CHARS = 6_000_000;
 
 const ENROLL_ERROR_MESSAGES: Record<FaceEnrollErrorCode, string> = {
-  no_face: 'Nao encontramos seu rosto nas imagens. Tente de novo com boa luz, olhando para a camera.',
-  multiple_faces: 'Apareceu mais de uma pessoa na camera. Faca o cadastro sozinho(a).',
+  no_face: 'Não encontramos seu rosto nas imagens. Tente de novo com boa luz, olhando para a câmera.',
+  multiple_faces: 'Apareceu mais de uma pessoa na câmera. Faça o cadastro sozinho(a).',
   low_quality: 'As imagens ficaram escuras ou tremidas. Procure um lugar mais iluminado e segure o celular firme.',
-  extreme_pose: 'O rosto ficou virado demais. Gire so um pouco para cada lado.',
-  not_same_person: 'As imagens nao parecem ser da mesma pessoa. Refaca o cadastro.',
-  already_enrolled_other: 'Este rosto ja esta cadastrado para outro aluno. Se for um engano, fale com o professor.',
-  invalid_image: 'Nao foi possivel ler as imagens enviadas. Tente de novo.',
+  extreme_pose: 'O rosto ficou virado demais. Gire só um pouco para cada lado.',
+  not_same_person: 'As imagens não parecem ser da mesma pessoa. Refaça o cadastro.',
+  already_enrolled_other: 'Este rosto já está cadastrado para outro aluno. Se for um engano, fale com o professor.',
+  invalid_image: 'Não foi possível ler as imagens enviadas. Tente de novo.',
 };
 
 function readImage(value: unknown, maxChars: number): Buffer {
-  assertCondition(typeof value === 'string' && value.length > 0, 'invalid-argument', 'Imagem nao enviada.');
+  assertCondition(typeof value === 'string' && value.length > 0, 'invalid-argument', 'Imagem não enviada.');
   assertCondition(value.length <= maxChars, 'invalid-argument', 'Imagem grande demais.');
   const base64 = value.replace(/^data:image\/[a-z]+;base64,/, '');
   const buffer = Buffer.from(base64, 'base64');
-  assertCondition(buffer.length > 1000, 'invalid-argument', 'Imagem invalida.');
+  assertCondition(buffer.length > 1000, 'invalid-argument', 'Imagem inválida.');
   return buffer;
 }
 
@@ -66,7 +66,7 @@ async function assertFaceAttendanceEnabled(academyId: string): Promise<void> {
   assertCondition(
     academy.exists && (academy.data() as AcademyDoc).faceAttendanceEnabled === true,
     'failed-precondition',
-    'A chamada por foto nao esta liberada nesta academia.',
+    'A chamada por foto não está liberada nesta academia.',
   );
 }
 
@@ -82,7 +82,7 @@ function rethrowAwsError(context: string, error: unknown): never {
     name: typeof error === 'object' && error && 'name' in error ? String((error as { name: unknown }).name) : '',
     message: error instanceof Error ? error.message : String(error),
   });
-  throw new HttpsError('unavailable', 'O reconhecimento facial esta indisponivel agora. Tente de novo em instantes.');
+  throw new HttpsError('unavailable', 'O reconhecimento facial está indisponível agora. Tente de novo em instantes.');
 }
 
 function consentLog(params: {
@@ -105,18 +105,18 @@ function consentLog(params: {
 // usadas so para gerar os vetores na AWS e descartadas; nada e salvo no Firebase.
 export const enrollFaceBiometrics = onCall(callableOptions, async (request) => {
   const actor = await getRequestContext(request, 'student');
-  assertCondition(actor.role === 'student', 'permission-denied', 'A biometria facial e destinada aos alunos.');
+  assertCondition(actor.role === 'student', 'permission-denied', 'A biometria facial é destinada aos alunos.');
   await assertFaceAttendanceEnabled(actor.academyId);
 
   assertCondition(
     request.data?.consentAccepted === true && requiredString(request.data, 'consentVersion') === FACE_CONSENT_VERSION,
     'failed-precondition',
-    'E necessario aceitar o termo de consentimento atual para cadastrar a biometria facial.',
+    'É necessário aceitar o termo de consentimento atual para cadastrar a biometria facial.',
   );
   assertCondition(
     isAdultByBirthDate(actor.user.birthDate),
     'failed-precondition',
-    'A biometria facial esta disponivel apenas para maiores de 18 anos com data de nascimento cadastrada.',
+    'A biometria facial está disponível apenas para maiores de 18 anos com data de nascimento cadastrada.',
   );
 
   const rawImages = request.data?.images;
@@ -262,7 +262,7 @@ export const suggestClassAttendanceFromFaces = onCall(callableOptions, async (re
     faces = eligible.size ? await searchFacesInPhoto(getRekognitionClient(), getFaceCollectionId(), image) : [];
   } catch (error) {
     if (error instanceof FaceEnrollError) {
-      throw new HttpsError('invalid-argument', 'Nao foi possivel ler a foto. Tente outra imagem.');
+      throw new HttpsError('invalid-argument', 'Não foi possível ler a foto. Tente outra imagem.');
     }
     rethrowAwsError('foto da turma', error);
   }

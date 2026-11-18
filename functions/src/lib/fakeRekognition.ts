@@ -34,7 +34,7 @@ function awsError(name: string): Error {
 
 const distance = (a: Rgb, b: Rgb) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
 const similarity = (a: Rgb, b: Rgb) => Math.max(0, Math.round((100 - distance(a, b) / 8) * 10) / 10);
-const isGray = ([r, g, b]: Rgb) => Math.max(r, g, b) - Math.min(r, g, b) < 18;
+const isGray = ([r, g, b]: Rgb) => Math.max(r, g, b) - Math.min(r, g, b) < 8;
 
 async function centerColor(bytes: Uint8Array): Promise<Rgb> {
   const image = sharp(Buffer.from(bytes));
