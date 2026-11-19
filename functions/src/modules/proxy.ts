@@ -40,6 +40,8 @@ const ALLOWED_CALLABLES = new Set([
   'transferJoinRequest',
   'rejectFightVideoSubmission',
   'updateOwnStudentProfile',
+  // Excluir a propria conta (Perfil) — exigido pela Apple.
+  'deleteMyAccount',
   'syncOwnUserEmail',
   'submitFightVideoSubmission',
   'upsertAcademyProgressionRules',
@@ -70,6 +72,11 @@ const ALLOWED_CALLABLES = new Set([
   'markLearningBlockComplete',
   'startLessonQuiz',
   'submitLessonQuiz',
+  // Excluir conteudo do Learning e sincronizar publico legado (Estudio do superadmin).
+  'deleteLearningTrack',
+  'deleteLearningCourse',
+  'deleteLearningLesson',
+  'backfillLearningAudience',
   'setStudentAttendanceBonus',
   'updateOwnStaffBeltGrade',
   'adminUpdateStudentProfile',
