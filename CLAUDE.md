@@ -77,7 +77,7 @@ applevel/
 │   ├── adapters.ts          #   conversão de dados
 │   ├── notifications.ts     #   lógica de notificações
 │   └── messaging.ts         #   Firebase Cloud Messaging
-├── functions/src/           # Cloud Functions (Node 20, CommonJS)
+├── functions/src/           # Cloud Functions (Node 22, CommonJS)
 │   ├── index.ts             #   registra e exporta todas as functions
 │   ├── domain/models.ts     #   tipos de domínio compartilhados
 │   ├── lib/                 #   utilitários (errors, firebase, security, payload, context)
@@ -188,7 +188,7 @@ Perfil (salvo em `users/{uid}.language` e no `localStorage`). Sem biblioteca ext
 - Copie `.env.example` → `.env` e preencha as chaves `VITE_FIREBASE_*`,
   `VITE_GEMINI_API_KEY`, `VITE_FIREBASE_FUNCTIONS_REGION`, etc.
 - Copie `.firebaserc.example` → `.firebaserc`.
-- As Cloud Functions exigem **Node 20**.
+- As Cloud Functions exigem **Node 22** (o Node 20 foi desativado pelo Google em 30/10/2026).
 - Frontend e backend têm `package.json` e `tsconfig.json` **separados** — rode
   `npm install` na raiz **e** em `functions/`.
 
