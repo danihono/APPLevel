@@ -1,4 +1,4 @@
-import React, { Suspense, lazy, startTransition, useEffect, useMemo, useRef, useState } from 'react';
+import React, { Suspense, lazy, startTransition, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import type { User as FirebaseUser } from 'firebase/auth';
 import type { CreateClassPayload } from './components/CreateClassModal';
 import type { DeleteClassPayload } from './components/DeleteClassModal';
@@ -7,6 +7,7 @@ import GraduationCelebrationModal from './components/GraduationCelebrationModal'
 import CheckInScreen from './components/redesign/CheckInScreen';
 import { RedesignShellProvider, type RedesignShellValue } from './components/redesign/ShellContext';
 import { LoadingScreen } from './components/LoadingScreen';
+import ScreenFallback from './components/ScreenFallback';
 import Layout from './components/Layout';
 import HomeView from './views/HomeView';
 import LoginView from './views/LoginView';
@@ -126,6 +127,21 @@ const NotificationsView = lazy(() => import('./views/NotificationsView'));
 const ProfileView = lazy(() => import('./views/ProfileView'));
 const SuperadminDashboardView = lazy(() => import('./views/SuperadminDashboardView'));
 const StudentsView = lazy(() => import('./views/StudentsView'));
+// Baixa as telas acima em segundo plano logo depois do login, para a troca de aba nao esperar
+// o arquivo da tela (o import repetido reaproveita o mesmo modulo do lazy).
+const VIEW_PRELOADERS: Array<() => Promise<unknown>> = [
+  () => import('./views/CalendarView'),
+  () => import('./views/CompetitionView'),
+  () => import('./views/EvolutionView'),
+  () => import('./views/ControleTotalView'),
+  () => import('./views/GraduationView'),
+  () => import('./views/LearningHubView'),
+  () => import('./views/ManagementView'),
+  () => import('./views/NotificationsView'),
+  () => import('./views/ProfileView'),
+  () => import('./views/SuperadminDashboardView'),
+  () => import('./views/StudentsView'),
+];
 
 const THEME_STORAGE_PREFIX = 'applevel-theme';
 const NETWORK_NAME = 'LEVEL';
@@ -606,6 +622,12 @@ const App: React.FC = () => {
   const [authReady, setAuthReady] = useState(false);
   const [authUser, setAuthUser] = useState<FirebaseUser | null>(null);
   const [activeTab, setActiveTab] = useState('home');
+  // A tela desenhada segue a aba com atraso: se a proxima ainda estiver carregando, a atual
+  // continua na tela (em vez de piscar a tela de carregamento) ate a nova ficar pronta.
+  const contentTab = useDeferredValue(activeTab);
+  // Ja carregou a sessao uma vez? Recargas depois disso (perfil atualizado em segundo plano,
+  // academia recarregando) acontecem por baixo, sem voltar para a tela de carregamento.
+  const bootstrappedOnceRef = useRef(false);
   // Aba anterior, para o "voltar" das telas sem aba propria (Avisos do aluno, check-in).
   const previousTabRef = useRef('home');
   const lastTabRef = useRef('home');
@@ -2535,11 +2557,22 @@ const App: React.FC = () => {
       }));
   }, [allAcademies, allUsers, isNetworkPalette]);
 
+  useEffect(() => {
+    if (!authUser) return undefined;
+    const timer = window.setTimeout(() => {
+      VIEW_PRELOADERS.forEach((load) => {
+        void load().catch(() => undefined);
+      });
+    }, 1200);
+    return () => window.clearTimeout(timer);
+  }, [authUser]);
+
   if (!authReady) {
     return <LoadingScreen message={t('Validando a sua sessao com o Firebase.')} />;
   }
 
   if (!authUser) {
+    bootstrappedOnceRef.current = false;
     return <LoginView onLogin={handleLogin} initialError={loginScreenError} />;
   }
 
@@ -2644,7 +2677,11 @@ const App: React.FC = () => {
   const isMissingRequiredAcademy = !isSuperAdmin && sessionValidated && !academyLoading && academyStatus === 'missing';
   const hasAcademyAccessError = !isSuperAdmin && sessionValidated && !academyLoading && academyStatus === 'error';
 
-  if (isBootstrapPending) {
+  if (!isBootstrapPending) {
+    bootstrappedOnceRef.current = true;
+  }
+
+  if (isBootstrapPending && (!bootstrappedOnceRef.current || !sessionValidated)) {
     return (
       <>
         {sessionError ? (
@@ -2886,7 +2923,7 @@ const App: React.FC = () => {
       );
     }
 
-    switch (activeTab) {
+    switch (contentTab) {
       case 'home':
         return isSuperadminNetworkView
           ? (
@@ -3266,7 +3303,7 @@ const App: React.FC = () => {
     : isStaff
       ? ['home', 'calendar', 'notifications', 'learning', 'profile']
       : ['home', 'calendar', 'evolution', 'graduation', 'competition', 'notifications', 'learning', 'profile'];
-  const screenOwnsHeader = !isFirstAcademySetup && ownHeaderTabs.includes(activeTab);
+  const screenOwnsHeader = !isFirstAcademySetup && ownHeaderTabs.includes(contentTab);
   const shellValue: RedesignShellValue = {
     role: isSuperadminNetworkView ? 'superadmin' : (isStaff ? 'staff' : 'student'),
     unitLabel: mobileUnitLabel,
@@ -3362,7 +3399,7 @@ const App: React.FC = () => {
             setActiveTab('students');
           }}
         >
-          <Suspense fallback={<LoadingScreen message={t('Carregando esta area do APPLevel.')} inline />}>
+          <Suspense fallback={<ScreenFallback />}>
             {renderContent()}
           </Suspense>
         </Layout>
