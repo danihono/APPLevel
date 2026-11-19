@@ -5,7 +5,7 @@
 // A biblioteca e os modelos so sao carregados na primeira chamada (require tardio), para nao
 // pesar na inicializacao das outras Cloud Functions do app.
 import path from 'node:path';
-import sharp from 'sharp';
+import type SharpType from 'sharp';
 import { consistentEnrollment, FACE_MAX_FACES_PER_PHOTO, FACE_MIN_ENROLLMENT_SAMPLES } from './faceMatching';
 
 export type FaceEnrollErrorCode =
@@ -75,6 +75,15 @@ function loadFaceApi(): Promise<FaceApi> {
     });
   }
   return faceApiPromise;
+}
+
+// sharp (biblioteca nativa de imagens) tambem so e carregado na primeira chamada: se um dia ele
+// falhar no servidor, so a biometria e afetada — as outras functions do app nem o carregam.
+let sharpModule: typeof SharpType | null = null;
+function sharp(...args: Parameters<typeof SharpType>): ReturnType<typeof SharpType> {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  sharpModule ??= require('sharp') as typeof SharpType;
+  return sharpModule(...args);
 }
 
 // Gira pela orientacao EXIF, reduz e entrega os pixels RGB. Tambem valida que e uma imagem.
