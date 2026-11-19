@@ -29,6 +29,7 @@ Cobre: agendamento de aulas, registro de presença, progressão de faixa, gamifi
 | `npm run firebase:deploy` | Deploy completo + corrige invokers |
 | `npm run deploy:hosting` | Build + deploy apenas do hosting |
 | `npm run firebase:bootstrap:tenant -- ...` | Cria o primeiro tenant/superadmin |
+| `npm run biometria:teste-local` | Testa a chamada por foto no PC com Firebase simulado (contas de teste prontas; nada vai para produção) |
 
 ### Backend (`functions/`)
 

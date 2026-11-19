@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "face:models": "node scripts/copyFaceModels.cjs",
+    "biometria:teste-local": "npm run face:models && node scripts/biometriaTesteLocal.cjs",
     "predev": "npm run face:models",
     "dev": "vite",
     "prebuild": "npm run face:models",
