@@ -1,6 +1,8 @@
 import type { MessageCatalog } from './types';
 
 export const appMessages: MessageCatalog = {
+  "Algo deu errado nesta tela.": { en: "Something went wrong on this screen.", es: "Algo salió mal en esta pantalla." },
+  "Seus dados estão seguros. Tente de novo; se continuar, mande um print desta tela para a equipe.": { en: "Your data is safe. Try again; if it keeps happening, send a screenshot of this screen to the team.", es: "Tus datos están seguros. Inténtalo de nuevo; si sigue pasando, envía una captura de esta pantalla al equipo." },
   "1 unidade disponível": { en: "1 unit available", es: "1 unidad disponible" },
   "{count} unidades disponíveis": { en: "{count} units available", es: "{count} unidades disponibles" },
   "Como você": { en: "How do you", es: "¿Cómo quieres" },

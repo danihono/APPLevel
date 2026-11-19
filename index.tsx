@@ -2,6 +2,7 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
+import AppErrorBoundary from './components/AppErrorBoundary';
 import { ConfirmProvider } from './components/ConfirmDialog';
 import { LanguageProvider } from './i18n';
 
@@ -34,9 +35,11 @@ if ((import.meta.env.DEV || isDemoBuild) && isRedesignPreview) {
   root.render(
     <React.StrictMode>
       <LanguageProvider>
-        <ConfirmProvider>
-          <App />
-        </ConfirmProvider>
+        <AppErrorBoundary>
+          <ConfirmProvider>
+            <App />
+          </ConfirmProvider>
+        </AppErrorBoundary>
       </LanguageProvider>
     </React.StrictMode>
   );

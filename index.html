@@ -22,6 +22,71 @@
       }
     })();
   </script>
+  <script>
+    // Rede de seguranca antes do React: se um erro deixar a tela vazia (ex.: algo que o Safari do
+    // iPhone nao suporta), mostra a mensagem em vez de uma tela branca. Erros dentro das telas sao
+    // tratados pelo AppErrorBoundary; este cobre o que acontece fora delas. Textos fixos aqui porque
+    // o catalogo de traducoes (i18n) ainda nao carregou.
+    (function () {
+      var errors = [];
+      var lang = (navigator.language || 'pt').slice(0, 2);
+      var copy = {
+        pt: ['O app não abriu direito.', 'Mande um print desta tela para a equipe.', 'Tentar de novo'],
+        en: ['The app did not open correctly.', 'Please send a screenshot of this screen to the team.', 'Try again'],
+        es: ['La app no abrió correctamente.', 'Envía una captura de esta pantalla al equipo.', 'Intentar de nuevo']
+      }[lang] || null;
+      if (!copy) copy = ['O app não abriu direito.', 'Mande um print desta tela para a equipe.', 'Tentar de novo'];
+      function rootIsEmpty() {
+        var root = document.getElementById('root');
+        return !root || root.children.length === 0 || !root.innerText.replace(/\s/g, '');
+      }
+      function show() {
+        if (!errors.length || !rootIsEmpty() || document.getElementById('lv-boot-error')) return;
+        var box = document.createElement('div');
+        box.id = 'lv-boot-error';
+        box.setAttribute('role', 'alert');
+        box.style.cssText = 'position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;padding:24px 20px;background:#0a0a0c;color:#f7f4ee;font-family:-apple-system,BlinkMacSystemFont,Inter,Roboto,sans-serif';
+        var inner = document.createElement('div');
+        inner.style.cssText = 'width:100%;max-width:420px;display:flex;flex-direction:column;gap:14px';
+        var title = document.createElement('h1');
+        title.textContent = copy[0];
+        title.style.cssText = 'margin:0;font-size:26px;font-weight:700;letter-spacing:-0.03em';
+        var text = document.createElement('p');
+        text.textContent = copy[1];
+        text.style.cssText = 'margin:0;font-size:15px;line-height:1.5;color:rgba(247,244,238,.72)';
+        var pre = document.createElement('pre');
+        pre.textContent = errors.slice(0, 4).join('\n\n');
+        pre.style.cssText = 'margin:0;padding:12px;border-radius:14px;background:rgba(255,255,255,.06);font-size:11.5px;line-height:1.45;white-space:pre-wrap;word-break:break-word;max-height:200px;overflow:auto';
+        var button = document.createElement('button');
+        button.type = 'button';
+        button.textContent = copy[2];
+        button.style.cssText = 'min-height:50px;border:0;border-radius:999px;background:#f0b429;color:#1a1300;font-size:16px;font-weight:700';
+        button.onclick = function () { window.location.reload(); };
+        inner.appendChild(title); inner.appendChild(text); inner.appendChild(pre); inner.appendChild(button);
+        box.appendChild(inner);
+        document.body.appendChild(box);
+      }
+      function record(message) {
+        errors.push(String(message).slice(0, 600));
+        setTimeout(show, 1500);
+      }
+      window.addEventListener('error', function (event) {
+        if (event.target && event.target !== window && event.target.tagName) {
+          // Falha ao carregar um script. Fonte, css ou imagem que falha nao derruba a tela.
+          if (event.target.tagName === 'SCRIPT') {
+            record('Falha ao carregar ' + (event.target.src || event.target.href || event.target.tagName));
+          }
+          return;
+        }
+        var where = event.filename ? ' (' + event.filename.split('/').pop() + ':' + event.lineno + ':' + event.colno + ')' : '';
+        record((event.message || 'Erro') + where);
+      }, true);
+      window.addEventListener('unhandledrejection', function (event) {
+        var reason = event.reason;
+        record('Promise: ' + (reason && (reason.stack || reason.message) || reason));
+      });
+    })();
+  </script>
   <link rel="manifest" href="/manifest.json">
   <link rel="icon" type="image/png" sizes="192x192" href="/logo3.png">
   <link rel="apple-touch-icon" sizes="180x180" href="/logo3.png">
