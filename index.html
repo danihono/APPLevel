@@ -41,7 +41,9 @@
         return !root || root.children.length === 0 || !root.innerText.replace(/\s/g, '');
       }
       function show() {
-        if (!errors.length || !rootIsEmpty() || document.getElementById('lv-boot-error')) return;
+        // So quando o app nunca chegou a montar (window.__lvAppMounted vem do AppErrorBoundary):
+        // depois disso, erros de tela sao tratados pelo proprio React.
+        if (!errors.length || window.__lvAppMounted || !rootIsEmpty() || document.getElementById('lv-boot-error')) return;
         var box = document.createElement('div');
         box.id = 'lv-boot-error';
         box.setAttribute('role', 'alert');
@@ -72,8 +74,10 @@
       }
       window.addEventListener('error', function (event) {
         if (event.target && event.target !== window && event.target.tagName) {
-          // Falha ao carregar um script. Fonte, css ou imagem que falha nao derruba a tela.
-          if (event.target.tagName === 'SCRIPT') {
+          // Falha ao carregar um script do proprio app. Fonte, css, imagem ou script externo
+          // (ex.: CDN fora do ar ou sem internet) nao derruba a tela.
+          var src = event.target.src || '';
+          if (event.target.tagName === 'SCRIPT' && (!/^https?:/.test(src) || src.indexOf(window.location.origin) === 0)) {
             record('Falha ao carregar ' + (event.target.src || event.target.href || event.target.tagName));
           }
           return;

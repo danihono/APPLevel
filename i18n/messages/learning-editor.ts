@@ -1,6 +1,17 @@
 import type { MessageCatalog } from './types';
 
 export const learningEditorMessages: MessageCatalog = {
+  "quiz com {count} perguntas": { en: "quiz with {count} questions", es: "quiz con {count} preguntas" },
+  "Nenhum módulo neste curso ainda.": { en: "No modules in this course yet.", es: "Todavía no hay módulos en este curso." },
+  "1 curso": { en: "1 course", es: "1 curso" },
+  "{count} cursos": { en: "{count} courses", es: "{count} cursos" },
+  "Nenhum curso nesta trilha ainda. Crie o primeiro.": { en: "No courses in this track yet. Create the first one.", es: "Todavía no hay cursos en esta ruta. Crea el primero." },
+  "Publique a trilha (e os cursos e módulos) para os alunos começarem.": { en: "Publish the track (and its courses and modules) so students can start.", es: "Publica la ruta (y sus cursos y módulos) para que los alumnos empiecen." },
+  "Learning · Superadmin": { en: "Learning · Superadmin", es: "Learning · Superadmin" },
+  "Estúdio": { en: "Studio", es: "Estudio" },
+  "Tudo que alunos e professores veem no Learning nasce aqui. Comece pela trilha; dentro dela, os cursos; dentro do curso, os módulos.": { en: "Everything students and instructors see in Learning starts here. Start with the track; inside it, the courses; inside each course, the modules.", es: "Todo lo que alumnos y profesores ven en Learning nace aquí. Empieza por la ruta; dentro de ella, los cursos; dentro del curso, los módulos." },
+  "Nenhuma trilha ainda": { en: "No tracks yet", es: "Todavía no hay rutas" },
+  "Módulos encontrados": { en: "Modules found", es: "Módulos encontrados" },
   "Trilha: {title}": { en: "Track: {title}", es: "Ruta: {title}" },
   "Informe o título do curso.": { en: "Enter the course title.", es: "Ingresa el título del curso." },
   "Editar curso": { en: "Edit course", es: "Editar curso" },

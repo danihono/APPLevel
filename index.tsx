@@ -30,6 +30,7 @@ if ((import.meta.env.DEV || isDemoBuild) && isRedesignPreview) {
         </LanguageProvider>
       </React.StrictMode>,
     );
+    (window as Window & { __lvAppMounted?: boolean }).__lvAppMounted = true;
   });
 } else {
   root.render(

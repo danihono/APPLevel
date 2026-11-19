@@ -18,6 +18,11 @@ class AppErrorBoundary extends React.Component<{ children: React.ReactNode }, Ap
     return { error: error instanceof Error ? error : new Error(String(error)) };
   }
 
+  componentDidMount() {
+    // Avisa o index.html que o app abriu: o aviso de erro de abertura nao vale mais.
+    (window as Window & { __lvAppMounted?: boolean }).__lvAppMounted = true;
+  }
+
   componentDidCatch(error: unknown, info: React.ErrorInfo) {
     console.error('[AppErrorBoundary]', error, info.componentStack);
   }

@@ -1,0 +1,429 @@
+/* ══ Estudio do Learning (superadmin) — trilhas -> cursos -> modulos, no visual de vidro ══
+   Usa os tokens do redesign (--lv-glass, --lv-text...). Mobile primeiro; no computador a mesma
+   coluna, mais larga, e os cursos em grade. */
+
+.rd-studio {
+  width: 100%;
+  max-width: 980px;
+  margin: 0 auto;
+  gap: 16px;
+  padding-bottom: 28px;
+  container-type: inline-size;
+}
+
+.rd-studio button { font: inherit; }
+
+.rd-studio__eyebrow {
+  margin: 0 0 4px;
+  font-size: 11.5px;
+  font-weight: 650;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--lv-text-soft);
+}
+
+.rd-studio__title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(32px, 8vw, 42px);
+  font-weight: 650;
+  line-height: 1.04;
+  letter-spacing: -0.045em;
+  color: var(--lv-text);
+}
+
+.rd-studio__title--sm { font-size: clamp(24px, 6.4vw, 32px); }
+
+.rd-studio__lead {
+  margin: 6px 0 0;
+  max-width: 62ch;
+  font-size: 14.5px;
+  line-height: 1.5;
+  color: var(--lv-text-muted);
+}
+
+/* Topo da lista */
+.rd-studio__hero { display: flex; flex-direction: column; gap: 14px; }
+.rd-studio__new { align-self: flex-start; }
+
+.rd-studio__kpis {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.rd-studio__kpis span {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 12px 14px;
+  border-radius: 18px;
+  border: 1px solid var(--lv-glass-edge);
+  background: var(--lv-glass);
+  -webkit-backdrop-filter: var(--lv-glass-blur);
+  backdrop-filter: var(--lv-glass-blur);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--lv-text-soft);
+}
+
+.rd-studio__kpis b {
+  font-size: 24px;
+  font-weight: 650;
+  letter-spacing: -0.03em;
+  color: var(--lv-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.rd-studio__tools { display: flex; flex-direction: column; gap: 10px; }
+
+.rd-studio__search {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 48px;
+  padding: 0 16px;
+  border-radius: 999px;
+  border: 1px solid var(--lv-glass-edge);
+  background: var(--lv-glass);
+  -webkit-backdrop-filter: var(--lv-glass-blur);
+  backdrop-filter: var(--lv-glass-blur);
+  color: var(--lv-text-soft);
+}
+
+.rd-studio__search input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--lv-text);
+  font-size: 15px;
+}
+
+.rd-studio__filters { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; }
+.rd-studio__filters::-webkit-scrollbar { display: none; }
+
+.rd-studio__filters button {
+  flex: none;
+  min-height: 38px;
+  padding: 0 15px;
+  border-radius: 999px;
+  border: 1px solid var(--lv-glass-edge);
+  background: var(--lv-glass);
+  color: var(--lv-text-muted);
+  font-size: 13.5px;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.rd-studio__filters button.is-on { background: var(--lv-black); border-color: transparent; color: #fff; }
+html.dark .rd-studio__filters button.is-on { background: #fff; color: #121218; }
+
+/* Listas (trilhas, modulos, progresso) */
+.rd-studio__list { margin: 0; padding: 4px 0; list-style: none; border-radius: 26px; }
+.rd-studio__list > li + li { border-top: 1px solid var(--lv-glass-hair); }
+
+.rd-studio__row { display: flex; align-items: center; gap: 4px; padding-right: 8px; }
+
+.rd-studio__row-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 6px 12px 14px;
+  border: 0;
+  background: none;
+  color: var(--lv-text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.rd-studio__row-main.is-static { cursor: default; padding-right: 6px; }
+
+.rd-studio__row-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.rd-studio__row-text b { font-size: 15px; font-weight: 650; line-height: 1.25; letter-spacing: -0.01em; }
+.rd-studio__row-text span { font-size: 12.5px; font-weight: 600; color: var(--lv-text-soft); line-height: 1.35; }
+.rd-studio__row-text span.is-warn { color: var(--lv-warning); }
+.rd-studio__num { color: var(--lv-text-soft); font-variant-numeric: tabular-nums; }
+.rd-studio__chev { flex: none; color: var(--lv-text-soft); }
+
+.rd-studio__row-tools { display: flex; align-items: center; gap: 2px; flex: none; }
+.rd-studio__order { display: flex; flex-direction: column; gap: 2px; }
+
+.rd-studio__icon {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 30px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--lv-text-soft);
+  cursor: pointer;
+}
+
+.rd-studio__icon:hover:not(:disabled) { background: var(--lv-glass-fill); color: var(--lv-text); }
+.rd-studio__icon:disabled { opacity: 0.4; cursor: not-allowed; }
+.rd-studio__danger:hover:not(:disabled) { color: var(--lv-danger); }
+
+/* Modulos no celular: as ferramentas descem para uma linha propria */
+.rd-studio__row--lesson { flex-wrap: wrap; padding-bottom: 6px; }
+.rd-studio__row--lesson .rd-studio__row-main { flex-basis: 100%; padding-bottom: 4px; }
+.rd-studio__row--lesson .rd-studio__row-tools { margin-left: auto; }
+.rd-studio__row--lesson .rd-studio__order { flex-direction: row; }
+
+/* Icone e cor da trilha */
+.rd-studio__tile {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  background: var(--tc);
+  color: #fff;
+  box-shadow: 0 10px 20px -10px var(--tc), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+}
+
+.rd-studio__tile.is-light { color: #1a1300; }
+.rd-studio__tile--lg { width: 64px; height: 64px; border-radius: 20px; }
+
+.rd-studio__thumb {
+  position: relative;
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 64px;
+  height: 48px;
+  overflow: hidden;
+  border-radius: 13px;
+  color: #fff;
+  background:
+    radial-gradient(95% 85% at 15% 5%, color-mix(in srgb, var(--tc) 72%, transparent), transparent 62%),
+    linear-gradient(160deg, #262630, #0d0d12);
+}
+
+.rd-studio__thumb img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+
+.rd-studio__avatar {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: var(--lv-glass-fill);
+  font-weight: 700;
+  color: var(--lv-text);
+}
+
+/* Selo de status */
+.rd-studio__status {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: var(--lv-glass-fill);
+  color: var(--lv-text-soft);
+  font-size: 11.5px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.rd-studio__status.is-pub { background: rgba(22, 163, 74, 0.13); color: var(--lv-success); }
+.rd-studio__status.is-going { background: var(--lv-primary-soft); color: var(--lv-gold-text); }
+
+/* Trilha e curso abertos */
+.rd-studio__bar { display: flex; align-items: center; gap: 10px; }
+.rd-studio__crumb { font-size: 14px; font-weight: 650; color: var(--lv-text-soft); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rd-studio__head { display: flex; align-items: center; gap: 14px; }
+.rd-studio__head-text { flex: 1; min-width: 0; }
+.rd-studio__actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.rd-studio__actions .lv-btn { text-decoration: none; }
+
+.rd-studio__audience {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 12px;
+  padding: 14px 16px;
+  border-radius: 22px;
+}
+
+.rd-studio__audience-icon {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  flex: none;
+  border-radius: 12px;
+  background: var(--lv-glass-fill);
+  color: var(--lv-text);
+}
+
+.rd-studio__audience-text { flex: 1 1 200px; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.rd-studio__audience-text small { font-size: 11.5px; font-weight: 650; letter-spacing: 0.04em; text-transform: uppercase; color: var(--lv-text-soft); }
+.rd-studio__audience-text b { font-size: 15px; font-weight: 650; color: var(--lv-text); }
+.rd-studio__audience-text em { display: flex; align-items: center; gap: 6px; font-style: normal; font-size: 12.5px; font-weight: 600; color: var(--lv-warning); }
+
+.rd-studio__reach {
+  flex: none;
+  padding: 5px 11px;
+  border-radius: 999px;
+  background: var(--lv-yellow);
+  color: var(--lv-on-yellow);
+  font-size: 12.5px;
+  font-weight: 700;
+}
+
+.rd-studio__sec { display: flex; align-items: baseline; justify-content: space-between; margin: 6px 0 -4px; }
+.rd-studio__sec h2 { margin: 0; font-size: 20px; font-weight: 650; letter-spacing: -0.025em; color: var(--lv-text); }
+.rd-studio__sec span { font-size: 13px; font-weight: 600; color: var(--lv-text-soft); }
+
+/* Capa grande do curso aberto */
+.rd-studio__cover {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 170px;
+  padding: 18px;
+  overflow: hidden;
+  border-radius: 28px;
+  color: #fff;
+  background:
+    radial-gradient(85% 60% at 15% 0%, rgba(255, 255, 255, 0.38), transparent 60%),
+    linear-gradient(150deg, color-mix(in srgb, var(--tc) 88%, #fff), color-mix(in srgb, var(--tc) 70%, #000));
+}
+
+.rd-studio__cover img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.rd-studio__cover::after,
+.rd-studio__course-cover::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, transparent 35%, rgba(0, 0, 0, 0.6));
+}
+
+.rd-studio__cover .rd-studio__status,
+.rd-studio__course-cover .rd-studio__status {
+  position: relative;
+  z-index: 2;
+  background: rgba(255, 255, 255, 0.22);
+  color: #fff;
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+}
+
+.rd-studio__cover-text { position: relative; z-index: 2; display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.rd-studio__cover-text small { font-size: 11.5px; font-weight: 650; letter-spacing: 0.08em; text-transform: uppercase; opacity: 0.85; }
+.rd-studio__cover-text b { font-size: 24px; font-weight: 650; line-height: 1.1; letter-spacing: -0.025em; }
+
+/* Cursos da trilha */
+.rd-studio__courses { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.rd-studio__course { position: relative; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+
+.rd-studio__course-cover {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: flex-start;
+  height: 190px;
+  padding: 12px 14px 14px;
+  overflow: hidden;
+  border: 0;
+  border-radius: 24px;
+  color: #fff;
+  text-align: left;
+  cursor: pointer;
+  background:
+    radial-gradient(85% 60% at 15% 0%, rgba(255, 255, 255, 0.38), transparent 60%),
+    linear-gradient(150deg, color-mix(in srgb, var(--tc) 88%, #fff), color-mix(in srgb, var(--tc) 70%, #000));
+  box-shadow: 0 18px 32px -20px rgba(20, 15, 40, 0.55);
+}
+
+.rd-studio__course-cover img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.rd-studio__course-cover .rd-studio__cover-text b { font-size: 18px; }
+.rd-studio__course-cover .rd-studio__cover-text small { text-transform: none; letter-spacing: 0; font-size: 12px; }
+.rd-studio__course .rd-studio__order { flex-direction: row; justify-content: center; }
+
+/* Botao de adicionar */
+.rd-studio__add {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 52px;
+  border-radius: 20px;
+  border: 1.5px dashed var(--lv-border-strong);
+  background: transparent;
+  color: var(--lv-text);
+  font-size: 15px;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.rd-studio__add:hover { border-color: var(--lv-yellow); background: var(--lv-primary-soft); }
+
+/* Vazios, avisos e rodape */
+.rd-studio__empty { margin: 0; padding: 16px; border-radius: 18px; background: var(--lv-glass-fill); color: var(--lv-text-muted); font-size: 14px; line-height: 1.5; }
+
+.rd-studio__blank { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; padding: 20px; border-radius: 24px; }
+.rd-studio__blank b { font-size: 17px; color: var(--lv-text); }
+.rd-studio__blank p { margin: 0; color: var(--lv-text-muted); font-size: 14px; }
+.rd-studio__blank-icon { display: grid; place-items: center; width: 48px; height: 48px; border-radius: 15px; background: var(--lv-yellow); color: #1a1300; }
+
+.rd-studio__flash { margin: 0; padding: 11px 14px; border-radius: 16px; background: rgba(22, 163, 74, 0.12); color: var(--lv-success); font-size: 14px; font-weight: 600; }
+.rd-studio__flash.is-error { background: rgba(220, 38, 38, 0.1); color: var(--lv-danger); }
+
+.rd-studio__foot { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px; margin-top: 8px; }
+.rd-studio__select { display: flex; flex-direction: column; gap: 6px; font-size: 12.5px; font-weight: 650; color: var(--lv-text-soft); }
+.rd-studio__select span { display: flex; align-items: center; gap: 6px; }
+
+.rd-studio__select select {
+  min-height: 42px;
+  padding: 0 12px;
+  border-radius: 14px;
+  border: 1px solid var(--lv-glass-edge);
+  background: var(--lv-glass);
+  color: var(--lv-text);
+  font-size: 14px;
+}
+
+.rd-studio__link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 0;
+  background: none;
+  color: var(--lv-text-soft);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.rd-studio__link:hover:not(:disabled) { color: var(--lv-text); }
+
+/* Mais largura (computador) */
+@container (min-width: 640px) {
+  .rd-studio__hero { flex-direction: row; align-items: flex-end; justify-content: space-between; }
+  .rd-studio__new { align-self: auto; flex: none; }
+  .rd-studio__kpis { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .rd-studio__tools { flex-direction: row; align-items: center; }
+  .rd-studio__search { flex: 1; }
+  .rd-studio__courses { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .rd-studio__row--lesson { flex-wrap: nowrap; padding-bottom: 0; }
+  .rd-studio__row--lesson .rd-studio__row-main { flex-basis: auto; padding-bottom: 12px; }
+  .rd-studio__row--lesson .rd-studio__order { flex-direction: column; }
+  .rd-studio__cover { min-height: 210px; }
+}
+
+@container (min-width: 880px) {
+  .rd-studio__courses { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}

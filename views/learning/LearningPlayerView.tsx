@@ -1,31 +1,23 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ArrowDownToLine,
   ArrowUpRight,
   Bell,
   BookOpen,
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
-  CircleDot,
   ClipboardCheck,
   ExternalLink,
   FileText,
   Image as ImageIcon,
-  Lightbulb,
   Lock,
   Play,
-  RefreshCw,
   Send,
-  Shield,
-  Swords,
-  Trophy,
   Video,
 } from 'lucide-react';
 import LearningVideoPlayer from '../../components/LearningVideoPlayer';
 import { useRedesignShell } from '../../components/redesign/ShellContext';
 import { computeEffectiveAudience, matchesEffectiveAudience } from '../../learningAudience';
-import { getYouTubeVideoId } from '../../utils';
 import {
   blockTypeLabel,
   buildOrderedLessons,
@@ -33,7 +25,6 @@ import {
   sortByOrder,
   statusLabel,
   type CourseEntity,
-  type EffectiveLessonBlock,
   type LessonBlockEntity,
   type LessonEntity,
   type LessonRuntimeStatus,
@@ -43,6 +34,7 @@ import {
   type TrackEntity,
 } from './learningShared';
 import type { LearningPlayerHandlers } from './learningHandlers';
+import { LIGHT_TRACK_COLORS, lessonCover, trackColor, trackIcon } from './learningLook';
 import type { LearningLessonBlockType } from '../../services/firebase/models';
 import { t } from '../../i18n';
 import './learning-player.css';
@@ -74,54 +66,6 @@ function blockTypeIcon(type: LearningLessonBlockType) {
     default:
       return <BookOpen size={16} />;
   }
-}
-
-/*
- * Cara de cada trilha. A trilha ainda nao guarda icone nem cor no banco (isso vem na fase 2,
- * com o Estudio do superadmin), entao o icone sai do nome e a cor da ordem — sempre a mesma
- * para a mesma trilha.
- */
-const TRACK_COLORS = ['#f0b429', '#1f4fd1', '#d6453d', '#1f9f6e', '#6b2fa3', '#0e8fa3', '#8a5a2b', '#16161e'];
-const LIGHT_TRACK_COLORS = new Set(['#f0b429']);
-
-function trackIcon(title: string) {
-  const name = title.toLocaleLowerCase('pt-BR');
-  if (name.includes('rasp')) return RefreshCw;
-  if (name.includes('passag')) return ArrowUpRight;
-  if (name.includes('finaliz') || name.includes('chave') || name.includes('estrang')) return Lock;
-  if (name.includes('queda') || name.includes('quedas')) return ArrowDownToLine;
-  if (name.includes('defes') || name.includes('saída') || name.includes('saida') || name.includes('vida')) return Shield;
-  if (name.includes('guarda')) return CircleDot;
-  if (name.includes('conceit') || name.includes('fundament') || name.includes('base')) return Lightbulb;
-  if (name.includes('compet') || name.includes('esporte')) return Trophy;
-  if (name.includes('luta') || name.includes('sparr')) return Swords;
-  return BookOpen;
-}
-
-function trackColor(trackId: string, orderedIds: string[]): string {
-  const index = Math.max(0, orderedIds.indexOf(trackId));
-  return TRACK_COLORS[index % TRACK_COLORS.length];
-}
-
-/** Imagem de capa de um bloco: miniatura enviada, a propria imagem ou a do YouTube. */
-function blockCover(block: EffectiveLessonBlock | undefined): string {
-  if (!block) return '';
-  if (block.thumbnailUrl) return block.thumbnailUrl;
-  if (block.type === 'image' && block.sourceUrl) return block.sourceUrl;
-  if (block.type === 'youtube' && block.sourceUrl) {
-    const id = getYouTubeVideoId(block.sourceUrl);
-    if (id) return `https://i.ytimg.com/vi/${id}/hqdefault.jpg`;
-  }
-  return '';
-}
-
-function lessonCover(entry: OrderedLesson | undefined): string {
-  if (!entry) return '';
-  for (const block of entry.blocks) {
-    const cover = blockCover(block);
-    if (cover) return cover;
-  }
-  return '';
 }
 
 function statusTone(status: LessonRuntimeStatus): string {
