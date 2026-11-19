@@ -2517,6 +2517,24 @@ const App: React.FC = () => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [academyFights, fightVideoSubmissions, language]);
 
+  // Busca (Ctrl K) do superadmin: so monta a lista quando a visao da rede esta ativa.
+  // Fica ANTES dos returns de carregamento abaixo: hook depois de um return muda a quantidade de
+  // hooks entre um render e outro e o React derruba a tela (erro #310). Ver tests/hooksOrder.test.ts.
+  const isNetworkPalette = profile?.role === 'superadmin' && superadminViewMode !== 'professor';
+  const paletteUsers = useMemo(() => {
+    if (!isNetworkPalette) return undefined;
+    const academyNameById = new Map(allAcademies.map((entry) => [entry.id, entry.name]));
+    return allUsers
+      .filter((entry) => entry.status !== 'invited')
+      .map((entry) => ({
+        id: entry.id,
+        name: entry.displayName,
+        role: entry.role === 'student' ? t('Aluno') : entry.role === 'superadmin' ? t('Superadmin') : t('Professor'),
+        academyId: entry.academyId,
+        academyName: academyNameById.get(entry.academyId) ?? '',
+      }));
+  }, [allAcademies, allUsers, isNetworkPalette]);
+
   if (!authReady) {
     return <LoadingScreen message={t('Validando a sua sessao com o Firebase.')} />;
   }
@@ -2584,20 +2602,6 @@ const App: React.FC = () => {
   };
   const isSuperadminProfessorView = isSuperAdmin && superadminViewMode === 'professor';
   const isSuperadminNetworkView = isSuperAdmin && superadminViewMode !== 'professor';
-  // Busca (Ctrl K) do superadmin: so monta a lista quando a visao da rede esta ativa.
-  const paletteUsers = useMemo(() => {
-    if (!isSuperadminNetworkView) return undefined;
-    const academyNameById = new Map(allAcademies.map((entry) => [entry.id, entry.name]));
-    return allUsers
-      .filter((entry) => entry.status !== 'invited')
-      .map((entry) => ({
-        id: entry.id,
-        name: entry.displayName,
-        role: entry.role === 'student' ? t('Aluno') : entry.role === 'superadmin' ? t('Superadmin') : t('Professor'),
-        academyId: entry.academyId,
-        academyName: academyNameById.get(entry.academyId) ?? '',
-      }));
-  }, [allAcademies, allUsers, isSuperadminNetworkView]);
   const viewUserRole = isSuperadminProfessorView ? UserRole.PROFESSOR : currentUser.role;
   const actingUser = isSuperadminProfessorView
     ? { ...currentUser, role: UserRole.PROFESSOR }
