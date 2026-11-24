@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Route } from 'lucide-react';
+import IconPicker from './IconPicker';
 import LearningAudienceField from './LearningAudienceField';
 import LearningEditorModal from './LearningEditorModal';
 import { DEFAULT_TRACK_AUDIENCE, type ContentStatus, type TrackEntity } from '../../views/learning/learningShared';
@@ -12,6 +13,9 @@ export interface TrackEditorSubmit {
   trackId?: string;
   title: string;
   description?: string;
+  /** '' = automatico. */
+  icon: string;
+  color: string;
   order: number;
   status: ContentStatus;
   audience: LearningAudienceConfig;
@@ -23,6 +27,8 @@ interface TrackEditorModalProps {
   track: TrackEntity | null;
   /** Ordem sugerida para uma trilha nova. */
   nextOrder: number;
+  /** Cor automatica desta trilha (pela ordem), para a previa quando nenhuma foi escolhida. */
+  autoColor?: string;
   audienceUsers?: Array<FirestoreEntity<UserRecord>>;
   busy?: boolean;
   error?: string;
@@ -34,6 +40,7 @@ const TrackEditorModal: React.FC<TrackEditorModalProps> = ({
   open,
   track,
   nextOrder,
+  autoColor = '#f0b429',
   audienceUsers = [],
   busy = false,
   error,
@@ -42,6 +49,8 @@ const TrackEditorModal: React.FC<TrackEditorModalProps> = ({
 }) => {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
+  const [icon, setIcon] = useState('');
+  const [color, setColor] = useState('');
   const [order, setOrder] = useState(1);
   const [status, setStatus] = useState<ContentStatus>('draft');
   const [audience, setAudience] = useState<LearningAudienceConfig>(DEFAULT_TRACK_AUDIENCE);
@@ -54,6 +63,8 @@ const TrackEditorModal: React.FC<TrackEditorModalProps> = ({
 
     setTitle(track?.title ?? '');
     setDescription(track?.description ?? '');
+    setIcon(track?.icon ?? '');
+    setColor(track?.color ?? '');
     setOrder(track?.order ?? nextOrder);
     setStatus(track?.status ?? 'draft');
     setAudience(track ? resolveTrackAudience(track) : DEFAULT_TRACK_AUDIENCE);
@@ -72,6 +83,8 @@ const TrackEditorModal: React.FC<TrackEditorModalProps> = ({
       trackId: track?.id,
       title: trimmedTitle,
       description: description.trim() || undefined,
+      icon,
+      color,
       order: Number(order) || 1,
       status,
       audience: { ...audience, mode: 'custom' },
@@ -141,6 +154,15 @@ const TrackEditorModal: React.FC<TrackEditorModalProps> = ({
           </select>
         </label>
       </div>
+
+      <IconPicker
+        title={title.trim()}
+        icon={icon}
+        color={color}
+        autoColor={autoColor}
+        onIconChange={setIcon}
+        onColorChange={setColor}
+      />
 
       <LearningAudienceField
         value={audience}

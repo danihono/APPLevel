@@ -14,6 +14,9 @@ export interface LearningHubHandlers {
     trackId?: string;
     title: string;
     description?: string;
+    /** Icone e cor escolhidos no Estudio; '' volta ao automatico, sem o campo mantem. */
+    icon?: string;
+    color?: string;
     order: number;
     status: ContentStatus;
     audience?: LearningAudienceConfig;
@@ -24,6 +27,9 @@ export interface LearningHubHandlers {
     trackId: string;
     title: string;
     description?: string;
+    /** Capa enviada no Estudio; '' volta a capa automatica, sem o campo mantem. */
+    coverUrl?: string;
+    coverStoragePath?: string;
     order: number;
     status: ContentStatus;
     audience?: LearningAudienceConfig;

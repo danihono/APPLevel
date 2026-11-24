@@ -417,6 +417,8 @@ export const previewLearningTracks: Array<FirestoreEntity<LearningTrackRecord>> 
   order,
   status: 'published' as const,
   audience: { mode: 'custom' as const, roles: [], belts: [] },
+  // Raspagens com icone e cor escolhidos no Estudio (o resto usa o automatico).
+  ...(id === 'track-raspagens' ? { icon: 'swords', color: '#c2347a' } : {}),
 }))];
 
 export const previewLearningCourses: Array<FirestoreEntity<LearningCourseRecord>> = [

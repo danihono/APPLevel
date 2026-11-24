@@ -417,6 +417,8 @@ export interface LearningAudienceConfig {
 export interface LearningTrackRecord {
   title: string;
   description?: string;
+  icon?: string;
+  color?: string;
   order: number;
   status: LearningContentStatus;
   audience?: LearningAudienceConfig;
@@ -428,6 +430,8 @@ export interface LearningCourseRecord {
   trackId: string;
   title: string;
   description?: string;
+  coverUrl?: string;
+  coverStoragePath?: string;
   order: number;
   status: LearningContentStatus;
   audience?: LearningAudienceConfig;

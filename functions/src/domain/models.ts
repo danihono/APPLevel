@@ -399,6 +399,10 @@ export interface LearningAudienceConfig {
 export interface LearningTrackDoc {
   title: string;
   description?: string;
+  /** Icone escolhido no Estudio (nome do lucide). Sem valor = automatico pelo nome. */
+  icon?: string;
+  /** Cor da trilha (#rrggbb). Sem valor = automatica pela ordem. */
+  color?: string;
   order: number;
   status: LearningContentStatus;
   audience?: LearningAudienceConfig;
@@ -410,6 +414,9 @@ export interface LearningCourseDoc {
   trackId: string;
   title: string;
   description?: string;
+  /** Capa enviada no Estudio. Sem valor = automatica (1o video ou cor da trilha). */
+  coverUrl?: string;
+  coverStoragePath?: string;
   order: number;
   status: LearningContentStatus;
   audience?: LearningAudienceConfig;

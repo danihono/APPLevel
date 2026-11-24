@@ -1,4 +1,4 @@
-import { Timestamp } from 'firebase-admin/firestore';
+import { FieldValue, Timestamp } from 'firebase-admin/firestore';
 import { onCall } from 'firebase-functions/v2/https';
 import {
   COLLECTIONS,
@@ -18,6 +18,7 @@ import { getRequestContext } from '../lib/context';
 import { assertCondition } from '../lib/errors';
 import { db } from '../lib/firebase';
 import {
+  clearableString,
   optionalNumber,
   optionalString,
   requiredNumber,
@@ -760,6 +761,9 @@ export const upsertLearningTrack = onCall(callableOptions, async (request) => {
   const status = normalizeContentStatus(requiredString(request.data, 'status'));
   // A trilha e a raiz da hierarquia: precisa sempre definir o proprio publico.
   const audience = parseAudience(request.data, { allowInherit: false });
+  // Aparencia escolhida no Estudio: nao enviado = mantem; vazio = volta ao automatico.
+  const icon = clearableString(request.data, 'icon', /^[a-z0-9-]{1,64}$/, 64);
+  const color = clearableString(request.data, 'color', /^#[0-9a-fA-F]{6}$/, 7);
   const now = Timestamp.now();
   const trackRef = trackId
     ? db.collection(COLLECTIONS.learningTracks).doc(trackId)
@@ -786,7 +790,11 @@ export const upsertLearningTrack = onCall(callableOptions, async (request) => {
     updatedAt: now,
   };
 
-  await trackRef.set(payload, { merge: true });
+  await trackRef.set({
+    ...payload,
+    ...(icon !== undefined ? { icon: icon ?? FieldValue.delete() } : {}),
+    ...(color !== undefined ? { color: color ?? FieldValue.delete() } : {}),
+  }, { merge: true });
   await cascadeAudience(trackRef.id);
 
   return {
@@ -804,6 +812,9 @@ export const upsertLearningCourse = onCall(callableOptions, async (request) => {
   const order = normalizePositiveInteger(requiredNumber(request.data, 'order'), 'order');
   const status = normalizeContentStatus(requiredString(request.data, 'status'));
   const audience = parseAudience(request.data);
+  // Capa escolhida no Estudio: nao enviado = mantem; vazio = volta a capa automatica.
+  const coverUrl = clearableString(request.data, 'coverUrl', /^https:\/\/\S+$/);
+  const coverStoragePath = clearableString(request.data, 'coverStoragePath', /^academies\/[^\s]+$/, 500);
   const now = Timestamp.now();
   const courseRef = courseId
     ? db.collection(COLLECTIONS.learningCourses).doc(courseId)
@@ -834,7 +845,11 @@ export const upsertLearningCourse = onCall(callableOptions, async (request) => {
     updatedAt: now,
   };
 
-  await courseRef.set(payload, { merge: true });
+  await courseRef.set({
+    ...payload,
+    ...(coverUrl !== undefined ? { coverUrl: coverUrl ?? FieldValue.delete() } : {}),
+    ...(coverStoragePath !== undefined ? { coverStoragePath: coverStoragePath ?? FieldValue.delete() } : {}),
+  }, { merge: true });
   await cascadeAudience(trackId, { courseId: courseRef.id });
 
   return {

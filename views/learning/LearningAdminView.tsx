@@ -49,7 +49,8 @@ import {
 import type { FirestoreEntity } from '../../services/firebase/data';
 import type { AcademyRecord, UserRecord } from '../../services/firebase/models';
 import type { LearningHubHandlers } from './learningHandlers';
-import { LIGHT_TRACK_COLORS, lessonCover, trackColor, trackIcon } from './learningLook';
+import { TRACK_COLORS, isLightColor, lessonCover, resolveTrackColor, trackColor } from './learningLook';
+import TrackGlyph from '../../components/learning/TrackGlyph';
 import './learning-studio.css';
 import { t } from '../../i18n';
 
@@ -202,7 +203,18 @@ const LearningAdminView: React.FC<LearningAdminViewProps> = ({
     setEditorError('');
 
     try {
-      const response = await onUpsertCourse(payload);
+      const { coverFile, ...coursePayload } = payload;
+      if (coverFile) {
+        setEditorBusyLabel(t('Enviando capa...'));
+        // Mesmo caminho de arquivos do Learning (regra do Storage ja cobre), numa pasta de capas.
+        const asset = await onUploadLearningAsset({
+          lessonId: `_covers/course-${payload.courseId ?? `novo-${Date.now()}`}`,
+          file: coverFile,
+        });
+        coursePayload.coverUrl = asset.downloadURL;
+        coursePayload.coverStoragePath = asset.storagePath;
+      }
+      const response = await onUpsertCourse(coursePayload);
       setSelected({ kind: 'course', id: response.courseId });
       if (!payload.courseId) {
         // Curso novo: abre direto nele, onde ficam os botoes de criar modulo.
@@ -245,11 +257,19 @@ const LearningAdminView: React.FC<LearningAdminViewProps> = ({
         contentBlockCount: payload.blocks.length,
       });
 
-      if (payload.blocks.some((block) => block.file)) {
+      if (payload.blocks.some((block) => block.file || block.thumbnailFile)) {
         setEditorBusyLabel(t('Enviando arquivos...'));
       }
 
-      const uploadedBlocks = await Promise.all(payload.blocks.map(async (block) => {
+      const uploadedBlocks = await Promise.all(payload.blocks.map(async (sourceBlock) => {
+        let block = sourceBlock;
+        if (block.thumbnailFile) {
+          const thumbnail = await onUploadLearningAsset({
+            lessonId: lessonResponse.lessonId,
+            file: block.thumbnailFile,
+          });
+          block = { ...block, thumbnailUrl: thumbnail.downloadURL, thumbnailFile: null };
+        }
         if (!block.file) {
           return block;
         }
@@ -763,15 +783,14 @@ const LearningAdminView: React.FC<LearningAdminViewProps> = ({
   );
 
   const renderTile = (track: TrackEntity, size: 'md' | 'lg' = 'md') => {
-    const color = trackColor(track.id, trackOrderIds);
-    const Icon = trackIcon(track.title);
+    const color = resolveTrackColor(track, trackOrderIds);
     return (
       <span
-        className={`rd-studio__tile rd-studio__tile--${size}${LIGHT_TRACK_COLORS.has(color) ? ' is-light' : ''}`}
+        className={`rd-studio__tile rd-studio__tile--${size}${isLightColor(color) ? ' is-light' : ''}`}
         style={{ '--tc': color } as React.CSSProperties}
         aria-hidden="true"
       >
-        <Icon size={size === 'lg' ? 28 : 20} strokeWidth={2} />
+        <TrackGlyph title={track.title} icon={track.icon} size={size === 'lg' ? 28 : 20} />
       </span>
     );
   };
@@ -836,7 +855,7 @@ const LearningAdminView: React.FC<LearningAdminViewProps> = ({
   if (studioTrack && studioCourse) {
     /* ─── Curso: modulos em ordem ─────────────────────────────────── */
     const courseLessons = sortByOrder(lessons.filter((lesson) => lesson.courseId === studioCourse.id));
-    const color = trackColor(studioTrack.id, trackOrderIds);
+    const color = resolveTrackColor(studioTrack, trackOrderIds);
     screen = (
       <>
         <div className="rd-studio__bar">
@@ -849,7 +868,8 @@ const LearningAdminView: React.FC<LearningAdminViewProps> = ({
         <div className="rd-studio__cover" style={{ '--tc': color } as React.CSSProperties}>
           {(() => {
             const first = courseLessons[0];
-            const cover = first ? lessonCover({ blocks: getEffectiveLessonBlocks(first, lessonBlocks) }) : '';
+            const cover = studioCourse.coverUrl
+              || (first ? lessonCover({ blocks: getEffectiveLessonBlocks(first, lessonBlocks) }) : '');
             return cover ? <img src={cover} alt="" /> : null;
           })()}
           <span className="rd-studio__cover-text">
@@ -917,7 +937,7 @@ const LearningAdminView: React.FC<LearningAdminViewProps> = ({
   } else if (studioTrack) {
     /* ─── Trilha: cursos + progresso ──────────────────────────────── */
     const trackCourses = sortByOrder(courses.filter((course) => course.trackId === studioTrack.id));
-    const color = trackColor(studioTrack.id, trackOrderIds);
+    const color = resolveTrackColor(studioTrack, trackOrderIds);
     screen = (
       <>
         <div className="rd-studio__bar">
@@ -949,7 +969,8 @@ const LearningAdminView: React.FC<LearningAdminViewProps> = ({
             {trackCourses.map((course) => {
               const courseLessons = sortByOrder(lessons.filter((lesson) => lesson.courseId === course.id));
               const first = courseLessons[0];
-              const cover = first ? lessonCover({ blocks: getEffectiveLessonBlocks(first, lessonBlocks) }) : '';
+              const cover = course.coverUrl
+                || (first ? lessonCover({ blocks: getEffectiveLessonBlocks(first, lessonBlocks) }) : '');
               return (
                 <div key={course.id} className="rd-studio__course">
                   <button
@@ -1161,6 +1182,9 @@ const LearningAdminView: React.FC<LearningAdminViewProps> = ({
         open={editor.kind === 'track'}
         track={editor.kind === 'track' ? editor.track : null}
         nextOrder={tracks.length + 1}
+        autoColor={editor.kind === 'track' && editor.track
+          ? trackColor(editor.track.id, sortByOrder(tracks).map((track) => track.id))
+          : TRACK_COLORS[tracks.length % TRACK_COLORS.length]}
         audienceUsers={audienceUsers}
         busy={editorBusy}
         error={editorError}
@@ -1175,6 +1199,7 @@ const LearningAdminView: React.FC<LearningAdminViewProps> = ({
         nextOrder={editor.kind === 'course'
           ? courses.filter((course) => course.trackId === editor.trackId).length + 1
           : 1}
+        coverColor={editorTrack ? resolveTrackColor(editorTrack, sortByOrder(tracks).map((track) => track.id)) : undefined}
         audienceUsers={audienceUsers}
         busy={editorBusy}
         error={editorError}

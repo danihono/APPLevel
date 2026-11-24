@@ -41,6 +41,23 @@ export function trackColor(trackId: string, orderedIds: string[]): string {
   return TRACK_COLORS[index % TRACK_COLORS.length];
 }
 
+const HEX_COLOR = /^#[0-9a-fA-F]{6}$/;
+
+/** Cor da trilha: a escolhida no Estudio, ou a automatica pela ordem. */
+export function resolveTrackColor(track: { id: string; color?: string }, orderedIds: string[]): string {
+  return track.color && HEX_COLOR.test(track.color) ? track.color : trackColor(track.id, orderedIds);
+}
+
+/** Cor clara (amarelo, bege...) pede icone escuro por cima. */
+export function isLightColor(hex: string): boolean {
+  if (!HEX_COLOR.test(hex)) return false;
+  const value = parseInt(hex.slice(1), 16);
+  const r = (value >> 16) & 255;
+  const g = (value >> 8) & 255;
+  const b = value & 255;
+  return (0.299 * r + 0.587 * g + 0.114 * b) / 255 > 0.62;
+}
+
 type CoverBlock = Pick<EffectiveLessonBlock, 'type' | 'sourceUrl' | 'thumbnailUrl'>;
 
 /** Imagem de capa de um bloco: miniatura enviada, a propria imagem ou a do YouTube. */

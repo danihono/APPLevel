@@ -15,6 +15,7 @@ import {
   type EditorBlockDraft,
 } from '../../views/learning/learningShared';
 import type { LearningLessonBlockType } from '../../services/firebase/models';
+import VideoThumbnailField from './VideoThumbnailField';
 import { t } from '../../i18n';
 
 const BLOCK_TYPE_OPTIONS: Array<{
@@ -117,6 +118,8 @@ const LessonBlockEditor: React.FC<LessonBlockEditorProps> = ({ blocks, onChange,
                         mimeType: '',
                         fileName: '',
                         file: null,
+                        thumbnailUrl: '',
+                        thumbnailFile: null,
                       })}
                       className="app-select learning-block-card__type"
                       aria-label={t('Tipo do bloco {n}', { n: index + 1 })}
@@ -212,6 +215,10 @@ const LessonBlockEditor: React.FC<LessonBlockEditorProps> = ({ blocks, onChange,
                       <Upload size={14} />
                       {t('Ver arquivo atual')}
                     </a>
+                  ) : null}
+
+                  {block.type === 'youtube' || block.type === 'uploaded_video' ? (
+                    <VideoThumbnailField block={block} onChange={(patch) => updateBlock(block.tempId, patch)} />
                   ) : null}
 
                   {blockError ? <p className="app-field__error">{blockError}</p> : null}

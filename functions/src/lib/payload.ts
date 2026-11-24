@@ -11,6 +11,31 @@ function getField(data: unknown, fieldName: string): unknown {
   return (data as PayloadObject)[fieldName];
 }
 
+/**
+ * Campo de texto opcional que pode ser limpo: `undefined` = nao enviado (manter o atual),
+ * `null` = enviado vazio (apagar), texto = novo valor (validado pelo `pattern`).
+ */
+export function clearableString(
+  data: unknown,
+  fieldName: string,
+  pattern: RegExp,
+  maxLength = 2000,
+): string | null | undefined {
+  const value = getField(data, fieldName);
+  if (value === undefined) {
+    return undefined;
+  }
+  if (value === null || (typeof value === 'string' && value.trim() === '')) {
+    return null;
+  }
+  assertCondition(
+    typeof value === 'string' && value.length <= maxLength && pattern.test(value.trim()),
+    'invalid-argument',
+    `O campo "${fieldName}" tem um valor invalido.`,
+  );
+  return (value as string).trim();
+}
+
 export function requiredString(data: unknown, fieldName: string): string {
   const value = getField(data, fieldName);
   assertCondition(

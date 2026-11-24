@@ -34,7 +34,8 @@ import {
   type TrackEntity,
 } from './learningShared';
 import type { LearningPlayerHandlers } from './learningHandlers';
-import { LIGHT_TRACK_COLORS, lessonCover, trackColor, trackIcon } from './learningLook';
+import { isLightColor, lessonCover, resolveTrackColor, trackColor } from './learningLook';
+import TrackGlyph from '../../components/learning/TrackGlyph';
 import type { LearningLessonBlockType } from '../../services/firebase/models';
 import { t } from '../../i18n';
 import './learning-player.css';
@@ -327,7 +328,7 @@ const LearningPlayerView: React.FC<LearningPlayerViewProps> = ({
         const course = courseById.get(courseId);
         if (!course) return;
         const done = entries.filter((entry) => ownProgressByLessonId.get(entry.lesson.id)?.lessonCompleted).length;
-        const cover = entries.map((entry) => lessonCover(entry)).find(Boolean) ?? '';
+        const cover = course.coverUrl || (entries.map((entry) => lessonCover(entry)).find(Boolean) ?? '');
         cards.push({ course, trackId: track.id, first: entries[0], count: entries.length, done, cover });
       });
     });
@@ -458,23 +459,27 @@ const LearningPlayerView: React.FC<LearningPlayerViewProps> = ({
 
   /* ─── Pedaços reutilizados ─────────────────────────────────────────── */
 
+  const colorOfTrack = (trackId: string) => {
+    const track = trackById.get(trackId);
+    return track ? resolveTrackColor(track, trackOrderIds) : trackColor(trackId, trackOrderIds);
+  };
+
   const renderTile = (track: TrackEntity, size: 'md' | 'lg' = 'md') => {
-    const color = trackColor(track.id, trackOrderIds);
-    const Icon = trackIcon(track.title);
+    const color = resolveTrackColor(track, trackOrderIds);
     return (
       <span
-        className={`rd-learn__tile rd-learn__tile--${size}${LIGHT_TRACK_COLORS.has(color) ? ' is-light' : ''}`}
+        className={`rd-learn__tile rd-learn__tile--${size}${isLightColor(color) ? ' is-light' : ''}`}
         style={{ '--tc': color } as React.CSSProperties}
         aria-hidden="true"
       >
-        <Icon size={size === 'lg' ? 28 : 21} strokeWidth={2} />
+        <TrackGlyph title={track.title} icon={track.icon} size={size === 'lg' ? 28 : 21} />
       </span>
     );
   };
 
   const renderThumb = (entry: OrderedLesson, trackId: string, extra = '') => {
     const cover = lessonCover(entry);
-    const color = trackColor(trackId, trackOrderIds);
+    const color = colorOfTrack(trackId);
     return (
       <span className={`rd-learn__thumb ${extra}`.trim()} style={{ '--tc': color } as React.CSSProperties} aria-hidden="true">
         {cover ? <img src={cover} alt="" loading="lazy" /> : null}
@@ -867,7 +872,7 @@ const LearningPlayerView: React.FC<LearningPlayerViewProps> = ({
   const resumeProgress = resume ? ownProgressByLessonId.get(resume.entry.lesson.id) : undefined;
   const resumePercent = Math.min(resumeProgress?.contentCompletionPercent ?? 0, 100);
   const resumeTrack = resume ? trackById.get(resume.trackId) : undefined;
-  const stackColors = visibleTracks.slice(0, 3).map((track) => trackColor(track.id, trackOrderIds));
+  const stackColors = visibleTracks.slice(0, 3).map((track) => colorOfTrack(track.id));
 
   return (
     <div className="lv-screen rd-learn" ref={rootRef}>
@@ -950,7 +955,7 @@ const LearningPlayerView: React.FC<LearningPlayerViewProps> = ({
           <div className="rd-learn__rail">
             {courseCards.map((card) => {
               const track = trackById.get(card.trackId);
-              const color = trackColor(card.trackId, trackOrderIds);
+              const color = colorOfTrack(card.trackId);
               return (
                 <button
                   type="button"

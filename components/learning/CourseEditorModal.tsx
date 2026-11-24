@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { BookOpen } from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { BookOpen, ImagePlus, RotateCcw } from 'lucide-react';
 import LearningAudienceField from './LearningAudienceField';
 import LearningEditorModal from './LearningEditorModal';
 import {
@@ -18,6 +18,11 @@ export interface CourseEditorSubmit {
   trackId: string;
   title: string;
   description?: string;
+  /** Capa: '' = automatica (1o video ou cor da trilha). */
+  coverUrl: string;
+  coverStoragePath: string;
+  /** Imagem nova escolhida; o envio acontece ao salvar. */
+  coverFile: File | null;
   order: number;
   status: ContentStatus;
   audience: LearningAudienceConfig;
@@ -29,6 +34,8 @@ interface CourseEditorModalProps {
   course: CourseEntity | null;
   track: TrackEntity | null;
   nextOrder: number;
+  /** Cor da trilha, para a capa automatica. */
+  coverColor?: string;
   audienceUsers?: Array<FirestoreEntity<UserRecord>>;
   busy?: boolean;
   error?: string;
@@ -41,6 +48,7 @@ const CourseEditorModal: React.FC<CourseEditorModalProps> = ({
   course,
   track,
   nextOrder,
+  coverColor = '#f0b429',
   audienceUsers = [],
   busy = false,
   error,
@@ -49,6 +57,13 @@ const CourseEditorModal: React.FC<CourseEditorModalProps> = ({
 }) => {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
+  const [coverUrl, setCoverUrl] = useState('');
+  const [coverStoragePath, setCoverStoragePath] = useState('');
+  const [coverFile, setCoverFile] = useState<File | null>(null);
+  const coverFilePreview = useMemo(() => (coverFile ? URL.createObjectURL(coverFile) : ''), [coverFile]);
+  useEffect(() => () => {
+    if (coverFilePreview) URL.revokeObjectURL(coverFilePreview);
+  }, [coverFilePreview]);
   const [order, setOrder] = useState(1);
   const [status, setStatus] = useState<ContentStatus>('draft');
   const [audience, setAudience] = useState<LearningAudienceConfig>(DEFAULT_INHERIT_AUDIENCE);
@@ -61,6 +76,9 @@ const CourseEditorModal: React.FC<CourseEditorModalProps> = ({
 
     setTitle(course?.title ?? '');
     setDescription(course?.description ?? '');
+    setCoverUrl(course?.coverUrl ?? '');
+    setCoverStoragePath(course?.coverStoragePath ?? '');
+    setCoverFile(null);
     setOrder(course?.order ?? nextOrder);
     setStatus(course?.status ?? 'draft');
     setAudience(course?.audience ?? DEFAULT_INHERIT_AUDIENCE);
@@ -84,6 +102,9 @@ const CourseEditorModal: React.FC<CourseEditorModalProps> = ({
       trackId: track.id,
       title: trimmedTitle,
       description: description.trim() || undefined,
+      coverUrl,
+      coverStoragePath,
+      coverFile,
       order: Number(order) || 1,
       status,
       audience,
@@ -151,6 +172,46 @@ const CourseEditorModal: React.FC<CourseEditorModalProps> = ({
             <option value="published">{t('Publicado')}</option>
           </select>
         </label>
+      </div>
+
+      <div className="rd-cover-field">
+        <span className="app-field__label">{t('Capa do curso')}</span>
+        <div className="rd-cover-field__row">
+          <span className="rd-cover-field__preview" style={{ '--tc': coverColor } as React.CSSProperties}>
+            {coverFilePreview || coverUrl ? <img src={coverFilePreview || coverUrl} alt="" /> : null}
+            <b>{title.trim() || t('Curso')}</b>
+          </span>
+          <div className="rd-cover-field__actions">
+            <label className="lv-btn lv-btn--neutral lv-btn--sm rd-cover-field__upload">
+              <ImagePlus size={15} />
+              {coverFilePreview || coverUrl ? t('Trocar imagem') : t('Enviar imagem')}
+              <input
+                type="file"
+                accept="image/*"
+                onChange={(event) => {
+                  const file = event.target.files?.[0] ?? null;
+                  if (file) setCoverFile(file);
+                  event.target.value = '';
+                }}
+              />
+            </label>
+            {coverFilePreview || coverUrl ? (
+              <button
+                type="button"
+                className="lv-btn lv-btn--neutral lv-btn--sm"
+                onClick={() => { setCoverFile(null); setCoverUrl(''); setCoverStoragePath(''); }}
+              >
+                <RotateCcw size={15} />
+                {t('Usar capa automática')}
+              </button>
+            ) : null}
+            <p className="rd-cover-field__hint">
+              {coverFilePreview || coverUrl
+                ? t('A imagem aparece no lugar da capa automática.')
+                : t('Sem imagem, a capa usa a thumbnail do 1º vídeo ou a cor da trilha.')}
+            </p>
+          </div>
+        </div>
       </div>
 
       <LearningAudienceField

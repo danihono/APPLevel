@@ -43,6 +43,8 @@ export type EditorBlockDraft = {
   mimeType: string;
   fileName: string;
   thumbnailUrl: string;
+  /** Thumbnail nova (imagem enviada ou frame do video); o envio acontece ao salvar. */
+  thumbnailFile: File | null;
   file: File | null;
 };
 
@@ -128,6 +130,7 @@ export function createEditorBlock(type: LearningLessonBlockType, order: number):
     mimeType: '',
     fileName: '',
     thumbnailUrl: '',
+    thumbnailFile: null,
     file: null,
   };
 }
@@ -145,6 +148,7 @@ export function toEditorBlock(block: EffectiveLessonBlock): EditorBlockDraft {
     mimeType: block.mimeType ?? '',
     fileName: block.fileName ?? '',
     thumbnailUrl: block.thumbnailUrl ?? '',
+    thumbnailFile: null,
     file: null,
   };
 }
