@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="robots" content="noindex">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+  <title>LEVEL · Player</title>
+  <style>
+    html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
+    #player, iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+    .msg { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; padding: 16px;
+      color: rgba(255,255,255,.7); font: 14px -apple-system, BlinkMacSystemFont, Roboto, sans-serif; text-align: center; }
+  </style>
+</head>
+<body>
+  <!--
+    Player do YouTube do Learning para o app de iPhone. Dentro do app a pagina e capacitor://localhost,
+    sem endereco de site, e o YouTube recusa o player embutido (Erro 153). Esta pagina fica no site do app
+    (https), toca o video e avisa a pagina de cima quanto foi assistido (postMessage), para o progresso,
+    a conclusao e a trava do proximo modulo continuarem funcionando. Usada por LearningVideoPlayer.tsx.
+  -->
+  <div id="player"></div>
+  <script>
+    (function () {
+      var params = new URLSearchParams(window.location.search);
+      var videoId = params.get('v') || '';
+      var key = (params.get('k') || '').slice(0, 120);
+
+      if (!/^[A-Za-z0-9_-]{11}$/.test(videoId)) {
+        document.body.innerHTML = '<div class="msg">Video invalido.</div>';
+        return;
+      }
+
+      var player = null;
+      var timer = null;
+
+      function send() {
+        if (!player || typeof player.getDuration !== 'function') return;
+        var duration = Math.floor(player.getDuration() || 0);
+        if (duration <= 0) return;
+        var current = Math.floor(player.getCurrentTime() || 0);
+        // Sem dado sensivel: so tempos do video. A pagina de cima confere a origem e a chave.
+        window.parent.postMessage({ type: 'lv-yt', key: key, currentSeconds: Math.max(0, current), durationSeconds: duration }, '*');
+      }
+
+      function stop() {
+        if (timer) { window.clearInterval(timer); timer = null; }
+      }
+
+      window.onYouTubeIframeAPIReady = function () {
+        player = new window.YT.Player('player', {
+          videoId: videoId,
+          playerVars: { playsinline: 1, rel: 0, modestbranding: 1, origin: window.location.origin },
+          events: {
+            onReady: send,
+            onStateChange: function (event) {
+              if (event.data === window.YT.PlayerState.PLAYING) {
+                if (!timer) timer = window.setInterval(send, 4000);
+                return;
+              }
+              send();
+              stop();
+            }
+          }
+        });
+      };
+
+      var script = document.createElement('script');
+      script.src = 'https://www.youtube.com/iframe_api';
+      script.async = true;
+      document.head.appendChild(script);
+    })();
+  </script>
+</body>
+</html>

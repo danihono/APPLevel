@@ -1,6 +1,7 @@
 import type { MessageCatalog } from './types';
 
 export const learningMessages: MessageCatalog = {
+  "Vídeo da aula": { en: "Lesson video", es: "Video de la clase" },
   "Learning · {academy}": { en: "Learning · {academy}", es: "Learning · {academy}" },
   "Professor · {academy}": { en: "Instructor · {academy}", es: "Profesor · {academy}" },
   "Módulo {n} de {total}": { en: "Module {n} of {total}", es: "Módulo {n} de {total}" },

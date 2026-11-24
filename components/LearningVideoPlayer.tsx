@@ -1,4 +1,5 @@
 import React, { useEffect, useId, useRef } from 'react';
+import { Capacitor } from '@capacitor/core';
 import { getYouTubeVideoId } from '../utils';
 import { t } from '../i18n';
 
@@ -78,6 +79,21 @@ function loadYouTubeApi(): Promise<void> {
   return youTubeApiLoader;
 }
 
+/*
+ * No app de iPhone a pagina e capacitor://localhost (sem site), e o YouTube recusa o player embutido
+ * (Erro 153). Ali o video toca pela pagina /player/ do site do app (public/player/index.html), que avisa
+ * o progresso por postMessage. No navegador e no Android (site https) o player continua direto aqui.
+ */
+const HOSTED_PLAYER_ORIGIN =
+  import.meta.env.VITE_CALLABLE_PROXY_ORIGIN
+  || (import.meta.env.VITE_FIREBASE_PROJECT_ID ? `https://${import.meta.env.VITE_FIREBASE_PROJECT_ID}.web.app` : '');
+
+function shouldUseHostedPlayer(): boolean {
+  if (typeof window === 'undefined' || !HOSTED_PLAYER_ORIGIN) return false;
+  const origin = window.location.origin;
+  return Capacitor.isNativePlatform() || !(origin.startsWith('https://') || origin.startsWith('http://'));
+}
+
 interface LearningVideoPlayerProps {
   lessonKey: string;
   videoUrl: string;
@@ -97,6 +113,8 @@ const LearningVideoPlayer: React.FC<LearningVideoPlayerProps> = ({
   const intervalRef = useRef<number | null>(null);
   const onProgressRef = useRef(onProgress);
   const videoId = getYouTubeVideoId(videoUrl);
+  const useHostedPlayer = shouldUseHostedPlayer();
+  const hostedKey = `${lessonKey}-${hostId}`;
 
   useEffect(() => {
     onProgressRef.current = onProgress;
@@ -134,7 +152,7 @@ const LearningVideoPlayer: React.FC<LearningVideoPlayerProps> = ({
     playerRef.current?.destroy();
     playerRef.current = null;
 
-    if (disabled || !videoId || !hostRef.current) {
+    if (useHostedPlayer || disabled || !videoId || !hostRef.current) {
       return () => {
         stopInterval();
       };
@@ -177,12 +195,48 @@ const LearningVideoPlayer: React.FC<LearningVideoPlayerProps> = ({
       playerRef.current?.destroy();
       playerRef.current = null;
     };
-  }, [disabled, hostId, lessonKey, videoId]);
+  }, [disabled, hostId, lessonKey, useHostedPlayer, videoId]);
+
+  // Progresso vindo da pagina /player/ (so dessa origem e com a chave deste bloco).
+  useEffect(() => {
+    if (!useHostedPlayer || disabled || !videoId) return undefined;
+    const handleMessage = (event: MessageEvent) => {
+      if (event.origin !== HOSTED_PLAYER_ORIGIN) return;
+      const data = event.data as { type?: unknown; key?: unknown; currentSeconds?: unknown; durationSeconds?: unknown } | null;
+      if (!data || data.type !== 'lv-yt' || data.key !== hostedKey) return;
+      const currentSeconds = Number(data.currentSeconds);
+      const durationSeconds = Number(data.durationSeconds);
+      if (!Number.isFinite(currentSeconds) || !Number.isFinite(durationSeconds) || durationSeconds <= 0) return;
+      onProgressRef.current({
+        currentSeconds: Math.max(0, Math.floor(currentSeconds)),
+        durationSeconds: Math.floor(durationSeconds),
+      });
+    };
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, [disabled, hostedKey, useHostedPlayer, videoId]);
 
   if (!videoId) {
     return (
       <div className="app-empty">
         {t('Informe uma URL valida do YouTube para reproduzir esta aula.')}
+      </div>
+    );
+  }
+
+  if (useHostedPlayer) {
+    const src = `${HOSTED_PLAYER_ORIGIN}/player/?v=${encodeURIComponent(videoId)}&k=${encodeURIComponent(hostedKey)}`;
+    return (
+      <div className="app-video-frame aspect-video overflow-hidden rounded-[1.6rem] border border-white/10 bg-black/30">
+        <iframe
+          key={src}
+          src={src}
+          title={t('Vídeo da aula')}
+          className="h-full w-full"
+          style={{ border: 0, display: 'block', ...(disabled ? { pointerEvents: 'none', opacity: 0.75 } : {}) }}
+          allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
+          allowFullScreen
+        />
       </div>
     );
   }

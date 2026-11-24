@@ -485,10 +485,11 @@ export const previewLearningBlocks: Array<FirestoreEntity<LearningLessonBlockRec
   lessonId: id,
   trackId,
   courseId,
-  type: 'uploaded_video' as const,
+  // Um bloco do YouTube para a galeria cobrir o player embutido (os outros: video enviado sem arquivo).
+  type: id === 'lesson-tesoura' ? 'youtube' as const : 'uploaded_video' as const,
   title,
   order: 1,
-  sourceUrl: '',
+  sourceUrl: id === 'lesson-tesoura' ? 'https://youtu.be/dQw4w9WgXcQ' : '',
   lessonStatus: 'published',
 })));
 

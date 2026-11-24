@@ -511,7 +511,11 @@ const RedesignPreview: React.FC = () => {
     onReplaceLessonBlocks: async () => delay({}) as never,
     onUpsertQuiz: async () => delay({}) as never,
     onUploadLearningAsset: async () => delay({}) as never,
-    onRecordPlayback: async () => ({ contentCompletionPercent: 100, contentCompleted: true, quizReady: true }),
+    onRecordPlayback: async (payload: unknown) => {
+      // Rastro na galeria para conferir que o progresso do video chega (ex.: player hospedado do iPhone).
+      console.info('[galeria] progresso do video', JSON.stringify(payload));
+      return { contentCompletionPercent: 100, contentCompleted: true, quizReady: true };
+    },
     onMarkBlockComplete: async () => delay({ contentCompletionPercent: 100, contentCompleted: true, lessonCompleted: false, quizReady: true }),
     onStartQuiz: async (lessonId: string) => {
       const quiz = previewLearningQuizzes.find((entry) => entry.lessonId === lessonId);
